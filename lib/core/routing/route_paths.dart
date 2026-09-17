@@ -1,32 +1,52 @@
 /// Named path constants for all three shells, path-prefixed in one router
 /// (`/admin/*`, `/staff/*`, `/personnel/*` — see docs/architecture_decisions.md
-/// "Router structure" for why one router over three separate entry points).
-/// Every screen behind these paths is a bare placeholder until its owning
-/// WBS objective (noted per constant, from `GSUhub_WBS_Simplified`) builds
-/// the real UI.
+/// "Router structure"). Screens not yet built resolve to a marked
+/// placeholder; the owning WBS objective is noted per constant.
 abstract final class RoutePaths {
-  /// Redirects to [adminDashboard]. No dedicated screen of its own.
+  /// Redirects to the signed-in user's home area.
   static const String root = '/';
 
   // --- Admin (web) — WBS Objective 2 ---
 
-  /// Admin authentication — real UI and RBAC enforcement land in 2.A.
   static const String adminLogin = '/admin/login';
 
-  /// Admin dashboard + main layout — real UI lands in 2.A.
+  /// Admin dashboard — built in 2.A.
   static const String adminDashboard = '/admin/dashboard';
 
-  /// Damage-report management and Kanban work-order tracking — real UI
-  /// lands in 2.B.
+  /// Damage-report management — real UI lands in 2.B.
   static const String adminReports = '/admin/reports';
 
+  /// Work-order assignment and Kanban board — real UI lands in 2.B.
   static const String adminWorkOrders = '/admin/work-orders';
+
+  /// Inventory management — real UI lands in Objective 6.
+  static const String adminInventory = '/admin/inventory';
+
+  /// Maintenance personnel directory — real UI lands in 2.C.
+  static const String adminPersonnel = '/admin/personnel';
+
+  /// Task assignment — real UI lands in 2.B.
+  static const String adminTaskAssignment = '/admin/task-assignment';
+
+  /// Campus map view of reported issues.
+  ///
+  /// This item exists in the Figma sidebar (an icon at y=500 whose text
+  /// label was lost) and has its own designed screens elsewhere in the
+  /// file, but it is **not** in the manuscript's documented admin feature
+  /// list — flagged for the adviser. Placeholder for now.
+  static const String adminMapView = '/admin/map';
+
+  /// Maintenance reports and analytics — real UI lands in 2.C.
+  static const String adminAnalytics = '/admin/analytics';
 
   /// User account management — real UI lands in 2.C.
   static const String adminUsers = '/admin/users';
 
-  /// Maintenance reports/analytics view — real UI lands in 2.C.
-  static const String adminAnalytics = '/admin/analytics';
+  /// Notification centre — real UI lands in a later objective.
+  static const String adminNotifications = '/admin/notifications';
+
+  /// System settings — real UI lands in a later objective.
+  static const String adminSettings = '/admin/settings';
 
   // --- Requestor (Faculty/Staff, mobile) — WBS Objective 3 ---
 

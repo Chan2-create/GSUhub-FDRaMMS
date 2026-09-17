@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/login_screen.dart';
+import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../shells/admin/admin_shell.dart';
 import '../../shells/personnel/personnel_shell.dart';
 import '../../shells/requestor/requestor_shell.dart';
@@ -8,21 +10,19 @@ import 'route_paths.dart';
 import 'route_placeholder_screen.dart';
 
 /// Builds the single, path-prefixed [GoRouter] shared by all three shells
-/// (`/admin/*`, `/staff/*`, `/personnel/*`) — see
-/// docs/architecture_decisions.md "Router structure" for why one router
-/// was chosen over three separate entry points. Every screen behind these
-/// routes is [RoutePlaceholderScreen] for now — see `route_paths.dart` for
-/// which WBS sub-objective owns each one's real UI.
+/// (`/admin/*`, `/staff/*`, `/personnel/*`).
+///
+/// [guard] carries the resolved auth state; `app.dart` rebuilds the router
+/// when that state changes so `redirect` always evaluates against a
+/// current session.
 GoRouter buildAppRouter({
   AppRouteGuard guard = const AppRouteGuard(),
+  String? initialLocation,
 }) => GoRouter(
-  initialLocation: RoutePaths.adminDashboard,
+  initialLocation: initialLocation ?? RoutePaths.adminDashboard,
   redirect: guard.call,
   routes: [
     GoRoute(
-      // Placeholder default entry point. Once 2.A implements auth,
-      // this should redirect based on the signed-in user's UserRole
-      // instead of always landing on the admin shell.
       path: RoutePaths.root,
       redirect: (context, state) => RoutePaths.adminDashboard,
     ),
@@ -31,39 +31,23 @@ GoRouter buildAppRouter({
     GoRoute(
       path: RoutePaths.adminLogin,
       builder: (context, state) =>
-          const RoutePlaceholderScreen(routeName: RoutePaths.adminLogin),
+          LoginScreen(redirectTo: AppRouteGuard.redirectTargetOf(state)),
     ),
     ShellRoute(
       builder: (context, state, child) => AdminShell(child: child),
       routes: [
         GoRoute(
           path: RoutePaths.adminDashboard,
-          builder: (context, state) => const RoutePlaceholderScreen(
-            routeName: RoutePaths.adminDashboard,
+          builder: (context, state) => const DashboardScreen(),
+        ),
+        // Reachable by URL but not from the sidebar, which disables them.
+        // Each names the objective that will build it.
+        for (final placeholder in _adminPlaceholders)
+          GoRoute(
+            path: placeholder.$1,
+            builder: (context, state) =>
+                RoutePlaceholderScreen(routeName: placeholder.$2),
           ),
-        ),
-        GoRoute(
-          path: RoutePaths.adminReports,
-          builder: (context, state) =>
-              const RoutePlaceholderScreen(routeName: RoutePaths.adminReports),
-        ),
-        GoRoute(
-          path: RoutePaths.adminWorkOrders,
-          builder: (context, state) => const RoutePlaceholderScreen(
-            routeName: RoutePaths.adminWorkOrders,
-          ),
-        ),
-        GoRoute(
-          path: RoutePaths.adminUsers,
-          builder: (context, state) =>
-              const RoutePlaceholderScreen(routeName: RoutePaths.adminUsers),
-        ),
-        GoRoute(
-          path: RoutePaths.adminAnalytics,
-          builder: (context, state) => const RoutePlaceholderScreen(
-            routeName: RoutePaths.adminAnalytics,
-          ),
-        ),
       ],
     ),
 
@@ -127,3 +111,18 @@ GoRouter buildAppRouter({
     ),
   ],
 );
+
+/// Admin routes whose screens belong to later objectives. Kept as a list
+/// so adding one is a single line rather than a copied `GoRoute` block.
+const List<(String, String)> _adminPlaceholders = [
+  (RoutePaths.adminReports, 'Damage Reports — Objective 2.B'),
+  (RoutePaths.adminWorkOrders, 'Work Orders — Objective 2.B'),
+  (RoutePaths.adminTaskAssignment, 'Task Assignment — Objective 2.B'),
+  (RoutePaths.adminInventory, 'Inventory Management — Objective 6'),
+  (RoutePaths.adminPersonnel, 'Personnel — Objective 2.C'),
+  (RoutePaths.adminAnalytics, 'Analytics — Objective 2.C'),
+  (RoutePaths.adminUsers, 'User Accounts — Objective 2.C'),
+  (RoutePaths.adminMapView, 'Map View — pending confirmation'),
+  (RoutePaths.adminNotifications, 'Notifications — later objective'),
+  (RoutePaths.adminSettings, 'Settings — later objective'),
+];
