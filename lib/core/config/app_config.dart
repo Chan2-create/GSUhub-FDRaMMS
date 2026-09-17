@@ -42,24 +42,61 @@ class AppConfig {
   const AppConfig({
     required this.appName,
     required this.environment,
-    required this.useFirestoreEmulator,
+    required this.useEmulator,
+    required this.emulatorHost,
+    required this.authEmulatorPort,
+    required this.firestoreEmulatorPort,
+    required this.storageEmulatorPort,
+    required this.fcmVapidKey,
     this.prioritizationWeights = const PrioritizationWeights(),
+    this.requestTimeout = const Duration(seconds: 20),
+    this.maxRetryAttempts = 2,
   });
 
-  factory AppConfig.fromEnvironment() => AppConfig(
+  factory AppConfig.fromEnvironment() => const AppConfig(
     appName: 'GSUhub',
     environment: Env.current,
-    useFirestoreEmulator: Env.isDevelopment,
+    useEmulator: Env.useEmulator,
+    emulatorHost: Env.emulatorHost,
+    authEmulatorPort: Env.authEmulatorPort,
+    firestoreEmulatorPort: Env.firestoreEmulatorPort,
+    storageEmulatorPort: Env.storageEmulatorPort,
+    fcmVapidKey: Env.fcmVapidKey,
   );
 
   final String appName;
   final Environment environment;
 
-  /// Whether local Firestore/Auth/Storage emulators should be targeted
-  /// instead of the live Firebase project. Wiring this flag to the actual
-  /// emulator connection calls is left to the objective that first needs a
-  /// working Firestore connection.
-  final bool useFirestoreEmulator;
+  /// Whether Firebase traffic is routed at the local Emulator Suite
+  /// instead of the live project. Opt-in — see [Env.useEmulator].
+  final bool useEmulator;
+
+  final String emulatorHost;
+  final int authEmulatorPort;
+  final int firestoreEmulatorPort;
+  final int storageEmulatorPort;
+
+  /// Web Push public key; empty disables web push registration. Public by
+  /// design, but supplied at build time so no project-specific value is
+  /// committed. See [Env.fcmVapidKey].
+  final String fcmVapidKey;
+
+  /// How long a single Firebase call may run before it is abandoned.
+  ///
+  /// Firestore's own offline queue will happily wait indefinitely for
+  /// connectivity, which is the right default for a note-taking app and
+  /// the wrong one here: manuscript §1.5 states internet connectivity is
+  /// required, so a request that cannot reach the backend should surface
+  /// as a clear error the user can act on rather than a spinner that never
+  /// resolves.
+  final Duration requestTimeout;
+
+  /// Retries for transient failures (`unavailable`, `deadline-exceeded`).
+  /// Permission and not-found errors are never retried — they are
+  /// deterministic, and retrying them only delays the error.
+  final int maxRetryAttempts;
 
   final PrioritizationWeights prioritizationWeights;
+
+  bool get hasVapidKey => fcmVapidKey.isNotEmpty;
 }
