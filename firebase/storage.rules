@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Deny-all baseline, mirroring firestore.rules. Real rules for report
+// photo evidence, accomplishment-report photos, and facility/asset QR
+// assets are defined alongside the feature objectives that upload them
+// (1.2 reporting, 1.4 accomplishment reporting, 1.6 QR identification).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

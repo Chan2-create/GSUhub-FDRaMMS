@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Deny-all baseline. GSUhub has three roles (requestor, maintenance
+// personnel, admin) each with different read/write access to the
+// fourteen collections in core/constants/firestore_paths.dart — designing
+// and testing that per-collection, per-role rule set is explicitly out of
+// scope for this objective (1.1a is scaffolding only) and belongs to
+// 1.1(b) (authentication/RBAC) plus each feature objective as it defines
+// its own collection's access pattern.
+//
+// Shipping "allow if false" rather than "allow if true" as the starting
+// point is deliberate: a forgotten permissive rule is a security
+// incident, a forgotten restrictive one is a bug report.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

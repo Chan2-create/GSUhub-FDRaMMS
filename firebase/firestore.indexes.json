@@ -1,0 +1,5 @@
+{
+  "_comment": "Intentionally empty. The composite indexes this project will need depend on the damage_reports and work_orders query patterns (status + priority filters, date ordering, etc.) that objectives 1.1(e) and 1.1(f) define. Defining indexes against field names that don't exist in any schema yet would be guesswork; add real entries here as each query is implemented, then run `firebase deploy --only firestore:indexes`.",
+  "indexes": [],
+  "fieldOverrides": []
+}
