@@ -23,13 +23,13 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="gsuhub">
+  <meta name="apple-mobile-web-app-title" content="GSUhub">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>gsuhub</title>
+  <title>GSUhub</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -42,5 +42,39 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+
+  <!--
+    Registers the Cloud Messaging service worker for background web push.
+
+    The worker's Firebase config is NOT written here. Dart hands it over at
+    runtime via postMessage (see web/firebase-messaging-sw.js), which keeps
+    project-specific values out of version control — the same rule the Dart
+    side follows with --dart-define.
+
+    Registration failure is logged, not fatal: web push is an enhancement,
+    and the admin dashboard must still load without it.
+  -->
+  <script>
+    window.gsuhubRegisterMessagingWorker = function (firebaseConfig) {
+      if (!('serviceWorker' in navigator)) {
+        console.info('GSUhub: service workers unsupported; web push off.');
+        return;
+      }
+      navigator.serviceWorker
+        .register('firebase-messaging-sw.js')
+        .then(function (registration) {
+          var target = registration.active || registration.installing;
+          if (target) {
+            target.postMessage({
+              type: 'FIREBASE_CONFIG',
+              config: firebaseConfig,
+            });
+          }
+        })
+        .catch(function (error) {
+          console.error('GSUhub: messaging worker registration failed', error);
+        });
+    };
+  </script>
 </body>
 </html>

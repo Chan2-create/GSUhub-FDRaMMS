@@ -1,0 +1,19 @@
+{
+  "name": "gsuhub-firebase",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Firebase tooling for GSUhub: security rules tests and deployment scripts.",
+  "type": "module",
+  "scripts": {
+    "test:rules": "firebase emulators:exec --only firestore \"node --test test/rules/firestore.rules.test.js\"",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
+    "deploy:indexes": "firebase deploy --only firestore:indexes",
+    "deploy:all-rules": "firebase deploy --only firestore:rules,firestore:indexes,storage:rules",
+    "emulators": "firebase emulators:start",
+    "seed": "dart run tool/seed_emulator.dart"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase-tools": "^14.0.0"
+  }
+}

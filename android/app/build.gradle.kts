@@ -18,12 +18,17 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.dorsu.gsuhub"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Android 8.0 (API 26), per manuscript §1.5 and §3.4 Portability:
+        // "operate on Android devices running Android 8.0 and above".
+        // Pinned explicitly rather than tracking flutter.minSdkVersion,
+        // which rises with the Flutter SDK and would silently drop
+        // support the approved scope document promises.
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
+        // Firebase pulls the method count past the 64K DEX limit on the
+        // older API levels that do not link dex files natively.
+        multiDexEnabled = true
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`

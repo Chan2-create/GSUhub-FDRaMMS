@@ -1,6 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for Firestore, Storage and Cloud Messaging. Manuscript
+         §1.5 states internet connectivity is required for the system to
+         function at all. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Android 13+ requires the user to grant notification permission
+         explicitly; without this the request silently does nothing and
+         work-order assignments never reach personnel. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <application
-        android:label="gsuhub"
+        android:label="GSUhub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -25,6 +35,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Notification channel FCM routes messages to when the app is
+             backgrounded. Without a declared default, Android 8.0+ drops
+             notifications that do not name an existing channel — which
+             is exactly the minSdk this project targets. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/default_notification_channel_id" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

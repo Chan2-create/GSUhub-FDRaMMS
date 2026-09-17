@@ -1,0 +1,45 @@
+{
+  "firestore": {
+    "rules": "firebase/firestore.rules",
+    "indexes": "firebase/firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "firebase/storage.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "storage": {
+      "port": 9199
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "gsuhub-dorsu",
+          "appId": "1:514584916948:android:3ae145e22c0098b0379c41",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "gsuhub-dorsu",
+          "configurations": {
+            "android": "1:514584916948:android:3ae145e22c0098b0379c41",
+            "web": "1:514584916948:web:30925bf73d4ebc13379c41"
+          }
+        }
+      }
+    }
+  }
+}
