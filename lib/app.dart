@@ -1,12 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'core/constants/app_colors.dart';
 import 'core/di/service_providers.dart';
 import 'core/routing/app_router.dart';
+import 'core/routing/route_guards.dart';
 
-/// The app's [GoRouter], built once per widget tree.
-final appRouterProvider = Provider((ref) => buildAppRouter());
+/// The app's [GoRouter].
+///
+/// Rebuilt whenever the auth state changes so the route guard always
+/// evaluates against a current session. `GoRouter.redirect` is
+/// synchronous and cannot await a lookup, so the resolved user is handed
+/// to the guard rather than fetched by it.
+///
+/// `keepAlive` prevents the router — and with it the entire navigation
+/// stack — from being disposed when no widget happens to be listening for
+/// a frame.
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final auth = ref.watch(authStateProvider);
+
+  final router = buildAppRouter(
+    guard: AppRouteGuard(
+      user: auth.value,
+      // `isLoading` covers the gap on a browser refresh while Firebase
+      // restores the session. Redirecting to login during that window
+      // would sign the user out of their own page on every reload.
+      isResolving: auth.isLoading,
+    ),
+  );
+
+  ref.onDispose(router.dispose);
+  return router;
+}, dependencies: const []);
 
 /// Root widget for GSUhub.
 class GsuhubApp extends ConsumerWidget {
@@ -20,11 +46,32 @@ class GsuhubApp extends ConsumerWidget {
     return MaterialApp.router(
       title: config.appName,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: AppColors.primary),
+      theme: _theme(),
       routerConfig: router,
       builder: (context, child) => _EmulatorBanner(
         enabled: config.useEmulator,
         child: child ?? const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  static ThemeData _theme() {
+    final base = ThemeData(
+      useMaterial3: true,
+      colorSchemeSeed: AppColors.primary,
+      scaffoldBackgroundColor: AppColors.pageBackground,
+      fontFamily: 'Public Sans',
+    );
+
+    return base.copyWith(
+      // Disabled controls appear throughout the admin UI in 2.A — every
+      // nav item and top-bar action that belongs to a later objective —
+      // so their treatment is set once here rather than per widget.
+      tooltipTheme: const TooltipThemeData(waitDuration: Duration.zero),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        space: 1,
+        thickness: 1,
       ),
     );
   }
