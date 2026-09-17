@@ -1,11 +1,108 @@
 rules_version = '2';
 
-// Deny-all baseline, mirroring firestore.rules. Real rules for report
-// photo evidence, accomplishment-report photos, and facility/asset QR
-// assets are defined alongside the feature objectives that upload them
-// (1.2 reporting, 1.4 accomplishment reporting, 1.6 QR identification).
+// GSUhub Cloud Storage Security Rules — Objective 1.B.
+//
+// WRITTEN, NOT DEPLOYED. Deployment and bucket provisioning are 1.C.
+//
+// Mirrors the Firestore matrix (see firestore.rules for the derivation and
+// its caveat: the development plan's §4 was unavailable, so this is
+// derived from manuscript §3.4's per-role Requirements Specification).
+//
+// PATH LAYOUT
+//   damage_reports/{reportId}/{fileName}          photo evidence (§1.5)
+//   accomplishment_reports/{reportId}/{fileName}  completed-work photos
+//   tasks/{taskId}/{fileName}                     proof-of-work photos
+//   qr_codes/{entityType}/{entityId}.png          generated QR assets
+//   users/{uid}/{fileName}                        profile images
+//
+// UPLOAD CONSTRAINTS
+// Photo evidence is the bulk of what this bucket holds, and it arrives
+// from phones over campus wifi. The 10 MB ceiling and image-only content
+// type below are DERIVED — the manuscript requires photo evidence but sets
+// no limits. They exist because an unbounded, any-content-type bucket is a
+// storage bill and a malware vector, not because a document asked for
+// them.
+
 service firebase.storage {
   match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return firestore.get(
+        /databases/(default)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function isActive() {
+      return isSignedIn() && userDoc().accountStatus == 'active';
+    }
+
+    function hasRole(role) {
+      return isActive() && userDoc().role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isPersonnel() {
+      return hasRole('maintenancePersonnel');
+    }
+
+    function isRequestor() {
+      return hasRole('requestor');
+    }
+
+    function isImageUnder10Mb() {
+      return request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Photo evidence attached to a damage report.
+    // Any active user may read: personnel need to see what they are being
+    // sent to fix, and the requestor needs their own submission back.
+    match /damage_reports/{reportId}/{fileName} {
+      allow read: if isActive();
+      allow create: if isRequestor() && isImageUnder10Mb();
+      // Evidence is not editable after the fact.
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // Photo documentation of completed maintenance (§1.5).
+    match /accomplishment_reports/{reportId}/{fileName} {
+      allow read: if isActive();
+      allow create: if isPersonnel() && isImageUnder10Mb();
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // Per-task proof of work ("Upload Proof", Figure 24).
+    match /tasks/{taskId}/{fileName} {
+      allow read: if isActive();
+      allow create: if isPersonnel() && isImageUnder10Mb();
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // Generated QR code images for facilities and assets.
+    match /qr_codes/{entityType}/{fileName} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    // A user's own profile image.
+    match /users/{uid}/{fileName} {
+      allow read: if isActive();
+      allow write: if isSignedIn()
+        && request.auth.uid == uid
+        && isImageUnder10Mb();
+    }
+
+    // Default deny.
     match /{allPaths=**} {
       allow read, write: if false;
     }

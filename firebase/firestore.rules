@@ -1,18 +1,342 @@
 rules_version = '2';
 
-// Deny-all baseline. GSUhub has three roles (requestor, maintenance
-// personnel, admin) each with different read/write access to the
-// fourteen collections in core/constants/firestore_paths.dart — designing
-// and testing that per-collection, per-role rule set is explicitly out of
-// scope for this objective (1.1a is scaffolding only) and belongs to
-// 1.1(b) (authentication/RBAC) plus each feature objective as it defines
-// its own collection's access pattern.
+// GSUhub Firestore Security Rules — Objective 1.B.
 //
-// Shipping "allow if false" rather than "allow if true" as the starting
-// point is deliberate: a forgotten permissive rule is a security
-// incident, a forgotten restrictive one is a bug report.
+// WRITTEN, NOT DEPLOYED. Deploying these is Objective 1.C's job, against a
+// real Firebase project.
+//
+// SOURCE OF THE PERMISSION MATRIX
+// -------------------------------
+// The development plan these were meant to implement (§4) was never
+// available. This matrix is therefore DERIVED from manuscript §3.4
+// "A. Requirements Specification", which enumerates what each of the three
+// roles may do, plus the scope limits in §1.5. Every rule below traces to
+// one of those statements. Review against the real permission matrix
+// before deploying — see docs/data_dictionary.md.
+//
+// SHAPE OF THE MATRIX
+// -------------------
+//   requestor  (faculty/staff) — mobile. Submits reports, tracks OWN
+//               reports, rates completed work. Reads facilities/assets to
+//               fill in a report. Sees nothing belonging to anyone else.
+//   personnel  (GSU maintenance) — mobile. Reads work orders ASSIGNED to
+//               them, updates their progress, files accomplishment
+//               reports, borrows/returns tools, records material usage.
+//   admin      (GSU Administrator) — web. Full read across the system;
+//               sole authority over classification, official priority,
+//               assignment, duplicate merging, user accounts, and config.
+//
+// TWO COLLECTIONS ARE APPEND-ONLY FOR EVERYONE, ADMINS INCLUDED:
+// `inventory_transactions` and `audit_logs`. A ledger or audit trail that
+// a privileged user can rewrite is not a ledger or an audit trail. Their
+// rules below allow create and deny update/delete unconditionally.
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // An account that has been deactivated (§1.5 "account activation or
+    // deactivation") keeps its Auth credentials but loses all access.
+    function isActive() {
+      return isSignedIn() && userDoc().accountStatus == 'active';
+    }
+
+    function hasRole(role) {
+      return isActive() && userDoc().role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isPersonnel() {
+      return hasRole('maintenancePersonnel');
+    }
+
+    function isRequestor() {
+      return hasRole('requestor');
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // True when a write leaves every field except those listed untouched.
+    function onlyChanged(allowedFields) {
+      return request.resource.data.diff(resource.data)
+        .affectedKeys()
+        .hasOnly(allowedFields);
+    }
+
+    // ---------- users ----------
+    // §3.4: administrators "manage user accounts, roles, permissions".
+    // Everyone may read their own record (the app needs the role to route);
+    // personnel are readable by admins for assignment.
+
+    match /users/{uid} {
+      allow get: if isSelf(uid) || isAdmin();
+      allow list: if isAdmin();
+
+      // Account creation is administrator-driven: §1.5 limits access to
+      // "authorized" faculty, staff and GSU personnel, so self-registration
+      // cannot mint an arbitrary role. 1.C decides whether the signup screen
+      // writes a pending record or an admin provisions accounts outright.
+      allow create: if isAdmin();
+
+      // A user may maintain their own contact details and push token, but
+      // never their own role or account status — that would let any account
+      // promote itself to admin.
+      allow update: if isAdmin()
+        || (isSelf(uid) && onlyChanged([
+             'fullName', 'contactNumber', 'department', 'fcmToken', 'updatedAt'
+           ]));
+
+      // Accounts are deactivated, not deleted, so historical reports keep
+      // resolving their denormalized reporterName.
+      allow delete: if false;
+    }
+
+    // ---------- facilities & assets ----------
+    // Any active user may read these: a requestor needs them to fill in a
+    // report, a technician to find the site. Only admins maintain them.
+
+    match /facilities/{facilityId} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    match /assets/{assetId} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    // ---------- damage_reports ----------
+    // §3.4 requestor capabilities: submit reports, view own reports and
+    // history, track status. §3.4 admin capabilities: view and manage ALL
+    // reports, classify, set priority, merge duplicates.
+
+    match /damage_reports/{reportId} {
+      allow get: if isAdmin()
+        || (isActive() && resource.data.reporterId == request.auth.uid)
+        // Personnel can open a report they are working: it is the context
+        // for their assigned work order.
+        || (isPersonnel() && resource.data.workOrderId != null);
+
+      allow list: if isAdmin()
+        || (isRequestor() && request.query.limit <= 100);
+
+      // A requestor may only file a report as themselves, and may not
+      // pre-set any field that is the Administrator's decision to make.
+      allow create: if isRequestor()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.officialPriority == null
+        && request.resource.data.duplicateOf == null
+        && request.resource.data.workOrderId == null;
+
+      // Classification, official priority, duplicate merging and status are
+      // administrator-only (§1.2, §3.4). A requestor gets no update path at
+      // all — a submitted report is a record, and corrections go through
+      // GSU rather than being silently edited.
+      allow update: if isAdmin()
+        // Personnel may advance status on a report tied to their work,
+        // nothing more.
+        || (isPersonnel() && onlyChanged(['status', 'updatedAt']));
+
+      allow delete: if false;
+    }
+
+    // ---------- work_orders ----------
+    // §3.4 admin: assign work orders, monitor progress, update statuses.
+    // §3.4 personnel: view ASSIGNED work orders, update their status.
+
+    match /work_orders/{workOrderId} {
+      allow get: if isAdmin()
+        || (isPersonnel()
+            && request.auth.uid in resource.data.assignedPersonnelIds);
+      allow list: if isAdmin() || isPersonnel();
+
+      allow create: if isAdmin();
+
+      allow update: if isAdmin()
+        || (isPersonnel()
+            && request.auth.uid in resource.data.assignedPersonnelIds
+            && onlyChanged(['status', 'startedAt', 'completedAt', 'updatedAt']));
+
+      allow delete: if false;
+    }
+
+    // ---------- tasks ----------
+
+    match /tasks/{taskId} {
+      allow get: if isAdmin()
+        || (isPersonnel() && resource.data.assignedTo == request.auth.uid);
+      allow list: if isAdmin() || isPersonnel();
+
+      allow create: if isAdmin();
+
+      allow update: if isAdmin()
+        || (isPersonnel()
+            && resource.data.assignedTo == request.auth.uid
+            && onlyChanged([
+                 'status', 'proofPhotoUrls', 'completedAt', 'updatedAt'
+               ]));
+
+      allow delete: if isAdmin();
+    }
+
+    // ---------- accomplishment_reports ----------
+    // §3.4 personnel: "submit completion notes and upload photo evidence".
+
+    match /accomplishment_reports/{reportId} {
+      allow get: if isAdmin()
+        || (isPersonnel() && resource.data.submittedBy == request.auth.uid);
+      allow list: if isAdmin() || isPersonnel();
+
+      allow create: if isPersonnel()
+        && request.resource.data.submittedBy == request.auth.uid
+        // The deduction guard flag is set by the deduction routine, never
+        // by the submitting client.
+        && request.resource.data.inventoryDeducted == false;
+
+      // Only the review fields are mutable after filing, and only by an
+      // admin — a completion record that its author can quietly rewrite is
+      // not documentation.
+      allow update: if isAdmin()
+        && onlyChanged(['reviewedBy', 'reviewedAt', 'inventoryDeducted']);
+
+      allow delete: if false;
+    }
+
+    // ---------- inventory ----------
+
+    match /inventory_items/{itemId} {
+      allow read: if isActive();
+
+      allow create, delete: if isAdmin();
+
+      // Descriptive fields are admin-maintained. `quantityAvailable` is
+      // writable by admins and personnel ONLY as part of recording a
+      // transaction — the client-side repository contract is the thing that
+      // pairs them. Rules alone cannot verify that a matching ledger entry
+      // was written in the same batch, so 1.C should move this behind a
+      // Cloud Function or a transaction-checked rule if the guarantee needs
+      // to be airtight. Noted in docs/data_dictionary.md.
+      allow update: if isAdmin()
+        || (isPersonnel()
+            && onlyChanged(['quantityAvailable', 'updatedAt']));
+    }
+
+    // APPEND-ONLY. No update, no delete, for any role.
+    match /inventory_transactions/{transactionId} {
+      allow read: if isAdmin() || isPersonnel();
+      allow create: if (isAdmin() || isPersonnel())
+        && request.resource.data.performedBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ---------- tools ----------
+
+    match /tools/{toolId} {
+      allow read: if isActive();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        // Borrow/return flips status, holder, loan pointer and condition.
+        || (isPersonnel() && onlyChanged([
+             'status', 'condition', 'currentHolderId', 'currentLoanId',
+             'updatedAt'
+           ]));
+    }
+
+    match /tool_loans/{loanId} {
+      allow get: if isAdmin()
+        || (isPersonnel() && resource.data.borrowedBy == request.auth.uid);
+      allow list: if isAdmin() || isPersonnel();
+
+      allow create: if (isAdmin() || isPersonnel())
+        && request.resource.data.borrowedBy == request.auth.uid
+        && request.resource.data.returnedAt == null;
+
+      // Closing out a loan sets the return fields only. The borrow record
+      // itself is history and stays put.
+      allow update: if isAdmin()
+        || (isPersonnel()
+            && resource.data.borrowedBy == request.auth.uid
+            && onlyChanged(['returnedAt', 'conditionOnReturn', 'notes']));
+
+      allow delete: if false;
+    }
+
+    // ---------- feedback ----------
+    // §3.4 requestor: "provide feedback and ratings for completed
+    // maintenance services". §1.5: ratings "do not automatically determine
+    // personnel performance evaluations" — hence personnel cannot read
+    // them; only administrators see the evaluation data.
+
+    match /feedback/{feedbackId} {
+      allow get: if isAdmin()
+        || (isRequestor() && resource.data.submittedBy == request.auth.uid);
+      allow list: if isAdmin();
+
+      allow create: if isRequestor()
+        && request.resource.data.submittedBy == request.auth.uid;
+
+      // Feedback is a point-in-time evaluation; editing it after the fact
+      // would misrepresent the record.
+      allow update, delete: if false;
+    }
+
+    // ---------- notifications ----------
+
+    match /notifications/{notificationId} {
+      allow get, list: if isActive()
+        && resource.data.recipientId == request.auth.uid;
+
+      // Notifications are raised by trusted server-side logic (Cloud
+      // Functions, 1.C), not by clients.
+      allow create: if false;
+
+      // A recipient may only mark their own notification read.
+      allow update: if isActive()
+        && resource.data.recipientId == request.auth.uid
+        && onlyChanged(['isRead', 'readAt']);
+
+      allow delete: if isActive()
+        && resource.data.recipientId == request.auth.uid;
+    }
+
+    // ---------- audit_logs ----------
+    // APPEND-ONLY, admins included. §3.4 Auditability.
+
+    match /audit_logs/{entryId} {
+      allow read: if isAdmin();
+      allow create: if isActive()
+        && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ---------- config ----------
+    // Readable by any active user (the apps need the keyword dictionary and
+    // thresholds); writable only by administrators.
+
+    match /config/{documentId} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    // ---------- default deny ----------
+    // Anything not matched above is denied. Adding a collection means
+    // adding a rule for it, deliberately.
+
     match /{document=**} {
       allow read, write: if false;
     }
