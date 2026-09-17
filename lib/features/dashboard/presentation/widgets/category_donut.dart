@@ -112,37 +112,48 @@ class _Legend extends StatelessWidget {
   final List<CategorySlice> slices;
 
   @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: 16,
-    runSpacing: 12,
-    children: [
-      for (var i = 0; i < slices.length; i++)
-        SizedBox(
-          width: 110,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: CategoryDonut.colorFor(i),
-                  shape: BoxShape.circle,
-                ),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      // Two columns, as the design lays them out, but sized from the space
+      // actually available rather than a fixed 110px. That width fit the
+      // mockup's short labels and truncated real ones — "Air Conditioning
+      // (20%)" rendered as "Air Conditioni...".
+      const spacing = 16.0;
+      final itemWidth = (constraints.maxWidth - spacing) / 2;
+
+      return Wrap(
+        spacing: spacing,
+        runSpacing: 12,
+        children: [
+          for (var i = 0; i < slices.length; i++)
+            SizedBox(
+              width: itemWidth,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: CategoryDonut.colorFor(i),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${slices[i].label} '
+                      '(${(slices[i].share * 100).round()}%)',
+                      style: AppTextStyles.legendLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${slices[i].label} '
-                  '(${(slices[i].share * 100).round()}%)',
-                  style: AppTextStyles.legendLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-    ],
+            ),
+        ],
+      );
+    },
   );
 }

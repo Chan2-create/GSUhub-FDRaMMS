@@ -452,8 +452,27 @@ Future<void> _seedDamageReports() async {
       'photoUrls': _strArray([]),
       'requestorPriority': _str(priority),
       'status': _str(status),
-      // The four criterion ratings are deliberately absent: who populates
-      // them is still an open question (docs/data_dictionary.md §2.2).
+      // Every remaining nullable key DamageReport.toFirestore() writes,
+      // written here as an explicit null so a seeded document has the same
+      // shape as one the app creates. Omitting `duplicateOf` made all five
+      // seeded reports invisible to the dashboard, whose queue filters on
+      // `duplicateOf == null` — a document missing the field does not match.
+      'assetId': _null(),
+      'coordinates': _null(),
+      // The four criterion ratings stay unset: who populates them is still
+      // an open question (docs/data_dictionary.md §2.2). Null is what an
+      // unrated report carries, so this is the shape either way.
+      'severityRating': _null(),
+      'safetyRiskRating': _null(),
+      'frequencyRating': _null(),
+      'locationImportanceRating': _null(),
+      'priorityScore': _null(),
+      'recommendedPriority': _null(),
+      'officialPriority': _null(),
+      'duplicateOf': _null(),
+      'workOrderId': _null(),
+      'reviewedBy': _null(),
+      'reviewedAt': _null(),
       'submittedAt': _now(),
       'updatedAt': _now(),
     });
@@ -559,6 +578,14 @@ Map<String, Object?> _str(String value) => {'stringValue': value};
 Map<String, Object?> _int(int value) => {'integerValue': '$value'};
 Map<String, Object?> _double(double value) => {'doubleValue': value};
 Map<String, Object?> _bool(bool value) => {'booleanValue': value};
+
+/// An explicit null, which is not the same as omitting the field.
+///
+/// `where('x', isNull: true)` matches only documents that *have* the field
+/// set to null; a document missing it entirely does not match. Seeded data
+/// therefore has to write the same nulls `toFirestore()` writes, or queries
+/// that filter on them silently return nothing.
+Map<String, Object?> _null() => {'nullValue': null};
 Map<String, Object?> _now() => {
   'timestampValue': DateTime.now().toUtc().toIso8601String(),
 };

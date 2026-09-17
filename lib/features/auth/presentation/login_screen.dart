@@ -247,6 +247,11 @@ class _CampusBackdrop extends StatelessWidget {
           'assets/images/campus_background.png',
           fit: BoxFit.cover,
           alignment: Alignment.topCenter,
+          // The source is 474x474 and this fills a 1440-wide screen, so
+          // it is upscaled about 3x. Cubic resampling is visibly softer
+          // on the artefacts than the default bilinear, though it cannot
+          // invent detail the file does not have — see the report.
+          filterQuality: FilterQuality.high,
         ),
       ),
       // The indigo wash the design lays over the photo so white type

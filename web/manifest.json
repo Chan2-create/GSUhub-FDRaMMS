@@ -1,12 +1,12 @@
 {
-    "name": "gsuhub",
-    "short_name": "gsuhub",
+    "name": "GSUhub",
+    "short_name": "GSUhub",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
+    "background_color": "#FFFFFF",
+    "theme_color": "#241597",
     "description": "GSUhub: Facility Damage Reporting and Maintenance Management System for Davao Oriental State University",
-    "orientation": "portrait-primary",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
