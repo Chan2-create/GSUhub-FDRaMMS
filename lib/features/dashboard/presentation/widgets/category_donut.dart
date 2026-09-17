@@ -112,48 +112,74 @@ class _Legend extends StatelessWidget {
   final List<CategorySlice> slices;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      // Two columns, as the design lays them out, but sized from the space
-      // actually available rather than a fixed 110px. That width fit the
-      // mockup's short labels and truncated real ones — "Air Conditioning
-      // (20%)" rendered as "Air Conditioni...".
-      const spacing = 16.0;
-      final itemWidth = (constraints.maxWidth - spacing) / 2;
-
-      return Wrap(
-        spacing: spacing,
-        runSpacing: 12,
-        children: [
-          for (var i = 0; i < slices.length; i++)
-            SizedBox(
-              width: itemWidth,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: CategoryDonut.colorFor(i),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${slices[i].label} '
-                      '(${(slices[i].share * 100).round()}%)',
-                      style: AppTextStyles.legendLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
+  Widget build(BuildContext context) {
+    // Two equal columns, as the design lays them out, each taking half the
+    // width the card actually has. An earlier version pinned items to 110px,
+    // which fit the mockup's short labels and truncated real ones ("Air
+    // Conditioni..."); the obvious replacement, a LayoutBuilder, cannot be
+    // used here — the dashboard wraps this row in an IntrinsicHeight, and
+    // LayoutBuilder throws when asked for intrinsic dimensions. Plain flex
+    // answers those queries, so Expanded does the same job safely.
+    //
+    // Indices are dealt out column-wise so the entries still read left to
+    // right, row by row: 0 1 / 2 3.
+    final left = <Widget>[];
+    final right = <Widget>[];
+    for (var i = 0; i < slices.length; i++) {
+      final column = i.isEven ? left : right;
+      if (column.isNotEmpty) column.add(const SizedBox(height: 12));
+      column.add(
+        _LegendEntry(slice: slices[i], color: CategoryDonut.colorFor(i)),
       );
-    },
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: left,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: right,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendEntry extends StatelessWidget {
+  const _LegendEntry({required this.slice, required this.color});
+
+  final CategorySlice slice;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(
+          '${slice.label} (${(slice.share * 100).round()}%)',
+          style: AppTextStyles.legendLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    ],
   );
 }
