@@ -18,8 +18,18 @@ import 'dart:convert';
 import 'dart:io';
 
 const String projectId = 'gsuhub-dorsu';
-const String firestoreHost = 'localhost:8080';
-const String authHost = 'localhost:9099';
+
+/// Emulator endpoints, overridable through the standard Firebase emulator
+/// environment variables.
+///
+/// Hardcoding them means the script cannot follow the suite onto a
+/// different port — and Windows reserves shifting TCP ranges at boot
+/// (`netsh interface ipv4 show excludedportrange protocol=tcp`), which
+/// periodically makes 9099 unbindable on a developer machine.
+final String firestoreHost =
+    Platform.environment['FIRESTORE_EMULATOR_HOST'] ?? 'localhost:8080';
+final String authHost =
+    Platform.environment['FIREBASE_AUTH_EMULATOR_HOST'] ?? 'localhost:9099';
 
 const String _documentsRoot =
     '/v1/projects/$projectId/databases/(default)/documents';
