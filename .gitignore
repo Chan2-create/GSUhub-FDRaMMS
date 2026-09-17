@@ -56,6 +56,21 @@ lib/core/config/firebase_options.dart
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 
+# Environment files - may carry API keys or emulator overrides.
+.env
+.env.*
+!.env.example
+
+# Android signing keys. A leaked keystore cannot be rotated the way an API
+# key can - it is the identity the Play Store binds the app to.
+*.keystore
+*.jks
+android/key.properties
+
+# Editor state, personal to whoever opened the project.
+.vscode/
+.idea/
+
 # Node (rules tests, Firebase CLI)
 node_modules/
 
