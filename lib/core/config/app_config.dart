@@ -68,7 +68,8 @@ class AppConfig {
   final Environment environment;
 
   /// Whether Firebase traffic is routed at the local Emulator Suite
-  /// instead of the live project. Opt-in — see [Env.useEmulator].
+  /// instead of the live project. The default in development builds — see
+  /// [Env.useEmulator].
   final bool useEmulator;
 
   final String emulatorHost;

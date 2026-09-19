@@ -82,16 +82,16 @@ file. Ask a team member for access to the Firebase project.
 
 ### Against the emulator suite (recommended for development)
 
-Emulator mode is **opt-in**, not automatic in debug. A developer who
-forgets to start the emulators should see connection errors they can
-diagnose rather than silently reading an empty database and concluding
-the query is broken.
+Debug builds use the emulators **by default** — `gsuhub-dorsu` is the
+project the team demos from, so reaching it from a debug build takes an
+explicit `--dart-define=USE_LIVE_FIREBASE=true`. Start the emulators
+first; without them, sign-in fails with a connection error.
 
 ```bash
 firebase emulators:start              # auth 9099, firestore 8080, storage 9199
 dart run tool/seed_emulator.dart      # realistic test data
 
-flutter run -d edge --dart-define=USE_EMULATOR=true
+flutter run -d edge
 ```
 
 Seeded accounts all use the password `password123`:
@@ -115,8 +115,8 @@ elevated `net stop winnat` / `net start winnat` frees them.
 ### Against the live project
 
 ```bash
-flutter run -d edge           # admin web console
-flutter build apk --debug     # mobile shells
+flutter run -d edge --dart-define=USE_LIVE_FIREBASE=true   # debug build
+flutter build web                                          # release: live by default
 ```
 
 ### Tests

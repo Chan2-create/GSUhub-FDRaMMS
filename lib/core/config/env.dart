@@ -9,25 +9,43 @@ enum Environment { development, production }
 abstract final class Env {
   static const bool _isProductionDefine = bool.fromEnvironment('IS_PRODUCTION');
 
-  static const Environment current =
-      bool.fromEnvironment('dart.vm.product') || _isProductionDefine
+  static const bool _isProductionBuild =
+      bool.fromEnvironment('dart.vm.product') || _isProductionDefine;
+
+  static const Environment current = _isProductionBuild
       ? Environment.production
       : Environment.development;
 
   static bool get isDevelopment => current == Environment.development;
   static bool get isProduction => current == Environment.production;
 
+  /// Explicit opt-in to the live `gsuhub-dorsu` project from a development
+  /// build.
+  ///
+  /// `flutter run --dart-define=USE_LIVE_FIREBASE=true`
+  static const bool useLiveFirebase = bool.fromEnvironment('USE_LIVE_FIREBASE');
+
+  /// Forces the emulators even in a production build, for exercising a
+  /// release bundle against local data.
+  ///
+  /// `flutter build web --dart-define=USE_EMULATOR=true`
+  static const bool _forceEmulator = bool.fromEnvironment('USE_EMULATOR');
+
   /// Whether to route Firebase traffic at the local Emulator Suite instead
   /// of the live `gsuhub-dorsu` project.
   ///
-  /// Deliberately **opt-in** rather than "on whenever in debug": a
-  /// developer who forgets to start the emulators should see connection
-  /// failures they can diagnose, not silently write test data into the
-  /// live project — or worse, silently read an empty database and assume
-  /// the query is broken.
-  ///
-  /// `flutter run --dart-define=USE_EMULATOR=true`
-  static const bool useEmulator = bool.fromEnvironment('USE_EMULATOR');
+  /// **On by default in development builds.** `gsuhub-dorsu` is the only
+  /// project the team demos from, so the dangerous mistake is the one a
+  /// forgotten flag makes: writing test records into it. Reaching the live
+  /// project from a debug build therefore takes [useLiveFirebase]; a
+  /// production build uses it unless [_forceEmulator] says otherwise.
+  static const bool useEmulator =
+      _forceEmulator || (!_isProductionBuild && !useLiveFirebase);
+
+  /// Both backend flags at once is a contradiction, not a preference, so
+  /// startup refuses it rather than silently picking one.
+  static const bool hasConflictingBackendFlags =
+      _forceEmulator && useLiveFirebase;
 
   /// Host the emulators are reachable on.
   ///

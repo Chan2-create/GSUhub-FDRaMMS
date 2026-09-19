@@ -64,11 +64,16 @@ void main() {
     expect(banner.message, 'EMULATOR');
   });
 
-  test('AppConfig.fromEnvironment defaults to development, no emulator', () {
+  test('a development build defaults to the emulators', () {
+    // Tests compile without any --dart-define, which is exactly the
+    // "developer forgot the flag" case this default exists for: it must
+    // land on the emulators, never on the live demo project.
     final config = AppConfig.fromEnvironment();
 
     expect(config.environment, Environment.development);
-    expect(config.useEmulator, isFalse);
+    expect(config.useEmulator, isTrue);
+    expect(Env.useLiveFirebase, isFalse);
+    expect(Env.hasConflictingBackendFlags, isFalse);
     expect(config.appName, 'GSUhub');
   });
 

@@ -47,6 +47,7 @@ final class FirebaseStartupFailure extends FirebaseStartupResult {
     required this.summary,
     required this.detail,
     this.isEmulatorFailure = false,
+    this.isConfigurationFailure = false,
   });
 
   /// Short, user-facing explanation.
@@ -58,6 +59,10 @@ final class FirebaseStartupFailure extends FirebaseStartupResult {
   /// True when the failure looks like "the emulators are not running",
   /// which has a specific and very common fix.
   final bool isEmulatorFailure;
+
+  /// True when the build itself was configured wrongly. Retrying cannot
+  /// help: `--dart-define` values are fixed at compile time.
+  final bool isConfigurationFailure;
 }
 
 /// Initializes Firebase and, in emulator mode, repoints every SDK at the
@@ -84,6 +89,13 @@ abstract final class FirebaseInitializer {
           auth: auth,
           firestore: firestore,
           storage: storage,
+        );
+      } else if (kDebugMode) {
+        // Reachable only through USE_LIVE_FIREBASE=true, but a debug build
+        // pointed at the demo project deserves to be impossible to miss.
+        debugPrint(
+          'GSUhub: WARNING — debug build connected to the LIVE Firebase '
+          'project. Every write lands in real data.',
         );
       }
 
