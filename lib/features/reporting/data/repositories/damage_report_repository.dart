@@ -1,6 +1,7 @@
 import '../../../../core/enums/priority_level.dart';
 import '../../../../core/enums/report_status.dart';
 import '../../../../core/utils/result.dart';
+import '../../../audit/data/models/audit_actor.dart';
 import '../models/damage_report.dart';
 
 /// Abstract contract for the `damage_reports` collection.
@@ -56,7 +57,25 @@ abstract interface class DamageReportRepository {
     required PriorityLevel recommendedPriority,
   });
 
-  Future<Result<void>> setStatus(String reportId, ReportStatus status);
+  /// Applies an administrator's review decision: Start review, Approve or
+  /// Reject (Objective 2.B).
+  ///
+  /// Implementations must, in one transaction:
+  /// - reject any move `ReportStatus.canTransitionTo` disallows, reading
+  ///   the current status rather than trusting the caller's copy;
+  /// - refuse targets outside the review stage — `assigned` onward moves
+  ///   with the report's work order, never on its own;
+  /// - require a non-blank [reason] when rejecting, and store it;
+  /// - record the reviewer on approval or rejection;
+  /// - append an `audit_logs` entry naming [actor].
+  ///
+  /// Replaces 1.B's `setStatus`, which wrote the status blindly.
+  Future<Result<void>> transitionStatus({
+    required String reportId,
+    required ReportStatus to,
+    required AuditActor actor,
+    String? reason,
+  });
 
   /// Candidate duplicates of [reportId], per the `config/duplicate_detection`
   /// criteria. Flagging only — §1.5 requires administrator verification

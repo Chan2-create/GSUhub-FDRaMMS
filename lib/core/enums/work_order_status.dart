@@ -40,6 +40,17 @@ enum WorkOrderStatus {
   /// The value persisted on the `work_orders/{id}.status` field.
   String get id => name;
 
+  /// Kanban column heading, as the design writes it.
+  String get title => switch (this) {
+    WorkOrderStatus.pending => 'Pending',
+    WorkOrderStatus.inProgress => 'In Progress',
+    WorkOrderStatus.forReview => 'For Review',
+    WorkOrderStatus.completed => 'Completed',
+  };
+
+  /// Chip label — the column heading in the chips' uppercase style.
+  String get label => title.toUpperCase();
+
   static WorkOrderStatus fromId(String id) => WorkOrderStatus.values.firstWhere(
     (status) => status.id == id,
     orElse: () =>

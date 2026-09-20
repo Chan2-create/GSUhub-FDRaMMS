@@ -54,6 +54,7 @@ class DamageReport {
     this.workOrderId,
     this.reviewedBy,
     this.reviewedAt,
+    this.rejectionReason,
   }) {
     FirestoreConverters.validateNotBlank(reporterId, 'reporterId');
     FirestoreConverters.validateNotBlank(title, 'title');
@@ -144,6 +145,10 @@ class DamageReport {
       workOrderId: FirestoreConverters.optional<String>(data, 'workOrderId'),
       reviewedBy: FirestoreConverters.optional<String>(data, 'reviewedBy'),
       reviewedAt: FirestoreConverters.optionalDate(data, 'reviewedAt'),
+      rejectionReason: FirestoreConverters.optional<String>(
+        data,
+        'rejectionReason',
+      ),
       submittedAt: FirestoreConverters.requireDate(data, 'submittedAt'),
       updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
     );
@@ -235,6 +240,12 @@ class DamageReport {
 
   final String? reviewedBy;
   final DateTime? reviewedAt;
+
+  /// Why an administrator rejected the report. Required on rejection and
+  /// null otherwise: a dismissed report with no recorded reason tells the
+  /// requestor nothing and leaves no trail for the next reviewer.
+  final String? rejectionReason;
+
   final DateTime submittedAt;
   final DateTime updatedAt;
 
@@ -247,6 +258,11 @@ class DamageReport {
   /// recommendation, then to the requestor's own selection.
   PriorityLevel get effectivePriority =>
       officialPriority ?? recommendedPriority ?? requestorPriority;
+
+  /// Whether an administrator has confirmed the official priority. Until
+  /// then [effectivePriority] is only a suggestion, and the UI marks it as
+  /// one.
+  bool get isPriorityConfirmed => officialPriority != null;
 
   Map<String, dynamic> toFirestore() => {
     'reporterId': reporterId,
@@ -274,6 +290,7 @@ class DamageReport {
     'workOrderId': workOrderId,
     'reviewedBy': reviewedBy,
     'reviewedAt': reviewedAt == null ? null : Timestamp.fromDate(reviewedAt!),
+    'rejectionReason': rejectionReason,
     'submittedAt': Timestamp.fromDate(submittedAt),
     'updatedAt': Timestamp.fromDate(updatedAt),
   };
@@ -305,6 +322,7 @@ class DamageReport {
     String? workOrderId,
     String? reviewedBy,
     DateTime? reviewedAt,
+    String? rejectionReason,
     DateTime? submittedAt,
     DateTime? updatedAt,
   }) => DamageReport(
@@ -336,6 +354,7 @@ class DamageReport {
     workOrderId: workOrderId ?? this.workOrderId,
     reviewedBy: reviewedBy ?? this.reviewedBy,
     reviewedAt: reviewedAt ?? this.reviewedAt,
+    rejectionReason: rejectionReason ?? this.rejectionReason,
     submittedAt: submittedAt ?? this.submittedAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -370,6 +389,7 @@ class DamageReport {
         other.workOrderId == workOrderId &&
         other.reviewedBy == reviewedBy &&
         other.reviewedAt == reviewedAt &&
+        other.rejectionReason == rejectionReason &&
         other.submittedAt == submittedAt &&
         other.updatedAt == updatedAt;
   }
@@ -402,6 +422,7 @@ class DamageReport {
     workOrderId,
     reviewedBy,
     reviewedAt,
+    rejectionReason,
     submittedAt,
     updatedAt,
   ]);

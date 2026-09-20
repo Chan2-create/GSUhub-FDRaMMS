@@ -82,6 +82,42 @@ enum ReportStatus {
   /// The value persisted on the `damage_reports/{id}.status` field.
   String get id => name;
 
+  /// User-facing label, confirmed for Objective 2.B. The single source for
+  /// status wording — widgets read this rather than keeping their own map.
+  ///
+  /// Two differ from the enum name on purpose: `submitted` reads PENDING
+  /// (the mockups' "NEW" state, as 2.A already shipped it), and `completed`
+  /// reads COMPLETED where the mockups say "RESOLVED".
+  String get label => switch (this) {
+    ReportStatus.submitted => 'PENDING',
+    ReportStatus.underReview => 'UNDER REVIEW',
+    ReportStatus.approved => 'APPROVED',
+    ReportStatus.assigned => 'ASSIGNED',
+    ReportStatus.inProgress => 'IN PROGRESS',
+    ReportStatus.forReview => 'FOR REVIEW',
+    ReportStatus.completed => 'COMPLETED',
+    ReportStatus.closed => 'CLOSED',
+    ReportStatus.merged => 'MERGED',
+    ReportStatus.rejected => 'REJECTED',
+    ReportStatus.archived => 'ARCHIVED',
+  };
+
+  /// Still in the administrator's hands or being worked — everything short
+  /// of finished or discarded.
+  bool get isOpen => switch (this) {
+    ReportStatus.submitted ||
+    ReportStatus.underReview ||
+    ReportStatus.approved ||
+    ReportStatus.assigned ||
+    ReportStatus.inProgress ||
+    ReportStatus.forReview => true,
+    ReportStatus.completed ||
+    ReportStatus.closed ||
+    ReportStatus.merged ||
+    ReportStatus.rejected ||
+    ReportStatus.archived => false,
+  };
+
   static ReportStatus fromId(String id) => ReportStatus.values.firstWhere(
     (status) => status.id == id,
     orElse: () => throw ArgumentError.value(id, 'id', 'Unknown ReportStatus'),

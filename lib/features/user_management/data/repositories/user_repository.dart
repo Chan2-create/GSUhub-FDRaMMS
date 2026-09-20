@@ -28,6 +28,16 @@ abstract interface class UserRepository {
     PersonnelAvailability? availability,
   });
 
+  /// Live feed of every maintenance-personnel account, active or not, for
+  /// the Task Assignment availability panel (Objective 2.B).
+  ///
+  /// A stream rather than [getPersonnel]'s one-shot read because
+  /// `activeTaskCount` changes the moment an assignment commits; a panel
+  /// showing yesterday's workload would steer the next assignment wrong.
+  /// Filtering by trade happens client-side: the whole roster is small,
+  /// and ranking the matching trade first beats hiding everyone else.
+  Stream<Result<List<AppUser>>> watchPersonnel();
+
   Future<Result<void>> create(AppUser user);
 
   Future<Result<void>> update(AppUser user);
