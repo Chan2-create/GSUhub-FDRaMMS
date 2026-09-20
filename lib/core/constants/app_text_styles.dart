@@ -309,4 +309,295 @@ abstract final class AppTextStyles {
     color: AppColors.textFaint,
     height: 1.5,
   );
+
+  // --- Objective 2.B: management screens (Public Sans) ---
+  // The Work Order frame (202:5355) is set in Hanken Grotesk, Inter and
+  // JetBrains Mono — an older design generation. Its text is mapped onto
+  // the families already bundled (Public Sans, Roboto Mono), as 2.A did
+  // with Liberation Mono, rather than shipping three more typefaces for one
+  // screen.
+
+  /// Page heading: "Damage Reports", "Task Assignment",
+  /// "Work Order Management".
+  static const TextStyle pageTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 32,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primary,
+    letterSpacing: -0.32,
+    height: 40 / 32,
+  );
+
+  static const TextStyle pageSubtitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+    height: 24 / 16,
+  );
+
+  /// Body copy inside the Damage Reports panels.
+  static const TextStyle bodyText = pageSubtitle;
+
+  /// "Filters:" and similar small bold labels.
+  static const TextStyle filterLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textSecondary,
+    letterSpacing: 0.6,
+  );
+
+  /// Text inside filter pills and dropdown triggers.
+  static const TextStyle controlText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 20 / 14,
+  );
+
+  /// Compact input text on the work-order filter bar.
+  static const TextStyle inputText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 18 / 12,
+  );
+
+  /// "Clear all filters", "View All Personnel".
+  static const TextStyle linkText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primary,
+    height: 20 / 14,
+  );
+
+  /// The outlined "View" row action.
+  static const TextStyle rowActionText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.accentOlive,
+    height: 16 / 12,
+  );
+
+  /// "Showing 1 to 10 of 42 results".
+  static const TextStyle paginationSummary = pageSubtitle;
+
+  static const TextStyle paginationPage = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 20 / 14,
+  );
+
+  /// Panel heading in the design's blue: "Campus View".
+  static const TextStyle panelHeading = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primary,
+    height: 24 / 16,
+  );
+
+  /// Panel heading in the design's near-black: "Personnel Availability".
+  static const TextStyle panelTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 24 / 16,
+  );
+
+  static const TextStyle emergencyTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 24,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnDark,
+    height: 31.2 / 24,
+  );
+
+  static const TextStyle emergencyBody = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: Color(0xCCFFFFFF),
+    height: 24 / 16,
+  );
+
+  /// Large primary button labels: "Create Report", "Dispatch Emergency
+  /// Team".
+  static const TextStyle ctaLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 24 / 16,
+  );
+
+  /// "UNASSIGNED REPORTS".
+  static const TextStyle sectionOverline = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textMuted,
+    height: 24 / 16,
+  );
+
+  /// Small bold pill text: "4 PENDING", category chips.
+  static const TextStyle badgeText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    height: 15 / 10,
+  );
+
+  /// Priority chip text.
+  static const TextStyle priorityChip = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    height: 16 / 12,
+  );
+
+  /// Report number on an assignment queue card.
+  static const TextStyle queueCardId = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textFaint,
+    height: 16 / 12,
+  );
+
+  static const TextStyle queueCardTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 18,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 28 / 18,
+  );
+
+  /// Location lines and other secondary metadata.
+  static const TextStyle metaText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textMuted,
+    height: 20 / 14,
+  );
+
+  /// Personnel table column headers.
+  static const TextStyle panelHeaderCell = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textFaint,
+  );
+
+  static const TextStyle personName = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle personRole = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textMuted,
+    height: 16 / 12,
+  );
+
+  /// Initials inside an avatar tile.
+  static const TextStyle avatarInitials = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primary,
+  );
+
+  static const TextStyle taskCount = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.textSecondary,
+    height: 20 / 14,
+  );
+
+  /// ACTIVE / INACTIVE beside the presence dot.
+  static const TextStyle presenceLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    height: 16 / 12,
+  );
+
+  static const TextStyle outlineButtonSmall = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    height: 16 / 12,
+  );
+
+  static const TextStyle kanbanColumnTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+    height: 24 / 16,
+  );
+
+  static const TextStyle kanbanCount = TextStyle(
+    fontFamily: _mono,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    height: 18 / 12,
+  );
+
+  /// Work-order number on a Kanban card.
+  static const TextStyle workOrderId = TextStyle(
+    fontFamily: _mono,
+    fontSize: 11,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primary,
+    height: 16.5 / 11,
+  );
+
+  static const TextStyle workOrderTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+    height: 19.25 / 14,
+  );
+
+  static const TextStyle workOrderMeta = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+    height: 18 / 12,
+  );
+
+  /// Labels in the report detail view's field grid.
+  static const TextStyle fieldLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textMuted,
+    letterSpacing: 0.6,
+    height: 16 / 12,
+  );
+
+  static const TextStyle fieldValue = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 20 / 14,
+  );
 }
