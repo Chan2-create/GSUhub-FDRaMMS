@@ -18,17 +18,27 @@ import 'core/routing/route_guards.dart';
 /// stack — from being disposed when no widget happens to be listening for
 /// a frame.
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authStateProvider);
+  // The guard is published through a listenable rather than rebuilding the
+  // router: go_router re-runs `redirect` when this changes, and the single
+  // router instance survives sign-in and sign-out. Rebuilding it disposed
+  // the live router underneath the open page, so the first navigation after
+  // signing in threw "GoRouteInformationProvider was used after disposed".
+  final guard = ValueNotifier<AppRouteGuard>(
+    const AppRouteGuard(isResolving: true),
+  );
+  ref.onDispose(guard.dispose);
 
-  final router = buildAppRouter(
-    guard: AppRouteGuard(
-      user: auth.value,
+  ref.listen(authStateProvider, (previous, next) {
+    guard.value = AppRouteGuard(
+      user: next.value,
       // `isLoading` covers the gap on a browser refresh while Firebase
       // restores the session. Redirecting to login during that window
       // would sign the user out of their own page on every reload.
-      isResolving: auth.isLoading,
-    ),
-  );
+      isResolving: next.isLoading,
+    );
+  }, fireImmediately: true);
+
+  final router = buildAppRouter(guardListenable: guard);
 
   ref.onDispose(router.dispose);
   return router;
