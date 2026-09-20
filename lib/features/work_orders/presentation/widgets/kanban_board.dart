@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/enums/work_order_status.dart';
 import '../../../../core/utils/display_id.dart';
+import '../../../../core/utils/initials.dart';
 import '../../../../core/widgets/priority_chip.dart';
 import '../../../user_management/presentation/personnel_providers.dart';
 import '../../data/models/work_order.dart';
@@ -295,7 +296,7 @@ class WorkOrderCard extends ConsumerWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Text(
-                      _initials(assignees),
+                      initialsOf(assignees),
                       style: AppTextStyles.badgeText.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -335,13 +336,6 @@ class WorkOrderCard extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-    return (parts.first.characters.first + parts[1].characters.first)
-        .toUpperCase();
   }
 }
 
