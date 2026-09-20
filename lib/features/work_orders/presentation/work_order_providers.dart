@@ -192,10 +192,10 @@ class WorkOrderStats {
     for (final workOrder in workOrders) {
       if (workOrder.status == WorkOrderStatus.inProgress) inProgress++;
 
-      final scheduledFor = workOrder.scheduledFor;
+      final scheduledFor = workOrder.scheduledFor?.toLocal();
       if (scheduledFor != null &&
           workOrder.status != WorkOrderStatus.completed &&
-          scheduledFor.isBefore(now.toUtc())) {
+          now.isAfter(_endOfDay(scheduledFor))) {
         overdue++;
       }
 
@@ -222,6 +222,13 @@ class WorkOrderStats {
   /// Past its target completion date and not finished.
   final int overdue;
   final int completedToday;
+
+  /// The target completion date is picked from a calendar, so it names a
+  /// day rather than an instant. Comparing against the date itself would
+  /// mark a job late from midnight of the very day it is due; it is late
+  /// only once that day has ended.
+  static DateTime _endOfDay(DateTime date) =>
+      DateTime(date.year, date.month, date.day + 1);
 
   static const String overdueDefinition =
       'Work orders whose target completion date has passed and which are '
