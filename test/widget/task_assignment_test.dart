@@ -109,6 +109,33 @@ void main() {
       expect(find.text('1 PENDING'), findsOneWidget);
     });
 
+    testWidgets('cannot assign a report that has no damage category yet', (
+      tester,
+    ) async {
+      // The repository refuses to raise a work order without a category,
+      // because it is what routes the job to a trade. The queue has to say
+      // so up front rather than let an administrator pick a technician and
+      // then fail. Classifying is Objective 4.C.
+      await pump(
+        tester,
+        reports: [
+          approved(id: 'rep-1', title: 'Ceiling Stain', category: null),
+        ],
+        personnel: [electrician],
+      );
+
+      // Still listed: an approved report that vanished would be worse.
+      expect(find.text('Ceiling Stain'), findsOneWidget);
+      expect(find.text('Needs classification'), findsOneWidget);
+
+      final button = tester.widget<FilledButton>(
+        find.ancestor(
+          of: find.text('Needs classification'),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(button.onPressed, isNull);
+    });
     testWidgets('says why the queue is empty', (tester) async {
       await pump(tester, reports: [], personnel: [electrician]);
 
@@ -256,15 +283,16 @@ void main() {
     });
 
     testWidgets('surfaces a refusal from the repository', (tester) async {
+      // A refusal the screen cannot pre-empt: another administrator
+      // assigned this report between the queue loading and the button
+      // being pressed. The repository re-reads the report inside its
+      // transaction, so it is the one that catches this.
       final repository = await pump(
         tester,
-        reports: [approved(id: 'rep-1', title: 'Unclassified', category: null)],
+        reports: [approved(id: 'rep-1', title: 'Flickering Lights')],
         personnel: [electrician],
         assignResult: const Result.failure(
-          ValidationFailure(
-            'This report has no damage category yet, so no work order can '
-            'be raised for it. It must be classified first.',
-          ),
+          ValidationFailure('This report already has a work order.'),
         ),
       );
 
@@ -273,7 +301,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.assignments, hasLength(1));
-      expect(find.textContaining('no damage category'), findsOneWidget);
+      expect(find.textContaining('already has a work order'), findsOneWidget);
     });
 
     testWidgets('arrives with a report already selected from the table', (

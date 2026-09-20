@@ -8,6 +8,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/enums/account_status.dart';
 import '../../../core/utils/display_id.dart';
+import '../../../core/utils/initials.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../reporting/data/models/damage_report.dart';
@@ -156,6 +157,10 @@ class _QueueCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isSelected = ref.watch(selectedReportProvider) == report.id;
+    // The repository will not raise a work order without a category — it
+    // is what routes the job to a trade — so the card says so here rather
+    // than letting an administrator choose a technician and then fail.
+    final needsCategory = !report.isAssignable;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -241,28 +246,12 @@ class _QueueCard extends ConsumerWidget {
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        child: FilledButton(
+                        child: _SelectButton(
+                          needsCategory: needsCategory,
+                          isSelected: isSelected,
                           onPressed: () => ref
                               .read(selectedReportProvider.notifier)
                               .select(isSelected ? null : report.id),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: isSelected
-                                ? AppColors.sidebarBackground
-                                : AppColors.primary,
-                            foregroundColor: AppColors.textOnDark,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            isSelected
-                                ? 'Selected — choose personnel'
-                                : 'Assign',
-                            style: AppTextStyles.metaText.copyWith(
-                              color: AppColors.textOnDark,
-                            ),
-                          ),
                         ),
                       ),
                     ],
@@ -273,6 +262,57 @@ class _QueueCard extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The queue card's own button: picks the report, or explains why it
+/// cannot be picked.
+class _SelectButton extends StatelessWidget {
+  const _SelectButton({
+    required this.needsCategory,
+    required this.isSelected,
+    required this.onPressed,
+  });
+
+  final bool needsCategory;
+  final bool isSelected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = FilledButton(
+      onPressed: needsCategory ? null : onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: isSelected
+            ? AppColors.sidebarBackground
+            : AppColors.primary,
+        foregroundColor: AppColors.textOnDark,
+        disabledBackgroundColor: AppColors.border,
+        disabledForegroundColor: AppColors.textSecondary,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: Text(
+        switch ((needsCategory, isSelected)) {
+          (true, _) => 'Needs classification',
+          (false, true) => 'Selected — choose personnel',
+          (false, false) => 'Assign',
+        },
+        style: AppTextStyles.metaText.copyWith(
+          color: needsCategory ? AppColors.textSecondary : AppColors.textOnDark,
+        ),
+      ),
+    );
+
+    // Only wrapped when there is something to say: a Tooltip with an
+    // empty message still opens an empty bubble on hover.
+    if (!needsCategory) return button;
+    return Tooltip(
+      message:
+          'This report has no damage category yet, so there is no trade to '
+          'route it to. Classifying is Objective 4.C.',
+      child: button,
     );
   }
 }
@@ -626,19 +666,6 @@ class _Avatar extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// "Ricardo Dalisay" becomes "RD"; a single name becomes its first letter.
-String initialsOf(String fullName) {
-  final parts = fullName
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((part) => part.isNotEmpty)
-      .toList();
-  if (parts.isEmpty) return '?';
-  if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-  return (parts.first.characters.first + parts.last.characters.first)
-      .toUpperCase();
 }
 
 class _AssignmentChoice {

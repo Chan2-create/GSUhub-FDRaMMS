@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
-import '../../../core/enums/report_status.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/widgets/app_data_table.dart';
@@ -314,8 +313,7 @@ class _RowActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canAssign =
-        report.status == ReportStatus.approved && report.workOrderId == null;
+    final canAssign = report.isAssignable;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -342,6 +340,9 @@ class _RowActions extends StatelessWidget {
           height: 13.33,
           tooltip: canAssign
               ? 'Assign this report'
+              : report.awaitsAssignment
+              ? 'This report has no damage category yet, so there is no '
+                    'trade to route it to.'
               : 'Only an approved report that has no work order can be '
                     'assigned.',
           onPressed: canAssign

@@ -264,6 +264,17 @@ class DamageReport {
   /// one.
   bool get isPriorityConfirmed => officialPriority != null;
 
+  /// Approved and not yet tied to a work order, so it belongs in the
+  /// assignment queue.
+  bool get awaitsAssignment =>
+      status == ReportStatus.approved && workOrderId == null;
+
+  /// Whether a work order can actually be raised from this report. The
+  /// category is what routes the job to a trade, so without one the
+  /// repository refuses — the queue and the reports table check the same
+  /// rule here rather than each keeping their own copy of it.
+  bool get isAssignable => awaitsAssignment && category != null;
+
   Map<String, dynamic> toFirestore() => {
     'reporterId': reporterId,
     'reporterName': reporterName,

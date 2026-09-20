@@ -130,11 +130,7 @@ final unassignedReportsProvider =
           .whenData(
             (result) => result.map(
               (reports) => reports
-                  .where(
-                    (report) =>
-                        report.status == ReportStatus.approved &&
-                        report.workOrderId == null,
-                  )
+                  .where((report) => report.awaitsAssignment)
                   .toList(growable: false),
             ),
           ),
