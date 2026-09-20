@@ -38,9 +38,11 @@ class AdminNavGroup {
 /// The sidebar structure, read from Figma node `196:534` in the order and
 /// grouping the design specifies.
 ///
-/// Every item except Dashboard is disabled: the brief for 2.A is explicit
-/// that only Dashboard routes anywhere, and the other screens belong to
-/// later objectives.
+/// Items resolve to a real screen as their objective lands: Dashboard in
+/// 2.A, then Damage Reports, Task Assignment and Work Order Management in
+/// 2.B. The rest stay disabled with a tooltip naming the objective that
+/// builds them, because a tile that goes nowhere reads as broken while a
+/// tile that says why reads as unfinished.
 const List<AdminNavGroup> adminNavGroups = [
   AdminNavGroup(
     label: 'Overview',
@@ -55,8 +57,7 @@ const List<AdminNavGroup> adminNavGroups = [
         label: 'Damage Reports',
         iconAsset: 'assets/icons/nav_reports.svg',
         path: RoutePaths.adminReports,
-        isEnabled: false,
-        disabledReason: 'Damage report management arrives in Objective 2.B.',
+        isEnabled: true,
       ),
       AdminNavItem(
         label: 'Inventory Management',
@@ -81,8 +82,17 @@ const List<AdminNavGroup> adminNavGroups = [
         label: 'Task Assignment',
         iconAsset: 'assets/icons/nav_tasks.svg',
         path: RoutePaths.adminTaskAssignment,
-        isEnabled: false,
-        disabledReason: 'Task assignment arrives in Objective 2.B.',
+        isEnabled: true,
+      ),
+      // Added from node 202:5355, which carries this item in its own
+      // sidebar; the newer dashboard frame (196:534) never gained it, so
+      // 2.A had no entry to build. Without it the screen has no way in.
+      // The only deviation from the 2.A sidebar, and a deliberate one.
+      AdminNavItem(
+        label: 'Work Order Management',
+        iconAsset: 'assets/icons/nav_tasks.svg',
+        path: RoutePaths.adminWorkOrders,
+        isEnabled: true,
       ),
       // The Figma node for this item carries no glyph (an empty 24px
       // frame at y=500), so there is no asset to export. Falls back to a
