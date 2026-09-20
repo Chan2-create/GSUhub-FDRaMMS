@@ -63,25 +63,42 @@ void main() {
       }
     });
 
-    testWidgets('only Dashboard is reachable in 2.A', (tester) async {
+    testWidgets('exposes exactly the destinations built so far', (
+      tester,
+    ) async {
       await pumpShell(tester);
 
-      // Every other destination belongs to a later objective. They are
-      // shown because the design shows them, disabled because tapping
-      // through to an unbuilt screen would be worse than a dead tile.
+      // The rest belong to later objectives. They are shown because the
+      // design shows them, disabled because tapping through to an unbuilt
+      // screen would be worse than a dead tile.
       final enabled = [
         for (final group in adminNavGroups)
           for (final item in group.items)
             if (item.isEnabled) item.label,
       ];
 
-      expect(enabled, ['Dashboard']);
+      expect(enabled, [
+        'Dashboard', // 2.A
+        'Damage Reports', // 2.B
+        'Task Assignment', // 2.B
+        'Work Order Management', // 2.B
+      ]);
+    });
+
+    testWidgets('carries Work Order Management, added from node 202:5355', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      // The 2.A sidebar (node 196:534) has no such item, so the screen
+      // would otherwise have no way in. The one deliberate deviation.
+      expect(find.text('Work Order Management'), findsWidgets);
     });
 
     testWidgets('a disabled destination does not navigate', (tester) async {
       await pumpShell(tester);
 
-      await tester.tap(find.text('Damage Reports').first, warnIfMissed: false);
+      await tester.tap(find.text('Analytics').first, warnIfMissed: false);
       await tester.pumpAndSettle();
 
       expect(currentPath(), RoutePaths.adminDashboard);
