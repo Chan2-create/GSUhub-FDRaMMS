@@ -129,6 +129,27 @@ class WorkOrder {
   /// Whether this work order consolidates merged duplicate reports.
   bool get isMergedFromDuplicates => reportIds.length > 1;
 
+  /// Whether this work order was past its target completion date, and not
+  /// yet finished, at [moment].
+  ///
+  /// The target date is picked from a calendar, so it names a day rather
+  /// than an instant: a job is late only once that day has ended, not from
+  /// midnight of the day it is due. Taking [moment] rather than assuming
+  /// "now" lets Analytics ask how many were overdue a month ago.
+  bool isOverdueAt(DateTime moment) {
+    final target = scheduledFor?.toLocal();
+    if (target == null || createdAt.isAfter(moment)) return false;
+
+    final finished = completedAt;
+    if (finished != null && !finished.isAfter(moment)) return false;
+    // Completed with no recorded completion time: when it finished is
+    // unknown, so it is not counted late rather than counted late forever.
+    if (finished == null && status == WorkOrderStatus.completed) return false;
+
+    final endOfTargetDay = DateTime(target.year, target.month, target.day + 1);
+    return moment.toLocal().isAfter(endOfTargetDay);
+  }
+
   Map<String, dynamic> toFirestore() => {
     'reportIds': reportIds,
     'title': title,
