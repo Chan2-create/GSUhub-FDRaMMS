@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/analytics/presentation/analytics_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/reporting/presentation/report_detail_screen.dart';
 import '../../features/reporting/presentation/reports_screen.dart';
+import '../../features/user_management/presentation/personnel_screen.dart';
+import '../../features/user_management/presentation/user_accounts_screen.dart';
 import '../../features/work_orders/presentation/task_assignment_screen.dart';
 import '../../features/work_orders/presentation/work_orders_screen.dart';
 import '../../shells/admin/admin_shell.dart';
@@ -70,6 +73,18 @@ GoRouter buildAppRouter({
         GoRoute(
           path: RoutePaths.adminWorkOrders,
           builder: (context, state) => const WorkOrdersScreen(),
+        ),
+        GoRoute(
+          path: RoutePaths.adminPersonnel,
+          builder: (context, state) => const PersonnelScreen(),
+        ),
+        GoRoute(
+          path: RoutePaths.adminAnalytics,
+          builder: (context, state) => const AnalyticsScreen(),
+        ),
+        GoRoute(
+          path: RoutePaths.adminUsers,
+          builder: (context, state) => const UserAccountsScreen(),
         ),
         // Reachable by URL but not from the sidebar, which disables them.
         // Each names the objective that will build it.
@@ -147,9 +162,6 @@ GoRouter buildAppRouter({
 /// so adding one is a single line rather than a copied `GoRoute` block.
 const List<(String, String)> _adminPlaceholders = [
   (RoutePaths.adminInventory, 'Inventory Management — Objective 6'),
-  (RoutePaths.adminPersonnel, 'Personnel — Objective 2.C'),
-  (RoutePaths.adminAnalytics, 'Analytics — Objective 2.C'),
-  (RoutePaths.adminUsers, 'User Accounts — Objective 2.C'),
   (RoutePaths.adminMapView, 'Map View — pending confirmation'),
   (RoutePaths.adminNotifications, 'Notifications — later objective'),
   (RoutePaths.adminSettings, 'Settings — later objective'),

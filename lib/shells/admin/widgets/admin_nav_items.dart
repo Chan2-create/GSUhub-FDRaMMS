@@ -40,7 +40,7 @@ class AdminNavGroup {
 ///
 /// Items resolve to a real screen as their objective lands: Dashboard in
 /// 2.A, then Damage Reports, Task Assignment and Work Order Management in
-/// 2.B. The rest stay disabled with a tooltip naming the objective that
+/// 2.B, then Personnel, Analytics and User Accounts in 2.C. The rest stay disabled with a tooltip naming the objective that
 /// builds them, because a tile that goes nowhere reads as broken while a
 /// tile that says why reads as unfinished.
 const List<AdminNavGroup> adminNavGroups = [
@@ -70,8 +70,7 @@ const List<AdminNavGroup> adminNavGroups = [
         label: 'Personnel',
         iconAsset: 'assets/icons/nav_personnel.svg',
         path: RoutePaths.adminPersonnel,
-        isEnabled: false,
-        disabledReason: 'Personnel management arrives in Objective 2.C.',
+        isEnabled: true,
       ),
     ],
   ),
@@ -110,8 +109,7 @@ const List<AdminNavGroup> adminNavGroups = [
         label: 'Analytics',
         iconAsset: 'assets/icons/nav_analytics.svg',
         path: RoutePaths.adminAnalytics,
-        isEnabled: false,
-        disabledReason: 'Analytics arrives in Objective 2.C.',
+        isEnabled: true,
       ),
     ],
   ),
@@ -122,8 +120,7 @@ const List<AdminNavGroup> adminNavGroups = [
         label: 'User Accounts',
         iconAsset: 'assets/icons/nav_users.svg',
         path: RoutePaths.adminUsers,
-        isEnabled: false,
-        disabledReason: 'User account management arrives in Objective 2.C.',
+        isEnabled: true,
       ),
       AdminNavItem(
         label: 'Notifications',

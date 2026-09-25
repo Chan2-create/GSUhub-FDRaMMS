@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/enums/account_status.dart';
+import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
-import '../../../core/utils/initials.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/person_avatar.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../reporting/data/models/damage_report.dart';
 import '../../reporting/presentation/report_providers.dart';
@@ -437,15 +439,12 @@ class _PersonnelPanelState extends ConsumerState<_PersonnelPanel> {
             ),
             padding: const EdgeInsets.all(16),
             child: Center(
-              child: Tooltip(
-                message: 'The personnel directory arrives in Objective 2.C.',
-                child: TextButton(
-                  onPressed: null,
-                  child: Text(
-                    'View All Personnel',
-                    style: AppTextStyles.badgeText.copyWith(
-                      color: AppColors.textFaint,
-                    ),
+              child: TextButton(
+                onPressed: () => context.go(RoutePaths.adminPersonnel),
+                child: Text(
+                  'View All Personnel',
+                  style: AppTextStyles.badgeText.copyWith(
+                    color: AppColors.primary,
                   ),
                 ),
               ),
@@ -483,7 +482,7 @@ class _PersonnelRowState extends ConsumerState<_PersonnelRow> {
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
-          _Avatar(person: person, isActive: isActive),
+          PersonAvatar(fullName: person.fullName, isActive: isActive),
           const SizedBox(width: 12),
           Expanded(
             flex: 3,
@@ -643,30 +642,6 @@ class _PersonnelHeaderRow extends StatelessWidget {
 
 /// Shared by the header and the rows so the Action column lines up.
 const double _actionColumnWidth = 104;
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.person, required this.isActive});
-
-  final AppUser person;
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 40,
-    height: 40,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: isActive ? AppColors.avatarBackground : AppColors.borderSubtle,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Text(
-      initialsOf(person.fullName),
-      style: AppTextStyles.avatarInitials.copyWith(
-        color: isActive ? AppColors.primary : AppColors.textFaint,
-      ),
-    ),
-  );
-}
 
 class _AssignmentChoice {
   const _AssignmentChoice({this.targetCompletion});
