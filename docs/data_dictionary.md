@@ -114,6 +114,19 @@ Firestore id = Firebase Auth uid. Model: `AppUser`
 can be active (may sign in) while the person is on leave (must not be
 assigned work).
 
+**How 2.C reads `availability`.** The Personnel directory shows *Busy*
+from `activeTaskCount > 0` — the live workload that 2.B's assignment
+transactions keep — rather than from a stored `busy`, which nothing kept
+in step with the work. Only `onLeave` is read from this field, and an
+administrator sets it in the account's edit dialog. Changing an account
+away from maintenance personnel clears `specialization` and
+`availability`, since neither means anything for another role.
+
+Account changes made from User Accounts write an `audit_logs` entry with
+`entityType: users` — `created`, `updated` (with a field-by-field
+`changes` map) or `statusChanged` — in the same transaction as the
+change.
+
 ## facilities
 
 Model: `Facility`. **Largely DERIVED** — the manuscript establishes that
