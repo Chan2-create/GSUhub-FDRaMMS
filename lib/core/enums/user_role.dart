@@ -15,6 +15,22 @@ enum UserRole {
   /// The value persisted on the `users/{uid}.role` Firestore field.
   String get id => name;
 
+  /// Display name, as the User Accounts screen writes it (Figma `89:4626`)
+  /// — its role chip in capitals, its legend as-is. The single source:
+  /// screens read this rather than keeping their own map.
+  String get label => switch (this) {
+    UserRole.requestor => 'End User',
+    UserRole.maintenancePersonnel => 'Maintenance',
+    UserRole.admin => 'Administrator',
+  };
+
+  /// The User Accounts tab that lists this role.
+  String get tabLabel => switch (this) {
+    UserRole.requestor => 'End Users',
+    UserRole.maintenancePersonnel => 'Maintenance Personnel',
+    UserRole.admin => 'Administrators',
+  };
+
   /// Resolves a [UserRole] from its persisted Firestore [id].
   ///
   /// Throws an [ArgumentError] if [id] does not match a known role, since an

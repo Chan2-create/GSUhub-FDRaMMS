@@ -600,4 +600,353 @@ abstract final class AppTextStyles {
     color: AppColors.textPrimary,
     height: 20 / 14,
   );
+
+  // --- Objective 2.C: personnel (200:4316) ---
+
+  /// "TOTAL STAFF" and siblings — sentence-size, not the dashboard caps.
+  static const TextStyle metricLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+    height: 24 / 16,
+  );
+
+  static const TextStyle metricValue = TextStyle(
+    fontFamily: _ui,
+    fontSize: 40,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primary,
+    letterSpacing: -0.8,
+    height: 48 / 40,
+  );
+
+  /// Personnel table headers — the design sets them at body size.
+  static const TextStyle staffTableHeader = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textSecondary,
+  );
+
+  static const TextStyle staffName = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle staffId = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+  );
+
+  /// Category pill text; colour comes from the category palette.
+  static const TextStyle categoryChip = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.6,
+    height: 12 / 12,
+  );
+
+  static const TextStyle staffStatus = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 21 / 14,
+  );
+
+  static const TextStyle staffTaskCount = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primary,
+  );
+
+  static const TextStyle staffContact = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+    height: 21 / 14,
+  );
+
+  static const TextStyle assignTaskLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.ctaAmberForeground,
+  );
+
+  /// Search, select and label text in the personnel filter strip.
+  static const TextStyle filterStripText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 24 / 16,
+  );
+
+  static const TextStyle tableFooterText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+    height: 21 / 14,
+  );
+
+  /// "Add Personnel" — the design sets this primary button at 16px.
+  static const TextStyle primaryButtonLarge = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textOnDark,
+    height: 24 / 16,
+  );
+
+  // --- Objective 2.C: analytics (61:5086) ---
+
+  static const TextStyle kpiLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.iconMuted,
+    letterSpacing: 0.6,
+    height: 12 / 12,
+  );
+
+  static const TextStyle kpiValue = TextStyle(
+    fontFamily: _ui,
+    fontSize: 40,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+    letterSpacing: -0.8,
+    height: 48 / 40,
+  );
+
+  /// The unit after a KPI value — "days".
+  static const TextStyle kpiUnit = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.iconMuted,
+    height: 24 / 16,
+  );
+
+  static const TextStyle kpiFootnote = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.iconMuted,
+    height: 16.5 / 11,
+  );
+
+  /// Trend chip text; colour comes from the chip.
+  static const TextStyle trendChip = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    height: 16 / 12,
+  );
+
+  static const TextStyle chartTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 18,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primary,
+    height: 28.8 / 18,
+  );
+
+  /// Month labels under the charts; the current month is darkened.
+  static const TextStyle chartAxisLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    color: AppColors.iconMuted,
+    height: 15 / 10,
+  );
+
+  static const TextStyle donutCenterValue = TextStyle(
+    fontFamily: _ui,
+    fontSize: 24,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+    height: 31.2 / 24,
+  );
+
+  static const TextStyle legendName = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.textSecondary,
+    height: 20 / 14,
+  );
+
+  static const TextStyle legendShare = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+    height: 20 / 14,
+  );
+
+  /// "MAIN BUILDING" and its count in Reports by Building.
+  static const TextStyle barRowLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textSecondary,
+    height: 16 / 12,
+  );
+
+  static const TextStyle barRowValue = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+    height: 16 / 12,
+  );
+
+  /// "-72% Improvement" badge on the resolution-time chart.
+  static const TextStyle chartBadge = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    height: 15 / 10,
+  );
+
+  static const TextStyle issueRank = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle issueName = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle issueCell = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+  );
+
+  static const TextStyle issueCount = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle viewReportLink = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primary,
+    letterSpacing: 1.4,
+    height: 20 / 14,
+  );
+
+  /// The top bar range selector on the Analytics page.
+  static const TextStyle rangeSelect = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.textPrimary,
+    height: 20 / 14,
+  );
+
+  // --- Objective 2.C: user accounts (89:4626) ---
+
+  static const TextStyle tabActive = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primary,
+    height: 1,
+  );
+
+  static const TextStyle tabInactive = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.textSecondary,
+    height: 1,
+  );
+
+  static const TextStyle accountsControlText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 21 / 14,
+  );
+
+  static const TextStyle accountsButton = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnDark,
+    height: 1,
+  );
+
+  static const TextStyle accountsHeader = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textSecondary,
+    letterSpacing: 0.6,
+    height: 12 / 12,
+  );
+
+  static const TextStyle accountName = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+    height: 21 / 14,
+  );
+
+  static const TextStyle accountCell = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 21 / 14,
+  );
+
+  /// Role pill and ACTIVE/INACTIVE text; colour comes from the role.
+  static const TextStyle roleChip = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.5,
+    height: 12 / 10,
+  );
+
+  static const TextStyle legendTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textSecondary,
+    letterSpacing: 0.6,
+    height: 12 / 12,
+  );
+
+  static const TextStyle legendItem = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 21 / 14,
+  );
 }

@@ -2,9 +2,23 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_text_styles.dart';
-import '../dashboard_providers.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_text_styles.dart';
+
+/// One slice of the category donut.
+class CategorySlice {
+  const CategorySlice({
+    required this.label,
+    required this.count,
+    required this.share,
+  });
+
+  final String label;
+  final int count;
+
+  /// 0.0–1.0 share of the total.
+  final double share;
+}
 
 /// "Reports by Category" donut with a centre total and a two-column
 /// legend (Figma node `196:591`).
@@ -13,17 +27,72 @@ import '../dashboard_providers.dart';
 /// package: this is one static ring with no axes, tooltips or animation,
 /// and a dependency would bring far more surface area than the ~40 lines
 /// it replaces.
+///
+/// Shared since 2.C: Analytics draws the same ring, smaller, with its
+/// legend beside it and each slice's share spelled out (Figma `85:4046`).
+/// Colours are dealt by rank in both, so the same data reads the same on
+/// both screens.
 class CategoryDonut extends StatelessWidget {
-  const CategoryDonut({required this.slices, super.key});
+  const CategoryDonut({required this.slices, super.key}) : _beside = false;
+
+  /// The Analytics layout: a 160px ring with the legend to its right.
+  const CategoryDonut.besideLegend({required this.slices, super.key})
+    : _beside = true;
 
   final List<CategorySlice> slices;
+  final bool _beside;
 
   static const double _size = 192;
   static const double _strokeWidth = 32;
+  static const double _besideSize = 160;
+  static const double _besideStrokeWidth = 20;
+
+  int get _total => slices.fold<int>(0, (sum, slice) => sum + slice.count);
 
   @override
-  Widget build(BuildContext context) {
-    final total = slices.fold<int>(0, (sum, slice) => sum + slice.count);
+  Widget build(BuildContext context) => _beside ? _besideLegend() : _stacked();
+
+  Widget _besideLegend() => Row(
+    children: [
+      SizedBox.square(
+        dimension: _besideSize,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            CustomPaint(
+              size: const Size.square(_besideSize),
+              painter: _DonutPainter(
+                slices: slices,
+                strokeWidth: _besideStrokeWidth,
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('$_total', style: AppTextStyles.donutCenterValue),
+                const Text('TOTAL', style: AppTextStyles.chartAxisLabel),
+              ],
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(width: 32),
+      Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < slices.length; i++) ...[
+              if (i > 0) const SizedBox(height: 12),
+              _ShareRow(slice: slices[i], color: colorFor(i)),
+            ],
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _stacked() {
+    final total = _total;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -180,6 +249,40 @@ class _LegendEntry extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
       ),
+    ],
+  );
+}
+
+/// A legend row in the Analytics layout: square key, name, and the share
+/// right-aligned.
+class _ShareRow extends StatelessWidget {
+  const _ShareRow({required this.slice, required this.color});
+
+  final CategorySlice slice;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(
+          slice.label,
+          style: AppTextStyles.legendName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      const SizedBox(width: 8),
+      Text('${(slice.share * 100).round()}%', style: AppTextStyles.legendShare),
     ],
   );
 }
