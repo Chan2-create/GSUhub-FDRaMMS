@@ -483,6 +483,37 @@ describe('administrator', () => {
     );
   });
 
+  it("can change another account's role", async () => {
+    await assertSucceeds(
+      asAdmin()
+        .doc(`users/${OTHER_FACULTY_UID}`)
+        .update({ role: 'maintenancePersonnel' }),
+    );
+  });
+
+  // 2.C: an administrator locking themselves out could leave nobody able
+  // to manage accounts. The repository refuses too, but a client that
+  // skipped it must be stopped here.
+  it('cannot deactivate their own account', async () => {
+    await assertFails(
+      asAdmin().doc(`users/${ADMIN_UID}`).update({ accountStatus: 'inactive' }),
+    );
+  });
+
+  it('cannot change their own role', async () => {
+    await assertFails(
+      asAdmin().doc(`users/${ADMIN_UID}`).update({ role: 'requestor' }),
+    );
+  });
+
+  it('can still edit their own contact details', async () => {
+    await assertSucceeds(
+      asAdmin()
+        .doc(`users/${ADMIN_UID}`)
+        .update({ contactNumber: '09170000000' }),
+    );
+  });
+
   it('can update configuration', async () => {
     await assertSucceeds(
       asAdmin().doc('config/prioritization').update({ maxRating: 5 }),
