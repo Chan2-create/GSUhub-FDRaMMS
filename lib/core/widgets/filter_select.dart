@@ -82,14 +82,14 @@ class FilterSelect<T> extends StatelessWidget {
       ],
     );
 
-    return PopupMenuButton<T?>(
+    return PopupMenuButton<_Pick<T>>(
       tooltip: placeholder,
       position: PopupMenuPosition.under,
-      initialValue: value,
-      onSelected: onChanged,
+      initialValue: _Pick(value),
+      onSelected: (pick) => onChanged(pick.value),
       itemBuilder: (context) => [
         for (final option in options)
-          PopupMenuItem<T?>(value: option.value, child: Text(option.label)),
+          PopupMenuItem(value: _Pick(option.value), child: Text(option.label)),
       ],
       child: Container(
         width: width,
@@ -105,4 +105,21 @@ class FilterSelect<T> extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A menu entry's value, wrapped.
+///
+/// The "all" option's value is null, and a popup menu treats a null
+/// selection as a cancel — it never calls `onSelected`. Unwrapped, choosing
+/// "All damage types" after a type did nothing and the filter stuck.
+final class _Pick<T> {
+  const _Pick(this.value);
+
+  final T? value;
+
+  @override
+  bool operator ==(Object other) => other is _Pick<T> && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
 }
