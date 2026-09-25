@@ -46,6 +46,8 @@ dependencies:
   # Grapheme-cluster-aware string handling, for building initials from a
   # name whose first letter may be more than one code unit.
   characters: ^1.4.0
+  # Browser file downloads for the CSV export (web-only admin console).
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
