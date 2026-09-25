@@ -53,6 +53,7 @@ Future<void> main() async {
   await _seedConfig();
   await _seedDamageReports();
   await _seedWorkOrders();
+  await _seedHistory();
   await _seedAuditLogs();
 
   if (_failures > 0) {
@@ -84,6 +85,17 @@ const String adminUid = 'seed-admin-0001';
 const String facultyUid = 'seed-faculty-0001';
 const String personnelUid = 'seed-personnel-0001';
 const String personnelPlumberUid = 'seed-personnel-0002';
+
+// Objective 2.C: enough accounts that Personnel and User Accounts show
+// every state they can draw — on leave, deactivated, each role.
+const String personnelStructuralUid = 'seed-personnel-0003';
+const String personnelCarpenterUid = 'seed-personnel-0004';
+const String personnelGeneralUid = 'seed-personnel-0005';
+const String personnelAirconUid = 'seed-personnel-0006';
+const String facultyCasUid = 'seed-faculty-0002';
+const String facultyRegistrarUid = 'seed-faculty-0003';
+const String facultyFormerUid = 'seed-faculty-0004';
+const String secondAdminUid = 'seed-admin-0002';
 
 Future<void> _seedUsers() async {
   final accounts = [
@@ -149,7 +161,114 @@ Future<void> _seedUsers() async {
     'updatedAt': _now(),
   });
 
-  stdout.writeln('  users: 4');
+  // uid, name, email, role, status, department, trade, availability
+  final more = [
+    (
+      personnelStructuralUid,
+      'Rosa Villanueva',
+      'structural@dorsu.edu.ph',
+      'maintenancePersonnel',
+      'active',
+      'General Services Unit',
+      'structural',
+      'available',
+    ),
+    // On leave: the one status an administrator sets by hand.
+    (
+      personnelCarpenterUid,
+      'Pedro Reyes',
+      'carpenter@dorsu.edu.ph',
+      'maintenancePersonnel',
+      'active',
+      'General Services Unit',
+      'carpentry',
+      'onLeave',
+    ),
+    (
+      personnelGeneralUid,
+      'Liza Mendoza',
+      'general@dorsu.edu.ph',
+      'maintenancePersonnel',
+      'active',
+      'General Services Unit',
+      'generalMaintenance',
+      'available',
+    ),
+    // Deactivated, so User Accounts has an inactive row to grey out and
+    // Personnel has an account it must leave out.
+    (
+      personnelAirconUid,
+      'Carlo Bato',
+      'aircon@dorsu.edu.ph',
+      'maintenancePersonnel',
+      'inactive',
+      'General Services Unit',
+      'airConditioning',
+      'available',
+    ),
+    (
+      facultyCasUid,
+      'Ana Gomez',
+      'ana.gomez@dorsu.edu.ph',
+      'requestor',
+      'active',
+      'College of Arts and Sciences',
+      null,
+      null,
+    ),
+    (
+      facultyRegistrarUid,
+      'Paolo Garcia',
+      'paolo.garcia@dorsu.edu.ph',
+      'requestor',
+      'active',
+      "Registrar's Office",
+      null,
+      null,
+    ),
+    (
+      facultyFormerUid,
+      'Grace Lim',
+      'grace.lim@dorsu.edu.ph',
+      'requestor',
+      'inactive',
+      'Office of Student Affairs',
+      null,
+      null,
+    ),
+    (
+      secondAdminUid,
+      'Elena Cruz',
+      'elena.cruz@dorsu.edu.ph',
+      'admin',
+      'active',
+      'IT Services',
+      null,
+      null,
+    ),
+  ];
+
+  for (final (uid, name, email, role, status, department, trade, availability)
+      in more) {
+    // A real sign-in for every account, so a password reset sent from
+    // User Accounts reaches the emulator's inbox rather than failing.
+    await _createAuthUser(uid: uid, email: email, password: 'password123');
+    await _writeDoc('users', uid, {
+      'fullName': _str(name),
+      'email': _str(email),
+      'role': _str(role),
+      'accountStatus': _str(status),
+      'department': _str(department),
+      'contactNumber': _null(),
+      'specialization': trade == null ? _null() : _str(trade),
+      'availability': availability == null ? _null() : _str(availability),
+      'activeTaskCount': _int(0),
+      'createdAt': _ago(const Duration(days: 150)),
+      'updatedAt': _now(),
+    });
+  }
+
+  stdout.writeln('  users: ${4 + more.length}');
 }
 
 // --- facilities & assets ----------------------------------------------
@@ -162,6 +281,7 @@ Future<void> _seedFacilities() async {
     ('fac-library', 'Main Library', 'Level 2', 7.2051, 126.5359),
     ('fac-admin', 'Administration Building', 'Office 12', 7.2044, 126.5348),
     ('fac-science', 'Science Building', 'Laboratory 3', 7.2056, 126.5362),
+    ('fac-gym', 'Gymnasium', 'Main Court', 7.2041, 126.5365),
   ];
 
   for (final (id, building, room, lat, lng) in facilities) {
@@ -665,6 +785,126 @@ Future<void> _seedWorkOrders() async {
   stdout.writeln('  work_orders: ${workOrders.length} (1 overdue)');
 }
 
+/// Six months of resolved work, so Analytics has a history to chart
+/// (Objective 2.C).
+///
+/// Every report here is completed or closed, so none of it reaches the
+/// review queue, the assignment queue or anyone's workload — the live
+/// demo scenario above is untouched. Generated rather than listed: the
+/// spread (which trade, which building, how long each took) is
+/// deterministic, so every seeded emulator draws the same charts.
+/// Resolution time falls month on month, so the trend has a direction.
+Future<void> _seedHistory() async {
+  const trades = [
+    ('electrical', personnelUid, 'Faulty wall outlet'),
+    ('plumbing', personnelPlumberUid, 'Leaking faucet'),
+    ('structural', personnelStructuralUid, 'Cracked floor tile'),
+    ('airConditioning', personnelAirconUid, 'Aircon not cooling'),
+    ('carpentry', personnelCarpenterUid, 'Broken cabinet door'),
+    ('cleaningAndSanitation', personnelGeneralUid, 'Clogged restroom drain'),
+    ('generalMaintenance', personnelGeneralUid, 'Loose stair handrail'),
+  ];
+  const buildings = [
+    ('fac-engineering', 'Engineering Building'),
+    ('fac-library', 'Main Library'),
+    ('fac-science', 'Science Building'),
+    ('fac-admin', 'Administration Building'),
+    ('fac-gym', 'Gymnasium'),
+  ];
+  const priorities = ['low', 'medium', 'high', 'medium'];
+
+  // Oldest month first: how many reports, and roughly how many days each
+  // took from report to finished work.
+  const months = [(4, 6.5), (5, 5.6), (6, 4.9), (5, 4.1), (7, 3.4), (3, 2.9)];
+
+  final now = DateTime.now();
+  var seeded = 0;
+  for (var m = 0; m < months.length; m++) {
+    final (count, days) = months[m];
+    final monthsAgo = months.length - 1 - m;
+    final monthStart = DateTime(now.year, now.month - monthsAgo);
+
+    for (var i = 0; i < count; i++) {
+      // Spread across the month; in the current one, only days already
+      // past, finished before today.
+      final day = monthsAgo == 0 ? 1 + i : 2 + (i * 5) % 25;
+      final submitted = monthStart.add(
+        Duration(days: day - 1, hours: 8 + (i * 3) % 8),
+      );
+      final took = Duration(
+        minutes: ((days + (i % 3 - 1) * 0.4) * Duration.minutesPerDay).round(),
+      );
+      final completed = submitted.add(took);
+      if (!completed.isBefore(now)) continue;
+
+      final (category, assignee, title) =
+          trades[(seeded * 3 + m) % trades.length];
+      final (facilityId, facilityName) =
+          buildings[(seeded + m) % buildings.length];
+      final priority = priorities[seeded % priorities.length];
+      final suffix = '$m${i.toString().padLeft(2, '0')}';
+      final reportId = 'rep-h$suffix';
+      final workOrderId = 'wo-h$suffix';
+      final created = submitted.add(const Duration(hours: 6));
+
+      await _writeDoc('damage_reports', reportId, {
+        'reporterId': _str(facultyUid),
+        'reporterName': _str('Maria Santos'),
+        'title': _str(title),
+        'description': _str('$title — $facilityName.'),
+        'category': _str(category),
+        'classifiedAutomatically': _bool(true),
+        'facilityId': _str(facilityId),
+        'facilityName': _str(facilityName),
+        'locationDescription': _str(facilityName),
+        'photoUrls': _strArray([]),
+        'requestorPriority': _str(priority),
+        // Older than a month: signed off. This month: finished, not yet
+        // closed.
+        'status': _str(monthsAgo > 0 ? 'closed' : 'completed'),
+        'assetId': _null(),
+        'coordinates': _null(),
+        'severityRating': _null(),
+        'safetyRiskRating': _null(),
+        'frequencyRating': _null(),
+        'locationImportanceRating': _null(),
+        'priorityScore': _null(),
+        'recommendedPriority': _null(),
+        'officialPriority': _str(priority),
+        'duplicateOf': _null(),
+        'workOrderId': _str(workOrderId),
+        'reviewedBy': _str(adminUid),
+        'reviewedAt': _at(submitted.add(const Duration(hours: 2))),
+        'rejectionReason': _null(),
+        'submittedAt': _at(submitted),
+        'updatedAt': _at(completed),
+      });
+
+      await _writeDoc('work_orders', workOrderId, {
+        'reportIds': _strArray([reportId]),
+        'title': _str(title),
+        'description': _str('$title — $facilityName.'),
+        'category': _str(category),
+        'priority': _str(priority),
+        'status': _str('completed'),
+        'assignedPersonnelIds': _strArray([assignee]),
+        'facilityId': _str(facilityId),
+        'facilityName': _str(facilityName),
+        'adminNotes': _null(),
+        'scheduledFor': _at(created.add(const Duration(days: 7))),
+        'startedAt': _at(created.add(const Duration(hours: 2))),
+        'completedAt': _at(completed),
+        'createdBy': _str(adminUid),
+        'createdAt': _at(created),
+        'updatedAt': _at(completed),
+      });
+      seeded++;
+    }
+  }
+
+  stdout.writeln('  history: $seeded resolved reports over six months');
+}
+
 /// A short audit trail, so the dashboard's Recent Activity panel and the
 /// report detail view's history have something to show on a fresh
 /// emulator. Entries the app writes itself look exactly like these.
@@ -847,6 +1087,12 @@ Map<String, Object?> _null() => {'nullValue': null};
 /// of ages — response time and the volume chart both measure elapsed time.
 Map<String, Object?> _ago(Duration ago) => {
   'timestampValue': DateTime.now().toUtc().subtract(ago).toIso8601String(),
+};
+
+/// A timestamp at [moment] — for the history, whose dates are calendar
+/// positions rather than distances from now.
+Map<String, Object?> _at(DateTime moment) => {
+  'timestampValue': moment.toUtc().toIso8601String(),
 };
 
 Map<String, Object?> _now() => {
