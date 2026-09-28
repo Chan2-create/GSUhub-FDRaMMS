@@ -28,6 +28,12 @@ enum FilterSelectStyle {
   /// User Accounts (Figma `89:4726`): white, with the filter glyph where
   /// the others have a chevron.
   outlined,
+
+  /// The mobile report form (Figma `165:137`, Objective 3.C): white, 56
+  /// tall, 12px corners, filling its column. Here the select picks a value
+  /// rather than filtering, so a chosen value is drawn like the placeholder
+  /// rather than highlighted.
+  form,
 }
 
 /// Dropdown used by every filter bar in the admin console.
@@ -44,6 +50,8 @@ class FilterSelect<T> extends StatelessWidget {
     super.key,
     this.style = FilterSelectStyle.tinted,
     this.width,
+    this.leading,
+    this.enabled = true,
   });
 
   /// Shown when nothing is selected — the design labels these by what
@@ -58,6 +66,12 @@ class FilterSelect<T> extends StatelessWidget {
 
   final double? width;
 
+  /// Drawn before the value — the urgency dot on the report form.
+  final Widget? leading;
+
+  /// False while the options are loading or the form is sending.
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
     final hasValue = value != null;
@@ -69,17 +83,25 @@ class FilterSelect<T> extends StatelessWidget {
         ? options.where((option) => option.value == value).firstOrNull
         : null;
 
+    final isForm = style == FilterSelectStyle.form;
+    final leadingWidget = leading;
+
     final content = Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: isForm ? MainAxisSize.max : MainAxisSize.min,
       children: [
+        if (leadingWidget != null) ...[leadingWidget, const SizedBox(width: 8)],
         Flexible(
+          fit: isForm ? FlexFit.tight : FlexFit.loose,
           child: Text(
             selected?.label ?? placeholder,
-            style: _textStyle.copyWith(
-              color: hasValue ? AppColors.primary : null,
-              fontWeight: hasValue ? FontWeight.w600 : null,
-            ),
+            style: isForm
+                ? _textStyle
+                : _textStyle.copyWith(
+                    color: hasValue ? AppColors.primary : null,
+                    fontWeight: hasValue ? FontWeight.w600 : null,
+                  ),
             overflow: TextOverflow.ellipsis,
+            maxLines: isForm ? 1 : null,
           ),
         ),
         const SizedBox(width: 8),
@@ -89,6 +111,7 @@ class FilterSelect<T> extends StatelessWidget {
 
     return PopupMenuButton<_Pick<T>>(
       tooltip: placeholder,
+      enabled: enabled,
       position: PopupMenuPosition.under,
       initialValue: _Pick(value),
       onSelected: (pick) => onChanged(pick.value),
@@ -96,39 +119,69 @@ class FilterSelect<T> extends StatelessWidget {
         for (final option in options)
           PopupMenuItem(value: _Pick(option.value), child: Text(option.label)),
       ],
-      child: Container(
-        width: width,
-        constraints: style == FilterSelectStyle.large
-            ? const BoxConstraints(minWidth: 180)
-            : null,
-        padding: switch (style) {
-          FilterSelectStyle.tinted => const EdgeInsets.symmetric(
-            horizontal: 13,
-            vertical: 5,
-          ),
-          FilterSelectStyle.dense || FilterSelectStyle.outlined =>
-            const EdgeInsets.symmetric(horizontal: 17, vertical: 9),
-          FilterSelectStyle.large => const EdgeInsets.fromLTRB(17, 13, 9, 13),
-        },
-        decoration: BoxDecoration(
-          color: style == FilterSelectStyle.tinted
-              ? AppColors.surfaceTint
-              : AppColors.surface,
-          border: Border.all(color: AppColors.borderStrong),
-          borderRadius: BorderRadius.circular(
-            style == FilterSelectStyle.dense ? 8 : 4,
-          ),
-        ),
-        child: content,
-      ),
+      child: isForm ? _formBox(content) : _filterBox(content),
     );
   }
+
+  /// The report form's box (Figma `169:682`).
+  Widget _formBox(Widget content) => Opacity(
+    opacity: enabled ? 1 : 0.6,
+    child: Container(
+      width: width ?? double.infinity,
+      height: 56,
+      padding: const EdgeInsets.fromLTRB(16, 0, 23, 0),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.borderStrong),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            offset: Offset(0, 1),
+            blurRadius: 1,
+          ),
+        ],
+      ),
+      child: content,
+    ),
+  );
+
+  Widget _filterBox(Widget content) => Container(
+    width: width,
+    constraints: style == FilterSelectStyle.large
+        ? const BoxConstraints(minWidth: 180)
+        : null,
+    padding: switch (style) {
+      FilterSelectStyle.tinted => const EdgeInsets.symmetric(
+        horizontal: 13,
+        vertical: 5,
+      ),
+      FilterSelectStyle.dense ||
+      FilterSelectStyle.outlined ||
+      FilterSelectStyle.form => const EdgeInsets.symmetric(
+        horizontal: 17,
+        vertical: 9,
+      ),
+      FilterSelectStyle.large => const EdgeInsets.fromLTRB(17, 13, 9, 13),
+    },
+    decoration: BoxDecoration(
+      color: style == FilterSelectStyle.tinted
+          ? AppColors.surfaceTint
+          : AppColors.surface,
+      border: Border.all(color: AppColors.borderStrong),
+      borderRadius: BorderRadius.circular(
+        style == FilterSelectStyle.dense ? 8 : 4,
+      ),
+    ),
+    child: content,
+  );
 
   TextStyle get _textStyle => switch (style) {
     FilterSelectStyle.tinted => AppTextStyles.controlText,
     FilterSelectStyle.dense => AppTextStyles.inputText,
     FilterSelectStyle.large => AppTextStyles.filterStripText,
     FilterSelectStyle.outlined => AppTextStyles.accountsControlText,
+    FilterSelectStyle.form => AppTextStyles.formSelectText,
   };
 
   Widget _trailing() {
@@ -145,6 +198,16 @@ class FilterSelect<T> extends StatelessWidget {
         width: 12,
         height: 7.4,
         colorFilter: tint,
+      ),
+      // The same 12 x 7.4 chevron, in the report form's grey (`169:690`).
+      FilterSelectStyle.form => SvgPicture.asset(
+        'assets/icons/select_chevron_small.svg',
+        width: 12,
+        height: 7.4,
+        colorFilter: const ColorFilter.mode(
+          AppColors.iconMuted,
+          BlendMode.srcIn,
+        ),
       ),
       FilterSelectStyle.large => SvgPicture.asset(
         'assets/icons/select_chevron_large.svg',

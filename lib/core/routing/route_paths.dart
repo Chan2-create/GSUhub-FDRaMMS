@@ -65,14 +65,16 @@ abstract final class RoutePaths {
 
   static const String staffLogin = '/staff/login';
 
-  /// Facility damage report submission — real UI lands in 3.A.
+  /// Facility damage report submission (Objective 3.C). The requestor's
+  /// home until a later Objective 3 step builds one.
   static const String staffSubmitReport = '/staff/submit';
 
-  /// Real-time status tracking of submitted reports — real UI lands in
-  /// 3.B.
+  /// Real-time status tracking of submitted reports — a later Objective 3
+  /// step. (1.A guessed the sub-objective numbers here; the WBS numbers
+  /// submission 3.C, so the others are left unnumbered until confirmed.)
   static const String staffMyReports = '/staff/reports';
 
-  /// Post-service feedback and rating — real UI lands in 3.C.
+  /// Post-service feedback and rating — a later Objective 3 step.
   static const String staffFeedback = '/staff/feedback';
 
   // --- Maintenance Personnel (mobile) — WBS Objective 5 ---

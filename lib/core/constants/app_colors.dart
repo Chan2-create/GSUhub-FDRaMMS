@@ -238,4 +238,50 @@ abstract final class AppColors {
 
   /// Notification badge on the top bar bell.
   static const Color notificationBadge = Color(0xFFBA1A1A);
+
+  // --- faculty and staff app: Report Damage (Figma 165:137, Objective 3.C) ---
+
+  /// Behind the whole screen.
+  static const Color mobilePageBackground = Color(0xFFE2E8F0);
+
+  /// The title and description boxes: gold at 27% (`rgba(200,150,12,.27)`).
+  static const Color formFieldTint = Color(0x45C8960C);
+
+  /// Placeholder text in those boxes (`rgba(117,118,131,.5)`).
+  static const Color formPlaceholder = Color(0x80757683);
+
+  /// The screen title, back arrow, DAMAGE DESCRIPTION label and the photo
+  /// prompt — black at 72%.
+  static const Color textStrong = Color(0xB8000000);
+
+  /// The photo drop zone's fill (`rgba(255,255,255,.5)`).
+  static const Color dropZoneFill = Color(0x80FFFFFF);
+
+  /// The circle behind the camera glyph (`rgba(26,58,143,.1)`).
+  static const Color cameraCircle = Color(0x1A1A3A8F);
+
+  /// The navy wash over the map preview (`rgba(0,35,111,.05)`).
+  static const Color mapWash = Color(0x0D00236F);
+
+  /// "Tap to adjust location on map" underline (`rgba(0,35,111,.4)`).
+  static const Color mapLinkUnderline = Color(0x6600236F);
+
+  /// Glow under Submit Report (`rgba(0,35,111,.2)`).
+  static const Color submitGlow = Color(0x3300236F);
+
+  /// The header's bell.
+  static const Color mobileBell = Color(0xFF000613);
+
+  /// AUTO-CAPTURE switched on: a black track.
+  static const Color toggleOnTrack = Color(0xFF000000);
+
+  /// Switched off. The design draws only the on state; this is the
+  /// border grey, so the track still reads as a control.
+  static const Color toggleOffTrack = borderStrong;
+
+  /// Validation messages, one per background they sit on — the design has
+  /// no error state, and the admin console's red is unreadable on navy and
+  /// on gold. Each clears 4.5:1 against its card.
+  static const Color errorOnNavy = Color(0xFFFFB4AB);
+  static const Color errorOnGold = Color(0xFF690005);
 }

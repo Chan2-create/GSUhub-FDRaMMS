@@ -7,6 +7,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/reporting/presentation/report_detail_screen.dart';
 import '../../features/reporting/presentation/reports_screen.dart';
+import '../../features/reporting/presentation/submission/submit_report_screen.dart';
 import '../../features/user_management/presentation/personnel_screen.dart';
 import '../../features/user_management/presentation/user_accounts_screen.dart';
 import '../../features/work_orders/presentation/task_assignment_screen.dart';
@@ -112,9 +113,7 @@ GoRouter buildAppRouter({
       routes: [
         GoRoute(
           path: RoutePaths.staffSubmitReport,
-          builder: (context, state) => const RoutePlaceholderScreen(
-            routeName: RoutePaths.staffSubmitReport,
-          ),
+          builder: (context, state) => const SubmitReportScreen(),
         ),
         GoRoute(
           path: RoutePaths.staffMyReports,

@@ -57,6 +57,12 @@ enum PriorityLevel {
   /// administrator to wonder whether they differ.
   String get label => name.toUpperCase();
 
+  /// Sentence case, for a form's options ("Critical") where the chip's
+  /// capitals would shout — the mobile report form's URGENCY LEVEL (3.C).
+  /// Still "Critical" where that mockup says "Urgent", for the reason
+  /// above.
+  String get title => '${name[0].toUpperCase()}${name.substring(1)}';
+
   /// High enough to count toward the Damage Reports "HIGH PRIORITY" card.
   bool get isHighOrAbove =>
       this == PriorityLevel.high || this == PriorityLevel.critical;
