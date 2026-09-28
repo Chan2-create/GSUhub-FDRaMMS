@@ -34,7 +34,8 @@ class AppRouteGuard {
   /// redirect to, or null to allow.
   String? call(BuildContext context, GoRouterState state) {
     final location = state.matchedLocation;
-    final isLoginRoute = location == RoutePaths.adminLogin;
+    final isLoginRoute =
+        location == RoutePaths.adminLogin || location == RoutePaths.staffLogin;
 
     // Hold still until the session is known.
     if (isResolving) return null;
@@ -49,9 +50,10 @@ class AppRouteGuard {
       // there. Uses the full URI, so query parameters on a deep link
       // survive the round trip.
       final intended = state.uri.toString();
+      final login = _loginFor(location);
       return Uri(
-        path: RoutePaths.adminLogin,
-        queryParameters: intended == RoutePaths.adminDashboard
+        path: login,
+        queryParameters: intended == _defaultAfterLogin(login)
             ? null
             : {_redirectQueryParam: intended},
       ).toString();
@@ -69,8 +71,28 @@ class AppRouteGuard {
       return _homeFor(role);
     }
 
+    if (_isStaffArea(location) && role != UserRole.requestor) {
+      // The faculty and staff app files reports as the signed-in user, and
+      // the rules accept reports from requestors only (3.C) — another role
+      // there could fill in a whole form only to have it refused.
+      return _homeFor(role);
+    }
+
     return null;
   }
+
+  /// The sign-in page for [location]'s area. The faculty and staff app has
+  /// its own (3.C's emulator stand-in until 3.A); personnel have none until
+  /// Objective 5, so they keep using the administrator's.
+  static String _loginFor(String location) =>
+      _isStaffArea(location) ? RoutePaths.staffLogin : RoutePaths.adminLogin;
+
+  /// Where each sign-in page sends a user by default — a redirect to that
+  /// place needs no round-trip bookkeeping.
+  static String _defaultAfterLogin(String login) =>
+      login == RoutePaths.staffLogin
+      ? RoutePaths.staffSubmitReport
+      : RoutePaths.adminDashboard;
 
   /// Query parameter carrying the originally requested location.
   static const String _redirectQueryParam = 'redirect';
@@ -87,15 +109,21 @@ class AppRouteGuard {
 
   static bool _isAdminArea(String location) => location.startsWith('/admin');
 
+  /// The faculty and staff app, less its sign-in page.
+  static bool _isStaffArea(String location) =>
+      location.startsWith('/staff') && location != RoutePaths.staffLogin;
+
   /// Where each role belongs after signing in.
   ///
-  /// The mobile shells are placeholders until Objectives 3 and 5; sending
-  /// a requestor or technician there is still correct — they land on their
-  /// own area rather than being told they are unauthorized for a system
-  /// they are authorized to use.
+  /// A requestor's home is the report form until 3.A/3.B build the home
+  /// screen: it is the one requestor screen that exists (3.C), and the
+  /// others are placeholders with no way onward. The personnel shell is
+  /// placeholders until Objective 5; sending a technician there is still
+  /// correct — they land on their own area rather than being told they are
+  /// unauthorized for a system they are authorized to use.
   static String _homeFor(UserRole role) => switch (role) {
     UserRole.admin => RoutePaths.adminDashboard,
-    UserRole.requestor => RoutePaths.staffMyReports,
+    UserRole.requestor => RoutePaths.staffSubmitReport,
     UserRole.maintenancePersonnel => RoutePaths.personnelDashboard,
   };
 }

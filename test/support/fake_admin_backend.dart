@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gsuhub/app.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/di/repository_providers.dart';
 import 'package:gsuhub/core/di/service_providers.dart';
@@ -66,11 +67,16 @@ ProviderScope fakeAdminScope({
   FakeAccountProvisioningService? provisioning,
   FakeFileDownloadService? downloads,
   bool useEmulator = false,
+  String? startLocation,
 }) => ProviderScope(
   overrides: [
     appConfigProvider.overrideWithValue(
       testAppConfig(useEmulator: useEmulator),
     ),
+    // Tests never run as web, so the app would otherwise open as the
+    // mobile app. Null boots the administrator console, as the web build
+    // does.
+    startLocationProvider.overrideWithValue(startLocation),
     authServiceProvider.overrideWithValue(
       authService ?? FakeAuthService(user: user),
     ),

@@ -90,9 +90,11 @@ void main() {
     });
 
     test('is blocked from the mobile shells too', () {
+      // The faculty and staff app has its own sign-in (3.C); personnel
+      // have none until Objective 5 and use the administrator's.
       expect(
         redirectFor(guard, RoutePaths.staffMyReports),
-        startsWith(RoutePaths.adminLogin),
+        startsWith(RoutePaths.staffLogin),
       );
       expect(
         redirectFor(guard, RoutePaths.personnelDashboard),
@@ -100,8 +102,23 @@ void main() {
       );
     });
 
-    test('may sit on the login page', () {
+    test('keeps a faculty deep link through the staff sign-in', () {
+      final redirect = redirectFor(guard, RoutePaths.staffMyReports);
+      expect(
+        Uri.parse(redirect!).queryParameters['redirect'],
+        RoutePaths.staffMyReports,
+      );
+    });
+
+    test('omits the redirect parameter for the report form', () {
+      // The staff sign-in lands on the form by default.
+      final redirect = redirectFor(guard, RoutePaths.staffSubmitReport);
+      expect(redirect, RoutePaths.staffLogin);
+    });
+
+    test('may sit on either login page', () {
       expect(redirectFor(guard, RoutePaths.adminLogin), isNull);
+      expect(redirectFor(guard, RoutePaths.staffLogin), isNull);
     });
   });
 
@@ -131,6 +148,15 @@ void main() {
         RoutePaths.adminDashboard,
       );
     });
+
+    test('is kept out of the faculty and staff app', () {
+      // Reports are filed as the signed-in user, and the rules accept them
+      // from requestors only (3.C).
+      expect(
+        redirectFor(guard, RoutePaths.staffSubmitReport),
+        RoutePaths.adminDashboard,
+      );
+    });
   });
 
   group('requestor', () {
@@ -145,7 +171,7 @@ void main() {
       ]) {
         expect(
           redirectFor(guard, path),
-          RoutePaths.staffMyReports,
+          RoutePaths.staffSubmitReport,
           reason: 'admin route $path was reachable by a requestor',
         );
       }
@@ -153,10 +179,18 @@ void main() {
 
     test('is sent to their own area, not an error page', () {
       // The brief is explicit: other roles are redirected, not shown an
-      // empty admin shell.
+      // empty admin shell. The report form is the requestor's home until
+      // 3.A/3.B build one.
       expect(
         redirectFor(guard, RoutePaths.adminDashboard),
-        RoutePaths.staffMyReports,
+        RoutePaths.staffSubmitReport,
+      );
+    });
+
+    test('is moved off the staff sign-in once signed in', () {
+      expect(
+        redirectFor(guard, RoutePaths.staffLogin),
+        RoutePaths.staffSubmitReport,
       );
     });
 
@@ -186,6 +220,13 @@ void main() {
     test('reaches their own shell', () {
       expect(redirectFor(guard, RoutePaths.personnelDashboard), isNull);
       expect(redirectFor(guard, RoutePaths.personnelWorkOrders), isNull);
+    });
+
+    test('is kept out of the faculty and staff app', () {
+      expect(
+        redirectFor(guard, RoutePaths.staffSubmitReport),
+        RoutePaths.personnelDashboard,
+      );
     });
   });
 

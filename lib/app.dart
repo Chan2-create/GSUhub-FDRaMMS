@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,18 @@ import 'core/constants/app_colors.dart';
 import 'core/di/service_providers.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
+import 'core/routing/route_paths.dart';
+
+/// Where the app opens, or null for the router's default (the admin
+/// dashboard).
+///
+/// The web build is the administrator console. Anything else is the
+/// mobile app, which opens on the faculty and staff area until Objective 5
+/// gives personnel a mobile area of their own to start in. A provider so
+/// tests — which never run as web — can boot either one.
+final startLocationProvider = Provider<String?>(
+  (ref) => kIsWeb ? null : RoutePaths.staffSubmitReport,
+);
 
 /// The app's [GoRouter].
 ///
@@ -38,7 +51,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     );
   }, fireImmediately: true);
 
-  final router = buildAppRouter(guardListenable: guard);
+  final router = buildAppRouter(
+    guardListenable: guard,
+    initialLocation: ref.read(startLocationProvider),
+  );
 
   ref.onDispose(router.dispose);
   return router;

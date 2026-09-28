@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/analytics/presentation/analytics_screen.dart';
+import '../../features/auth/presentation/dev_sign_in_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/reporting/presentation/report_detail_screen.dart';
@@ -100,8 +101,11 @@ GoRouter buildAppRouter({
     // --- Requestor (Faculty/Staff, mobile) — WBS Objective 3 ---
     GoRoute(
       path: RoutePaths.staffLogin,
-      builder: (context, state) =>
-          const RoutePlaceholderScreen(routeName: RoutePaths.staffLogin),
+      // The emulator stand-in exists in debug builds only; a release build
+      // has no faculty and staff sign-in until 3.A.
+      builder: (context, state) => kDebugMode
+          ? DevSignInScreen(redirectTo: AppRouteGuard.redirectTargetOf(state))
+          : const RoutePlaceholderScreen(routeName: RoutePaths.staffLogin),
     ),
     ShellRoute(
       builder: (context, state, child) => RequestorShell(child: child),

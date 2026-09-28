@@ -158,7 +158,7 @@ void main() {
         user: requestor,
       );
 
-      expect(path, RoutePaths.staffMyReports);
+      expect(path, RoutePaths.staffSubmitReport);
     });
   });
 }
