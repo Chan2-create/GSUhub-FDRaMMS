@@ -5,6 +5,8 @@ import '../config/firebase_initializer.dart';
 import '../services/account_provisioning_service.dart';
 import '../services/auth_service.dart';
 import '../services/connectivity_service.dart';
+import '../services/device/geolocator_location_service.dart';
+import '../services/device/image_picker_photo_service.dart';
 import '../services/file_download_service.dart';
 import '../services/firebase/fcm_notification_service.dart';
 import '../services/firebase/firebase_account_provisioning_service.dart';
@@ -14,7 +16,9 @@ import '../services/firebase/firebase_connectivity_service.dart';
 import '../services/firebase/firebase_storage_service.dart';
 import '../services/firebase/firestore_service_impl.dart';
 import '../services/firestore_service.dart';
+import '../services/location_service.dart';
 import '../services/notification_service.dart';
+import '../services/photo_picker_service.dart';
 import '../services/storage_service.dart';
 
 /// The app-wide [AppConfig]. Overridden in `main.dart`.
@@ -96,6 +100,16 @@ final storageServiceProvider = Provider<StorageService>(
 
 final firebaseStorageServiceProvider = Provider<FirebaseStorageService>(
   (ref) => ref.watch(storageServiceProvider) as FirebaseStorageService,
+);
+
+/// Device GPS, for the geo-tag on a damage report (Objective 3.C).
+final locationServiceProvider = Provider<LocationService>(
+  (ref) => const GeolocatorLocationService(),
+);
+
+/// Camera and photo library, for photo evidence (Objective 3.C).
+final photoPickerServiceProvider = Provider<PhotoPickerService>(
+  (ref) => ImagePickerPhotoService(),
 );
 
 final notificationServiceProvider = Provider<NotificationService>(

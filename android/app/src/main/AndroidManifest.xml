@@ -8,6 +8,18 @@
          explicitly; without this the request silently does nothing and
          work-order assignments never reach personnel. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Objective 3.C, the damage report form: the camera for photo
+         evidence and for scanning a facility's QR code (manuscript §1.5,
+         §1.7), and the device's position for the geo-tag. Fine location
+         is asked for because the tag is only useful at room scale; the
+         coarse permission is declared alongside it, as Android 12+
+         requires, so a requestor can grant approximate location only. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Not required: a phone without a camera can still report damage
+         with photos from its gallery and choose the room by hand. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
     <application
         android:label="GSUhub"

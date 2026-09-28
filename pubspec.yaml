@@ -48,6 +48,15 @@ dependencies:
   characters: ^1.4.0
   # Browser file downloads for the CSV export (web-only admin console).
   web: ^1.1.1
+  # The faculty and staff report form (Objective 3.C): camera and gallery
+  # for photo evidence, device GPS for the geo-tag, and QR scanning for
+  # facility lookup.
+  image_picker: ^1.2.3
+  geolocator: ^14.1.1
+  mobile_scanner: ^7.4.2
+  # The geo-tag's map, on OpenStreetMap tiles: no API key, no billing.
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
 
 dev_dependencies:
   flutter_test:
