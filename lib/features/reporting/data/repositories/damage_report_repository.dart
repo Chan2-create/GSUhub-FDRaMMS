@@ -3,11 +3,31 @@ import '../../../../core/enums/report_status.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../models/damage_report.dart';
+import '../models/report_submission.dart';
 
 /// Abstract contract for the `damage_reports` collection.
 ///
 /// **Interface only** — implementation is 1.C.
 abstract interface class DamageReportRepository {
+  /// A fresh id for a report about to be submitted, reserved without
+  /// writing anything — so its photo evidence can be uploaded under
+  /// `damage_reports/{id}/` before the report itself exists, and the
+  /// report can name its photos in the one write that creates it.
+  String newReportId();
+
+  /// Files a requestor's report as [reportId]: status `submitted`, stamped
+  /// with server time, with an `audit_logs` entry in the same transaction
+  /// (§3.4 Auditability names report submissions).
+  ///
+  /// Idempotent. When [reportId] already exists and is the same
+  /// reporter's — an earlier attempt that reached the server even though
+  /// the device timed out waiting — it succeeds without writing again.
+  /// A retry must never file the same damage twice.
+  Future<Result<void>> submit({
+    required String reportId,
+    required ReportSubmission submission,
+  });
+
   Future<Result<DamageReport>> getById(String id);
 
   /// Live view of one report, backing the requestor's real-time status

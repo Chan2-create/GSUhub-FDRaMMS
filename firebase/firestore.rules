@@ -134,16 +134,58 @@ service cloud.firestore {
     // history, track status. §3.4 admin capabilities: view and manage ALL
     // reports, classify, set priority, merge duplicates.
 
+    // A report as a requestor files it (Objective 3.C): their own account
+    // of the damage, well-formed, and none of the fields an administrator's
+    // review sets. Absent and null count alike, so a client that leaves a
+    // field out is not refused for it.
+    //
+    // Classification and scoring fields (category, classifiedAutomatically,
+    // the four ratings, priorityScore, recommendedPriority) are left to
+    // Objective 4: with no Cloud Functions on the Spark plan, the keyword
+    // classifier may well run on the submitting device, and would then need
+    // to write them here.
+    function isRequestorSubmission(data) {
+      return data.title is string
+        && data.title.size() > 0 && data.title.size() <= 200
+        && data.description is string
+        && data.description.size() > 0 && data.description.size() <= 5000
+        && data.requestorPriority in ['low', 'medium', 'high', 'critical']
+        // The damage type the requestor suggests — a suggestion only, kept
+        // apart from `category`.
+        && (data.get('requestorCategory', null) == null
+            || data.requestorCategory in [
+                 'electrical', 'plumbing', 'structural', 'carpentry',
+                 'airConditioning', 'cleaningAndSanitation',
+                 'generalMaintenance'
+               ])
+        && data.get('photoUrls', []) is list
+        && data.get('photoUrls', []).size() <= 10
+        && (data.get('coordinates', null) == null
+            || data.coordinates is latlng)
+        && data.get('officialPriority', null) == null
+        && data.get('duplicateOf', null) == null
+        && data.get('workOrderId', null) == null
+        && data.get('reviewedBy', null) == null
+        && data.get('reviewedAt', null) == null
+        && data.get('rejectionReason', null) == null;
+    }
+
     match /damage_reports/{reportId} {
       allow get: if isAdmin()
-        || (isActive() && resource.data.reporterId == request.auth.uid)
+        // `resource == null` lets a requestor ask whether a report id is
+        // taken before filing under it — the submission transaction reads
+        // first so a retry after a timeout cannot file twice (3.C). A
+        // missing document discloses nothing: the ids are random.
+        || (isActive()
+            && (resource == null
+                || resource.data.reporterId == request.auth.uid))
         // Personnel can open a report they are working: it is the context
         // for their assigned work order.
         || (isPersonnel() && resource.data.workOrderId != null);
 
-      // A requestor lists their own reports only. Until now this checked
+      // A requestor lists their own reports only. Until 3.C this checked
       // the page size and nothing else, so any requestor could query every
-      // other requestor's reports.
+      // other requestor's reports — photos and geo-tags included.
       allow list: if isAdmin()
         || (isRequestor()
             && resource.data.reporterId == request.auth.uid
@@ -154,9 +196,7 @@ service cloud.firestore {
       allow create: if isRequestor()
         && request.resource.data.reporterId == request.auth.uid
         && request.resource.data.status == 'submitted'
-        && request.resource.data.officialPriority == null
-        && request.resource.data.duplicateOf == null
-        && request.resource.data.workOrderId == null;
+        && isRequestorSubmission(request.resource.data);
 
       // Classification, official priority, duplicate merging and status are
       // administrator-only (§1.2, §3.4). A requestor gets no update path at

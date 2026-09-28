@@ -24,6 +24,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
+import { GeoPoint } from 'firebase/firestore';
 
 const PROJECT_ID = 'gsuhub-rules-test';
 
@@ -282,9 +283,102 @@ describe('requestor (faculty/staff)', () => {
     );
   });
 
+  // --- Objective 3.C: the mobile report form ---
+
+  // What the form writes: every field of the report, the administrator's
+  // ones null, plus photo evidence and a geo-tag.
+  const fullSubmission = (overrides = {}) => ({
+    reporterId: FACULTY_UID,
+    reporterName: 'Maria Santos',
+    title: 'Cracked window pane',
+    description: 'The pane beside the door is cracked across.',
+    category: null,
+    classifiedAutomatically: false,
+    requestorCategory: 'carpentry',
+    facilityId: 'fac-engineering',
+    facilityName: 'Engineering Building',
+    locationDescription: 'Engineering Building, Room 101',
+    assetId: null,
+    coordinates: new GeoPoint(7.2048, 126.5354),
+    photoUrls: ['https://example.test/photo-1.jpg'],
+    requestorPriority: 'high',
+    severityRating: null,
+    safetyRiskRating: null,
+    frequencyRating: null,
+    locationImportanceRating: null,
+    priorityScore: null,
+    recommendedPriority: null,
+    officialPriority: null,
+    status: 'submitted',
+    duplicateOf: null,
+    workOrderId: null,
+    reviewedBy: null,
+    reviewedAt: null,
+    rejectionReason: null,
+    ...overrides,
+  });
+
+  it('can file a report with photos and a geo-tag the way the form does', async () => {
+    // The form reads the id first inside a transaction, so a retry after a
+    // timeout cannot file twice, and writes the audit entry alongside.
+    const db = asFaculty();
+    const report = db.collection('damage_reports').doc();
+    await assertSucceeds(
+      db.runTransaction(async (transaction) => {
+        const existing = await transaction.get(report);
+        assert.equal(existing.exists, false);
+        transaction.set(report, fullSubmission());
+        transaction.set(db.collection('audit_logs').doc(), {
+          actorId: FACULTY_UID,
+          actorName: 'Maria Santos',
+          action: 'created',
+          entityType: 'damage_reports',
+          entityId: report.id,
+          description: 'Submitted "Cracked window pane"',
+        });
+      }),
+    );
+  });
+
+  it('cannot file over a report that already exists', async () => {
+    // A second write to the same id is an update, which requestors never
+    // get — so a duplicate submission can only ever be a no-op.
+    await assertFails(
+      asFaculty().doc('damage_reports/rep-faculty').set(fullSubmission()),
+    );
+  });
+
+  it('cannot pre-set a review decision when submitting', async () => {
+    await assertFails(
+      asFaculty()
+        .collection('damage_reports')
+        .add(fullSubmission({ reviewedBy: ADMIN_UID })),
+    );
+    await assertFails(
+      asFaculty()
+        .collection('damage_reports')
+        .add(fullSubmission({ rejectionReason: 'Pre-rejected' })),
+    );
+  });
+
+  it('cannot submit a malformed report', async () => {
+    for (const overrides of [
+      { description: '' },
+      { title: '' },
+      { requestorPriority: 'extreme' },
+      { requestorCategory: 'nuclear' },
+      { coordinates: 'Engineering Building' },
+      { photoUrls: Array.from({ length: 11 }, (_, i) => `photo-${i}.jpg`) },
+    ]) {
+      await assertFails(
+        asFaculty().collection('damage_reports').add(fullSubmission(overrides)),
+      );
+    }
+  });
+
   it("cannot list other requestors' reports", async () => {
-    // Listing was gated on page size alone, which let any requestor query
-    // every report in the system.
+    // Listing was gated on page size alone until 3.C, which let any
+    // requestor query every report in the system.
     await assertFails(
       asFaculty().collection('damage_reports').limit(50).get(),
     );
