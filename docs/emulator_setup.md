@@ -89,21 +89,47 @@ All use the password `password123`.
 | Email | Role |
 |---|---|
 | `admin@dorsu.edu.ph` | GSU Administrator |
+| `elena.cruz@dorsu.edu.ph` | GSU Administrator (a second one) |
 | `faculty@dorsu.edu.ph` | Faculty/Staff (requestor) |
+| `ana.gomez@dorsu.edu.ph` | Faculty/Staff |
+| `paolo.garcia@dorsu.edu.ph` | Faculty/Staff |
+| `grace.lim@dorsu.edu.ph` | Faculty/Staff — **deactivated**, cannot sign in |
 | `personnel@dorsu.edu.ph` | Maintenance personnel (electrical) |
 | `plumber@dorsu.edu.ph` | Maintenance personnel (plumbing) |
+| `structural@dorsu.edu.ph` | Maintenance personnel (structural) |
+| `carpenter@dorsu.edu.ph` | Maintenance personnel (carpentry) — on leave |
+| `general@dorsu.edu.ph` | Maintenance personnel (general maintenance) |
+| `aircon@dorsu.edu.ph` | Maintenance personnel (air conditioning) — **deactivated** |
 
 ## Seeded data
 
-- **4 facilities** — Engineering, Main Library, Administration, Science
-- **3 assets** — aircon unit, projector, ceiling fan
+- **10 facilities** — rooms across Engineering, Main Library,
+  Administration, Science and the Gymnasium, so the report form's
+  Building and Room selects have real choices. Each carries a QR value
+  `FAC-<ID IN CAPITALS>`, e.g. `FAC-FAC-ENGINEERING-203`.
+- **3 assets** — aircon unit, projector, ceiling fan (QR `AST-…`)
 - **5 inventory items** — two deliberately below their minimum threshold,
   so the low-stock alert path has something to show
 - **4 tools** — one already in repair, one in poor condition
 - **3 config documents** — including both conflicting prioritization
   weight schemes (see `docs/data_dictionary.md`)
-- **5 damage reports** — spread across categories, statuses and
-  priorities so every dashboard filter returns something
+- **Damage reports and work orders** — spread across categories,
+  statuses and priorities, plus six months of resolved history for
+  Analytics
+
+## The faculty and staff report form (Objective 3.C)
+
+The faculty and staff sign-in is Objective 3.A and is not built yet. In
+debug builds against the emulator, `/staff/login` shows a plain
+**Developer sign-in** form instead — sign in as `faculty@dorsu.edu.ph`.
+Off the web the app opens there; in a browser, go to
+`http://localhost:<port>/staff/submit`.
+
+To test QR lookup on a phone, show a QR code for a seeded value (e.g.
+`FAC-FAC-ENGINEERING-203`, or `AST-ASSET-AIRCON-01` for equipment) from
+any QR generator. Photos land in the Storage emulator under
+`damage_reports/<report id>/`; the map tiles come from OpenStreetMap, so
+the map needs internet even when everything else is local.
 
 The seed script is re-runnable: every document has a fixed id, so a second
 run overwrites rather than duplicating.

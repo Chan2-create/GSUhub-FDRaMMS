@@ -414,3 +414,61 @@ Accounts is node `89:4626`, content only: the one other User Accounts
 frame, `61:5666`, contains "DOrSUMaintain" and is excluded by standing
 instruction. The designs' photos, bulk-select checkboxes and chart menus
 are left out because no data or action stands behind them.
+
+## 14. Objective 3.C: the damage report form
+
+**Numbering.** 1.A labelled the requestor routes 3.A/3.B/3.C by guess; the
+WBS numbers report submission 3.C. There is no faculty and staff sign-in
+yet (3.A), so a debug-only `DevSignInScreen` at `/staff/login` stands in —
+emulator only, no credentials in the code. Off the web the app opens on
+the requestor area, and the report form is the requestor's home until a
+home screen exists. The guard now keeps other roles out of `/staff/*`,
+because the rules accept reports from requestors only.
+
+**Photos go up before the report exists.** `newReportId()` reserves an id
+without writing; each photo uploads to `damage_reports/{id}/`, and the
+report is then filed naming them. Photos are scaled to 1920px at JPEG
+quality 80 on the device (a few hundred KB, well under the rules' 10 MB).
+A file name is unique per attempt, because Storage rules refuse
+overwriting and an upload can land and still fail on the way back.
+
+**Filing is a transaction that reads first.** The call guard retries a
+write that times out, and a timed-out write may already be on the server;
+its retry would be an update, which requestors may not make. Reading the
+id first turns that retry into a no-op, so a report can never be filed
+twice. A transaction also needs the server, so the form never says
+"submitted" about a write only queued on the phone. The audit entry goes
+in the same transaction (§3.4 names report submissions). The rules let a
+requestor `get` a missing report id for this read; a missing random id
+discloses nothing.
+
+**A security fix carried from 1.B.** The requestor `list` rule checked
+the page size and nothing else, so any requestor could query every
+report. It now requires `reporterId == request.auth.uid`. The create
+rule also validates the submission's shape and refuses pre-set review
+fields; classification and scoring fields are left to Objective 4, whose
+keyword classifier may run on the submitting device.
+
+**DAMAGE TYPE is a suggestion.** The design lets the requestor pick a
+type; the manuscript has the classifier or an Administrator set the
+category. The pick is stored as `requestorCategory`, beside `category`,
+the way `requestorPriority` sits beside `officialPriority`, and the
+admin report detail shows it as "Suggested by requestor".
+
+**Geo-tag and map.** The tag is optional (§2.2). The map is
+OpenStreetMap through `flutter_map`: no key and no billing, which the
+Spark plan and the no-secrets rule need; the tile policy's User-Agent
+and attribution are both met. "Tap to adjust location on map" opens a
+full-screen picker, because indoors a GPS fix can be tens of metres out.
+
+**QR lookup.** A code is tried as a facility, then as an asset whose
+facility is then read; retired ones are refused. The design has no scan
+button — its header button is the bell — so a scan icon sits at the
+right end of the title row, by Chris's decision.
+
+**Design source.** Figma `165:137` with full design context. Additions
+where the design is silent, plain Material and listed in the 3.C report:
+the scan button, the camera-or-gallery sheet, the scanner and pin-picker
+screens, validation messages (a light red on navy and a dark red on gold,
+since the console's red is unreadable on both), the AUTO-CAPTURE off
+state, upload progress in the Submit button, and the confirmation.
