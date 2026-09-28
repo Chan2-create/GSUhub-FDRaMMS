@@ -141,8 +141,13 @@ service cloud.firestore {
         // for their assigned work order.
         || (isPersonnel() && resource.data.workOrderId != null);
 
+      // A requestor lists their own reports only. Until now this checked
+      // the page size and nothing else, so any requestor could query every
+      // other requestor's reports.
       allow list: if isAdmin()
-        || (isRequestor() && request.query.limit <= 100);
+        || (isRequestor()
+            && resource.data.reporterId == request.auth.uid
+            && request.query.limit <= 100);
 
       // A requestor may only file a report as themselves, and may not
       // pre-set any field that is the Administrator's decision to make.

@@ -282,6 +282,24 @@ describe('requestor (faculty/staff)', () => {
     );
   });
 
+  it("cannot list other requestors' reports", async () => {
+    // Listing was gated on page size alone, which let any requestor query
+    // every report in the system.
+    await assertFails(
+      asFaculty().collection('damage_reports').limit(50).get(),
+    );
+  });
+
+  it('can list their own reports', async () => {
+    await assertSucceeds(
+      asFaculty()
+        .collection('damage_reports')
+        .where('reporterId', '==', FACULTY_UID)
+        .limit(50)
+        .get(),
+    );
+  });
+
   it('cannot escalate their own role to admin', async () => {
     await assertFails(
       asFaculty().doc(`users/${FACULTY_UID}`).update({ role: 'admin' }),
