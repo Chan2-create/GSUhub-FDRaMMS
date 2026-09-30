@@ -75,11 +75,12 @@ dart run tool/seed_emulator.dart
 **Terminal 3 — run the app against the emulators:**
 
 ```powershell
-flutter run -d chrome --dart-define=USE_EMULATOR=true
+flutter run -d chrome
 ```
 
-An orange **EMULATOR** banner appears in the corner. If it is absent, the
-app is on the live project — stop and check the flag.
+Debug builds use the emulators by default; no flag is needed. An orange
+**EMULATOR** banner appears in the corner. If it is absent, the app is on
+the live project — stop and check how it was launched.
 
 ## Seeded accounts
 
@@ -169,7 +170,7 @@ An Android emulator reaches the host machine at `10.0.2.2`, not
 `localhost`:
 
 ```powershell
-flutter run -d <device> --dart-define=USE_EMULATOR=true --dart-define=EMULATOR_HOST=10.0.2.2
+flutter run -d <device> --dart-define=EMULATOR_HOST=10.0.2.2
 ```
 
 A physical device needs the development machine's LAN IP (`ipconfig`), and

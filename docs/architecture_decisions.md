@@ -213,13 +213,16 @@ detail). `main.dart` switches on it and renders `StartupErrorScreen`
 rather than letting an exception escape `main`, which in Flutter means a
 white screen and a cause the user cannot see.
 
-**Emulator mode is opt-in, and visible.** 1.A had
-`useFirestoreEmulator: Env.isDevelopment`, which would silently route
-every debug build at emulators. Now it requires
-`--dart-define=USE_EMULATOR=true`, and when active the app shows an orange
-EMULATOR banner. Both failure modes this prevents are bad: trusting
-seeded test data as real, and writing test records into the live project
-during a demo.
+**Emulator mode is the debug default, and visible.** 1.C first made it
+opt-in, on the reasoning that a developer who forgot to start the
+emulators should see diagnosable errors. That traded the wrong risk:
+`gsuhub-dorsu` is the only project the team demos from, and an opt-in flag
+meant a forgotten one wrote test records into it. Development builds now
+use the emulators unless `--dart-define=USE_LIVE_FIREBASE=true` is passed;
+release builds use the live project unless `USE_EMULATOR=true` forces the
+emulators, and both flags together refuse to start. The orange EMULATOR
+banner still marks the mode, and a debug build on the live project prints
+a warning at startup.
 
 **One choke point for errors.** `FirebaseCallGuard` applies timeout,
 retry-on-transient-only, and `FirebaseErrorMapper` translation to every

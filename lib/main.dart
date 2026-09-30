@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'core/config/app_config.dart';
+import 'core/config/env.dart';
 import 'core/config/firebase_initializer.dart';
 import 'core/di/service_providers.dart';
 import 'core/services/firebase/fcm_notification_service.dart';
@@ -22,6 +23,22 @@ Future<void> main() async {
 /// UI first and initializing in the background would mean the first frame
 /// renders against services that may not exist yet.
 Future<void> _startApp() async {
+  if (Env.hasConflictingBackendFlags) {
+    runApp(
+      const StartupErrorScreen(
+        failure: FirebaseStartupFailure(
+          summary: 'Conflicting backend flags.',
+          detail:
+              'USE_EMULATOR=true and USE_LIVE_FIREBASE=true were both '
+              'supplied. Pass one or neither: development builds use the '
+              'emulators by default.',
+          isConfigurationFailure: true,
+        ),
+      ),
+    );
+    return;
+  }
+
   final config = AppConfig.fromEnvironment();
   final startup = await FirebaseInitializer.initialize(config);
 

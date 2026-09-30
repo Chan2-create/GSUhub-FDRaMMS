@@ -9,14 +9,12 @@ import '../config/firebase_initializer.dart';
 /// error screen is a blank white window, which tells the user nothing and
 /// tells a developer even less.
 class StartupErrorScreen extends StatelessWidget {
-  const StartupErrorScreen({
-    required this.failure,
-    required this.onRetry,
-    super.key,
-  });
+  const StartupErrorScreen({required this.failure, super.key, this.onRetry});
 
   final FirebaseStartupFailure failure;
-  final VoidCallback onRetry;
+
+  /// Omitted for configuration failures, which a retry cannot fix.
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -38,7 +36,12 @@ class StartupErrorScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
-                if (failure.isEmulatorFailure) ...[
+                if (failure.isConfigurationFailure)
+                  const Text(
+                    'This build was started with an invalid configuration. '
+                    'Rebuild it with corrected --dart-define flags.',
+                  )
+                else if (failure.isEmulatorFailure) ...[
                   const Text(
                     'The app is running in emulator mode but could not '
                     'reach the Firebase Emulator Suite.',
@@ -58,14 +61,16 @@ class StartupErrorScreen extends StatelessWidget {
                   failure.detail,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                const SizedBox(height: 24),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    onPressed: onRetry,
-                    child: const Text('Retry'),
+                if (onRetry != null) ...[
+                  const SizedBox(height: 24),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: onRetry,
+                      child: const Text('Retry'),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

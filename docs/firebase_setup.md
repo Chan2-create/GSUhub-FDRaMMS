@@ -148,10 +148,15 @@ refuse — it talks to localhost only).
 
 | Target | Command |
 |---|---|
-| Web, live Firebase | `flutter run -d chrome --dart-define=FCM_VAPID_KEY=<key>` |
-| Web, emulators | `flutter run -d chrome --dart-define=USE_EMULATOR=true` |
-| Android, live | `flutter run -d <device>` |
-| Android emulator, against Firebase emulators | `flutter run -d <device> --dart-define=USE_EMULATOR=true --dart-define=EMULATOR_HOST=10.0.2.2` |
+| Web, emulators (debug default) | `flutter run -d chrome` |
+| Web, live Firebase from a debug build | `flutter run -d chrome --dart-define=USE_LIVE_FIREBASE=true --dart-define=FCM_VAPID_KEY=<key>` |
+| Android emulator, against Firebase emulators | `flutter run -d <device> --dart-define=EMULATOR_HOST=10.0.2.2` |
+| Android, live | `flutter run -d <device> --dart-define=USE_LIVE_FIREBASE=true` |
+| Release bundle against emulators | `flutter build web --dart-define=USE_EMULATOR=true` |
+
+Development builds use the emulators unless `USE_LIVE_FIREBASE=true` is
+passed; release builds use the live project unless `USE_EMULATOR=true` is
+passed. Passing both refuses to start.
 
 `10.0.2.2` is how an Android emulator reaches the host machine;
 `localhost` inside the emulator is the emulated device itself. A physical
