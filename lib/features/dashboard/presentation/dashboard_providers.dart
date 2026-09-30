@@ -7,19 +7,7 @@ import '../../../core/enums/report_status.dart';
 import '../../../core/utils/result.dart';
 import '../../audit/data/models/audit_log_entry.dart';
 import '../../reporting/data/models/damage_report.dart';
-
-/// Live feed of every report that is not a merged duplicate.
-///
-/// The dashboard's cards, table and charts are all views over this one
-/// stream rather than separate queries. Firestore has no server-side
-/// `count` on a live listener, so counting per status would mean one
-/// subscription per card — four listeners where one suffices, and four
-/// chances for the numbers to disagree with each other mid-update.
-final dashboardReportsProvider = StreamProvider<Result<List<DamageReport>>>((
-  ref,
-) {
-  return ref.watch(damageReportRepositoryProvider).watchAll();
-});
+import '../../reporting/presentation/report_providers.dart';
 
 /// The four summary counts shown on the stat cards.
 ///
@@ -87,14 +75,14 @@ class DashboardCounts {
 
 final dashboardCountsProvider = Provider<AsyncValue<Result<DashboardCounts>>>(
   (ref) => ref
-      .watch(dashboardReportsProvider)
+      .watch(reportsStreamProvider)
       .whenData((result) => result.map(DashboardCounts.from)),
 );
 
 /// The five most recent reports, for the Recent Reports table.
 final recentReportsProvider = Provider<AsyncValue<Result<List<DamageReport>>>>(
   (ref) => ref
-      .watch(dashboardReportsProvider)
+      .watch(reportsStreamProvider)
       .whenData((result) => result.map((reports) => reports.take(5).toList())),
 );
 
@@ -122,7 +110,7 @@ class CategorySlice {
 final reportsByCategoryProvider =
     Provider<AsyncValue<Result<List<CategorySlice>>>>(
       (ref) => ref
-          .watch(dashboardReportsProvider)
+          .watch(reportsStreamProvider)
           .whenData(
             (result) => result.map((reports) {
               if (reports.isEmpty) return const <CategorySlice>[];
@@ -172,7 +160,7 @@ class BuildingVolume {
 final reportVolumeByBuildingProvider =
     Provider<AsyncValue<Result<List<BuildingVolume>>>>(
       (ref) => ref
-          .watch(dashboardReportsProvider)
+          .watch(reportsStreamProvider)
           .whenData(
             (result) => result.map((reports) {
               final now = DateTime.now().toUtc();
@@ -250,7 +238,7 @@ final unreadNotificationCountProvider =
 /// states.
 void refreshDashboard(WidgetRef ref) {
   ref
-    ..invalidate(dashboardReportsProvider)
+    ..invalidate(reportsStreamProvider)
     ..invalidate(recentActivityProvider);
 }
 

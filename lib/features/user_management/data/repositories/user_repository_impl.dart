@@ -51,6 +51,15 @@ class UserRepositoryImpl extends FirestoreRepository implements UserRepository {
   }
 
   @override
+  Stream<Result<List<AppUser>>> watchPersonnel() => watchMany(
+    // A single equality filter needs no composite index. Sorting by name
+    // server-side would, so the caller orders the (small) roster instead.
+    query: collection(_path)
+        .where('role', isEqualTo: UserRole.maintenancePersonnel.id),
+    convert: AppUser.fromFirestore,
+  );
+
+  @override
   Future<Result<void>> create(AppUser user) =>
       setDoc(path: _path, id: user.id, data: user.toFirestore());
 

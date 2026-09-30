@@ -14,6 +14,8 @@ class StatCard extends StatelessWidget {
     required this.accent,
     super.key,
     this.value,
+    this.valueText,
+    this.definition,
     this.isLoading = false,
     this.hasError = false,
   });
@@ -24,12 +26,27 @@ class StatCard extends StatelessWidget {
   /// and while unset.
   final int? value;
 
+  /// A pre-formatted value, for metrics that are not counts ("4.2h").
+  /// Takes precedence over [value]; null falls back to it.
+  final String? valueText;
+
+  /// How the number is computed, shown as a tooltip on the card. Metrics
+  /// whose definition is a judgement call — what "response time" measures
+  /// from and to — should carry one, so the figure can be defended.
+  final String? definition;
+
   final Color accent;
   final bool isLoading;
   final bool hasError;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final card = _card();
+    final text = definition;
+    return text == null ? card : Tooltip(message: text, child: card);
+  }
+
+  Widget _card() => Container(
     height: 113,
     decoration: BoxDecoration(
       color: AppColors.surface,
@@ -85,7 +102,8 @@ class StatCard extends StatelessWidget {
         ),
       );
     }
-    if (hasError || value == null) {
+    final text = valueText ?? (value == null ? null : '$value');
+    if (hasError || text == null) {
       // A dash rather than a zero: "we could not read this" and "there are
       // none" are different facts, and showing 0 for the former would be a
       // lie the administrator acts on.
@@ -94,6 +112,6 @@ class StatCard extends StatelessWidget {
         style: AppTextStyles.statValue.copyWith(color: AppColors.textFaint),
       );
     }
-    return Text('$value', style: AppTextStyles.statValue);
+    return Text(text, style: AppTextStyles.statValue);
   }
 }

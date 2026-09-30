@@ -1,7 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/reporting/presentation/report_detail_screen.dart';
+import '../../features/reporting/presentation/reports_screen.dart';
+import '../../features/work_orders/presentation/task_assignment_screen.dart';
+import '../../features/work_orders/presentation/work_orders_screen.dart';
 import '../../shells/admin/admin_shell.dart';
 import '../../shells/personnel/personnel_shell.dart';
 import '../../shells/requestor/requestor_shell.dart';
@@ -12,15 +17,22 @@ import 'route_placeholder_screen.dart';
 /// Builds the single, path-prefixed [GoRouter] shared by all three shells
 /// (`/admin/*`, `/staff/*`, `/personnel/*`).
 ///
-/// [guard] carries the resolved auth state; `app.dart` rebuilds the router
-/// when that state changes so `redirect` always evaluates against a
-/// current session.
+/// [guard] carries the resolved auth state for a router that never changes
+/// one — tests, mostly.
+///
+/// The app passes [guardListenable] instead: one router for the life of the
+/// session, re-running `redirect` whenever the signed-in user changes.
+/// Rebuilding the router on every auth change disposes the live one, and a
+/// browser history event arriving at the disposed instance throws.
 GoRouter buildAppRouter({
   AppRouteGuard guard = const AppRouteGuard(),
+  ValueListenable<AppRouteGuard>? guardListenable,
   String? initialLocation,
 }) => GoRouter(
   initialLocation: initialLocation ?? RoutePaths.adminDashboard,
-  redirect: guard.call,
+  refreshListenable: guardListenable,
+  redirect: (context, state) =>
+      (guardListenable?.value ?? guard).call(context, state),
   routes: [
     GoRoute(
       path: RoutePaths.root,
@@ -39,6 +51,25 @@ GoRouter buildAppRouter({
         GoRoute(
           path: RoutePaths.adminDashboard,
           builder: (context, state) => const DashboardScreen(),
+        ),
+        GoRoute(
+          path: RoutePaths.adminReports,
+          builder: (context, state) => const ReportsScreen(),
+        ),
+        GoRoute(
+          path: RoutePaths.adminReportDetail,
+          builder: (context, state) =>
+              ReportDetailScreen(reportId: state.pathParameters['reportId']!),
+        ),
+        GoRoute(
+          path: RoutePaths.adminTaskAssignment,
+          builder: (context, state) => TaskAssignmentScreen(
+            preselectedReportId: state.uri.queryParameters['report'],
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.adminWorkOrders,
+          builder: (context, state) => const WorkOrdersScreen(),
         ),
         // Reachable by URL but not from the sidebar, which disables them.
         // Each names the objective that will build it.
@@ -115,9 +146,6 @@ GoRouter buildAppRouter({
 /// Admin routes whose screens belong to later objectives. Kept as a list
 /// so adding one is a single line rather than a copied `GoRoute` block.
 const List<(String, String)> _adminPlaceholders = [
-  (RoutePaths.adminReports, 'Damage Reports — Objective 2.B'),
-  (RoutePaths.adminWorkOrders, 'Work Orders — Objective 2.B'),
-  (RoutePaths.adminTaskAssignment, 'Task Assignment — Objective 2.B'),
   (RoutePaths.adminInventory, 'Inventory Management — Objective 6'),
   (RoutePaths.adminPersonnel, 'Personnel — Objective 2.C'),
   (RoutePaths.adminAnalytics, 'Analytics — Objective 2.C'),

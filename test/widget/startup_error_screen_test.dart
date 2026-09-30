@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/config/firebase_initializer.dart';
 import 'package:gsuhub/core/widgets/startup_error_screen.dart';

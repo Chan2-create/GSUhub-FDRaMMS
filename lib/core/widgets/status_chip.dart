@@ -22,7 +22,7 @@ class StatusChip extends StatelessWidget {
   factory StatusChip.report(ReportStatus status) {
     final (background, foreground) = _reportPalette(status);
     return StatusChip._(
-      label: _reportLabel(status),
+      label: status.label,
       background: background,
       foreground: foreground,
     );
@@ -45,7 +45,7 @@ class StatusChip extends StatelessWidget {
       ),
     };
     return StatusChip._(
-      label: _splitCamelCase(status.name).toUpperCase(),
+      label: status.label,
       background: background,
       foreground: foreground,
     );
@@ -82,26 +82,6 @@ class StatusChip extends StatelessWidget {
       AppColors.statusNeutralForeground,
     ),
   };
-
-  /// The design's chips read PENDING / IN PROGRESS / RESOLVED. Those are
-  /// the user-facing words for these states, so the enum's own names are
-  /// mapped rather than shown raw.
-  static String _reportLabel(ReportStatus status) => switch (status) {
-    ReportStatus.submitted => 'PENDING',
-    ReportStatus.underReview => 'UNDER REVIEW',
-    ReportStatus.approved => 'APPROVED',
-    ReportStatus.assigned => 'ASSIGNED',
-    ReportStatus.inProgress => 'IN PROGRESS',
-    ReportStatus.forReview => 'FOR REVIEW',
-    ReportStatus.completed => 'RESOLVED',
-    ReportStatus.closed => 'CLOSED',
-    ReportStatus.merged => 'MERGED',
-    ReportStatus.rejected => 'REJECTED',
-    ReportStatus.archived => 'ARCHIVED',
-  };
-
-  static String _splitCamelCase(String value) =>
-      value.replaceAllMapped(RegExp('[A-Z]'), (match) => ' ${match[0]}').trim();
 
   @override
   Widget build(BuildContext context) => DecoratedBox(

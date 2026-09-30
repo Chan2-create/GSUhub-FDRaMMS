@@ -13,10 +13,18 @@ abstract final class RoutePaths {
   /// Admin dashboard — built in 2.A.
   static const String adminDashboard = '/admin/dashboard';
 
-  /// Damage-report management — real UI lands in 2.B.
+  /// Damage-report management — built in 2.B.
   static const String adminReports = '/admin/reports';
 
-  /// Work-order assignment and Kanban board — real UI lands in 2.B.
+  /// One report, read-only in 2.B: the controls for confirming category
+  /// and priority arrive in 4.C.
+  static const String adminReportDetail = '/admin/reports/:reportId';
+
+  /// Link to [adminReportDetail] for a given report.
+  static String adminReportDetailFor(String reportId) =>
+      '/admin/reports/$reportId';
+
+  /// Work-order management and Kanban board — built in 2.B.
   static const String adminWorkOrders = '/admin/work-orders';
 
   /// Inventory management — real UI lands in Objective 6.
@@ -25,8 +33,13 @@ abstract final class RoutePaths {
   /// Maintenance personnel directory — real UI lands in 2.C.
   static const String adminPersonnel = '/admin/personnel';
 
-  /// Task assignment — real UI lands in 2.B.
+  /// Task assignment — built in 2.B.
   static const String adminTaskAssignment = '/admin/task-assignment';
+
+  /// Opens task assignment with one report already selected, from the
+  /// assign action on a row of the reports table.
+  static String adminTaskAssignmentFor(String reportId) =>
+      '$adminTaskAssignment?report=$reportId';
 
   /// Campus map view of reported issues.
   ///

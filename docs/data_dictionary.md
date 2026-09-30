@@ -185,6 +185,7 @@ Model: `DamageReport`. The primary input to the whole lifecycle (§1.7).
 | `workOrderId` | String → `work_orders` | — | | §1.7 |
 | `reviewedBy` | String → `users` | — | | §1.2 |
 | `reviewedAt` | DateTime (UTC) | — | | **DERIVED** |
+| `rejectionReason` | String | — | Required when `status == rejected`; null otherwise | **DERIVED** |
 | `submittedAt`, `updatedAt` | DateTime (UTC) | ✔ | | §1.5 |
 
 ### PENDING — who assigns the four criterion ratings?

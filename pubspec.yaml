@@ -43,6 +43,9 @@ dependencies:
   firebase_messaging: ^16.6.0
   flutter_svg: ^2.3.0
   intl: ^0.20.3
+  # Grapheme-cluster-aware string handling, for building initials from a
+  # name whose first letter may be more than one code unit.
+  characters: ^1.4.0
 
 dev_dependencies:
   flutter_test:

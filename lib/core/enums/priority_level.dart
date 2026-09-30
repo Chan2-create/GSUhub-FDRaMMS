@@ -51,6 +51,16 @@ enum PriorityLevel {
   /// `work_orders/{id}.priorityLevel` fields.
   String get id => name;
 
+  /// Chip label. `critical` stays CRITICAL even though the mockups say
+  /// "URGENT" and "EMERGENCY" in different frames: the enum is the source
+  /// of truth, and three words for one level would be three chances for an
+  /// administrator to wonder whether they differ.
+  String get label => name.toUpperCase();
+
+  /// High enough to count toward the Damage Reports "HIGH PRIORITY" card.
+  bool get isHighOrAbove =>
+      this == PriorityLevel.high || this == PriorityLevel.critical;
+
   static PriorityLevel fromId(String id) => PriorityLevel.values.firstWhere(
     (level) => level.id == id,
     orElse: () => throw ArgumentError.value(id, 'id', 'Unknown PriorityLevel'),

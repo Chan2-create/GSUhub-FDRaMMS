@@ -2,9 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firestore_paths.dart';
 import '../../../../core/data/firestore_repository.dart';
+import '../../../../core/enums/audit_action.dart';
 import '../../../../core/enums/priority_level.dart';
 import '../../../../core/enums/report_status.dart';
+import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/result.dart';
+import '../../../audit/data/models/audit_actor.dart';
+import '../../../audit/data/repositories/audit_writes.dart';
 import '../models/damage_report.dart';
 import 'damage_report_repository.dart';
 
@@ -126,12 +130,92 @@ class DamageReportRepositoryImpl extends FirestoreRepository
   );
 
   @override
-  Future<Result<void>> setStatus(String reportId, ReportStatus status) =>
-      updateDoc(
-        path: _path,
-        id: reportId,
-        data: {'status': status.id, 'updatedAt': FirestoreRepository.serverNow},
+  Future<Result<void>> transitionStatus({
+    required String reportId,
+    required ReportStatus to,
+    required AuditActor actor,
+    String? reason,
+  }) async {
+    if (!reviewTargets.contains(to)) {
+      return Result.failure(
+        ValidationFailure(
+          'A report moves to ${to.label} with its work order, not on its '
+          'own.',
+        ),
       );
+    }
+
+    final trimmedReason = reason?.trim() ?? '';
+    if (to == ReportStatus.rejected && trimmedReason.isEmpty) {
+      return const Result.failure(
+        ValidationFailure('Give a reason for rejecting this report.'),
+      );
+    }
+
+    return db.runTransaction<void>((transaction) async {
+      final reference = collection(_path).doc(reportId);
+      final snapshot = await transaction.get(reference);
+
+      if (!snapshot.exists) {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'not-found',
+          message: 'No damage report $reportId',
+        );
+      }
+
+      // The stored status, not the caller's copy: a second administrator
+      // may have acted on this report since the screen last refreshed.
+      final current = DamageReport.fromFirestore(snapshot).status;
+      if (current == to) return;
+
+      if (!current.canTransitionTo(to)) {
+        throw FirebaseException(
+          plugin: 'gsuhub',
+          code: 'failed-precondition',
+          message: 'A report cannot move from ${current.label} to ${to.label}.',
+        );
+      }
+
+      final isDecision =
+          to == ReportStatus.approved || to == ReportStatus.rejected;
+
+      transaction.update(reference, {
+        'status': to.id,
+        'updatedAt': FirestoreRepository.serverNow,
+        if (isDecision) 'reviewedBy': actor.id,
+        if (isDecision) 'reviewedAt': FirestoreRepository.serverNow,
+        if (to == ReportStatus.rejected) 'rejectionReason': trimmedReason,
+      });
+
+      stageAuditEntry(
+        transaction,
+        db.raw,
+        actor: actor,
+        action: AuditAction.statusChanged,
+        entityType: FirestorePaths.damageReports,
+        entityId: reportId,
+        description: to == ReportStatus.rejected
+            ? 'Rejected: $trimmedReason'
+            : 'Status changed from ${current.label} to ${to.label}',
+        changes: {
+          'from': current.id,
+          'to': to.id,
+          if (to == ReportStatus.rejected) 'reason': trimmedReason,
+        },
+      );
+    });
+  }
+
+  /// The statuses an administrator sets directly while reviewing. Every
+  /// later stage is driven by the report's work order, so letting this
+  /// method set `assigned` would create an assigned report with no work
+  /// order behind it.
+  static const Set<ReportStatus> reviewTargets = {
+    ReportStatus.underReview,
+    ReportStatus.approved,
+    ReportStatus.rejected,
+  };
 
   @override
   Future<Result<List<DamageReport>>> findPotentialDuplicates(

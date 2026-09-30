@@ -52,6 +52,8 @@ Future<void> main() async {
   await _seedTools();
   await _seedConfig();
   await _seedDamageReports();
+  await _seedWorkOrders();
+  await _seedAuditLogs();
 
   if (_failures > 0) {
     stderr
@@ -127,7 +129,9 @@ Future<void> _seedUsers() async {
     'department': _str('General Services Unit'),
     'specialization': _str('electrical'),
     'availability': _str('available'),
-    'activeTaskCount': _int(0),
+    // Matches the one open work order seeded against this account; a count
+    // that disagrees with the board is the first thing an assigner distrusts.
+    'activeTaskCount': _int(1),
     'createdAt': _now(),
     'updatedAt': _now(),
   });
@@ -365,93 +369,180 @@ Future<void> _seedConfig() async {
   stdout.writeln('  config: 3 documents');
 }
 
-// --- damage reports ----------------------------------------------------
+// --- damage reports, work orders and the audit trail -------------------
+
+/// One seeded report. Written as a class rather than a long positional
+/// record because 2.B added review, assignment and scheduling fields, and
+/// a nine-slot tuple stopped being readable.
+class _SeededReport {
+  const _SeededReport({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.facilityId,
+    required this.facilityName,
+    required this.requestorPriority,
+    required this.status,
+    required this.submittedHoursAgo,
+    this.category,
+    this.officialPriority,
+    this.workOrderId,
+  });
+
+  final String id;
+  final String title;
+  final String description;
+
+  /// Null for the one report left unclassified, so the screens have a case
+  /// where category is genuinely absent — assignment refuses it, and the
+  /// table shows "Unclassified" rather than a blank.
+  final String? category;
+
+  final String facilityId;
+  final String facilityName;
+  final String requestorPriority;
+
+  /// Set only where an administrator would have confirmed it, so both the
+  /// filled and the outlined priority chip appear on screen.
+  final String? officialPriority;
+
+  final String status;
+  final int submittedHoursAgo;
+  final String? workOrderId;
+
+  bool get isReviewed => status != 'submitted' && status != 'underReview';
+}
+
+const List<_SeededReport> _seededReports = [
+  _SeededReport(
+    id: 'rep-0001',
+    title: 'Broken Ceiling Fan',
+    description:
+        'Ceiling fan in Room 101 wobbles badly and makes a loud grinding '
+        'noise. It looks like it could come loose.',
+    category: 'electrical',
+    facilityId: 'fac-engineering',
+    facilityName: 'Engineering Building',
+    requestorPriority: 'high',
+    status: 'underReview',
+    submittedHoursAgo: 5,
+  ),
+  _SeededReport(
+    id: 'rep-0002',
+    title: 'Leaking Pipe Under Sink',
+    description:
+        'Water is pooling under the sink in Science Laboratory 3. The floor '
+        'is slippery and it has been getting worse since yesterday.',
+    category: 'plumbing',
+    facilityId: 'fac-science',
+    facilityName: 'Science Building',
+    requestorPriority: 'critical',
+    officialPriority: 'critical',
+    status: 'assigned',
+    submittedHoursAgo: 26,
+    workOrderId: 'wo-0002',
+  ),
+  _SeededReport(
+    id: 'rep-0003',
+    title: 'Flickering Lights',
+    description:
+        'Lights in the library study area flicker constantly. Possibly a '
+        'ballast issue.',
+    category: 'electrical',
+    facilityId: 'fac-library',
+    facilityName: 'Main Library',
+    requestorPriority: 'medium',
+    officialPriority: 'medium',
+    status: 'inProgress',
+    submittedHoursAgo: 72,
+    workOrderId: 'wo-0003',
+  ),
+  _SeededReport(
+    id: 'rep-0004',
+    title: 'Aircon Not Cooling',
+    description:
+        'The split-type aircon in the admin office runs but does not cool '
+        'the room at all.',
+    category: 'airConditioning',
+    facilityId: 'fac-admin',
+    facilityName: 'Administration Building',
+    requestorPriority: 'medium',
+    status: 'submitted',
+    submittedHoursAgo: 2,
+  ),
+  _SeededReport(
+    id: 'rep-0005',
+    title: 'Cracked Wall Near Stairwell',
+    description:
+        'A crack has appeared along the wall beside the west stairwell. It '
+        'runs about a metre.',
+    category: 'structural',
+    facilityId: 'fac-engineering',
+    facilityName: 'Engineering Building',
+    requestorPriority: 'high',
+    officialPriority: 'high',
+    status: 'completed',
+    submittedHoursAgo: 288,
+    workOrderId: 'wo-0005',
+  ),
+  // The three below are approved and unassigned: without them the Task
+  // Assignment queue is empty and the screen cannot be demonstrated.
+  _SeededReport(
+    id: 'rep-0006',
+    title: 'Broken Door Handle',
+    description:
+        'The handle on the admin office door has come away from the frame '
+        'and no longer latches.',
+    category: 'carpentry',
+    facilityId: 'fac-admin',
+    facilityName: 'Administration Building',
+    requestorPriority: 'low',
+    officialPriority: 'low',
+    status: 'approved',
+    submittedHoursAgo: 8,
+  ),
+  _SeededReport(
+    id: 'rep-0007',
+    title: 'Clogged Drain in Laboratory 2',
+    description:
+        'The floor drain backs up whenever the sink is used. Standing water '
+        'by the end of the afternoon.',
+    category: 'plumbing',
+    facilityId: 'fac-science',
+    facilityName: 'Science Building',
+    requestorPriority: 'high',
+    status: 'approved',
+    submittedHoursAgo: 30,
+  ),
+  _SeededReport(
+    id: 'rep-0008',
+    title: 'Ceiling Stain Spreading',
+    description:
+        'A brown stain on the library ceiling has grown since last week. '
+        'Unclear whether it is a roof leak or a pipe.',
+    facilityId: 'fac-library',
+    facilityName: 'Main Library',
+    requestorPriority: 'medium',
+    status: 'approved',
+    submittedHoursAgo: 20,
+  ),
+];
 
 Future<void> _seedDamageReports() async {
-  // Spread across categories, statuses and priorities so every filter in
-  // the Admin dashboard has something to show.
-  final reports = [
-    (
-      'rep-0001',
-      'Broken Ceiling Fan',
-      'Ceiling fan in Room 101 wobbles badly and makes a loud grinding '
-          'noise. It looks like it could come loose.',
-      'electrical',
-      'fac-engineering',
-      'Engineering Building',
-      'high',
-      'underReview',
-    ),
-    (
-      'rep-0002',
-      'Leaking Pipe Under Sink',
-      'Water is pooling under the sink in Science Laboratory 3. The floor '
-          'is slippery and it has been getting worse since yesterday.',
-      'plumbing',
-      'fac-science',
-      'Science Building',
-      'critical',
-      'assigned',
-    ),
-    (
-      'rep-0003',
-      'Flickering Lights',
-      'Lights in the library study area flicker constantly. Possibly a '
-          'ballast issue.',
-      'electrical',
-      'fac-library',
-      'Main Library',
-      'medium',
-      'inProgress',
-    ),
-    (
-      'rep-0004',
-      'Aircon Not Cooling',
-      'The split-type aircon in the admin office runs but does not cool '
-          'the room at all.',
-      'airConditioning',
-      'fac-admin',
-      'Administration Building',
-      'medium',
-      'submitted',
-    ),
-    (
-      'rep-0005',
-      'Cracked Wall Near Stairwell',
-      'A crack has appeared along the wall beside the west stairwell. It '
-          'runs about a metre.',
-      'structural',
-      'fac-engineering',
-      'Engineering Building',
-      'high',
-      'completed',
-    ),
-  ];
-
-  for (final (
-        id,
-        title,
-        description,
-        category,
-        facilityId,
-        facilityName,
-        priority,
-        status,
-      )
-      in reports) {
-    await _writeDoc('damage_reports', id, {
+  for (final report in _seededReports) {
+    await _writeDoc('damage_reports', report.id, {
       'reporterId': _str(facultyUid),
       'reporterName': _str('Maria Santos'),
-      'title': _str(title),
-      'description': _str(description),
-      'category': _str(category),
-      'classifiedAutomatically': _bool(true),
-      'facilityId': _str(facilityId),
-      'facilityName': _str(facilityName),
-      'locationDescription': _str(facilityName),
+      'title': _str(report.title),
+      'description': _str(report.description),
+      'category': report.category == null ? _null() : _str(report.category!),
+      'classifiedAutomatically': _bool(report.category != null),
+      'facilityId': _str(report.facilityId),
+      'facilityName': _str(report.facilityName),
+      'locationDescription': _str(report.facilityName),
       'photoUrls': _strArray([]),
-      'requestorPriority': _str(priority),
-      'status': _str(status),
+      'requestorPriority': _str(report.requestorPriority),
+      'status': _str(report.status),
       // Every remaining nullable key DamageReport.toFirestore() writes,
       // written here as an explicit null so a seeded document has the same
       // shape as one the app creates. Omitting `duplicateOf` made all five
@@ -468,17 +559,182 @@ Future<void> _seedDamageReports() async {
       'locationImportanceRating': _null(),
       'priorityScore': _null(),
       'recommendedPriority': _null(),
-      'officialPriority': _null(),
+      'officialPriority': report.officialPriority == null
+          ? _null()
+          : _str(report.officialPriority!),
       'duplicateOf': _null(),
-      'workOrderId': _null(),
-      'reviewedBy': _null(),
-      'reviewedAt': _null(),
-      'submittedAt': _now(),
+      'workOrderId': report.workOrderId == null
+          ? _null()
+          : _str(report.workOrderId!),
+      'reviewedBy': report.isReviewed ? _str(adminUid) : _null(),
+      'reviewedAt': report.isReviewed
+          ? _ago(Duration(hours: report.submittedHoursAgo - 1))
+          : _null(),
+      'rejectionReason': _null(),
+      'submittedAt': _ago(Duration(hours: report.submittedHoursAgo)),
       'updatedAt': _now(),
     });
   }
 
-  stdout.writeln('  damage_reports: ${reports.length}');
+  stdout.writeln(
+    '  damage_reports: ${_seededReports.length} '
+    '(3 approved and awaiting assignment, 1 unclassified)',
+  );
+}
+
+/// Work orders for the three reports that have been assigned.
+///
+/// `wo-0002` is deliberately past its target date so the OVERDUE card has
+/// something to count, and `wo-0005` completed this morning so COMPLETED
+/// TODAY is not zero.
+Future<void> _seedWorkOrders() async {
+  final workOrders = [
+    (
+      'wo-0002',
+      'rep-0002',
+      'plumbing',
+      'critical',
+      'pending',
+      personnelPlumberUid,
+      24,
+      -48,
+      false,
+    ),
+    (
+      'wo-0003',
+      'rep-0003',
+      'electrical',
+      'medium',
+      'inProgress',
+      personnelUid,
+      48,
+      48,
+      false,
+    ),
+    (
+      'wo-0005',
+      'rep-0005',
+      'structural',
+      'high',
+      'completed',
+      personnelUid,
+      240,
+      24,
+      true,
+    ),
+  ];
+
+  for (final (
+        id,
+        reportId,
+        category,
+        priority,
+        status,
+        assignee,
+        createdHoursAgo,
+        scheduledInHours,
+        isCompleted,
+      )
+      in workOrders) {
+    final report = _seededReports.firstWhere(
+      (candidate) => candidate.id == reportId,
+    );
+
+    await _writeDoc('work_orders', id, {
+      'reportIds': _strArray([reportId]),
+      'title': _str(report.title),
+      'description': _str(report.description),
+      'category': _str(category),
+      'priority': _str(priority),
+      'status': _str(status),
+      'assignedPersonnelIds': _strArray([assignee]),
+      'facilityId': _str(report.facilityId),
+      'facilityName': _str(report.facilityName),
+      'adminNotes': _null(),
+      'scheduledFor': _ago(Duration(hours: -scheduledInHours)),
+      'startedAt': status == 'pending'
+          ? _null()
+          : _ago(Duration(hours: createdHoursAgo - 4)),
+      'completedAt': isCompleted ? _ago(const Duration(hours: 3)) : _null(),
+      'createdBy': _str(adminUid),
+      'createdAt': _ago(Duration(hours: createdHoursAgo)),
+      'updatedAt': _now(),
+    });
+  }
+
+  stdout.writeln('  work_orders: ${workOrders.length} (1 overdue)');
+}
+
+/// A short audit trail, so the dashboard's Recent Activity panel and the
+/// report detail view's history have something to show on a fresh
+/// emulator. Entries the app writes itself look exactly like these.
+Future<void> _seedAuditLogs() async {
+  final entries = [
+    (
+      'aud-0001',
+      'rep-0002',
+      'damage_reports',
+      'statusChanged',
+      'Status changed from UNDER REVIEW to APPROVED',
+      27,
+    ),
+    (
+      'aud-0002',
+      'rep-0002',
+      'damage_reports',
+      'assigned',
+      'Assigned to Juan Luna',
+      24,
+    ),
+    (
+      'aud-0003',
+      'wo-0002',
+      'work_orders',
+      'created',
+      'Work order created from report rep-0002',
+      24,
+    ),
+    (
+      'aud-0004',
+      'rep-0003',
+      'damage_reports',
+      'assigned',
+      'Assigned to Marcus Wright',
+      48,
+    ),
+    (
+      'aud-0005',
+      'wo-0003',
+      'work_orders',
+      'statusChanged',
+      'Status changed from Pending to In Progress',
+      44,
+    ),
+    (
+      'aud-0006',
+      'rep-0005',
+      'damage_reports',
+      'statusChanged',
+      'Status changed from FOR REVIEW to COMPLETED',
+      3,
+    ),
+  ];
+
+  for (final (id, entityId, entityType, action, description, hoursAgo)
+      in entries) {
+    await _writeDoc('audit_logs', id, {
+      'actorId': _str(adminUid),
+      'actorName': _str('Ramon Dela Cruz'),
+      'action': _str(action),
+      'entityType': _str(entityType),
+      'entityId': _str(entityId),
+      'description': _str(description),
+      'changes': _null(),
+      'timestamp': _ago(Duration(hours: hoursAgo)),
+    });
+  }
+
+  stdout.writeln('  audit_logs: ${entries.length}');
 }
 
 // --- emulator REST helpers --------------------------------------------
@@ -586,6 +842,13 @@ Map<String, Object?> _bool(bool value) => {'booleanValue': value};
 /// therefore has to write the same nulls `toFirestore()` writes, or queries
 /// that filter on them silently return nothing.
 Map<String, Object?> _null() => {'nullValue': null};
+
+/// A timestamp [ago] before now, so seeded data has a believable spread
+/// of ages — response time and the volume chart both measure elapsed time.
+Map<String, Object?> _ago(Duration ago) => {
+  'timestampValue': DateTime.now().toUtc().subtract(ago).toIso8601String(),
+};
+
 Map<String, Object?> _now() => {
   'timestampValue': DateTime.now().toUtc().toIso8601String(),
 };
