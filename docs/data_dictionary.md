@@ -179,12 +179,13 @@ Model: `DamageReport`. The primary input to the whole lifecycle (§1.7).
 | `description` | String | ✔ | Must not be blank | §3.4 Reporting Policy |
 | `category` | enum `DamageCategory` | — | Null until classified | §3.4 |
 | `classifiedAutomatically` | bool | ✔ (default false) | Keyword match vs. admin classification | **DERIVED** |
-| `facilityId` | String → `facilities` | — | | §1.5 |
+| `requestorCategory` | enum `DamageCategory` | — | The requestor's suggested damage type (form's DAMAGE TYPE). **A suggestion only** — never sets `category` | Figma `165:137`; 3.C |
+| `facilityId` | String → `facilities` | — | Required by the form (Building + Room, or a QR scan) | §1.5 |
 | `facilityName` | String | — | **Denormalized** from `facilities.name` | Fig 16 |
-| `locationDescription` | String | — | Requestor's own location text | §1.5 |
+| `locationDescription` | String | — | Building and room, from the facility | §1.5 |
 | `assetId` | String → `assets` | — | Set when an asset QR was scanned | §1.5 |
-| `coordinates` | GeoPoint | — | Geo-tag; **supplementary only** | §1.5, §2.2 |
-| `photoUrls` | List\<String\> | ✔ (default `[]`) | Storage download URLs | §1.5 |
+| `coordinates` | GeoPoint | — | Geo-tag; **supplementary only**. The device's fix, or a point the requestor moved the pin to | §1.5, §2.2 |
+| `photoUrls` | List\<String\> | ✔ (default `[]`) | Storage download URLs under `damage_reports/{id}/`; the form requires 1–5, the rules allow up to 10 | §1.5 |
 | `requestorPriority` | enum `PriorityLevel` | ✔ | Requestor's own urgency pick | §1.2 |
 | `severityRating` | int 1–4 | — | | **PENDING** — see below |
 | `safetyRiskRating` | int 1–4 | — | | **PENDING** |
@@ -221,6 +222,19 @@ All four fields are therefore **nullable**, and `priorityScore` /
 `DamageReport.effectivePriority` falls back official → recommended →
 requestor so the app is usable in the meantime. **Needs your decision
 before Objective 4.B.**
+
+### What a requestor may write (Objective 3.C)
+
+The mobile form files a report through `DamageReportRepository.submit`,
+which writes every field above — the administrator's ones null — plus
+`submittedAt`/`updatedAt` as server timestamps, and an `audit_logs`
+`created` entry in the same transaction. The security rules
+(`isRequestorSubmission`) require a non-blank title (≤ 200) and
+description (≤ 5000), a known `requestorPriority` and `requestorCategory`,
+at most ten photo URLs and a real geo-point, and refuse any pre-set
+review field (`officialPriority`, `duplicateOf`, `workOrderId`,
+`reviewedBy`, `reviewedAt`, `rejectionReason`). Classification and
+scoring fields are left to Objective 4.
 
 ## work_orders
 

@@ -51,15 +51,19 @@ Work proceeds objective by objective against the project WBS.
 | 2.A | Admin authentication, dashboard, main layout | Complete |
 | 2.B | Damage report management, task assignment, work-order Kanban | Complete |
 | 2.C | Analytics, personnel and user account management | Complete |
-| 3 | Requestor mobile app | Not started |
+| 3.C | Faculty and staff damage report submission (photos, geo-tag, QR lookup) | Complete |
+| 3 (rest) | Faculty and staff sign-in, home, tracking, feedback | Not started |
 | 5 | Maintenance personnel mobile app | Not started |
 | 6 | Inventory management | Not started |
 
-The administrator console is the only role with working screens: the
-dashboard, damage reports and their detail view, task assignment, the
-work-order board, the personnel directory, analytics with a CSV export,
-and user account management. The requestor and personnel shells route correctly and
-are guarded by role, but resolve to placeholders.
+The administrator console has working screens for every 2.x objective:
+the dashboard, damage reports and their detail view, task assignment,
+the work-order board, the personnel directory, analytics with a CSV
+export, and user account management. The faculty and staff app has its
+damage report form (3.C), reached through an emulator-only developer
+sign-in until 3.A builds the real one — see docs/emulator_setup.md. The
+personnel shell routes correctly and is guarded by role, but resolves to
+placeholders.
 
 ## Setup
 

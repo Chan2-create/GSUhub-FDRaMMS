@@ -10,6 +10,7 @@ import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../models/damage_report.dart';
+import '../models/report_submission.dart';
 import 'damage_report_repository.dart';
 
 /// Firestore-backed [DamageReportRepository]. Persistence only — no
@@ -69,6 +70,78 @@ class DamageReportRepositoryImpl extends FirestoreRepository
   @override
   Future<Result<String>> create(DamageReport report) =>
       add(path: _path, data: report.toFirestore());
+
+  @override
+  String newReportId() => collection(_path).doc().id;
+
+  @override
+  Future<Result<void>> submit({
+    required String reportId,
+    required ReportSubmission submission,
+  }) => db.runTransaction<void>((transaction) async {
+    final reference = collection(_path).doc(reportId);
+
+    // A transaction rather than a plain write because of the call guard's
+    // retry: a write that times out may still have reached the server, and
+    // its retry would then be an update, which the rules refuse a
+    // requestor. Reading first turns that retry into a no-op. A
+    // transaction also needs the server, so a report is never shown as
+    // submitted while it is only queued on the phone.
+    final existing = await transaction.get(reference);
+    if (existing.exists) {
+      if (existing.data()?['reporterId'] == submission.reporter.id) return;
+      throw FirestoreRepository.precondition(
+        'This report could not be filed. Please try again.',
+      );
+    }
+
+    final now = DateTime.now().toUtc();
+    final coordinates = submission.coordinates;
+
+    // Built through the model so its validation and field names stay the
+    // single definition, then stamped with server time.
+    final report = DamageReport(
+      id: reportId,
+      reporterId: submission.reporter.id,
+      reporterName: submission.reporter.name,
+      title: submission.title.trim(),
+      description: submission.description.trim(),
+      requestorPriority: submission.requestorPriority,
+      requestorCategory: submission.requestorCategory,
+      status: ReportStatus.submitted,
+      facilityId: submission.facilityId,
+      facilityName: submission.facilityName,
+      locationDescription: submission.locationDescription,
+      assetId: submission.assetId,
+      coordinates: coordinates == null
+          ? null
+          : GeoPoint(coordinates.latitude, coordinates.longitude),
+      photoUrls: submission.photoUrls,
+      submittedAt: now,
+      updatedAt: now,
+    );
+
+    transaction.set(reference, {
+      ...report.toFirestore(),
+      'submittedAt': FirestoreRepository.serverNow,
+      'updatedAt': FirestoreRepository.serverNow,
+    });
+
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: submission.reporter,
+      action: AuditAction.created,
+      entityType: FirestorePaths.damageReports,
+      entityId: reportId,
+      description: 'Submitted "${report.title}"',
+      changes: {
+        'facilityId': submission.facilityId,
+        'photos': submission.photoUrls.length,
+        'geoTagged': coordinates != null,
+      },
+    );
+  });
 
   @override
   Future<Result<void>> update(DamageReport report) => updateDoc(

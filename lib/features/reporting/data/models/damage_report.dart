@@ -37,6 +37,7 @@ class DamageReport {
     required this.updatedAt,
     this.category,
     this.classifiedAutomatically = false,
+    this.requestorCategory,
     this.facilityId,
     this.facilityName,
     this.locationDescription,
@@ -105,6 +106,11 @@ class DamageReport {
       classifiedAutomatically:
           FirestoreConverters.optional<bool>(data, 'classifiedAutomatically') ??
           false,
+      requestorCategory: FirestoreConverters.optionalEnum(
+        data,
+        'requestorCategory',
+        DamageCategory.fromId,
+      ),
       facilityId: FirestoreConverters.optional<String>(data, 'facilityId'),
       facilityName: FirestoreConverters.optional<String>(data, 'facilityName'),
       locationDescription: FirestoreConverters.optional<String>(
@@ -184,6 +190,14 @@ class DamageReport {
   /// Administrator's manual classification (`false`). Lets 4.A measure
   /// how often the keyword dictionary actually fires.
   final bool classifiedAutomatically;
+
+  /// The damage type the requestor picked on the form (Objective 3.C,
+  /// Figma "DAMAGE TYPE"). A suggestion only, kept apart from [category]
+  /// the way [requestorPriority] is kept apart from [officialPriority]:
+  /// the manuscript has the keyword classifier or an Administrator decide
+  /// the category (§3.4), and a requestor's guess at the trade must not
+  /// route the job by itself. Null when they left it unpicked.
+  final DamageCategory? requestorCategory;
 
   final String? facilityId;
 
@@ -282,6 +296,7 @@ class DamageReport {
     'description': description,
     'category': category?.id,
     'classifiedAutomatically': classifiedAutomatically,
+    'requestorCategory': requestorCategory?.id,
     'facilityId': facilityId,
     'facilityName': facilityName,
     'locationDescription': locationDescription,
@@ -314,6 +329,7 @@ class DamageReport {
     String? description,
     DamageCategory? category,
     bool? classifiedAutomatically,
+    DamageCategory? requestorCategory,
     String? facilityId,
     String? facilityName,
     String? locationDescription,
@@ -345,6 +361,7 @@ class DamageReport {
     category: category ?? this.category,
     classifiedAutomatically:
         classifiedAutomatically ?? this.classifiedAutomatically,
+    requestorCategory: requestorCategory ?? this.requestorCategory,
     facilityId: facilityId ?? this.facilityId,
     facilityName: facilityName ?? this.facilityName,
     locationDescription: locationDescription ?? this.locationDescription,
@@ -381,6 +398,7 @@ class DamageReport {
         other.description == description &&
         other.category == category &&
         other.classifiedAutomatically == classifiedAutomatically &&
+        other.requestorCategory == requestorCategory &&
         other.facilityId == facilityId &&
         other.facilityName == facilityName &&
         other.locationDescription == locationDescription &&
@@ -414,6 +432,7 @@ class DamageReport {
     description,
     category,
     classifiedAutomatically,
+    requestorCategory,
     facilityId,
     facilityName,
     locationDescription,

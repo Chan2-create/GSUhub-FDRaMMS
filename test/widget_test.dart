@@ -13,6 +13,7 @@ void main() {
     WidgetTester tester, {
     bool useEmulator = false,
     AuthUser? user = fakeAdminUser,
+    String? startLocation,
   }) async {
     tester.view
       ..physicalSize = const Size(1440, 1024)
@@ -23,6 +24,7 @@ void main() {
       fakeAdminScope(
         user: user,
         useEmulator: useEmulator,
+        startLocation: startLocation,
         child: const GsuhubApp(),
       ),
     );
@@ -44,6 +46,21 @@ void main() {
     await pumpApp(tester, user: null);
 
     expect(find.text('Welcome back!'), findsOneWidget);
+  });
+
+  testWidgets('the mobile app boots a signed-out visitor to the staff '
+      'sign-in', (tester) async {
+    // Off the web, the app is the faculty and staff app (3.C). Its sign-in
+    // is the emulator stand-in until 3.A — never the admin console's.
+    await pumpApp(
+      tester,
+      user: null,
+      useEmulator: true,
+      startLocation: RoutePaths.staffSubmitReport,
+    );
+
+    expect(find.text('Developer sign-in'), findsOneWidget);
+    expect(find.text('Welcome back!'), findsNothing);
   });
 
   testWidgets('emulator banner is hidden when not in emulator mode', (

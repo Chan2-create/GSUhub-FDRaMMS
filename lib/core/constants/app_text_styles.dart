@@ -949,4 +949,134 @@ abstract final class AppTextStyles {
     color: AppColors.textPrimary,
     height: 21 / 14,
   );
+
+  // --- faculty and staff app: Report Damage (Figma 165:137, 3.C) ---
+
+  /// "Report Damage".
+  static const TextStyle mobileScreenTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 18,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textStrong,
+    letterSpacing: -0.45,
+    height: 28 / 18,
+  );
+
+  /// "FACILITY / ISSUE TITLE", "BUILDING" — the colour depends on the card
+  /// behind it (white on navy, black on gold).
+  static const TextStyle formLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.6,
+    height: 16 / 12,
+  );
+
+  /// Typed text in the title box. White: the box is gold-tinted over navy.
+  static const TextStyle formTitleInput = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textOnDark,
+  );
+
+  static const TextStyle formTitlePlaceholder = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.formPlaceholder,
+  );
+
+  /// The description box, and its placeholder in [formPlaceholder].
+  static const TextStyle formTextArea = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 20 / 14,
+  );
+
+  /// The value in a form select — "Engineering Bldg", "Select Type".
+  static const TextStyle formSelectText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 20 / 14,
+  );
+
+  /// "Tap to take photo or upload from gallery".
+  static const TextStyle dropZonePrompt = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textStrong,
+    height: 20 / 14,
+  );
+
+  /// "GPS LOCATION".
+  static const TextStyle gpsLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: Colors.black,
+    letterSpacing: 1.2,
+    height: 16 / 12,
+  );
+
+  /// "AUTO-CAPTURE".
+  static const TextStyle autoCaptureLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    color: AppColors.iconMuted,
+    height: 15 / 10,
+  );
+
+  /// "Engineering Building, DOrSU".
+  static const TextStyle placeName = TextStyle(
+    fontFamily: _ui,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+    height: 24 / 18,
+  );
+
+  /// "Lat: 7.2048, Long: 126.5354", and the geo-tag's status lines.
+  static const TextStyle coordinates = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.iconMuted,
+    height: 20 / 14,
+  );
+
+  /// "Tap to adjust location on map".
+  static const TextStyle mapLink = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: Colors.black,
+    height: 20 / 14,
+    decoration: TextDecoration.underline,
+    decorationColor: AppColors.mapLinkUnderline,
+  );
+
+  /// "Submit Report".
+  static const TextStyle submitLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textOnDark,
+    height: 24 / 18,
+  );
+
+  /// A validation message under a form field; the colour depends on the
+  /// card behind it.
+  static const TextStyle formError = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    height: 16 / 12,
+  );
 }

@@ -307,6 +307,12 @@ class _ClassificationCard extends StatelessWidget {
           label: 'Damage type',
           value: report.category?.label ?? 'Unclassified',
         ),
+        // What the requestor picked on the mobile form (3.C). Shown beside
+        // the category rather than as it: a suggestion, not a decision.
+        if (report.requestorCategory case final suggested?) ...[
+          const SizedBox(height: 16),
+          _Field(label: 'Suggested by requestor', value: suggested.label),
+        ],
         const SizedBox(height: 16),
         _Field(
           label: 'Priority',

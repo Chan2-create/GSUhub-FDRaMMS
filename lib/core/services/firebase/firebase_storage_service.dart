@@ -6,53 +6,6 @@ import '../../utils/result.dart';
 import '../storage_service.dart';
 import 'firebase_call_guard.dart';
 
-/// Canonical Cloud Storage paths.
-///
-/// Centralized for the same reason collection names are: a path typed by
-/// hand in two places eventually diverges, and here a divergence means
-/// uploads land somewhere the security rules do not cover. These mirror
-/// the `match` blocks in `firebase/storage.rules` exactly — change one and
-/// you must change the other.
-abstract final class StoragePaths {
-  /// Photo evidence attached to a damage report (manuscript §1.5).
-  static String damageReportPhoto(String reportId, String fileName) =>
-      'damage_reports/$reportId/$fileName';
-
-  /// Photo documentation of completed maintenance.
-  static String accomplishmentPhoto(String reportId, String fileName) =>
-      'accomplishment_reports/$reportId/$fileName';
-
-  /// Per-task proof of work (Figure 24, "Upload Proof").
-  static String taskProofPhoto(String taskId, String fileName) =>
-      'tasks/$taskId/$fileName';
-
-  /// Generated QR code image for a facility or asset.
-  static String qrCode(String entityType, String entityId) =>
-      'qr_codes/$entityType/$entityId.png';
-
-  static String userProfileImage(String uid, String fileName) =>
-      'users/$uid/$fileName';
-}
-
-/// Progress of an in-flight upload, surfaced so a UI can show a
-/// determinate progress bar instead of an indefinite spinner — photo
-/// uploads over campus wifi are slow enough that the difference matters.
-class UploadProgress {
-  const UploadProgress({
-    required this.bytesTransferred,
-    required this.totalBytes,
-  });
-
-  final int bytesTransferred;
-  final int totalBytes;
-
-  /// 0.0–1.0, or 0.0 when the total is not yet known.
-  double get fraction =>
-      totalBytes <= 0 ? 0 : (bytesTransferred / totalBytes).clamp(0.0, 1.0);
-
-  bool get isComplete => totalBytes > 0 && bytesTransferred >= totalBytes;
-}
-
 /// Cloud Storage implementation of [StorageService].
 class FirebaseStorageService implements StorageService {
   const FirebaseStorageService({required this._storage, required this._guard});
@@ -74,15 +27,7 @@ class FirebaseStorageService implements StorageService {
     return reference.getDownloadURL();
   });
 
-  /// Uploads while reporting progress.
-  ///
-  /// Separate from [uploadFile] rather than replacing it: the interface
-  /// contract from 1.A returns a `Future<Result<String>>`, and callers
-  /// that do not need progress should not have to consume a stream to get
-  /// a URL.
-  ///
-  /// The returned stream completes after emitting a final progress event;
-  /// await [UploadTaskHandle.downloadUrl] for the result.
+  @override
   UploadTaskHandle uploadFileWithProgress({
     required String path,
     required Uint8List bytes,
@@ -95,12 +40,18 @@ class FirebaseStorageService implements StorageService {
     );
 
     return UploadTaskHandle(
-      progress: task.snapshotEvents.map(
-        (snapshot) => UploadProgress(
-          bytesTransferred: snapshot.bytesTransferred,
-          totalBytes: snapshot.totalBytes,
-        ),
-      ),
+      progress: task.snapshotEvents
+          .map(
+            (snapshot) => UploadProgress(
+              bytesTransferred: snapshot.bytesTransferred,
+              totalBytes: snapshot.totalBytes,
+            ),
+          )
+          // A failed upload also errors this stream, with a raw
+          // FirebaseException. The failure is reported — mapped — through
+          // downloadUrl; letting it out here as well would leak Firebase's
+          // type past the service boundary.
+          .handleError((Object _) {}),
       downloadUrl: _guard.call(() async {
         await task;
         return reference.getDownloadURL();
@@ -127,13 +78,4 @@ class FirebaseStorageService implements StorageService {
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
     return 'application/octet-stream';
   }
-}
-
-/// Handle to an in-flight upload: live [progress] plus the eventual
-/// download URL.
-class UploadTaskHandle {
-  const UploadTaskHandle({required this.progress, required this.downloadUrl});
-
-  final Stream<UploadProgress> progress;
-  final Future<Result<String>> downloadUrl;
 }

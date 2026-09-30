@@ -276,11 +276,38 @@ Future<void> _seedUsers() async {
 Future<void> _seedFacilities() async {
   // Real DOrSU buildings, so the seeded data reads plausibly during a
   // demo rather than looking like lorem ipsum.
+  //
+  // Several rooms per building, so the report form's Room select (3.C)
+  // has a real choice to make. The first id in each building is the one
+  // the seeded reports point at.
   final facilities = [
     ('fac-engineering', 'Engineering Building', 'Room 101', 7.2048, 126.5354),
+    (
+      'fac-engineering-203',
+      'Engineering Building',
+      'Room 203',
+      7.2048,
+      126.5354,
+    ),
+    (
+      'fac-engineering-cl2',
+      'Engineering Building',
+      'Computer Laboratory 2',
+      7.2048,
+      126.5354,
+    ),
     ('fac-library', 'Main Library', 'Level 2', 7.2051, 126.5359),
+    ('fac-library-reading', 'Main Library', 'Reading Area', 7.2051, 126.5359),
     ('fac-admin', 'Administration Building', 'Office 12', 7.2044, 126.5348),
+    (
+      'fac-admin-records',
+      'Administration Building',
+      'Records Room',
+      7.2044,
+      126.5348,
+    ),
     ('fac-science', 'Science Building', 'Laboratory 3', 7.2056, 126.5362),
+    ('fac-science-lab1', 'Science Building', 'Laboratory 1', 7.2056, 126.5362),
     ('fac-gym', 'Gymnasium', 'Main Court', 7.2041, 126.5365),
   ];
 
