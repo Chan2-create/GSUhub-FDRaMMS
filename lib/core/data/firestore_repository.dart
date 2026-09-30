@@ -115,4 +115,20 @@ abstract class FirestoreRepository {
   /// `updatedAt`-style fields: a device with a wrong clock would otherwise
   /// write timestamps that sort incorrectly against everyone else's.
   static FieldValue get serverNow => FieldValue.serverTimestamp();
+
+  /// A refusal the administrator should read as written — an illegal
+  /// status move, a self-lockout. Thrown inside a transaction, it aborts
+  /// the transaction, and FirebaseErrorMapper turns it into a
+  /// ValidationFailure carrying [message] verbatim.
+  static FirebaseException precondition(String message) => FirebaseException(
+    plugin: 'gsuhub',
+    code: 'failed-precondition',
+    message: message,
+  );
+
+  static FirebaseException notFound(String message) => FirebaseException(
+    plugin: 'cloud_firestore',
+    code: 'not-found',
+    message: message,
+  );
 }

@@ -5,6 +5,7 @@ import '../../../core/di/repository_providers.dart';
 import '../../../core/enums/audit_action.dart';
 import '../../../core/enums/report_status.dart';
 import '../../../core/utils/result.dart';
+import '../../../core/widgets/category_donut.dart';
 import '../../audit/data/models/audit_log_entry.dart';
 import '../../reporting/data/models/damage_report.dart';
 import '../../reporting/presentation/report_providers.dart';
@@ -85,21 +86,6 @@ final recentReportsProvider = Provider<AsyncValue<Result<List<DamageReport>>>>(
       .watch(reportsStreamProvider)
       .whenData((result) => result.map((reports) => reports.take(5).toList())),
 );
-
-/// One slice of the category donut.
-class CategorySlice {
-  const CategorySlice({
-    required this.label,
-    required this.count,
-    required this.share,
-  });
-
-  final String label;
-  final int count;
-
-  /// 0.0–1.0 share of the total.
-  final double share;
-}
 
 /// Report counts per damage category.
 ///

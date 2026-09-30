@@ -351,3 +351,66 @@ across two work sessions). Branch/commit conventions are in
 (specifically: no direct Firebase imports in shells, no stray collection
 name literals) so a violation gets caught at review time, not discovered
 three features later.
+
+## 13. Objective 2.C: accounts, analytics, export
+
+**Creating accounts without a server.** The project is on the Spark plan,
+so there are no Cloud Functions to call the Admin SDK from. Creating a
+user with the client SDK signs that user in, which on the default app
+would sign the administrator out. `FirebaseAccountProvisioningService`
+creates the sign-in on a second, separately named Firebase app, writes the
+`users` profile through the repository, and signs the second app out
+again. The password is 32 random characters that nobody sees; the person
+is emailed a link to set their own. If the profile write fails the new
+sign-in is deleted, so no login is ever left without a profile. The
+service sits beside `AuthService` rather than inside it: `AuthService` is
+about the signed-in user and was not to be modified.
+
+**No self-lockout.** An administrator cannot change their own role or
+deactivate their own account. The repository refuses both inside the
+transaction, and the security rules refuse them too, so a client that
+skipped the repository is still stopped. A role change is also refused
+for someone holding active work orders, which would otherwise be
+stranded. Deactivation of such a person is allowed with a warning: someone
+who has left must be deactivatable, and there is no reassignment screen
+yet.
+
+**Every account change is audited** (`created`, `updated`,
+`statusChanged`) in the same transaction as the change, as 2.B's report
+and work-order moves are.
+
+**Staff status is derived.** "Busy" is read from `activeTaskCount`, which
+2.B's assignment transactions maintain, not from the stored
+`availability` field, which nothing kept in step with the work. Leave is
+the one status work cannot reveal, so it alone is set by hand.
+
+**Analytics is computed, not stored.** Every figure comes from the live
+report and work-order feeds, for the same reason as 2.B: at one campus's
+volume that is a few hundred documents, and nothing can drift from the
+tables elsewhere. Each metric's definition is in
+`AnalyticsSummary` and shown as its card's tooltip. Comparisons are
+against the period of equal length before the selected one; the
+PENDING / OVERDUE count at the start of a period is recovered from
+`reviewedAt` and the work orders' dates, without a history table.
+
+**Export is CSV.** It opens in Excel on any GSU machine and needs no new
+dependency. A field starting with `=`, `+`, `-` or `@` is prefixed with an
+apostrophe: report titles are typed by requestors, and unguarded they
+would run as formulas when an administrator opened the file. The file
+carries a UTF-8 byte-order mark so accented names survive in Excel.
+
+**Riverpod pauses unlistened providers.** A stream provider nobody is
+listening to is paused, and a bare `ref.read(provider.future)` on it then
+waits forever — the cause of 2.B's `authStateProvider` finding. The export
+runs from any page's top bar, so it listens to each feed while it waits.
+
+**Design sources.** Personnel is built from node `200:4316` (manuscript
+Figure 17) with full design context. Analytics is node `61:5086`; the
+Figma MCP Starter plan's monthly quota ran out partway, so its KPI row
+and first chart row use full context, while the second chart row, the
+issues table and the range control were built from the file metadata's
+exact geometry with colours sampled from the rendered frame. User
+Accounts is node `89:4626`, content only: the one other User Accounts
+frame, `61:5666`, contains "DOrSUMaintain" and is excluded by standing
+instruction. The designs' photos, bulk-select checkboxes and chart menus
+are left out because no data or action stands behind them.

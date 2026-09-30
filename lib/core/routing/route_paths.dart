@@ -30,7 +30,7 @@ abstract final class RoutePaths {
   /// Inventory management — real UI lands in Objective 6.
   static const String adminInventory = '/admin/inventory';
 
-  /// Maintenance personnel directory — real UI lands in 2.C.
+  /// Maintenance personnel directory (Objective 2.C).
   static const String adminPersonnel = '/admin/personnel';
 
   /// Task assignment — built in 2.B.
@@ -49,10 +49,10 @@ abstract final class RoutePaths {
   /// list — flagged for the adviser. Placeholder for now.
   static const String adminMapView = '/admin/map';
 
-  /// Maintenance reports and analytics — real UI lands in 2.C.
+  /// Maintenance analytics and the CSV export (Objective 2.C).
   static const String adminAnalytics = '/admin/analytics';
 
-  /// User account management — real UI lands in 2.C.
+  /// User account management (Objective 2.C).
   static const String adminUsers = '/admin/users';
 
   /// Notification centre — real UI lands in a later objective.

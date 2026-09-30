@@ -130,8 +130,12 @@ hand:
    parsed as enums, and an unrecognized value is treated as "no access"
    (see `FirebaseAuthService`).
 
-3. Every subsequent account is created by that administrator through the
-   app (Objective 2.C).
+3. After that, accounts are made from the app (Objective 2.C):
+   maintenance personnel from **Personnel → Add Personnel** or **User
+   Accounts → Create Maintenance Account**, which emails them a link to set
+   their own password; a second administrator by editing an existing
+   account's role in **User Accounts**. Faculty and staff register from
+   the mobile app (Objective 3).
 
 ### 3.3 Seed the config documents
 

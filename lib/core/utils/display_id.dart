@@ -13,6 +13,16 @@ abstract final class DisplayId {
   /// `wo-0001` → `#WO-0001`; an auto id → `#WO-K3MPQ9`.
   static String workOrder(String id) => _format(id, prefix: 'WO');
 
+  /// A short account number for the "ID: 4821-M" line under a person's
+  /// name. Auth uids are 28 characters of noise, so the first six are
+  /// shown; a seeded id (`seed-personnel-0002`) shows its number.
+  static String user(String id) {
+    final short = id.contains('-')
+        ? id.substring(id.lastIndexOf('-') + 1)
+        : (id.length <= _autoIdLength ? id : id.substring(0, _autoIdLength));
+    return short.toUpperCase();
+  }
+
   static const int _autoIdLength = 6;
 
   static String _format(String id, {required String prefix}) {

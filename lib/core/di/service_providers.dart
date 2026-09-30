@@ -2,9 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
 import '../config/firebase_initializer.dart';
+import '../services/account_provisioning_service.dart';
 import '../services/auth_service.dart';
 import '../services/connectivity_service.dart';
+import '../services/file_download_service.dart';
 import '../services/firebase/fcm_notification_service.dart';
+import '../services/firebase/firebase_account_provisioning_service.dart';
 import '../services/firebase/firebase_auth_service.dart';
 import '../services/firebase/firebase_call_guard.dart';
 import '../services/firebase/firebase_connectivity_service.dart';
@@ -53,6 +56,21 @@ final firebaseAuthServiceProvider = Provider<FirebaseAuthService>(
 /// watch to enforce role-based access.
 final authStateProvider = StreamProvider<AuthUser?>(
   (ref) => ref.watch(authServiceProvider).authStateChanges(),
+);
+
+/// Creates sign-in accounts on an administrator's behalf (Objective 2.C).
+/// Kept apart from [authServiceProvider]: that service is about the
+/// signed-in user, this one about everyone else.
+final accountProvisioningServiceProvider = Provider<AccountProvisioningService>(
+  (ref) => FirebaseAccountProvisioningService(
+    config: ref.watch(appConfigProvider),
+    guard: ref.watch(firebaseCallGuardProvider),
+  ),
+);
+
+/// Browser file downloads — the Analytics CSV export.
+final fileDownloadServiceProvider = Provider<FileDownloadService>(
+  (ref) => FileDownloadService(),
 );
 
 final firestoreServiceProvider = Provider<FirestoreService>(

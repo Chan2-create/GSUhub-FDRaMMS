@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/di/service_providers.dart';
 import '../../core/routing/route_paths.dart';
+import '../../features/analytics/presentation/widgets/analytics_range_select.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/dashboard/presentation/dashboard_providers.dart';
 import 'widgets/admin_nav_items.dart';
@@ -52,6 +53,9 @@ class AdminShell extends ConsumerWidget {
                 AdminTopBar(
                   pageTitle: titleFor(location),
                   unreadNotifications: unread,
+                  pageControls: location.startsWith(RoutePaths.adminAnalytics)
+                      ? const AnalyticsRangeSelect()
+                      : null,
                 ),
                 // The gold rule the design runs beneath the top bar.
                 Container(height: 13, color: AppColors.accentGold),

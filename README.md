@@ -50,14 +50,15 @@ Work proceeds objective by objective against the project WBS.
 | 1.C | Firebase wiring, repository implementations, emulator suite | Complete |
 | 2.A | Admin authentication, dashboard, main layout | Complete |
 | 2.B | Damage report management, task assignment, work-order Kanban | Complete |
-| 2.C | Analytics, personnel and user account management | Not started |
+| 2.C | Analytics, personnel and user account management | Complete |
 | 3 | Requestor mobile app | Not started |
 | 5 | Maintenance personnel mobile app | Not started |
 | 6 | Inventory management | Not started |
 
 The administrator console is the only role with working screens: the
-dashboard, damage reports and their detail view, task assignment, and the
-work-order board. The requestor and personnel shells route correctly and
+dashboard, damage reports and their detail view, task assignment, the
+work-order board, the personnel directory, analytics with a CSV export,
+and user account management. The requestor and personnel shells route correctly and
 are guarded by role, but resolve to placeholders.
 
 ## Setup

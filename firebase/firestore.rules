@@ -70,6 +70,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // True when a write changes none of the listed fields.
+    function leavesUntouched(fields) {
+      return !request.resource.data.diff(resource.data)
+        .affectedKeys()
+        .hasAny(fields);
+    }
+
     // True when a write leaves every field except those listed untouched.
     function onlyChanged(allowedFields) {
       return request.resource.data.diff(resource.data)
@@ -94,8 +101,11 @@ service cloud.firestore {
 
       // A user may maintain their own contact details and push token, but
       // never their own role or account status — that would let any account
-      // promote itself to admin.
-      allow update: if isAdmin()
+      // promote itself to admin. That holds for administrators too, in the
+      // other direction: one demoting or deactivating their own account
+      // could leave the system with nobody able to manage it (2.C).
+      allow update: if (isAdmin()
+          && (!isSelf(uid) || leavesUntouched(['role', 'accountStatus'])))
         || (isSelf(uid) && onlyChanged([
              'fullName', 'contactNumber', 'department', 'fcmToken', 'updatedAt'
            ]));

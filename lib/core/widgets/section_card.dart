@@ -16,6 +16,8 @@ class SectionCard extends StatelessWidget {
     this.contentPadding = const EdgeInsets.all(24),
     this.headerPadding = const EdgeInsets.fromLTRB(24, 16, 24, 17),
     this.dividerUnderHeader = false,
+    this.titleStyle = AppTextStyles.sectionTitle,
+    this.headerColor,
   });
 
   final String title;
@@ -31,6 +33,12 @@ class SectionCard extends StatelessWidget {
   /// The Recent Reports table rules off its header; the chart cards do
   /// not.
   final bool dividerUnderHeader;
+
+  /// Analytics sets its chart titles lighter and larger (Figma `85:4030`).
+  final TextStyle titleStyle;
+
+  /// A tinted title strip, as on Analytics' "Top Reported Issues".
+  final Color? headerColor;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -53,13 +61,17 @@ class SectionCard extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: headerPadding,
-          decoration: dividerUnderHeader
-              ? const BoxDecoration(
-                  border: Border(
+          decoration: BoxDecoration(
+            color: headerColor,
+            borderRadius: headerColor == null
+                ? null
+                : const BorderRadius.vertical(top: Radius.circular(8)),
+            border: dividerUnderHeader
+                ? const Border(
                     bottom: BorderSide(color: AppColors.borderSubtle),
-                  ),
-                )
-              : null,
+                  )
+                : null,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -68,7 +80,7 @@ class SectionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(title, style: AppTextStyles.sectionTitle),
+                    Text(title, style: titleStyle),
                     if (subtitle != null) ...[
                       const SizedBox(height: 4),
                       Text(subtitle!, style: AppTextStyles.bodySmall),

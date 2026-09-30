@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/category_donut.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_chip.dart';
@@ -13,7 +14,6 @@ import '../../reporting/data/models/damage_report.dart';
 import 'dashboard_providers.dart';
 import 'widgets/activity_feed.dart';
 import 'widgets/building_volume_chart.dart';
-import 'widgets/category_donut.dart';
 
 /// Admin dashboard (Figma node `196:534`).
 ///

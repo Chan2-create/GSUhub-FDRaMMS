@@ -80,8 +80,11 @@ void main() {
       expect(enabled, [
         'Dashboard', // 2.A
         'Damage Reports', // 2.B
+        'Personnel', // 2.C
         'Task Assignment', // 2.B
         'Work Order Management', // 2.B
+        'Analytics', // 2.C
+        'User Accounts', // 2.C
       ]);
     });
 
@@ -98,7 +101,7 @@ void main() {
     testWidgets('a disabled destination does not navigate', (tester) async {
       await pumpShell(tester);
 
-      await tester.tap(find.text('Analytics').first, warnIfMissed: false);
+      await tester.tap(find.text('Settings').first, warnIfMissed: false);
       await tester.pumpAndSettle();
 
       expect(currentPath(), RoutePaths.adminDashboard);
@@ -127,30 +130,40 @@ void main() {
       expect(find.text('Dashboard'), findsNWidgets(2)); // sidebar + top bar
     });
 
-    testWidgets('shows deferred actions as disabled with a reason', (
-      tester,
-    ) async {
-      await pumpShell(tester);
+    testWidgets(
+      'offers Export Data, and explains the admin cannot file reports',
+      (tester) async {
+        await pumpShell(tester);
 
-      expect(find.text('Export Data'), findsOneWidget);
-      expect(find.text('Report New Damage'), findsOneWidget);
-      expect(
-        tester
-            .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'Export Data'),
-            )
-            .onPressed,
-        isNull,
-      );
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Report New Damage'),
-            )
-            .onPressed,
-        isNull,
-      );
-    });
+        expect(find.text('Export Data'), findsOneWidget);
+        expect(find.text('Report New Damage'), findsOneWidget);
+        // 2.C: the export works from every page.
+        expect(
+          tester
+              .widget<OutlinedButton>(
+                find.widgetWithText(OutlinedButton, 'Export Data'),
+              )
+              .onPressed,
+          isNotNull,
+        );
+        // Filing a report is a faculty/staff function, from the mobile app.
+        expect(
+          find.byTooltip(
+            'Reports are submitted by faculty and staff from the mobile app — '
+            'not from the admin console.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.widgetWithText(FilledButton, 'Report New Damage'),
+              )
+              .onPressed,
+          isNull,
+        );
+      },
+    );
   });
 
   group('titleFor', () {

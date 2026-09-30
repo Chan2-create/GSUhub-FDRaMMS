@@ -13,6 +13,7 @@ import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_impl.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
+import 'package:gsuhub/features/user_management/data/repositories/user_repository_impl.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository_impl.dart';
 
@@ -30,11 +31,13 @@ class FirestoreHarness {
     final db = FirestoreServiceImpl(firestore: firestore, guard: guard);
     reports = DamageReportRepositoryImpl(db: db, guard: guard);
     workOrders = WorkOrderRepositoryImpl(db: db, guard: guard);
+    users = UserRepositoryImpl(db: db, guard: guard);
   }
 
   final FakeFirebaseFirestore firestore;
   late final DamageReportRepositoryImpl reports;
   late final WorkOrderRepositoryImpl workOrders;
+  late final UserRepositoryImpl users;
 
   static const admin = AuditActor(id: 'admin-1', name: 'Ramon Dela Cruz');
 

@@ -2,6 +2,7 @@ import '../../../../core/enums/account_status.dart';
 import '../../../../core/enums/personnel_availability.dart';
 import '../../../../core/enums/user_role.dart';
 import '../../../../core/utils/result.dart';
+import '../../../audit/data/models/audit_actor.dart';
 import '../models/app_user.dart';
 
 /// Abstract contract for the `users` collection.
@@ -19,6 +20,11 @@ abstract interface class UserRepository {
 
   /// All users, for the Admin user-management table (manuscript §1.5).
   Future<Result<List<AppUser>>> getAll({UserRole? role});
+
+  /// Live feed of every account, for the User Accounts table (Objective
+  /// 2.C). Unfiltered and unsorted: the table filters by role tab and
+  /// search in memory, and sorts by name, so one listener serves them all.
+  Stream<Result<List<AppUser>>> watchAll();
 
   /// Maintenance personnel filtered for assignment, backing the Admin
   /// personnel list (Figure 17). [specializationId] takes a
@@ -42,10 +48,36 @@ abstract interface class UserRepository {
 
   Future<Result<void>> update(AppUser user);
 
+  /// Saves the profile of an account whose sign-in was just provisioned,
+  /// together with its audit entry, in one transaction. Refuses if a
+  /// profile already exists under that uid.
+  Future<Result<void>> createAccount({
+    required AppUser user,
+    required AuditActor actor,
+  });
+
+  /// An administrator's edits: name, role, department, contact number,
+  /// trade and leave (§1.5 "role and permission assignment"). Audited.
+  ///
+  /// Re-reads the stored account and refuses to change [actor]'s own role —
+  /// the last administrator demoting themselves would lock everyone out —
+  /// or the role of someone still holding work orders, which would strand
+  /// that work. Email and account status are not edited here: email is the
+  /// sign-in identity, and status has [setAccountStatus].
+  Future<Result<void>> updateAccount({
+    required AppUser updated,
+    required AuditActor actor,
+  });
+
   /// Activate or deactivate an account (§1.5 "account activation or
   /// deactivation"). Separate from [update] because it is a distinct
-  /// administrative act that must be audited.
-  Future<Result<void>> setAccountStatus(String uid, AccountStatus status);
+  /// administrative act that must be audited. Refuses [actor]'s own
+  /// account, for the same reason [updateAccount] refuses their role.
+  Future<Result<void>> setAccountStatus(
+    String uid,
+    AccountStatus status, {
+    required AuditActor actor,
+  });
 
   Future<Result<void>> setAvailability(
     String uid,

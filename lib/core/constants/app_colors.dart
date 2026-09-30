@@ -176,6 +176,62 @@ abstract final class AppColors {
   static const Color priorityCriticalBackground = Color(0xFF93000A);
   static const Color priorityCriticalForeground = Color(0xFFFFFFFF);
 
+  // --- Objective 2.C: personnel, analytics, user accounts ---
+
+  /// Personnel availability (node 200:4316): the metric card accents and
+  /// the dot beside each row's status.
+  static const Color presenceAvailable = activityPositive;
+  static const Color presenceBusy = ctaAmber;
+
+  /// The personnel search-and-filter strip, and its square filter button.
+  static const Color filterBarBackground = Color(0xFFE5EEFF);
+  static const Color filterButtonBackground = Color(0xFFD3E4FE);
+
+  /// Table header rows and the alternate-row stripe (nodes 200:4316 and
+  /// 89:4626 share the value).
+  static const Color tableStripe = Color(0xFFEFF4FF);
+
+  /// Analytics KPI trend chips (node 85:3649). The design draws only the
+  /// favourable case; the unfavourable one mirrors it in red.
+  static const Color trendGoodBackground = Color(0xFFF0FDF4);
+  static const Color trendGoodForeground = statAccentCompleted;
+  static const Color trendBadBackground = Color(0xFFFEF2F2);
+  static const Color trendBadForeground = statAccentNeedsReview;
+
+  /// Completion-rate progress fill.
+  static const Color progressFill = activityPositive;
+
+  /// Resolution-time line and its points (node 85:4146).
+  static const Color chartLine = Color(0xFF1A3A8F);
+
+  /// The "Top Reported Issues" card's title strip.
+  static const Color tableTitleBar = Color(0xFFFBFCFD);
+
+  /// Arrow colours in the issues table's TREND column.
+  static const Color trendUp = error;
+  static const Color trendDown = activityPositive;
+  static const Color trendFlat = textFaint;
+
+  /// User account role chips and legend dots (node 89:4626).
+  static const Color roleRequestorBackground = Color(0xFFDBEAFE);
+  static const Color roleRequestorForeground = Color(0xFF1D4ED8);
+  static const Color roleRequestorDot = Color(0xFF3B82F6);
+  static const Color roleMaintenanceBackground = Color(0xFFFFEDD5);
+  static const Color roleMaintenanceForeground = Color(0xFFC2410C);
+  static const Color roleMaintenanceDot = Color(0xFFF97316);
+  static const Color roleAdminBackground = Color(0xFFF3E8FF);
+  static const Color roleAdminForeground = Color(0xFF7E22CE);
+  static const Color roleAdminDot = Color(0xFFA855F7);
+
+  /// An inactive account's row, chip and status (node 89:4843).
+  static const Color inactiveRowBackground = Color(0xFFF7F9FB);
+  static const Color inactiveChipBackground = Color(0xFFEEF1F6);
+  static const Color inactiveForeground = Color(0xFFA2ACB9);
+
+  /// Account status: ACTIVE in green, the legend's inactive dot in slate.
+  static const Color accountActive = statAccentCompleted;
+  static const Color accountInactiveDot = presenceInactive;
+
   // --- feedback ---
 
   static const Color error = Color(0xFFBA1A1A);

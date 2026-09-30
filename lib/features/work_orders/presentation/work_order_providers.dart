@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/repository_providers.dart';
+import '../../../core/enums/date_range_filter.dart';
 import '../../../core/enums/priority_level.dart';
 import '../../../core/enums/work_order_status.dart';
 import '../../../core/utils/result.dart';
@@ -12,23 +13,6 @@ final workOrdersStreamProvider = StreamProvider<Result<List<WorkOrder>>>(
   (ref) => ref.watch(workOrderRepositoryProvider).watchAll(),
 );
 
-/// How far back the board looks. The design's control reads "Last 30
-/// Days"; these are the choices behind it.
-enum WorkOrderDateRange {
-  last7(Duration(days: 7), 'Last 7 Days'),
-  last30(Duration(days: 30), 'Last 30 Days'),
-  last90(Duration(days: 90), 'Last 90 Days'),
-  all(null, 'All Time');
-
-  const WorkOrderDateRange(this.window, this.label);
-
-  final Duration? window;
-  final String label;
-
-  bool includes(DateTime createdAt, DateTime now) =>
-      window == null || createdAt.isAfter(now.subtract(window!));
-}
-
 /// The work-order filter bar's state.
 ///
 /// The design puts an explicit **Apply** button on this bar, so a draft is
@@ -39,19 +23,19 @@ class WorkOrderFilters {
     this.search = '',
     this.status,
     this.priority,
-    this.dateRange = WorkOrderDateRange.last30,
+    this.dateRange = DateRangeFilter.last30,
   });
 
   final String search;
   final WorkOrderStatus? status;
   final PriorityLevel? priority;
-  final WorkOrderDateRange dateRange;
+  final DateRangeFilter dateRange;
 
   WorkOrderFilters copyWith({
     String? search,
     WorkOrderStatus? status,
     PriorityLevel? priority,
-    WorkOrderDateRange? dateRange,
+    DateRangeFilter? dateRange,
     bool clearStatus = false,
     bool clearPriority = false,
   }) => WorkOrderFilters(
@@ -98,7 +82,7 @@ class WorkOrderFilterDraft extends Notifier<WorkOrderFilters> {
   void setPriority(PriorityLevel? value) =>
       state = state.copyWith(priority: value, clearPriority: value == null);
 
-  void setDateRange(WorkOrderDateRange value) =>
+  void setDateRange(DateRangeFilter value) =>
       state = state.copyWith(dateRange: value);
 }
 
@@ -192,12 +176,7 @@ class WorkOrderStats {
     for (final workOrder in workOrders) {
       if (workOrder.status == WorkOrderStatus.inProgress) inProgress++;
 
-      final scheduledFor = workOrder.scheduledFor?.toLocal();
-      if (scheduledFor != null &&
-          workOrder.status != WorkOrderStatus.completed &&
-          now.isAfter(_endOfDay(scheduledFor))) {
-        overdue++;
-      }
+      if (workOrder.isOverdueAt(now)) overdue++;
 
       final completedAt = workOrder.completedAt?.toLocal();
       if (completedAt != null &&
@@ -222,13 +201,6 @@ class WorkOrderStats {
   /// Past its target completion date and not finished.
   final int overdue;
   final int completedToday;
-
-  /// The target completion date is picked from a calendar, so it names a
-  /// day rather than an instant. Comparing against the date itself would
-  /// mark a job late from midnight of the very day it is due; it is late
-  /// only once that day has ended.
-  static DateTime _endOfDay(DateTime date) =>
-      DateTime(date.year, date.month, date.day + 1);
 
   static const String overdueDefinition =
       'Work orders whose target completion date has passed and which are '

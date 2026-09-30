@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
+import '../../../../core/enums/date_range_filter.dart';
 import '../../../../core/enums/priority_level.dart';
 import '../../../../core/enums/work_order_status.dart';
 import '../../../../core/widgets/filter_select.dart';
@@ -93,7 +94,7 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
           ),
           FilterSelect<WorkOrderStatus>(
             placeholder: 'All Statuses',
-            dense: true,
+            style: FilterSelectStyle.dense,
             width: 160,
             value: draft.status,
             onChanged: draftController.setStatus,
@@ -105,7 +106,7 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
           ),
           FilterSelect<PriorityLevel>(
             placeholder: 'All Priorities',
-            dense: true,
+            style: FilterSelectStyle.dense,
             width: 160,
             value: draft.priority,
             onChanged: draftController.setPriority,
@@ -148,17 +149,17 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
 class _DateRangeSelect extends StatelessWidget {
   const _DateRangeSelect({required this.value, required this.onChanged});
 
-  final WorkOrderDateRange value;
-  final ValueChanged<WorkOrderDateRange> onChanged;
+  final DateRangeFilter value;
+  final ValueChanged<DateRangeFilter> onChanged;
 
   @override
-  Widget build(BuildContext context) => PopupMenuButton<WorkOrderDateRange>(
+  Widget build(BuildContext context) => PopupMenuButton<DateRangeFilter>(
     tooltip: 'Date range',
     position: PopupMenuPosition.under,
     initialValue: value,
     onSelected: onChanged,
     itemBuilder: (context) => [
-      for (final range in WorkOrderDateRange.values)
+      for (final range in DateRangeFilter.values)
         PopupMenuItem(value: range, child: Text(range.label)),
     ],
     child: Container(
