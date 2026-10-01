@@ -63,16 +63,38 @@ abstract final class RoutePaths {
 
   // --- Requestor (Faculty/Staff, mobile) — WBS Objective 3 ---
 
+  /// Faculty and staff sign-in (Objective 3.A, Figma `193:310`).
   static const String staffLogin = '/staff/login';
 
-  /// Facility damage report submission (Objective 3.C). The requestor's
-  /// home until a later Objective 3 step builds one.
+  /// Self-registration, pending approval (Objective 3.A, Figma `194:455`).
+  static const String staffSignUp = '/staff/signup';
+
+  /// The requestor's home: greeting, quick actions, overview, recent
+  /// reports (Objective 3.A, Figma `170:2050`).
+  static const String staffHome = '/staff/home';
+
+  /// Facility damage report submission (Objective 3.C, Figma `165:137`).
+  /// Opened over the tabs from the bottom bar's centre button.
   static const String staffSubmitReport = '/staff/submit';
 
-  /// Real-time status tracking of submitted reports — a later Objective 3
-  /// step. (1.A guessed the sub-objective numbers here; the WBS numbers
-  /// submission 3.C, so the others are left unnumbered until confirmed.)
+  /// My Reports — the requestor's own reports, searchable and filtered
+  /// (Objective 3.A, Figma `169:1251`). Live status tracking is 3.B's.
   static const String staffMyReports = '/staff/reports';
+
+  /// One of the requestor's reports, read-only: what they submitted. The
+  /// status timeline is 3.B's.
+  static const String staffReportDetail = '/staff/reports/:reportId';
+
+  /// Link to [staffReportDetail] for a given report.
+  static String staffReportDetailFor(String reportId) =>
+      '/staff/reports/$reportId';
+
+  /// Notifications — a marked placeholder until 3.B.
+  static const String staffAlerts = '/staff/alerts';
+
+  /// The requestor's profile — a marked placeholder in 3.A, holding only
+  /// sign-out.
+  static const String staffProfile = '/staff/profile';
 
   /// Post-service feedback and rating — a later Objective 3 step.
   static const String staffFeedback = '/staff/feedback';
