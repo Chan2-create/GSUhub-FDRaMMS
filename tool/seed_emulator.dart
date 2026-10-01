@@ -74,6 +74,9 @@ Future<void> main() async {
     ..writeln('  faculty@dorsu.edu.ph    / password123  (Faculty/Staff)')
     ..writeln('  personnel@dorsu.edu.ph  / password123  (Maintenance)')
     ..writeln()
+    ..writeln('  liza.tan@dorsu.edu.ph   / password123  is a faculty sign-up')
+    ..writeln('  still awaiting approval: approve it from User Accounts.')
+    ..writeln()
     ..writeln('Emulator UI: http://localhost:4000');
 }
 
@@ -95,6 +98,11 @@ const String personnelAirconUid = 'seed-personnel-0006';
 const String facultyCasUid = 'seed-faculty-0002';
 const String facultyRegistrarUid = 'seed-faculty-0003';
 const String facultyFormerUid = 'seed-faculty-0004';
+
+// Objective 3.A: a faculty member who signed themselves up and is waiting
+// for an administrator, so User Accounts has a request to approve and the
+// faculty sign-in has an account to refuse with "awaiting approval".
+const String facultyPendingUid = 'seed-faculty-0005';
 const String secondAdminUid = 'seed-admin-0002';
 
 Future<void> _seedUsers() async {
@@ -246,6 +254,17 @@ Future<void> _seedUsers() async {
       null,
       null,
     ),
+    // Signed up from the app: no department, as sign-up does not ask.
+    (
+      facultyPendingUid,
+      'Liza Mae Tan',
+      'liza.tan@dorsu.edu.ph',
+      'requestor',
+      'pending',
+      null,
+      null,
+      null,
+    ),
   ];
 
   for (final (uid, name, email, role, status, department, trade, availability)
@@ -258,7 +277,7 @@ Future<void> _seedUsers() async {
       'email': _str(email),
       'role': _str(role),
       'accountStatus': _str(status),
-      'department': _str(department),
+      'department': department == null ? _null() : _str(department),
       'contactNumber': _null(),
       'specialization': trade == null ? _null() : _str(trade),
       'availability': availability == null ? _null() : _str(availability),
@@ -723,9 +742,46 @@ Future<void> _seedDamageReports() async {
     });
   }
 
+  // Objective 3.A: one report filed by somebody else, so signing in as
+  // faculty@ shows My Reports leaving it out.
+  await _writeDoc('damage_reports', 'rep-ana-0001', {
+    'reporterId': _str(facultyCasUid),
+    'reporterName': _str('Ana Gomez'),
+    'title': _str('Projector will not turn on'),
+    'description': _str(
+      'The ceiling projector in the reading area shows no power light.',
+    ),
+    'category': _null(),
+    'classifiedAutomatically': _bool(false),
+    'requestorCategory': _str('electrical'),
+    'facilityId': _str('fac-library-reading'),
+    'facilityName': _str('Main Library'),
+    'locationDescription': _str('Main Library, Reading Area'),
+    'photoUrls': _strArray([]),
+    'requestorPriority': _str('medium'),
+    'status': _str('submitted'),
+    'assetId': _null(),
+    'coordinates': _null(),
+    'severityRating': _null(),
+    'safetyRiskRating': _null(),
+    'frequencyRating': _null(),
+    'locationImportanceRating': _null(),
+    'priorityScore': _null(),
+    'recommendedPriority': _null(),
+    'officialPriority': _null(),
+    'duplicateOf': _null(),
+    'workOrderId': _null(),
+    'reviewedBy': _null(),
+    'reviewedAt': _null(),
+    'rejectionReason': _null(),
+    'submittedAt': _ago(const Duration(hours: 5)),
+    'updatedAt': _now(),
+  });
+
   stdout.writeln(
-    '  damage_reports: ${_seededReports.length} '
-    '(3 approved and awaiting assignment, 1 unclassified)',
+    '  damage_reports: ${_seededReports.length + 1} '
+    '(3 approved and awaiting assignment, 1 unclassified, 1 filed by '
+    'another faculty member)',
   );
 }
 
