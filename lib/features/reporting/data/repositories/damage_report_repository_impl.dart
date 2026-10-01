@@ -30,13 +30,28 @@ class DamageReportRepositoryImpl extends FirestoreRepository
       watchOne(path: _path, id: id, convert: DamageReport.fromFirestore);
 
   @override
-  Stream<Result<List<DamageReport>>> watchByReporter(String reporterId) =>
-      watchMany(
-        query: collection(_path)
-            .where('reporterId', isEqualTo: reporterId)
-            .orderBy('submittedAt', descending: true),
+  Future<Result<List<DamageReport>>> getByReporter(String reporterId) =>
+      getMany(
+        query: _byReporter(reporterId),
         convert: DamageReport.fromFirestore,
       );
+
+  @override
+  Stream<Result<List<DamageReport>>> watchByReporter(String reporterId) =>
+      watchMany(
+        query: _byReporter(reporterId),
+        convert: DamageReport.fromFirestore,
+      );
+
+  /// Backed by the (reporterId, submittedAt desc) composite index. The
+  /// limit is not optional: without it the rules refuse a requestor's query
+  /// outright, which until 3.A left [watchByReporter] unusable by the very
+  /// people it was written for.
+  Query<Map<String, dynamic>> _byReporter(String reporterId) =>
+      collection(_path)
+          .where('reporterId', isEqualTo: reporterId)
+          .orderBy('submittedAt', descending: true)
+          .limit(DamageReportRepository.reporterQueryLimit);
 
   @override
   Stream<Result<List<DamageReport>>> watchAll({

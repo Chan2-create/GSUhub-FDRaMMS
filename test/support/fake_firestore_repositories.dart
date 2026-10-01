@@ -46,13 +46,15 @@ class FirestoreHarness {
     ReportStatus status = ReportStatus.approved,
     DamageCategory? category = DamageCategory.electrical,
     String? workOrderId,
+    String reporterId = 'faculty-1',
+    DateTime? submittedAt,
   }) => firestore
       .collection(FirestorePaths.damageReports)
       .doc(id)
       .set(
         DamageReport(
           id: id,
-          reporterId: 'faculty-1',
+          reporterId: reporterId,
           reporterName: 'Maria Santos',
           title: 'Flickering lights',
           description: 'Lights in Room 101 flicker constantly.',
@@ -62,7 +64,7 @@ class FirestoreHarness {
           facilityId: 'fac-engineering',
           facilityName: 'Engineering Building',
           workOrderId: workOrderId,
-          submittedAt: DateTime.utc(2026, 9),
+          submittedAt: submittedAt ?? DateTime.utc(2026, 9),
           updatedAt: DateTime.utc(2026, 9),
         ).toFirestore(),
       );

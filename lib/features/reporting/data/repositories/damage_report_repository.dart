@@ -34,6 +34,16 @@ abstract interface class DamageReportRepository {
   /// tracking (manuscript §1.5, "real-time status monitoring").
   Stream<Result<DamageReport>> watchById(String id);
 
+  /// The most reports a requestor's own-report query returns, newest
+  /// first. The rules refuse a requestor's list query without a limit at
+  /// or below 100, so neither query below may go without one.
+  static const int reporterQueryLimit = 100;
+
+  /// A requestor's own submissions, newest first, read once — the home
+  /// screen and My Reports (Objective 3.A). Live tracking is 3.B's, through
+  /// [watchByReporter].
+  Future<Result<List<DamageReport>>> getByReporter(String reporterId);
+
   /// A requestor's own submissions, for "My Reports" (Figure 22).
   Stream<Result<List<DamageReport>>> watchByReporter(String reporterId);
 
