@@ -472,3 +472,86 @@ the scan button, the camera-or-gallery sheet, the scanner and pin-picker
 screens, validation messages (a light red on navy and a dark red on gold,
 since the console's red is unreadable on both), the AUTO-CAPTURE off
 state, upload progress in the Submit button, and the confirmation.
+
+## 15. Objective 3.A: faculty and staff sign-in, home and My Reports
+
+**Scope.** Chris's 3.A brief bundles the report form with sign-in, the
+home screen, My Reports and the bottom bar. The form is 3.C, already
+built and merged, so 3.A builds only the rest and opens the 3.C form
+from the new screens unchanged.
+
+**One sign-in path.** `AuthService` gains `register()`, beside sign-in,
+so faculty sign-up goes through the same service as everyone else. It
+creates the Firebase account, runs a callback that writes the `users`
+profile, and deletes the account again if the profile cannot be saved
+(the pattern 2.C's provisioning uses). It leaves nobody signed in. The
+create call is not retried — `FirebaseCallGuard.callOnce()` — because a
+retry after a timeout would fail as "email already in use" and hide that
+the account exists. The emulator-only `DevSignInScreen` is gone.
+
+**Sign-up asks; an administrator lets in.** §1.5 limits GSUhub to
+authorized faculty and staff, so a sign-up is a request.
+`AccountStatus` gains `pending`: kept apart from `inactive` so an
+administrator can tell a new request from someone who left, and so the
+person is told "waiting for approval" rather than "deactivated". The
+service refuses a pending account at sign-in with that message, given
+only after the password checks out. Any valid address may sign up
+(Chris's decision); approval is the gate. Passwords need eight
+characters.
+
+**The self-registration rule.** `users` creation was administrator-only.
+A person may now create their own document, and only as: a requestor,
+`pending`, under the email in their sign-in token, with none of the
+personnel fields, a known set of keys, and server timestamps (a device
+clock cannot back-date a request). The client lower-cases the address
+so it matches the token. No audit entry: the rules let only active
+accounts write the trail, and the administrator's approval is what is
+recorded ("Approved the account request of …").
+
+**Approval lives in 2.C's User Accounts.** The brief assumed activation
+would wait for 2.C; 2.C already shipped Activate and Deactivate. A
+pending row reads PENDING in amber, sorts to the top, and its menu
+offers Approve and Decline (decline leaves the account `inactive`).
+
+**Reads, not listeners.** Home and My Reports share one read of the
+requestor's reports (`getByReporter`, newest first, 100 at most); live
+updates are 3.B's. Pull down to read again; filing a report refreshes
+it. `watchByReporter` had no limit since 1.B, which the list rule
+refuses for a requestor; both queries now carry the limit the rule
+allows.
+
+**Three stages.** `ReportStatus.progress` collapses the eleven statuses
+into Pending, In Progress, Completed, plus Closed (merged, rejected,
+archived). The faculty app's chips, filters and counts read it, and the
+admin chip palette now does too, unchanged. The home banner counts the
+three stages and leaves Closed out.
+
+**Navigation.** A `ShellRoute` holds Home, Reports, Alerts and Profile
+under the header and the floating bar. The report form opens over it
+with `push` (its frame has no bar), so Back returns where it came from,
+and filing a report pops back and refreshes. Tabs switch with `go`; the
+device's Back on a tab other than Home returns Home rather than closing
+the app. A report's detail page sits under Reports.
+
+**Design source.** Figma's MCP quota was spent, so the screens were
+built from Chris's 1x PNG exports of `193:310`, `194:455`, `170:2050`
+and `169:1251` (the last is My Reports, not in the brief's table), with
+positions and text from the saved file metadata and colours sampled
+from the PNGs. Not yet checked against the file: exact colours, font
+families (Public Sans on the sign-in pages, Poppins on the rest, both
+assumptions) and the icons (Material stand-ins; the SVGs were too large
+to send). The banner's campus photo (`image 9`) has not been exported,
+so the banner shows its navy-to-purple wash alone.
+
+**Decisions where the design disagreed with itself or was silent.**
+Status colours differ between the home screen and My Reports; Chris
+chose the home screen's yellow, blue and green for both. The My Reports
+frame highlights Home in the bar; the current tab is highlighted. The
+home rows' coloured rules follow each report's stage. The grey squares
+show the report's first photo. The greeting's second line shows the
+department, or "Faculty & Staff" — accounts do not record faculty versus
+staff. "Username" is relabelled Email, as on 2.A's login, and there is
+no forgot-password link because the design has none. Unselected My
+Reports filters are neutral, as yellow text is unreadable there. Plain
+additions: field validation, the sign-in notices, the report detail
+page, and the Alerts and Profile placeholders (Profile holds Sign out).

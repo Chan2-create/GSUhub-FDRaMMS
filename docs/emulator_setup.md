@@ -94,6 +94,7 @@ All use the password `password123`.
 | `ana.gomez@dorsu.edu.ph` | Faculty/Staff |
 | `paolo.garcia@dorsu.edu.ph` | Faculty/Staff |
 | `grace.lim@dorsu.edu.ph` | Faculty/Staff — **deactivated**, cannot sign in |
+| `liza.tan@dorsu.edu.ph` | Faculty/Staff — signed up, **awaiting approval**; approve it from User Accounts |
 | `personnel@dorsu.edu.ph` | Maintenance personnel (electrical) |
 | `plumber@dorsu.edu.ph` | Maintenance personnel (plumbing) |
 | `structural@dorsu.edu.ph` | Maintenance personnel (structural) |
@@ -115,15 +116,25 @@ All use the password `password123`.
   weight schemes (see `docs/data_dictionary.md`)
 - **Damage reports and work orders** — spread across categories,
   statuses and priorities, plus six months of resolved history for
-  Analytics
+  Analytics. All are `faculty@`'s except one filed by `ana.gomez@`, so
+  My Reports can be seen leaving someone else's report out.
 
-## The faculty and staff report form (Objective 3.C)
+## The faculty and staff app (Objectives 3.A and 3.C)
 
-The faculty and staff sign-in is Objective 3.A and is not built yet. In
-debug builds against the emulator, `/staff/login` shows a plain
-**Developer sign-in** form instead — sign in as `faculty@dorsu.edu.ph`.
-Off the web the app opens there; in a browser, go to
-`http://localhost:<port>/staff/submit`.
+Off the web the app opens on the faculty and staff sign-in. In a browser
+the app is the admin console; go to `http://localhost:<port>/#/staff/login`
+for the faculty side (sign out of the console first — one browser holds
+one session).
+
+- **Sign in** as `faculty@dorsu.edu.ph` to reach Home, My Reports and the
+  report form (the gold **+**).
+- **Sign up** from CREATE ACCOUNT. The new account is `pending`: signing
+  in says it awaits approval. Approve it from the console's User Accounts
+  (⋮ → Approve), then it signs in. `liza.tan@dorsu.edu.ph` is a seeded
+  request to try this on.
+- Firebase shows its own "Running in emulator mode" bar along the bottom
+  of the page in a browser; it covers the bottom bar's labels and is not
+  part of the app.
 
 To test QR lookup on a phone, show a QR code for a seeded value (e.g.
 `FAC-FAC-ENGINEERING-203`, or `AST-ASSET-AIRCON-01` for equipment) from
@@ -136,7 +147,7 @@ run overwrites rather than duplicating.
 
 ## Rules tests
 
-**39 tests, all passing.** They start their own emulator, so nothing needs
+**59 tests, all passing.** They start their own emulator, so nothing needs
 to be running first:
 
 ```powershell
@@ -167,6 +178,10 @@ to be wrong:
 - personnel cannot read work orders assigned to someone else, reassign one
   to themselves, or read feedback (§1.5)
 - a **deactivated** account loses access despite valid credentials
+- self-registration (3.A): a person may create only their own profile,
+  only as a `pending` requestor under their own email with server time;
+  a pending account reads nothing but its own profile until approved
+- a requestor lists their own reports only, at most 100 at a time
 - nobody — administrators included — can edit or delete an inventory
   transaction or an audit log entry
 - unknown collections are denied by the catch-all

@@ -101,7 +101,7 @@ Firestore id = Firebase Auth uid. Model: `AppUser`
 | `fullName` | String | ✔ | Display name; must not be blank | Fig 20 |
 | `email` | String | ✔ | Institutional email | Fig 20 |
 | `role` | enum `UserRole` | ✔ | `requestor` / `maintenancePersonnel` / `admin` | §1.5 |
-| `accountStatus` | enum `AccountStatus` | ✔ | `active` / `inactive`; gates all access | §1.5 |
+| `accountStatus` | enum `AccountStatus` | ✔ | `active` / `inactive` / `pending`; only `active` may sign in | §1.5; `pending` **DERIVED** (3.A) |
 | `department` | String | — | Owning department | **DERIVED** |
 | `contactNumber` | String | — | Phone contact | **DERIVED** (Fig 17 shows a CONTACT INFO column, populated with email only) |
 | `specialization` | enum `DamageCategory` | — | Personnel trade; drives assignment suggestions | Fig 17 |
@@ -126,6 +126,19 @@ Account changes made from User Accounts write an `audit_logs` entry with
 `entityType: users` — `created`, `updated` (with a field-by-field
 `changes` map) or `statusChanged` — in the same transaction as the
 change.
+
+### Self-registration (Objective 3.A)
+
+A faculty or staff member who signs up from the mobile app gets a
+profile written by `UserRepository.createSelfRegistration`: `role:
+requestor`, `accountStatus: pending`, the lower-cased email they signed
+up with, no department, the personnel fields null, and `createdAt` /
+`updatedAt` as server timestamps. The security rules accept exactly that
+shape and nothing more (`isSelfRegistration`). No audit entry is written
+then — the rules let only active accounts write one — but approving or
+declining the request from User Accounts is audited as `statusChanged`
+("Approved the account request of …"). A declined request becomes
+`inactive`.
 
 ## facilities
 
@@ -235,6 +248,11 @@ at most ten photo URLs and a real geo-point, and refuse any pre-set
 review field (`officialPriority`, `duplicateOf`, `workOrderId`,
 `reviewedBy`, `reviewedAt`, `rejectionReason`). Classification and
 scoring fields are left to Objective 4.
+
+A requestor reads their own reports with `reporterId == uid`, newest
+first by `submittedAt`, at most 100 at a time — the rules refuse a
+requestor's list query without a limit at or below 100 (Objective 3.A;
+the reporter-history composite index serves it).
 
 ## work_orders
 
@@ -528,7 +546,7 @@ unavailable. Shape:
 
 | | requestor | personnel | admin |
 |---|---|---|---|
-| `users` | own record | own record | all |
+| `users` | own record; create own as a pending requestor (3.A) | own record | all |
 | `facilities`, `assets` | read | read | full |
 | `damage_reports` | create + read own | read assigned, advance status | full |
 | `work_orders` | — | read/update **assigned only** | full |
@@ -542,8 +560,8 @@ unavailable. Shape:
 | `audit_logs` | — | create only | read + create |
 | `config/*` | read | read | full |
 
-Deactivated accounts (`accountStatus != 'active'`) lose all access
-regardless of role. Users cannot modify their own `role` or
+Deactivated and pending accounts (`accountStatus != 'active'`) lose all
+access regardless of role, except reading their own `users` record. Users cannot modify their own `role` or
 `accountStatus` — the obvious privilege-escalation path. Storage uploads
 are capped at 10 MB and restricted to `image/*` (both **DERIVED**).
 

@@ -51,19 +51,21 @@ Work proceeds objective by objective against the project WBS.
 | 2.A | Admin authentication, dashboard, main layout | Complete |
 | 2.B | Damage report management, task assignment, work-order Kanban | Complete |
 | 2.C | Analytics, personnel and user account management | Complete |
+| 3.A | Faculty and staff sign-in and sign-up (pending approval), home, My Reports, bottom bar | Complete |
 | 3.C | Faculty and staff damage report submission (photos, geo-tag, QR lookup) | Complete |
-| 3 (rest) | Faculty and staff sign-in, home, tracking, feedback | Not started |
+| 3 (rest) | Real-time tracking, notifications, feedback | Not started |
 | 5 | Maintenance personnel mobile app | Not started |
 | 6 | Inventory management | Not started |
 
 The administrator console has working screens for every 2.x objective:
 the dashboard, damage reports and their detail view, task assignment,
 the work-order board, the personnel directory, analytics with a CSV
-export, and user account management. The faculty and staff app has its
-damage report form (3.C), reached through an emulator-only developer
-sign-in until 3.A builds the real one — see docs/emulator_setup.md. The
-personnel shell routes correctly and is guarded by role, but resolves to
-placeholders.
+export, and user account management, where faculty sign-ups are
+approved. The faculty and staff app has its own sign-in and sign-up, a
+home screen with the requestor's report overview, My Reports, and the
+damage report form (3.C) — see docs/emulator_setup.md. Its Alerts and
+Profile tabs are placeholders until 3.B. The personnel shell routes
+correctly and is guarded by role, but resolves to placeholders.
 
 ## Setup
 
