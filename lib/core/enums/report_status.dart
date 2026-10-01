@@ -118,8 +118,42 @@ enum ReportStatus {
     ReportStatus.archived => false,
   };
 
+  /// Where the report stands from the requestor's side — the three stages
+  /// the faculty and staff app shows (Objective 3.A), and the same three
+  /// colours the admin console's chips use.
+  ReportProgress get progress => switch (this) {
+    ReportStatus.submitted ||
+    ReportStatus.underReview => ReportProgress.pending,
+    ReportStatus.approved ||
+    ReportStatus.assigned ||
+    ReportStatus.inProgress ||
+    ReportStatus.forReview => ReportProgress.inProgress,
+    ReportStatus.completed || ReportStatus.closed => ReportProgress.completed,
+    ReportStatus.merged ||
+    ReportStatus.rejected ||
+    ReportStatus.archived => ReportProgress.closedOut,
+  };
+
   static ReportStatus fromId(String id) => ReportStatus.values.firstWhere(
     (status) => status.id == id,
     orElse: () => throw ArgumentError.value(id, 'id', 'Unknown ReportStatus'),
   );
+}
+
+/// [ReportStatus] collapsed to the stages a requestor follows: awaiting the
+/// administrator, being worked, finished — and [closedOut] for a report
+/// that ended without the work being done (merged into another, rejected,
+/// archived). The eleven statuses are the administrator's vocabulary; this
+/// is the faculty and staff app's.
+enum ReportProgress {
+  pending('Pending'),
+  inProgress('In Progress'),
+  completed('Completed'),
+  closedOut('Closed');
+
+  const ReportProgress(this.label);
+
+  /// As the faculty and staff app writes it — "In Progress" (Figma
+  /// `169:1251`; the home screen's "In-progress" is the same stage).
+  final String label;
 }

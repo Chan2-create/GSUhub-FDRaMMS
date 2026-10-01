@@ -230,6 +230,10 @@ abstract final class AppColors {
 
   /// Account status: ACTIVE in green, the legend's inactive dot in slate.
   static const Color accountActive = statAccentCompleted;
+
+  /// PENDING: someone who signed themselves up and awaits approval (3.A).
+  /// Amber, as the console's other "needs a decision" states are.
+  static const Color accountPending = Color(0xFFB45309);
   static const Color accountInactiveDot = presenceInactive;
 
   // --- feedback ---
@@ -284,4 +288,98 @@ abstract final class AppColors {
   /// on gold. Each clears 4.5:1 against its card.
   static const Color errorOnNavy = Color(0xFFFFB4AB);
   static const Color errorOnGold = Color(0xFF690005);
+
+  // --- faculty and staff app: sign-in, home, My Reports (Objective 3.A) ---
+  //
+  // Sampled from 1x PNG exports of Figma `193:310`, `194:455`, `170:2050`
+  // and `169:1251`: the MCP quota was spent, so these are not yet checked
+  // against the file's own values.
+
+  /// Report progress, one colour each — the home screen's chips (Figma
+  /// `170:2050`), used on My Reports as well so a report reads the same on
+  /// both. White text on all three, as drawn.
+  static const Color progressPending = Color(0xFFFDCC14);
+  static const Color progressInProgress = Color(0xFF2563EB);
+  static const Color progressCompleted = Color(0xFF16A34A);
+
+  /// The sign-in and sign-up cards.
+  static const Color authCard = Color(0xFFFBFBFD);
+
+  /// "DAVAO ORIENTAL STATE UNIVERSITY" above both cards.
+  static const Color authUniversity = Color(0xFF9C9DC4);
+
+  /// "Welcome back" and the sign-in labels.
+  static const Color authHeading = Color(0xFF1E1B4B);
+
+  /// "Please enter your credentials…".
+  static const Color authSubtitle = Color(0xFF8180B2);
+
+  /// Every sign-in and sign-up input box.
+  static const Color authInputFill = Color(0xFFF4F7FE);
+
+  /// Sign-in placeholders.
+  static const Color authPlaceholder = Color(0xFFA5B4FC);
+
+  /// LOGIN TO DASHBOARD.
+  static const Color authSignInButton = Color(0xFF251697);
+
+  /// The sign-in footer line.
+  static const Color authFooter = Color(0xFF9A9BC3);
+
+  /// "Create Account", and a report card's location on My Reports.
+  static const Color warmHeading = Color(0xFF201B12);
+
+  /// Sign-up labels and copy, and My Reports' category text.
+  static const Color warmText = Color(0xFF4F4634);
+
+  /// Sign-up input outline.
+  static const Color signUpInputBorder = Color(0xFFD3C5AE);
+
+  /// Sign-up placeholders.
+  static const Color signUpPlaceholder = Color(0xFFB2B0AD);
+
+  /// The rule above "Already have an account?".
+  static const Color signUpDivider = Color(0xFFEFECE6);
+
+  /// "Login" on the sign-up card.
+  static const Color linkIndigo = Color(0xFF534EC4);
+
+  /// The sign-up footer line.
+  static const Color signUpFooter = Color(0xFF89877F);
+
+  /// The greeting and a report row's location on the home screen.
+  static const Color homeText = Color(0xFF474747);
+
+  /// A report row's time on the home screen.
+  static const Color homeTextMuted = Color(0xFF5E5E5E);
+
+  /// "Recent Reports".
+  static const Color homeSectionTitle = Color(0xFF343638);
+
+  /// A report row's square when the report has no photo.
+  static const Color reportThumbPlaceholder = Color(0xFF5E74A4);
+
+  /// The banner's purple wash over the campus photo.
+  static const Color bannerWash = Color(0xFF766FBA);
+
+  /// The counts line on the banner.
+  static const Color bannerCounts = Color(0xFFFDE68A);
+
+  /// The bottom bar's fill.
+  static const Color navBar = Color(0xFFC4C5D3);
+
+  /// The glow under the raised centre button.
+  static const Color navFabGlow = Color(0x80534EC4);
+
+  /// "Reports" and its back arrow.
+  static const Color myReportsTitle = Color(0xFF3F4143);
+
+  /// The search box and the category pill on My Reports.
+  static const Color warmFill = Color(0xFFF1E7D8);
+
+  /// The search placeholder.
+  static const Color searchPlaceholder = Color(0xFF807A72);
+
+  /// "Submitted: Oct 24, 2023".
+  static const Color warmMuted = Color(0xFF817662);
 }

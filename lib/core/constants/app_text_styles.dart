@@ -1079,4 +1079,305 @@ abstract final class AppTextStyles {
     fontWeight: FontWeight.w500,
     height: 16 / 12,
   );
+
+  // --- faculty and staff app: sign-in and sign-up (193:310, 194:455, 3.A) ---
+  //
+  // Sizes from the frames' text boxes; the families are an assumption until
+  // the design context can be read again (the MCP quota was spent). The
+  // frames are HTML imports in a grotesque face, and Public Sans is the
+  // closest family the app bundles.
+
+  /// "DAVAO ORIENTAL STATE UNIVERSITY".
+  static const TextStyle authUniversity = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: AppColors.authUniversity,
+    letterSpacing: 2.4,
+    height: 16 / 12,
+  );
+
+  /// "Welcome back".
+  static const TextStyle authWelcome = TextStyle(
+    fontFamily: _ui,
+    fontSize: 30,
+    fontWeight: FontWeight.w700,
+    color: AppColors.authHeading,
+    height: 36 / 30,
+  );
+
+  /// "Please enter your credentials to access the system."
+  static const TextStyle authSubtitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.authSubtitle,
+    height: 24 / 16,
+  );
+
+  /// "Email", "Password" on the sign-in card.
+  static const TextStyle authLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.authHeading,
+    height: 20 / 14,
+  );
+
+  /// Typed text in any sign-in or sign-up box.
+  static const TextStyle authInput = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.authHeading,
+    height: 21 / 16,
+  );
+
+  /// LOGIN TO DASHBOARD, CREATE ACCOUNT, REGISTER.
+  static const TextStyle authButton = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+    letterSpacing: 1.4,
+    height: 20 / 14,
+  );
+
+  /// The footer line under both cards.
+  static const TextStyle authFooter = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.authFooter,
+    height: 16 / 12,
+  );
+
+  /// "Create Account".
+  static const TextStyle signUpTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmHeading,
+    height: 32 / 24,
+  );
+
+  /// "Create An Account and Report", and "Already have an account?".
+  static const TextStyle signUpText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 20 / 14,
+  );
+
+  /// "FULL NAME", "EMAIL" — upper case in the design.
+  static const TextStyle signUpLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmText,
+    letterSpacing: 1.2,
+    height: 18 / 12,
+  );
+
+  /// "Login" after "Already have an account?".
+  static const TextStyle signUpLink = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppColors.linkIndigo,
+    height: 20 / 14,
+  );
+
+  /// "© 2026 GSUHUB. EXCELLENCE, INNOVATION, AND INCLUSION."
+  static const TextStyle signUpFooter = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.signUpFooter,
+    letterSpacing: 1.6,
+    height: 18 / 12,
+  );
+
+  // --- faculty and staff app: home, My Reports, bottom bar (3.A) ---
+  //
+  // Poppins, as the rendered frames read; sizes from their text boxes.
+
+  /// "Hello, James Landoy".
+  static const TextStyle homeGreeting = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.homeText,
+    height: 17 / 15,
+  );
+
+  /// "Faculty" under the greeting.
+  static const TextStyle homeRole = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w300,
+    color: AppColors.homeText,
+    height: 17 / 15,
+  );
+
+  /// "Submit Damage Report", "My Reports" on the two tiles.
+  static const TextStyle homeTile = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    height: 20 / 15,
+  );
+
+  /// "Reports Overview".
+  static const TextStyle bannerTitle = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: Colors.white,
+    height: 24 / 15,
+  );
+
+  /// "8 Active • 2 In-Progress • 10 Completed".
+  static const TextStyle bannerCounts = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: AppColors.bannerCounts,
+    height: 24 / 15,
+  );
+
+  /// "Recent Reports".
+  static const TextStyle homeSectionTitle = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: AppColors.homeSectionTitle,
+    height: 17 / 15,
+  );
+
+  /// "View All".
+  static const TextStyle homeViewAll = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: AppColors.accentGold,
+    height: 17 / 15,
+  );
+
+  /// "AB Bldg, Room 101" on a recent report.
+  static const TextStyle homeRowLocation = TextStyle(
+    fontFamily: _display,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.homeText,
+    height: 17 / 13,
+  );
+
+  /// "3H AGO".
+  static const TextStyle homeRowTime = TextStyle(
+    fontFamily: _display,
+    fontSize: 8,
+    fontWeight: FontWeight.w500,
+    color: AppColors.homeTextMuted,
+    height: 12 / 8,
+  );
+
+  /// The home screen's category and progress pills ("Electrical",
+  /// "Pending"). Colour comes from the pill.
+  static const TextStyle requestorChip = TextStyle(
+    fontFamily: _display,
+    fontSize: 9,
+    fontWeight: FontWeight.w500,
+    height: 14 / 9,
+  );
+
+  /// My Reports' progress pill. Colour comes from the pill.
+  static const TextStyle requestorChipLarge = TextStyle(
+    fontFamily: _display,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    height: 24 / 14,
+  );
+
+  /// My Reports' category pill.
+  static const TextStyle myReportsCategory = TextStyle(
+    fontFamily: _display,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 24 / 14,
+  );
+
+  /// "Reports", the tab title beside the back arrow.
+  static const TextStyle myReportsTitle = TextStyle(
+    fontFamily: _display,
+    fontSize: 20,
+    fontWeight: FontWeight.w500,
+    color: AppColors.myReportsTitle,
+    height: 28 / 20,
+  );
+
+  /// The search box, typed and placeholder.
+  static const TextStyle myReportsSearch = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmHeading,
+    height: 24 / 15,
+  );
+
+  /// "All", "Pending" — colour comes from the filter.
+  static const TextStyle myReportsFilter = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    height: 24 / 15,
+  );
+
+  /// "Science Lab, Room 204" on a report card.
+  static const TextStyle myReportsLocation = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.warmHeading,
+    height: 24 / 15,
+  );
+
+  /// "Submitted: Oct 24, 2023".
+  static const TextStyle myReportsSubmitted = TextStyle(
+    fontFamily: _display,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmMuted,
+    height: 24 / 14,
+  );
+
+  /// "Home", "Reports", "Alerts", "Profile" in the bottom bar. The current
+  /// tab is bolder.
+  static const TextStyle navLabel = TextStyle(
+    fontFamily: _display,
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primary,
+    height: 17 / 11,
+  );
+
+  /// A placeholder tab's heading and copy.
+  static const TextStyle placeholderTitle = TextStyle(
+    fontFamily: _display,
+    fontSize: 17,
+    fontWeight: FontWeight.w600,
+    color: AppColors.homeSectionTitle,
+    height: 24 / 17,
+  );
+
+  static const TextStyle placeholderBody = TextStyle(
+    fontFamily: _display,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.homeTextMuted,
+    height: 20 / 14,
+  );
 }
