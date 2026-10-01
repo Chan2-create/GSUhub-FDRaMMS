@@ -34,8 +34,7 @@ class AppRouteGuard {
   /// redirect to, or null to allow.
   String? call(BuildContext context, GoRouterState state) {
     final location = state.matchedLocation;
-    final isLoginRoute =
-        location == RoutePaths.adminLogin || location == RoutePaths.staffLogin;
+    final isLoginRoute = _isSignInPage(location);
 
     // Hold still until the session is known.
     if (isResolving) return null;
@@ -81,9 +80,17 @@ class AppRouteGuard {
     return null;
   }
 
+  /// Pages for getting in: both sign-in pages, and the faculty and staff
+  /// sign-up (3.A). Open to anyone signed out; a signed-in user is moved on
+  /// to their own home.
+  static bool _isSignInPage(String location) =>
+      location == RoutePaths.adminLogin ||
+      location == RoutePaths.staffLogin ||
+      location == RoutePaths.staffSignUp;
+
   /// The sign-in page for [location]'s area. The faculty and staff app has
-  /// its own (3.C's emulator stand-in until 3.A); personnel have none until
-  /// Objective 5, so they keep using the administrator's.
+  /// its own (3.A); personnel have none until Objective 5, so they keep
+  /// using the administrator's.
   static String _loginFor(String location) =>
       _isStaffArea(location) ? RoutePaths.staffLogin : RoutePaths.adminLogin;
 
@@ -91,7 +98,7 @@ class AppRouteGuard {
   /// place needs no round-trip bookkeeping.
   static String _defaultAfterLogin(String login) =>
       login == RoutePaths.staffLogin
-      ? RoutePaths.staffSubmitReport
+      ? RoutePaths.staffHome
       : RoutePaths.adminDashboard;
 
   /// Query parameter carrying the originally requested location.
@@ -104,26 +111,24 @@ class AppRouteGuard {
   /// Whether [location] requires authentication at all.
   static bool _isProtected(String location) =>
       _isAdminArea(location) ||
-      location.startsWith('/staff') ||
+      _isStaffArea(location) ||
       location.startsWith('/personnel');
 
   static bool _isAdminArea(String location) => location.startsWith('/admin');
 
-  /// The faculty and staff app, less its sign-in page.
+  /// The faculty and staff app, less its sign-in and sign-up pages.
   static bool _isStaffArea(String location) =>
-      location.startsWith('/staff') && location != RoutePaths.staffLogin;
+      location.startsWith('/staff') && !_isSignInPage(location);
 
   /// Where each role belongs after signing in.
   ///
-  /// A requestor's home is the report form until 3.A/3.B build the home
-  /// screen: it is the one requestor screen that exists (3.C), and the
-  /// others are placeholders with no way onward. The personnel shell is
-  /// placeholders until Objective 5; sending a technician there is still
-  /// correct — they land on their own area rather than being told they are
-  /// unauthorized for a system they are authorized to use.
+  /// The personnel shell is placeholders until Objective 5; sending a
+  /// technician there is still correct — they land on their own area
+  /// rather than being told they are unauthorized for a system they are
+  /// authorized to use.
   static String _homeFor(UserRole role) => switch (role) {
     UserRole.admin => RoutePaths.adminDashboard,
-    UserRole.requestor => RoutePaths.staffSubmitReport,
+    UserRole.requestor => RoutePaths.staffHome,
     UserRole.maintenancePersonnel => RoutePaths.personnelDashboard,
   };
 }

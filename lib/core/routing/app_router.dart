@@ -2,18 +2,24 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/analytics/presentation/analytics_screen.dart';
-import '../../features/auth/presentation/dev_sign_in_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/requestor_login_screen.dart';
+import '../../features/auth/presentation/requestor_sign_up_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/dashboard/presentation/requestor_home_screen.dart';
+import '../../features/reporting/presentation/my_reports/my_report_detail_screen.dart';
+import '../../features/reporting/presentation/my_reports/my_reports_screen.dart';
 import '../../features/reporting/presentation/report_detail_screen.dart';
 import '../../features/reporting/presentation/reports_screen.dart';
 import '../../features/reporting/presentation/submission/submit_report_screen.dart';
 import '../../features/user_management/presentation/personnel_screen.dart';
+import '../../features/user_management/presentation/requestor_profile_screen.dart';
 import '../../features/user_management/presentation/user_accounts_screen.dart';
 import '../../features/work_orders/presentation/task_assignment_screen.dart';
 import '../../features/work_orders/presentation/work_orders_screen.dart';
 import '../../shells/admin/admin_shell.dart';
 import '../../shells/personnel/personnel_shell.dart';
+import '../../shells/requestor/requestor_placeholder_page.dart';
 import '../../shells/requestor/requestor_shell.dart';
 import 'route_guards.dart';
 import 'route_paths.dart';
@@ -102,24 +108,50 @@ GoRouter buildAppRouter({
     // --- Requestor (Faculty/Staff, mobile) — WBS Objective 3 ---
     GoRoute(
       path: RoutePaths.staffLogin,
-      // The emulator stand-in exists in debug builds only; a release build
-      // has no faculty and staff sign-in until 3.A.
-      builder: (context, state) => kDebugMode
-          ? DevSignInScreen(redirectTo: AppRouteGuard.redirectTargetOf(state))
-          : const RoutePlaceholderScreen(routeName: RoutePaths.staffLogin),
+      builder: (context, state) => RequestorLoginScreen(
+        redirectTo: AppRouteGuard.redirectTargetOf(state),
+        justRegistered:
+            state.uri.queryParameters[RequestorLoginScreen.registeredParam] ==
+            '1',
+      ),
+    ),
+    GoRoute(
+      path: RoutePaths.staffSignUp,
+      builder: (context, state) => const RequestorSignUpScreen(),
+    ),
+    // Over the tabs, not inside them: the form's frame has no bottom bar,
+    // and the bar's centre button opens it with `push` so Back returns.
+    GoRoute(
+      path: RoutePaths.staffSubmitReport,
+      builder: (context, state) => const SubmitReportScreen(),
     ),
     ShellRoute(
-      builder: (context, state, child) => RequestorShell(child: child),
+      builder: (context, state, child) =>
+          RequestorShell(location: state.matchedLocation, child: child),
       routes: [
         GoRoute(
-          path: RoutePaths.staffSubmitReport,
-          builder: (context, state) => const SubmitReportScreen(),
+          path: RoutePaths.staffHome,
+          builder: (context, state) => const RequestorHomeScreen(),
         ),
         GoRoute(
           path: RoutePaths.staffMyReports,
-          builder: (context, state) => const RoutePlaceholderScreen(
-            routeName: RoutePaths.staffMyReports,
-          ),
+          builder: (context, state) => const MyReportsScreen(),
+          routes: [
+            GoRoute(
+              path: ':reportId',
+              builder: (context, state) => MyReportDetailScreen(
+                reportId: state.pathParameters['reportId']!,
+              ),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: RoutePaths.staffAlerts,
+          builder: (context, state) => const RequestorAlertsPage(),
+        ),
+        GoRoute(
+          path: RoutePaths.staffProfile,
+          builder: (context, state) => const RequestorProfileScreen(),
         ),
         GoRoute(
           path: RoutePaths.staffFeedback,

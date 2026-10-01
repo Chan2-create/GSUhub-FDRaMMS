@@ -110,15 +110,40 @@ void main() {
       );
     });
 
-    test('omits the redirect parameter for the report form', () {
-      // The staff sign-in lands on the form by default.
-      final redirect = redirectFor(guard, RoutePaths.staffSubmitReport);
+    test('omits the redirect parameter for the faculty home', () {
+      // The staff sign-in lands on the home screen by default (3.A).
+      final redirect = redirectFor(guard, RoutePaths.staffHome);
       expect(redirect, RoutePaths.staffLogin);
     });
 
-    test('may sit on either login page', () {
+    test('keeps the report form through the staff sign-in', () {
+      final redirect = redirectFor(guard, RoutePaths.staffSubmitReport);
+      expect(
+        Uri.parse(redirect!).queryParameters['redirect'],
+        RoutePaths.staffSubmitReport,
+      );
+    });
+
+    test('may sit on either login page, and on the staff sign-up', () {
       expect(redirectFor(guard, RoutePaths.adminLogin), isNull);
       expect(redirectFor(guard, RoutePaths.staffLogin), isNull);
+      // Signing up is how a faculty member gets an account at all (3.A).
+      expect(redirectFor(guard, RoutePaths.staffSignUp), isNull);
+    });
+
+    test('is sent to the staff sign-in from every faculty tab', () {
+      for (final path in [
+        RoutePaths.staffHome,
+        RoutePaths.staffAlerts,
+        RoutePaths.staffProfile,
+        RoutePaths.staffReportDetailFor('r1'),
+      ]) {
+        expect(
+          redirectFor(guard, path),
+          startsWith(RoutePaths.staffLogin),
+          reason: '$path was reachable signed out',
+        );
+      }
     });
   });
 
@@ -171,7 +196,7 @@ void main() {
       ]) {
         expect(
           redirectFor(guard, path),
-          RoutePaths.staffSubmitReport,
+          RoutePaths.staffHome,
           reason: 'admin route $path was reachable by a requestor',
         );
       }
@@ -179,24 +204,29 @@ void main() {
 
     test('is sent to their own area, not an error page', () {
       // The brief is explicit: other roles are redirected, not shown an
-      // empty admin shell. The report form is the requestor's home until
-      // 3.A/3.B build one.
+      // empty admin shell. Their home is the faculty home screen (3.A).
       expect(
         redirectFor(guard, RoutePaths.adminDashboard),
-        RoutePaths.staffSubmitReport,
+        RoutePaths.staffHome,
       );
     });
 
-    test('is moved off the staff sign-in once signed in', () {
-      expect(
-        redirectFor(guard, RoutePaths.staffLogin),
-        RoutePaths.staffSubmitReport,
-      );
+    test('is moved off the staff sign-in and sign-up once signed in', () {
+      expect(redirectFor(guard, RoutePaths.staffLogin), RoutePaths.staffHome);
+      expect(redirectFor(guard, RoutePaths.staffSignUp), RoutePaths.staffHome);
     });
 
     test('reaches their own shell', () {
-      expect(redirectFor(guard, RoutePaths.staffMyReports), isNull);
-      expect(redirectFor(guard, RoutePaths.staffSubmitReport), isNull);
+      for (final path in [
+        RoutePaths.staffHome,
+        RoutePaths.staffMyReports,
+        RoutePaths.staffReportDetailFor('r1'),
+        RoutePaths.staffAlerts,
+        RoutePaths.staffProfile,
+        RoutePaths.staffSubmitReport,
+      ]) {
+        expect(redirectFor(guard, path), isNull, reason: 'blocked at $path');
+      }
     });
   });
 

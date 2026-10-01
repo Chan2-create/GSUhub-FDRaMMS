@@ -12,6 +12,7 @@ import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/filter_select.dart';
 import '../../../../shells/requestor/requestor_header.dart';
 import '../../../facilities/presentation/facility_directory.dart';
+import '../my_reports/my_reports_providers.dart';
 import 'qr_scanner_screen.dart';
 import 'report_form_controller.dart';
 import 'report_form_state.dart';
@@ -88,7 +89,8 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> {
   }
 
   /// Not in the design: the confirmation after filing. Plain Material,
-  /// flagged. "Done" starts a fresh form.
+  /// flagged. "Done" returns to the page the form was opened from (3.A),
+  /// or starts a fresh form when there is none.
   Future<void> _confirm(String reportId) async {
     await showDialog<void>(
       context: context,
@@ -108,6 +110,14 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> {
       ),
     );
     if (!mounted) return;
+    // Home and My Reports read the requestor's reports once; the new one
+    // should be there when they come back into view.
+    ref.invalidate(myReportsProvider);
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
     _title.clear();
     _description.clear();
     ref.invalidate(reportFormControllerProvider);
@@ -200,8 +210,9 @@ class _TitleRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(5, 0, 11, 0),
       child: Row(
         children: [
-          // Nothing to go back to while the form is the requestor's first
-          // screen (until 3.A/3.B); the arrow stays, as drawn, but idle.
+          // Opened from the home screen or the bottom bar, the arrow goes
+          // back. Reached any other way there is nothing to go back to; the
+          // arrow stays, as drawn, but idle.
           IconButton(
             tooltip: canGoBack ? 'Back' : null,
             onPressed: canGoBack

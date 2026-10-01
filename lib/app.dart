@@ -13,11 +13,11 @@ import 'core/routing/route_paths.dart';
 /// dashboard).
 ///
 /// The web build is the administrator console. Anything else is the
-/// mobile app, which opens on the faculty and staff area until Objective 5
+/// mobile app, which opens on the faculty and staff home until Objective 5
 /// gives personnel a mobile area of their own to start in. A provider so
 /// tests — which never run as web — can boot either one.
 final startLocationProvider = Provider<String?>(
-  (ref) => kIsWeb ? null : RoutePaths.staffSubmitReport,
+  (ref) => kIsWeb ? null : RoutePaths.staffHome,
 );
 
 /// The app's [GoRouter].

@@ -121,16 +121,35 @@ void main() {
 
   group('buildAppRouter, mobile shells', () {
     testWidgets('a requestor reaches their own routes', (tester) async {
+      for (final route in [
+        RoutePaths.staffHome,
+        RoutePaths.staffMyReports,
+        RoutePaths.staffAlerts,
+        RoutePaths.staffProfile,
+        RoutePaths.staffSubmitReport,
+      ]) {
+        final path = await landingPath(
+          tester,
+          buildAppRouter(
+            guard: const AppRouteGuard(user: requestor),
+            initialLocation: route,
+          ),
+          user: requestor,
+        );
+
+        expect(path, route, reason: '$route did not resolve');
+      }
+    });
+
+    testWidgets('a signed-out visitor can reach the staff sign-up', (
+      tester,
+    ) async {
       final path = await landingPath(
         tester,
-        buildAppRouter(
-          guard: const AppRouteGuard(user: requestor),
-          initialLocation: RoutePaths.staffSubmitReport,
-        ),
-        user: requestor,
+        buildAppRouter(initialLocation: RoutePaths.staffSignUp),
       );
 
-      expect(path, RoutePaths.staffSubmitReport);
+      expect(path, RoutePaths.staffSignUp);
     });
 
     testWidgets('personnel reach their own routes', (tester) async {
@@ -158,7 +177,7 @@ void main() {
         user: requestor,
       );
 
-      expect(path, RoutePaths.staffSubmitReport);
+      expect(path, RoutePaths.staffHome);
     });
   });
 }
