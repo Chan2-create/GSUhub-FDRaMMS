@@ -141,6 +141,23 @@ class FakeAuthService implements AuthService {
   Future<Result<void>> sendPasswordResetEmail({required String email}) async =>
       const Result.success(null);
 
+  /// What [register] returns; a profile write that fails wins over it.
+  Result<void> registerResult = const Result.success(null);
+
+  /// The addresses [register] was asked to create.
+  final registered = <String>[];
+
+  @override
+  Future<Result<void>> register({
+    required String email,
+    required String password,
+    required Future<Result<void>> Function(String uid) writeProfile,
+  }) async {
+    registered.add(email);
+    if (registerResult case Error()) return registerResult;
+    return writeProfile('new-uid-${registered.length}');
+  }
+
   @override
   Future<Result<void>> signOut() async {
     signOutCallCount++;
@@ -152,6 +169,28 @@ class FakeDamageReportRepository implements DamageReportRepository {
   FakeDamageReportRepository(this._reports);
 
   final Result<List<DamageReport>> _reports;
+
+  /// Whose reports the faculty and staff screens asked for.
+  final reporterQueries = <String>[];
+
+  /// Answers with every report given, whoever asks: keeping to one's own
+  /// is the query's and the security rules' job, tested against them.
+  @override
+  Future<Result<List<DamageReport>>> getByReporter(String reporterId) async {
+    reporterQueries.add(reporterId);
+    return _reports;
+  }
+
+  @override
+  Future<Result<DamageReport>> getById(String id) async => switch (_reports) {
+    Success(:final value) =>
+      value.where((report) => report.id == id).isEmpty
+          ? const Result.failure(
+              NotFoundFailure('The requested record no longer exists.'),
+            )
+          : Result.success(value.firstWhere((report) => report.id == id)),
+    Error(:final failure) => Result.failure(failure),
+  };
 
   @override
   Stream<Result<List<DamageReport>>> watchAll({
@@ -277,6 +316,12 @@ class FakeUserRepository implements UserRepository {
     required AppUser user,
     required AuditActor actor,
   }) async {
+    created.add(user);
+    return writeResult;
+  }
+
+  @override
+  Future<Result<void>> createSelfRegistration(AppUser user) async {
     created.add(user);
     return writeResult;
   }

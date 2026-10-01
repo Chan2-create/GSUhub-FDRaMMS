@@ -89,15 +89,45 @@ service cloud.firestore {
     // Everyone may read their own record (the app needs the role to route);
     // personnel are readable by admins for assignment.
 
+    // A faculty or staff member signing themselves up (Objective 3.A).
+    // They may only ever ask: the profile is their own, under the email
+    // they signed in with, as a requestor, pending an administrator's
+    // approval, and carrying none of the personnel-only fields. §1.5 limits
+    // GSUhub to "authorized" faculty and staff, so nothing a person writes
+    // here lets them in — activation is the administrator's.
+    function isSelfRegistration(uid) {
+      let data = request.resource.data;
+      return isSelf(uid)
+        && data.keys().hasOnly([
+             'fullName', 'email', 'role', 'accountStatus', 'department',
+             'contactNumber', 'specialization', 'availability',
+             'activeTaskCount', 'fcmToken', 'createdAt', 'updatedAt'
+           ])
+        && data.role == 'requestor'
+        && data.accountStatus == 'pending'
+        && data.email == request.auth.token.email
+        && data.fullName is string
+        && data.fullName.size() > 0 && data.fullName.size() <= 120
+        && (data.get('department', null) == null
+            || (data.department is string && data.department.size() <= 120))
+        && (data.get('contactNumber', null) == null
+            || (data.contactNumber is string
+                && data.contactNumber.size() <= 40))
+        && data.get('specialization', null) == null
+        && data.get('availability', null) == null
+        && data.get('activeTaskCount', 0) == 0
+        && data.get('fcmToken', null) == null
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
     match /users/{uid} {
       allow get: if isSelf(uid) || isAdmin();
       allow list: if isAdmin();
 
-      // Account creation is administrator-driven: §1.5 limits access to
-      // "authorized" faculty, staff and GSU personnel, so self-registration
-      // cannot mint an arbitrary role. 1.C decides whether the signup screen
-      // writes a pending record or an admin provisions accounts outright.
-      allow create: if isAdmin();
+      // Administrators provision accounts outright (2.C); anyone else may
+      // only file a request for their own (3.A).
+      allow create: if isAdmin() || isSelfRegistration(uid);
 
       // A user may maintain their own contact details and push token, but
       // never their own role or account status — that would let any account

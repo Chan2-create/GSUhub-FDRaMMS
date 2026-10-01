@@ -85,6 +85,19 @@ class UserRepositoryImpl extends FirestoreRepository implements UserRepository {
   );
 
   @override
+  Future<Result<void>> createSelfRegistration(AppUser user) => setDoc(
+    path: _path,
+    id: user.id,
+    data: {
+      ...user.toFirestore(),
+      // The rules check both against request time, so a device with a
+      // wrong clock cannot back-date the request.
+      'createdAt': FirestoreRepository.serverNow,
+      'updatedAt': FirestoreRepository.serverNow,
+    },
+  );
+
+  @override
   Future<Result<void>> createAccount({
     required AppUser user,
     required AuditActor actor,
@@ -217,6 +230,7 @@ class UserRepositoryImpl extends FirestoreRepository implements UserRepository {
     });
 
     final activating = status == AccountStatus.active;
+    final request = current.accountStatus == AccountStatus.pending;
     stageAuditEntry(
       transaction,
       db.raw,
@@ -224,9 +238,12 @@ class UserRepositoryImpl extends FirestoreRepository implements UserRepository {
       action: AuditAction.statusChanged,
       entityType: _path,
       entityId: uid,
-      description:
-          '${activating ? 'Reactivated' : 'Deactivated'} the account of '
-          '${current.fullName}',
+      description: switch ((request, activating)) {
+        (true, true) => 'Approved the account request of ${current.fullName}',
+        (true, false) => 'Declined the account request of ${current.fullName}',
+        (false, true) => 'Reactivated the account of ${current.fullName}',
+        (false, false) => 'Deactivated the account of ${current.fullName}',
+      },
       changes: {'from': current.accountStatus.id, 'to': status.id},
     );
   });

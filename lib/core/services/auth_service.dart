@@ -35,6 +35,21 @@ abstract interface class AuthService {
     required String password,
   });
 
+  /// Creates a sign-in account for [email] and [password], then runs
+  /// [writeProfile] with its uid to save the matching `users` document
+  /// (Objective 3.A's self-registration).
+  ///
+  /// Leaves nobody signed in: the account it creates is not yet approved,
+  /// so the person signs in later, once an administrator has activated it.
+  /// The two steps succeed or fail together — if [writeProfile] fails, the
+  /// sign-in account is deleted again, so no login is left behind without
+  /// a profile.
+  Future<Result<void>> register({
+    required String email,
+    required String password,
+    required Future<Result<void>> Function(String uid) writeProfile,
+  });
+
   Future<Result<void>> signOut();
 
   Future<Result<void>> sendPasswordResetEmail({required String email});

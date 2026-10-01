@@ -48,6 +48,15 @@ abstract interface class UserRepository {
 
   Future<Result<void>> update(AppUser user);
 
+  /// Saves the profile of someone who has just signed themselves up from
+  /// the faculty and staff app (Objective 3.A): a requestor awaiting
+  /// approval, stamped with server time.
+  ///
+  /// No audit entry: the rules let only an active account write one, and
+  /// the person is not active yet. The administrator's approval is the
+  /// decision that gets recorded.
+  Future<Result<void>> createSelfRegistration(AppUser user);
+
   /// Saves the profile of an account whose sign-in was just provisioned,
   /// together with its audit entry, in one transaction. Refuses if a
   /// profile already exists under that uid.

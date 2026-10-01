@@ -28,6 +28,10 @@ import 'firebase_call_guard.dart';
 /// so `accountStatus` is authoritative here: a user whose document says
 /// `inactive` is treated as signed out even if their Auth session is
 /// technically valid, and [signInWithEmailAndPassword] refuses them.
+///
+/// A `pending` account (Objective 3.A — someone who signed themselves up
+/// and is waiting for approval) is refused the same way, with its own
+/// message: they have done nothing wrong and should know to wait.
 class FirebaseAuthService implements AuthService {
   FirebaseAuthService({
     required this._auth,
@@ -53,13 +57,16 @@ class FirebaseAuthService implements AuthService {
         continue;
       }
 
-      final profile = await _loadProfile(credential.uid);
+      final (:user, status: _) = await _loadProfile(credential.uid);
       // A signed-in credential with no readable profile, or a deactivated
-      // one, is treated as signed out. Emitting a half-resolved user here
-      // would let the route guard admit someone whose role we could not
-      // establish.
-      _cachedUser = profile;
-      yield profile;
+      // or unapproved one, is treated as signed out. Emitting a
+      // half-resolved user here would let the route guard admit someone
+      // whose role we could not establish.
+      //
+      // Registering signs the new account in for a moment, too: this sees
+      // it with no profile yet, or a pending one, and reports signed out.
+      _cachedUser = user;
+      yield user;
     }
   }
 
@@ -81,6 +88,47 @@ class FirebaseAuthService implements AuthService {
         value.user?.uid,
       ),
     };
+  }
+
+  @override
+  Future<Result<void>> register({
+    required String email,
+    required String password,
+    required Future<Result<void>> Function(String uid) writeProfile,
+  }) async {
+    final created = await _guard.callOnce(
+      () => _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      ),
+    );
+
+    switch (created) {
+      case Error<fb.UserCredential>(:final failure):
+        return Result.failure(failure);
+      case Success<fb.UserCredential>(:final value):
+        final user = value.user;
+        if (user == null) {
+          return const Result.failure(
+            UnknownFailure('Sign-up succeeded but returned no account.'),
+          );
+        }
+        try {
+          // Written while the new account is signed in: the rules let a
+          // person create their own profile, and only as a pending
+          // requestor.
+          final profile = await writeProfile(user.uid);
+          if (profile case Error(:final failure)) {
+            // Roll back the login so no account exists without a profile.
+            await _guard.call(user.delete);
+            return Result.failure(failure);
+          }
+          return const Result.success(null);
+        } finally {
+          _cachedUser = null;
+          await _guard.call(_auth.signOut);
+        }
+    }
   }
 
   @override
@@ -111,7 +159,7 @@ class FirebaseAuthService implements AuthService {
       return refreshed.map((_) {});
     }
 
-    _cachedUser = await _loadProfile(user.uid);
+    _cachedUser = (await _loadProfile(user.uid)).user;
     return const Result.success(null);
   }
 
@@ -122,55 +170,69 @@ class FirebaseAuthService implements AuthService {
       );
     }
 
-    final profile = await _loadProfile(uid);
-    if (profile == null) {
+    final (:user, :status) = await _loadProfile(uid);
+    if (user == null) {
       // Signing them straight back out prevents a half-authenticated
       // state where Auth thinks they are in but the app cannot say who
       // they are.
       await _auth.signOut();
       _cachedUser = null;
-      return const Result.failure(
+      return Result.failure(
         PermissionFailure(
-          'This account is not authorized to use GSUhub, or has been '
-          'deactivated. Contact the GSU administrator.',
+          status == AccountStatus.pending
+              // Said only after the password checked out, so it tells a
+              // stranger nothing about which addresses have accounts.
+              ? 'Your account is waiting for approval by the GSU '
+                    'administrator. You can sign in once it has been '
+                    'approved.'
+              : 'This account is not authorized to use GSUhub, or has '
+                    'been deactivated. Contact the GSU administrator.',
         ),
       );
     }
 
-    _cachedUser = profile;
-    return Result.success(profile);
+    _cachedUser = user;
+    return Result.success(user);
   }
 
-  /// Reads `users/{uid}` and builds an [AuthUser], or returns `null` when
-  /// the document is missing, unreadable, malformed, or deactivated.
-  Future<AuthUser?> _loadProfile(String uid) async {
+  /// Reads `users/{uid}` and builds an [AuthUser], or a null `user` when
+  /// the document is missing, unreadable, malformed, deactivated or still
+  /// awaiting approval. `status` carries the stored account status when it
+  /// could be read, so a refusal can say why.
+  Future<({AuthUser? user, AccountStatus? status})> _loadProfile(
+    String uid,
+  ) async {
     final snapshot = await _guard.call(
       () => _firestore.collection(FirestorePaths.users).doc(uid).get(),
     );
 
+    const refused = (user: null, status: null);
+
     return snapshot.fold((doc) {
       final data = doc.data();
-      if (!doc.exists || data == null) return null;
+      if (!doc.exists || data == null) return refused;
 
       final rawRole = data['role'];
       final rawStatus = data['accountStatus'];
-      if (rawRole is! String || rawStatus is! String) return null;
+      if (rawRole is! String || rawStatus is! String) return refused;
 
       try {
-        if (AccountStatus.fromId(rawStatus) != AccountStatus.active) {
-          return null;
-        }
-        return AuthUser(
-          uid: uid,
-          email: (data['email'] as String?) ?? '',
-          role: UserRole.fromId(rawRole),
+        final status = AccountStatus.fromId(rawStatus);
+        if (!status.canSignIn) return (user: null, status: status);
+        return (
+          user: AuthUser(
+            uid: uid,
+            email: (data['email'] as String?) ?? '',
+            role: UserRole.fromId(rawRole),
+          ),
+          status: status,
         );
       } on ArgumentError {
         // An unrecognized role or status means the document is corrupt
         // or was written by something that does not share our schema.
         // Refusing access is the only safe reading.
-        return null;
+        return refused;
       }
-    }, (_) => null);
+    }, (_) => refused);
   }
 }

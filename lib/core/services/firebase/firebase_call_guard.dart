@@ -47,6 +47,20 @@ class FirebaseCallGuard {
     }
   }
 
+  /// Runs [operation] once, with the timeout and error mapping of [call]
+  /// but no retry.
+  ///
+  /// For calls that are not safe to repeat. Creating an account is one: if
+  /// a first attempt timed out after the account was actually made, a retry
+  /// fails as "email already in use" and hides the real outcome.
+  Future<Result<T>> callOnce<T>(Future<T> Function() operation) async {
+    try {
+      return Result.success(await operation().timeout(_config.requestTimeout));
+    } on Object catch (error) {
+      return Result.failure(FirebaseErrorMapper.map(error));
+    }
+  }
+
   /// Wraps a stream so subscribers receive mapped failures instead of raw
   /// Firebase errors.
   ///

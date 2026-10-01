@@ -24,6 +24,8 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 import { GeoPoint } from 'firebase/firestore';
 
 const PROJECT_ID = 'gsuhub-rules-test';
@@ -33,6 +35,9 @@ const FACULTY_UID = 'faculty-uid';
 const PERSONNEL_UID = 'personnel-uid';
 const OTHER_FACULTY_UID = 'other-faculty-uid';
 const INACTIVE_UID = 'inactive-uid';
+const PENDING_UID = 'pending-uid';
+const SIGNUP_UID = 'signup-uid';
+const SIGNUP_EMAIL = 'liza.tan@dorsu.edu.ph';
 
 let testEnv;
 
@@ -88,6 +93,15 @@ before(async () => {
       email: 'former@dorsu.edu.ph',
       role: 'requestor',
       accountStatus: 'inactive',
+      activeTaskCount: 0,
+    });
+    // Signed themselves up from the faculty and staff app and not yet
+    // approved (3.A).
+    await db.doc(`users/${PENDING_UID}`).set({
+      fullName: 'Ana Request',
+      email: 'ana.request@dorsu.edu.ph',
+      role: 'requestor',
+      accountStatus: 'pending',
       activeTaskCount: 0,
     });
 
@@ -192,6 +206,33 @@ const asPersonnel = () =>
   testEnv.authenticatedContext(PERSONNEL_UID).firestore();
 const asInactive = () => testEnv.authenticatedContext(INACTIVE_UID).firestore();
 const asAnonymous = () => testEnv.unauthenticatedContext().firestore();
+const asPending = () => testEnv.authenticatedContext(PENDING_UID).firestore();
+// Signed in with the account Firebase Auth just created, profile not yet
+// written — the moment self-registration writes it.
+const asNewSignUp = () =>
+  testEnv
+    .authenticatedContext(SIGNUP_UID, { email: SIGNUP_EMAIL })
+    .firestore();
+
+const serverNow = () => firebase.firestore.FieldValue.serverTimestamp();
+
+/// The profile the faculty and staff sign-up writes (3.A), with
+/// [overrides] applied.
+const signUpProfile = (overrides = {}) => ({
+  fullName: 'Liza Mae Tan',
+  email: SIGNUP_EMAIL,
+  role: 'requestor',
+  accountStatus: 'pending',
+  department: null,
+  contactNumber: null,
+  specialization: null,
+  availability: null,
+  activeTaskCount: 0,
+  fcmToken: null,
+  createdAt: serverNow(),
+  updatedAt: serverNow(),
+  ...overrides,
+});
 
 describe('unauthenticated access', () => {
   it('cannot read damage reports', async () => {
@@ -208,6 +249,104 @@ describe('unauthenticated access', () => {
         reporterId: 'anyone',
         description: 'Should be denied',
       }),
+    );
+  });
+});
+
+describe('self-registration (3.A)', () => {
+  it('may file a request for their own account, pending approval', async () => {
+    await assertSucceeds(
+      asNewSignUp().doc(`users/${SIGNUP_UID}`).set(signUpProfile()),
+    );
+    // Cleaned up so the refusals below meet a missing document.
+    await testEnv.withSecurityRulesDisabled((context) =>
+      context.firestore().doc(`users/${SIGNUP_UID}`).delete(),
+    );
+  });
+
+  it('cannot let themselves in, or as anything but a requestor', async () => {
+    for (const overrides of [
+      { accountStatus: 'active' },
+      { role: 'admin' },
+      { role: 'maintenancePersonnel' },
+    ]) {
+      await assertFails(
+        asNewSignUp()
+          .doc(`users/${SIGNUP_UID}`)
+          .set(signUpProfile(overrides)),
+      );
+    }
+  });
+
+  it('cannot file under another address or another uid', async () => {
+    await assertFails(
+      asNewSignUp()
+        .doc(`users/${SIGNUP_UID}`)
+        .set(signUpProfile({ email: 'someone.else@dorsu.edu.ph' })),
+    );
+    await assertFails(
+      asNewSignUp().doc('users/somebody-else').set(signUpProfile()),
+    );
+  });
+
+  it('cannot carry personnel fields, extra fields or its own clock', async () => {
+    for (const overrides of [
+      { specialization: 'electrical' },
+      { activeTaskCount: 3 },
+      { isAdmin: true },
+      { createdAt: new Date('2001-01-01T00:00:00Z') },
+    ]) {
+      await assertFails(
+        asNewSignUp()
+          .doc(`users/${SIGNUP_UID}`)
+          .set(signUpProfile(overrides)),
+      );
+    }
+  });
+
+  it('is not open to anyone signed out', async () => {
+    await assertFails(
+      asAnonymous().doc(`users/${SIGNUP_UID}`).set(signUpProfile()),
+    );
+  });
+});
+
+describe('account awaiting approval (3.A)', () => {
+  it('can read its own profile, so sign-in can say it is pending', async () => {
+    await assertSucceeds(asPending().doc(`users/${PENDING_UID}`).get());
+  });
+
+  it('has no other access until approved', async () => {
+    await assertFails(asPending().doc('facilities/fac-engineering').get());
+    await assertFails(
+      asPending()
+        .collection('damage_reports')
+        .where('reporterId', '==', PENDING_UID)
+        .limit(10)
+        .get(),
+    );
+  });
+
+  it('cannot approve itself', async () => {
+    await assertFails(
+      asPending()
+        .doc(`users/${PENDING_UID}`)
+        .update({ accountStatus: 'active' }),
+    );
+  });
+
+  it('is approved by an administrator', async () => {
+    await assertSucceeds(
+      asAdmin()
+        .doc(`users/${PENDING_UID}`)
+        .update({ accountStatus: 'active' }),
+    );
+    // Restored for any later test that relies on it being pending.
+    await testEnv.withSecurityRulesDisabled((context) =>
+      context
+        .firestore()
+        .doc(`users/${PENDING_UID}`)
+        .update({ accountStatus: 'pending' }),
     );
   });
 });
@@ -390,6 +529,32 @@ describe('requestor (faculty/staff)', () => {
         .collection('damage_reports')
         .where('reporterId', '==', FACULTY_UID)
         .limit(50)
+        .get(),
+    );
+  });
+
+  it('lists their own reports only in pages of at most 100', async () => {
+    // The app's own-report query (3.A) asks for exactly the maximum.
+    await assertSucceeds(
+      asFaculty()
+        .collection('damage_reports')
+        .where('reporterId', '==', FACULTY_UID)
+        .orderBy('submittedAt', 'desc')
+        .limit(100)
+        .get(),
+    );
+    await assertFails(
+      asFaculty()
+        .collection('damage_reports')
+        .where('reporterId', '==', FACULTY_UID)
+        .limit(101)
+        .get(),
+    );
+    // No limit at all — how watchByReporter asked until 3.A.
+    await assertFails(
+      asFaculty()
+        .collection('damage_reports')
+        .where('reporterId', '==', FACULTY_UID)
         .get(),
     );
   });
