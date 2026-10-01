@@ -48,7 +48,18 @@ void main() {
     ),
   ];
 
-  Future<FakeUserRepository> pump(WidgetTester tester) async {
+  // Signed themselves up from the faculty and staff app (3.A).
+  final request = account(
+    'faculty-new',
+    'Liza Mae Tan',
+    UserRole.requestor,
+    status: AccountStatus.pending,
+  );
+
+  Future<FakeUserRepository> pump(
+    WidgetTester tester, {
+    List<AppUser> extra = const [],
+  }) async {
     tester.view
       ..physicalSize = const Size(1800, 2400)
       ..devicePixelRatio = 1.0;
@@ -56,7 +67,7 @@ void main() {
 
     final users = FakeUserRepository(
       personnel: const Result.success([]),
-      accounts: Result.success(everyone),
+      accounts: Result.success([...everyone, ...extra]),
       signedIn: fakeAdminUser,
     );
     await tester.pumpWidget(
@@ -138,6 +149,42 @@ void main() {
       expect(users.statusChanges.single.uid, 'personnel-1');
       expect(users.statusChanges.single.status, AccountStatus.inactive);
       expect(find.text('Deactivated Juan Luna.'), findsOneWidget);
+    });
+
+    testWidgets('a sign-up request reads PENDING and can be approved', (
+      tester,
+    ) async {
+      final users = await pump(tester, extra: [request]);
+
+      expect(find.text('PENDING'), findsOneWidget);
+
+      await openMenuFor(tester, 'Liza Mae Tan');
+      expect(find.text('Approve'), findsOneWidget);
+      expect(find.text('Decline'), findsOneWidget);
+      expect(find.text('Reactivate'), findsNothing);
+
+      await tester.tap(find.text('Approve'));
+      await tester.pumpAndSettle();
+      expect(find.text('Approve Liza Mae Tan?'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
+      await tester.pumpAndSettle();
+
+      expect(users.statusChanges.single.uid, 'faculty-new');
+      expect(users.statusChanges.single.status, AccountStatus.active);
+      expect(find.text('Approved Liza Mae Tan.'), findsOneWidget);
+    });
+
+    testWidgets('a sign-up request can be declined', (tester) async {
+      final users = await pump(tester, extra: [request]);
+
+      await openMenuFor(tester, 'Liza Mae Tan');
+      await tester.tap(find.text('Decline'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Decline'));
+      await tester.pumpAndSettle();
+
+      expect(users.statusChanges.single.status, AccountStatus.inactive);
     });
 
     testWidgets('an inactive account can be reactivated', (tester) async {

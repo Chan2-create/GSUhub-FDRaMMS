@@ -1,21 +1,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/repository_providers.dart';
+import '../../../core/enums/account_status.dart';
 import '../../../core/enums/user_role.dart';
 import '../../../core/utils/result.dart';
 import '../data/models/app_user.dart';
 
 /// Every account, live, sorted by name — the User Accounts table
-/// (Objective 2.C).
+/// (Objective 2.C). Sign-up requests awaiting approval (3.A) come first,
+/// so a new one is not lost on a later page.
 final allAccountsProvider = StreamProvider<Result<List<AppUser>>>(
   (ref) => ref
       .watch(userRepositoryProvider)
       .watchAll()
       .map(
         (result) => result.map(
-          (people) =>
-              people.toList(growable: false)
-                ..sort((a, b) => a.fullName.compareTo(b.fullName)),
+          (people) => people.toList(growable: false)
+            ..sort((a, b) {
+              final aPending = a.accountStatus == AccountStatus.pending;
+              final bPending = b.accountStatus == AccountStatus.pending;
+              if (aPending != bPending) return aPending ? -1 : 1;
+              return a.fullName.compareTo(b.fullName);
+            }),
         ),
       ),
 );
