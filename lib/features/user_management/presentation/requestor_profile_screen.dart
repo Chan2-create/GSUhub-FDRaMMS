@@ -9,6 +9,7 @@ import '../../../core/utils/result.dart';
 import '../../../core/widgets/person_avatar.dart';
 import '../../../shells/requestor/requestor_placeholder_page.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../notifications/presentation/push_coordinator.dart';
 import 'profile_providers.dart';
 
 /// The Profile tab — a marked placeholder in Objective 3.A that holds only
@@ -21,6 +22,9 @@ class RequestorProfileScreen extends ConsumerWidget {
     // Taken before the await: signing out moves the guard, which may
     // replace this page underneath us.
     final router = GoRouter.of(context);
+    // The phone's push token goes first, while the account can still clear
+    // it: the next person to sign in here must not get this one's notices.
+    await ref.read(pushCoordinatorProvider).signOutDevice();
     await ref.read(authControllerProvider.notifier).signOut();
     router.go(RoutePaths.staffLogin);
   }

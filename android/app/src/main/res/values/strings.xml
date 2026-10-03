@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Referenced by the FCM default_notification_channel_id meta-data in
-         AndroidManifest.xml. The channel itself is created by the
-         firebase_messaging plugin on first use. -->
-    <string name="default_notification_channel_id">gsuhub_maintenance</string>
+         AndroidManifest.xml. The channel itself is created at startup by
+         FcmNotificationService.initialize (Objective 3.B), under this same
+         id, so a push that arrives while the app is closed and a notice the
+         app raises itself land on one channel. -->
+    <string name="default_notification_channel_id">report_updates</string>
 </resources>

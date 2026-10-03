@@ -18,6 +18,7 @@ import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/connectivity_service.dart';
 import 'package:gsuhub/core/utils/result.dart';
+import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
 import 'package:gsuhub/features/reporting/data/models/status_change.dart';
@@ -26,6 +27,7 @@ import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_ta
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository.dart';
 
+import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
 import 'test_app_config.dart';
 
@@ -291,10 +293,19 @@ class FakeRequestorUserRepository implements UserRepository {
   final Result<void>? writeResult;
   final created = <AppUser>[];
 
+  /// Every push token written to the account, null for a cleared one.
+  final tokens = <String?>[];
+
   @override
   Future<Result<AppUser>> getById(String uid) async => uid == profile.id
       ? Result.success(profile)
       : const Result.failure(NotFoundFailure('No such account.'));
+
+  @override
+  Future<Result<void>> setFcmToken(String uid, String? token) async {
+    tokens.add(token);
+    return const Result.success(null);
+  }
 
   @override
   Future<Result<void>> createSelfRegistration(AppUser user) async {
@@ -338,13 +349,17 @@ class RequestorHarness {
     AuthUser? signedIn = fakeRequestor,
     List<DamageReport>? reports,
     AppUser? profile,
+    List<AppNotification> notices = const [],
   }) : auth = ScriptedAuthService(signedIn: signedIn),
        reports = FakeRequestorReportRepository(reports: reports),
-       users = FakeRequestorUserRepository(profile: profile);
+       users = FakeRequestorUserRepository(profile: profile),
+       notifications = FakeNotificationRepository(notices);
 
   final ScriptedAuthService auth;
   final FakeRequestorReportRepository reports;
   final FakeRequestorUserRepository users;
+  final FakeNotificationRepository notifications;
+  final push = FakeNotificationService();
   final location = FakeLocationService();
   final picker = FakePhotoPicker();
   final storage = FakeStorageService();
@@ -363,6 +378,8 @@ class RequestorHarness {
     addTearDown(auth.dispose);
     addTearDown(reports.dispose);
     addTearDown(connectivity.dispose);
+    addTearDown(notifications.dispose);
+    addTearDown(push.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -377,6 +394,8 @@ class RequestorHarness {
           locationServiceProvider.overrideWithValue(location),
           storageServiceProvider.overrideWithValue(storage),
           connectivityServiceProvider.overrideWithValue(connectivity),
+          notificationRepositoryProvider.overrideWithValue(notifications),
+          notificationServiceProvider.overrideWithValue(push),
           mapTileLayerProvider.overrideWithValue(const SizedBox.shrink()),
           qrScanLauncherProvider.overrideWithValue((_) async => null),
           mapPinLauncherProvider.overrideWithValue((_, _) async => null),

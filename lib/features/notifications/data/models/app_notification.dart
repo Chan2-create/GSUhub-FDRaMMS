@@ -42,6 +42,14 @@ class AppNotification {
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
     final data = doc.data() ?? <String, dynamic>{};
+    final isRead = FirestoreConverters.require<bool>(data, 'isRead');
+    var readAt = FirestoreConverters.optionalDate(data, 'readAt');
+    // Marked read on this device and not yet confirmed (3.B): the server
+    // timestamp reads as null until the server answers, and the listener
+    // sees the change before that. The moment of tapping stands in.
+    if (isRead && readAt == null && doc.metadata.hasPendingWrites) {
+      readAt = DateTime.now().toUtc();
+    }
     return AppNotification(
       id: doc.id,
       recipientId: FirestoreConverters.require<String>(data, 'recipientId'),
@@ -52,7 +60,7 @@ class AppNotification {
       ),
       title: FirestoreConverters.require<String>(data, 'title'),
       body: FirestoreConverters.require<String>(data, 'body'),
-      isRead: FirestoreConverters.require<bool>(data, 'isRead'),
+      isRead: isRead,
       relatedEntityType: FirestoreConverters.optional<String>(
         data,
         'relatedEntityType',
@@ -61,7 +69,7 @@ class AppNotification {
         data,
         'relatedEntityId',
       ),
-      readAt: FirestoreConverters.optionalDate(data, 'readAt'),
+      readAt: readAt,
       createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
     );
   }
