@@ -25,4 +25,28 @@ abstract final class RelativeTime {
     if (day == today.subtract(const Duration(days: 1))) return 'YESTERDAY';
     return (local.year == current.year ? _sameYear : _otherYear).format(local);
   }
+
+  static final DateFormat _clock = DateFormat('hh:mm a');
+
+  /// The day and time above a timeline entry (Figma `169:1064`): "Today,
+  /// 09:45 AM", "Yesterday, 04:30 PM", "Oct 25, 02:15 PM", with the year
+  /// once it is not this one.
+  static String dayAndTime(DateTime when, {DateTime? now}) {
+    final local = when.toLocal();
+    final current = (now ?? DateTime.now()).toLocal();
+    final today = DateTime(current.year, current.month, current.day);
+    final day = DateTime(local.year, local.month, local.day);
+
+    final String date;
+    if (day == today) {
+      date = 'Today';
+    } else if (day == today.subtract(const Duration(days: 1))) {
+      date = 'Yesterday';
+    } else {
+      date = (local.year == current.year ? _sameYear : _otherYear).format(
+        local,
+      );
+    }
+    return '$date, ${_clock.format(local)}';
+  }
 }

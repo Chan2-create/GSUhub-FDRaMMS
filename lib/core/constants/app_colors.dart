@@ -382,4 +382,25 @@ abstract final class AppColors {
 
   /// "Submitted: Oct 24, 2023".
   static const Color warmMuted = Color(0xFF817662);
+
+  // --- faculty and staff app: report detail and timeline (Figma 169:1355,
+  // Objective 3.B), sampled from the exported frame ---
+
+  /// A progress step not reached yet: its ring and the line leading to it;
+  /// also the timeline's rail and its oldest dot.
+  static const Color trackingRail = Color(0xFFD3C5AE);
+
+  /// The fill of a progress step not reached yet.
+  static const Color trackingUpcomingFill = Color(0xFFEBE1D3);
+
+  /// The icon on a progress step not reached yet.
+  static const Color trackingUpcomingIcon = Color(0xFF625947);
+
+  /// The current step's label, and the label on a note from GSU ("ADMIN
+  /// FOLLOW-UP").
+  static const Color trackingAccentText = Color(0xFF795900);
+
+  /// Behind a note from GSU on the timeline.
+  static const Color trackingNoteFill = Color(0xFFFFF8DC);
+
 }

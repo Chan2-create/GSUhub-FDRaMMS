@@ -102,6 +102,24 @@ enum ReportStatus {
     ReportStatus.archived => 'ARCHIVED',
   };
 
+  /// How the faculty and staff app's progress timeline names this status
+  /// (Objective 3.B): plain words for the person who filed the report,
+  /// where [label] is the administrator's vocabulary. Wording agreed for
+  /// 3.B; the design's timeline shows only sample text.
+  String get timelineLabel => switch (this) {
+    ReportStatus.submitted => 'Report received',
+    ReportStatus.underReview => 'Under review',
+    ReportStatus.approved => 'Approved',
+    ReportStatus.assigned => 'Personnel assigned',
+    ReportStatus.inProgress => 'Work started',
+    ReportStatus.forReview => 'Work done, being checked',
+    ReportStatus.completed => 'Completed',
+    ReportStatus.closed => 'Closed',
+    ReportStatus.merged => 'Merged with an existing report',
+    ReportStatus.rejected => 'Not accepted',
+    ReportStatus.archived => 'Archived',
+  };
+
   /// Still in the administrator's hands or being worked — everything short
   /// of finished or discarded.
   bool get isOpen => switch (this) {

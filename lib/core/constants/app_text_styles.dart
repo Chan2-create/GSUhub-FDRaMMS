@@ -1380,4 +1380,148 @@ abstract final class AppTextStyles {
     color: AppColors.homeTextMuted,
     height: 20 / 14,
   );
+
+  // --- faculty and staff app: report detail and timeline (Figma 169:1355,
+  // Objective 3.B). Public Sans, like the report form the frame was built
+  // from. ---
+
+  /// The report number at the top, in gold.
+  static const TextStyle trackingNumber = TextStyle(
+    fontFamily: _ui,
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: AppColors.accentGold,
+    height: 32 / 24,
+  );
+
+  /// "In Progress" in the navy status pill.
+  static const TextStyle trackingStatus = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    height: 24 / 16,
+  );
+
+  /// "Submitted", "Active", "Finished" under the progress steps; the
+  /// current one is bold and gold.
+  static const TextStyle trackingStep = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 16 / 11,
+  );
+
+  /// "Linked Report", "Assigned Maintenance Personnel".
+  static const TextStyle trackingCardLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.warmText,
+    height: 16 / 12,
+  );
+
+  /// The report's title in its card.
+  static const TextStyle trackingTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmHeading,
+    height: 28 / 20,
+  );
+
+  /// The building and the room under the title, and timeline entries.
+  static const TextStyle trackingBody = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmHeading,
+    height: 20 / 14,
+  );
+
+  /// The confirmed damage type, navy on sand.
+  static const TextStyle trackingCategory = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primary,
+    height: 24 / 16,
+  );
+
+  /// "HIGH PRIORITY", and the trade under the personnel's name.
+  static const TextStyle trackingBadge = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+    letterSpacing: 0.5,
+    height: 15 / 10,
+  );
+
+  /// The assigned personnel's name.
+  static const TextStyle trackingPersonName = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmHeading,
+    height: 24 / 16,
+  );
+
+  /// "Assigned May 24".
+  static const TextStyle trackingMeta = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 16 / 11,
+  );
+
+  /// "Updates Timeline".
+  static const TextStyle trackingSectionTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: AppColors.warmHeading,
+    height: 28 / 20,
+  );
+
+  /// "Today, 09:45 AM" above a timeline entry.
+  static const TextStyle trackingWhen = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    color: AppColors.warmText,
+    height: 16 / 11,
+  );
+
+  /// "ADMIN FOLLOW-UP" — the label on a note from GSU.
+  static const TextStyle trackingNoteLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.trackingAccentText,
+    letterSpacing: 0.6,
+    height: 24 / 15,
+  );
+
+  /// The quoted note itself.
+  static const TextStyle trackingNote = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    fontStyle: FontStyle.italic,
+    color: AppColors.warmHeading,
+    height: 20 / 14,
+  );
+
+  /// "Rate this Service".
+  static const TextStyle trackingAction = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    height: 24 / 16,
+  );
+
 }
