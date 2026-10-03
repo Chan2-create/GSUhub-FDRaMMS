@@ -403,4 +403,8 @@ abstract final class AppColors {
   /// Behind a note from GSU on the timeline.
   static const Color trackingNoteFill = Color(0xFFFFF8DC);
 
+  // --- faculty and staff app: Notifications (Figma 169:1459, 3.B) ---
+
+  /// The tick on a "work completed" notice, read or not.
+  static const Color alertCompleted = Color(0xFF1C5EAD);
 }

@@ -7,6 +7,7 @@ import '../../features/auth/presentation/requestor_login_screen.dart';
 import '../../features/auth/presentation/requestor_sign_up_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/dashboard/presentation/requestor_home_screen.dart';
+import '../../features/notifications/presentation/alerts_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_report_detail_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_reports_screen.dart';
 import '../../features/reporting/presentation/report_detail_screen.dart';
@@ -19,7 +20,6 @@ import '../../features/work_orders/presentation/task_assignment_screen.dart';
 import '../../features/work_orders/presentation/work_orders_screen.dart';
 import '../../shells/admin/admin_shell.dart';
 import '../../shells/personnel/personnel_shell.dart';
-import '../../shells/requestor/requestor_placeholder_page.dart';
 import '../../shells/requestor/requestor_shell.dart';
 import 'route_guards.dart';
 import 'route_paths.dart';
@@ -147,7 +147,7 @@ GoRouter buildAppRouter({
         ),
         GoRoute(
           path: RoutePaths.staffAlerts,
-          builder: (context, state) => const RequestorAlertsPage(),
+          builder: (context, state) => const AlertsScreen(),
         ),
         GoRoute(
           path: RoutePaths.staffProfile,

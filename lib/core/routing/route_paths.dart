@@ -78,18 +78,19 @@ abstract final class RoutePaths {
   static const String staffSubmitReport = '/staff/submit';
 
   /// My Reports — the requestor's own reports, searchable and filtered
-  /// (Objective 3.A, Figma `169:1251`). Live status tracking is 3.B's.
+  /// (Objective 3.A, Figma `169:1251`), live since 3.B.
   static const String staffMyReports = '/staff/reports';
 
-  /// One of the requestor's reports, read-only: what they submitted. The
-  /// status timeline is 3.B's.
+  /// One of the requestor's reports and how it is progressing, with its
+  /// status timeline (Objective 3.B, Figma `169:1355`). Notifications
+  /// deep-link here.
   static const String staffReportDetail = '/staff/reports/:reportId';
 
   /// Link to [staffReportDetail] for a given report.
   static String staffReportDetailFor(String reportId) =>
       '/staff/reports/$reportId';
 
-  /// Notifications — a marked placeholder until 3.B.
+  /// Notifications — the Alerts tab (Objective 3.B, Figma `169:1459`).
   static const String staffAlerts = '/staff/alerts';
 
   /// The requestor's profile — a marked placeholder in 3.A, holding only

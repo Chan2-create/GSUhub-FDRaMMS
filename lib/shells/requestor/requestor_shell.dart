@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/routing/route_paths.dart';
+import '../../core/utils/result.dart';
 import '../../core/widgets/offline_banner.dart';
+import '../../features/notifications/presentation/notification_providers.dart';
 import 'requestor_bottom_bar.dart';
 import 'requestor_header.dart';
 
@@ -13,7 +16,7 @@ import 'requestor_header.dart';
 ///
 /// The report form (3.C) opens over this rather than inside it — its frame
 /// has no bottom bar — and the sign-in pages sit outside it altogether.
-class RequestorShell extends StatelessWidget {
+class RequestorShell extends ConsumerWidget {
   const RequestorShell({
     required this.location,
     required this.child,
@@ -26,7 +29,11 @@ class RequestorShell extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = switch (ref.watch(unreadNotificationCountProvider).value) {
+      Success(:final value) => value,
+      _ => 0,
+    };
     final page = Scaffold(
       backgroundColor: AppColors.mobilePageBackground,
       // The bar floats over the page, as drawn: pages pad their scrolling
@@ -39,7 +46,10 @@ class RequestorShell extends StatelessWidget {
           Expanded(child: child),
         ],
       ),
-      bottomNavigationBar: RequestorBottomBar(location: location),
+      bottomNavigationBar: RequestorBottomBar(
+        location: location,
+        unreadAlerts: unread,
+      ),
     );
 
     // Tabs are switched with `go`, which leaves nothing beneath them to go

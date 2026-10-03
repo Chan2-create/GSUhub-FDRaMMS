@@ -360,7 +360,8 @@ void main() {
       await tester.tap(find.text('Alerts'));
       await tester.pumpAndSettle();
       expect(currentPath(tester), RoutePaths.staffAlerts);
-      expect(find.textContaining('Objective 3.B'), findsOneWidget);
+      // The Alerts tab is built now (3.B), not a placeholder.
+      expect(find.text('Notifications'), findsOneWidget);
 
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();

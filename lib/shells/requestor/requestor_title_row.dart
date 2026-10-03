@@ -12,10 +12,15 @@ class RequestorTitleRow extends StatelessWidget {
     required this.title,
     required this.onBack,
     super.key,
+    this.trailing,
   });
 
   final String title;
   final VoidCallback onBack;
+
+  /// An action at the row's right end — Notifications' "Mark all as
+  /// read" (3.B).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -46,6 +51,8 @@ class RequestorTitleRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        if (trailing case final trailing?)
+          Padding(padding: const EdgeInsets.only(right: 8), child: trailing),
       ],
     ),
   );

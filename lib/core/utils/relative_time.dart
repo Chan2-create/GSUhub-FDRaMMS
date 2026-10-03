@@ -26,6 +26,25 @@ abstract final class RelativeTime {
     return (local.year == current.year ? _sameYear : _otherYear).format(local);
   }
 
+  /// How long ago, in words, for a notification from today (Figma
+  /// `169:1459`): "Just now", "2 minutes ago", "1 hour ago". Anything older
+  /// reads as [dayAndTime].
+  static String ago(DateTime when, {DateTime? now}) {
+    final local = when.toLocal();
+    final current = (now ?? DateTime.now()).toLocal();
+    final today = DateTime(current.year, current.month, current.day);
+    if (local.isBefore(today)) return dayAndTime(when, now: now);
+
+    final elapsed = current.difference(local);
+    if (elapsed.inMinutes < 1) return 'Just now';
+    if (elapsed.inMinutes < 60) {
+      final minutes = elapsed.inMinutes;
+      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
+    }
+    final hours = elapsed.inHours;
+    return hours == 1 ? '1 hour ago' : '$hours hours ago';
+  }
+
   static final DateFormat _clock = DateFormat('hh:mm a');
 
   /// The day and time above a timeline entry (Figma `169:1064`): "Today,

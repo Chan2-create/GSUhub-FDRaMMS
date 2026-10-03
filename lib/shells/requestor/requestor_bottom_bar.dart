@@ -55,11 +55,19 @@ enum RequestorTab {
 /// gold button between them that opens the report form (Figma `170:2050`,
 /// `166:2261`).
 class RequestorBottomBar extends StatelessWidget {
-  const RequestorBottomBar({required this.location, super.key});
+  const RequestorBottomBar({
+    required this.location,
+    super.key,
+    this.unreadAlerts = 0,
+  });
 
   /// Where the app is. Its tab is highlighted; tapping that tab again from
   /// a page under it (a report's detail) returns to the tab's own page.
   final String location;
+
+  /// Unread notifications, shown as a badge on Alerts (3.B). The design
+  /// draws no badge; it takes the console bell's red.
+  final int unreadAlerts;
 
   /// The pill's height, the button's diameter, and how far it rises above
   /// the pill's top edge.
@@ -113,11 +121,17 @@ class RequestorBottomBar extends StatelessWidget {
 
   Widget _item(BuildContext context, RequestorTab tab) {
     final selected = tab == RequestorTab.of(location);
+    final badge = tab == RequestorTab.alerts ? unreadAlerts : 0;
+    final icon = Icon(
+      selected ? tab.selectedIcon : tab.icon,
+      size: 22,
+      color: AppColors.primary,
+    );
     return Expanded(
       child: Semantics(
         button: true,
         selected: selected,
-        label: tab.label,
+        label: badge > 0 ? '${tab.label}, $badge unread' : tab.label,
         excludeSemantics: true,
         child: InkResponse(
           onTap: location == tab.path ? null : () => context.go(tab.path),
@@ -126,11 +140,15 @@ class RequestorBottomBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                selected ? tab.selectedIcon : tab.icon,
-                size: 22,
-                color: AppColors.primary,
-              ),
+              if (badge > 0)
+                Badge(
+                  label: Text(badge > 99 ? '99+' : '$badge'),
+                  backgroundColor: AppColors.notificationBadge,
+                  textColor: Colors.white,
+                  child: icon,
+                )
+              else
+                icon,
               Text(
                 tab.label,
                 style: AppTextStyles.navLabel.copyWith(

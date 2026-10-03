@@ -1524,4 +1524,41 @@ abstract final class AppTextStyles {
     height: 24 / 16,
   );
 
+  // --- faculty and staff app: Notifications (Figma 169:1459, 3.B) ---
+
+  /// "Today", "Earlier".
+  static const TextStyle alertsSection = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmMuted,
+    height: 20 / 15,
+  );
+
+  /// An unread notice: bold and dark.
+  static const TextStyle alertsUnread = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmHeading,
+    height: 20 / 15,
+  );
+
+  /// A read notice: regular and softer.
+  static const TextStyle alertsRead = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 20 / 15,
+  );
+
+  /// "2 minutes ago", "Oct 24, 10:15 AM".
+  static const TextStyle alertsTime = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmMuted,
+    height: 16 / 11,
+  );
 }
