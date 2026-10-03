@@ -4,6 +4,7 @@ import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
+import 'package:gsuhub/core/services/connectivity_service.dart';
 
 import '../support/fake_requestor_app.dart';
 
@@ -256,6 +257,96 @@ void main() {
 
     // Not Home: the report sits on top of My Reports.
     expect(currentPath(tester), RoutePaths.staffMyReports);
+  });
+
+  group('live updates (3.B)', () {
+    // r-newest as an administrator's move leaves it.
+    void move(RequestorHarness app, ReportStatus status) => app.reports.put(
+      fakeMyReport(
+        'r-newest',
+        status: status,
+        location: 'AB Bldg, Room 101',
+        submittedAt: now.subtract(const Duration(hours: 3)),
+      ),
+    );
+
+    testWidgets("an administrator's move reaches the home screen by itself", (
+      tester,
+    ) async {
+      final app = withHistory();
+      await app.pump(tester);
+      expect(
+        find.text('1 Active • 1 In-Progress • 2 Completed'),
+        findsOneWidget,
+      );
+
+      move(app, ReportStatus.inProgress);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('0 Active • 2 In-Progress • 2 Completed'),
+        findsOneWidget,
+      );
+      expect(find.text('Pending'), findsNothing);
+      expect(find.text('In Progress'), findsNWidgets(2));
+    });
+
+    testWidgets('My Reports keeps its filter while a report moves out of it', (
+      tester,
+    ) async {
+      final app = withHistory();
+      await app.pump(tester, start: RoutePaths.staffMyReports);
+      await tester.tap(find.text('Pending').first);
+      await tester.pumpAndSettle();
+      expect(find.text('AB Bldg, Room 101'), findsOneWidget);
+
+      move(app, ReportStatus.completed);
+      await tester.pumpAndSettle();
+
+      expect(find.text('AB Bldg, Room 101'), findsNothing);
+      expect(find.text('Science Bldg, Lab 1'), findsNothing);
+      expect(find.textContaining('No reports match'), findsOneWidget);
+    });
+
+    testWidgets('says when the connection is lost, and when it is back', (
+      tester,
+    ) async {
+      final app = withHistory();
+      await app.pump(tester);
+      expect(find.textContaining("You're offline"), findsNothing);
+
+      app.connectivity.set(BackendReachability.offline);
+      await tester.pumpAndSettle();
+      expect(find.textContaining("You're offline"), findsOneWidget);
+      // What was last loaded stays on screen.
+      expect(find.text('AB Bldg, Room 101'), findsOneWidget);
+
+      app.connectivity.set(BackendReachability.online);
+      await tester.pumpAndSettle();
+      expect(find.textContaining("You're offline"), findsNothing);
+    });
+
+    testWidgets('the listener closes when its screens are gone', (
+      tester,
+    ) async {
+      final app = withHistory();
+      await app.pump(tester);
+      expect(app.reports.openListeners, 1);
+
+      await tester.tap(find.text('Alerts'));
+      await tester.pumpAndSettle();
+      expect(app.reports.openListeners, 0);
+
+      await tester.tap(find.text('Reports'));
+      await tester.pumpAndSettle();
+      expect(app.reports.openListeners, 1);
+
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sign out'));
+      await tester.pumpAndSettle();
+      expect(app.reports.openListeners, 0);
+    });
   });
 
   group('bottom bar', () {

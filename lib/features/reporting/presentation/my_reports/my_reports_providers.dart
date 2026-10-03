@@ -7,31 +7,46 @@ import '../../../../core/enums/report_status.dart';
 import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/result.dart';
 import '../../data/models/damage_report.dart';
+import '../../data/models/status_change.dart';
 
-/// The signed-in requestor's reports, newest first (Objective 3.A).
+/// The signed-in requestor's reports, newest first, live (Objective 3.B).
 ///
-/// A one-time read — live status tracking is Objective 3.B's. One read
-/// feeds the home screen's counts and recent list and the whole of My
-/// Reports, so the three always agree. Refreshed by pulling down on either
-/// screen, and after a report is filed.
-final myReportsProvider = FutureProvider<Result<List<DamageReport>>>((
-  ref,
-) async {
-  // The live auth state first, falling back to the service's cached user:
-  // the stream has not necessarily emitted by the first read.
-  final user =
-      ref.watch(authStateProvider).value ??
-      ref.read(authServiceProvider).currentUser;
-  if (user == null) return const Result.success(<DamageReport>[]);
-  return ref.watch(damageReportRepositoryProvider).getByReporter(user.uid);
-});
+/// One listener feeds the home screen's counts and recent list and the
+/// whole of My Reports, so the three always agree, and an administrator's
+/// decision shows on them without a refresh. Auto-disposed: the listener
+/// closes when the last screen using it does, and signing out swaps it for
+/// an empty list before the rules would start refusing it.
+final myReportsProvider =
+    StreamProvider.autoDispose<Result<List<DamageReport>>>((ref) {
+      // The live auth state first, falling back to the service's cached
+      // user: the stream has not necessarily emitted by the first read.
+      final user =
+          ref.watch(authStateProvider).value ??
+          ref.read(authServiceProvider).currentUser;
+      if (user == null) {
+        return Stream.value(const Result.success(<DamageReport>[]));
+      }
+      return ref
+          .watch(damageReportRepositoryProvider)
+          .watchByReporter(user.uid);
+    });
 
-/// One of the requestor's reports, read once for its detail page. The
-/// rules let a requestor open only their own.
-final myReportProvider = FutureProvider.family<Result<DamageReport>, String>(
-  (ref, reportId) =>
-      ref.watch(damageReportRepositoryProvider).getById(reportId),
-);
+/// One of the requestor's reports, live, for its detail page. The rules
+/// let a requestor open only their own.
+final myReportProvider = StreamProvider.autoDispose
+    .family<Result<DamageReport>, String>(
+      (ref, reportId) =>
+          ref.watch(damageReportRepositoryProvider).watchById(reportId),
+    );
+
+/// The report's status history, oldest first, live — the detail page's
+/// timeline (Objective 3.B).
+final myReportHistoryProvider = StreamProvider.autoDispose
+    .family<Result<List<StatusChange>>, String>(
+      (ref, reportId) => ref
+          .watch(damageReportRepositoryProvider)
+          .watchStatusHistory(reportId),
+    );
 
 /// The banner's three counts on the home screen (Figma `170:2050`: "8
 /// Active • 2 In-Progress • 10 Completed"): reports awaiting the

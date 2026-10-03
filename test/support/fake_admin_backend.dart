@@ -176,9 +176,9 @@ class FakeDamageReportRepository implements DamageReportRepository {
   /// Answers with every report given, whoever asks: keeping to one's own
   /// is the query's and the security rules' job, tested against them.
   @override
-  Future<Result<List<DamageReport>>> getByReporter(String reporterId) async {
+  Stream<Result<List<DamageReport>>> watchByReporter(String reporterId) {
     reporterQueries.add(reporterId);
-    return _reports;
+    return Stream.value(_reports);
   }
 
   @override

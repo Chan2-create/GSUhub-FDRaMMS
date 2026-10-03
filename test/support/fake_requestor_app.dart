@@ -16,9 +16,11 @@ import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
+import 'package:gsuhub/core/services/connectivity_service.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
+import 'package:gsuhub/features/reporting/data/models/status_change.dart';
 import 'package:gsuhub/features/reporting/presentation/submission/qr_scanner_screen.dart';
 import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_tag_map.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
@@ -58,6 +60,12 @@ DamageReport fakeMyReport(
   String title = 'Broken ceiling fan',
   DamageCategory? requestorCategory = DamageCategory.electrical,
   DateTime? submittedAt,
+  String? rejectionReason,
+  DamageCategory? category,
+  PriorityLevel? officialPriority,
+  String? reviewedBy,
+  String? workOrderId,
+  String? duplicateOf,
 }) => DamageReport(
   id: id,
   reporterId: fakeRequestor.uid,
@@ -70,6 +78,12 @@ DamageReport fakeMyReport(
   facilityId: 'fac-science-lab1',
   facilityName: 'Science Building',
   locationDescription: location,
+  rejectionReason: rejectionReason,
+  category: category,
+  officialPriority: officialPriority,
+  reviewedBy: reviewedBy,
+  workOrderId: workOrderId,
+  duplicateOf: duplicateOf,
   submittedAt: submittedAt ?? DateTime.now().subtract(const Duration(hours: 3)),
   updatedAt: DateTime.now(),
 );
@@ -140,35 +154,96 @@ class ScriptedAuthService implements AuthService {
   Future<void> dispose() => _changes.close();
 }
 
-/// The requestor's reports: answers the home screen and My Reports, and
-/// takes what the form files, so a filed report shows up afterwards.
+/// The requestor's reports, live: answers the home screen, My Reports and
+/// the detail page, takes what the form files, and lets a test change a
+/// report or its history as an administrator would — every open listener
+/// hears of it, as Firestore's would.
 class FakeRequestorReportRepository extends FakeSubmittingReportRepository {
   FakeRequestorReportRepository({List<DamageReport>? reports, this.failure})
-    : reports = reports ?? [];
+    : _reports = {
+        for (final report in reports ?? const <DamageReport>[])
+          report.id: report,
+      };
 
-  final List<DamageReport> reports;
+  final Map<String, DamageReport> _reports;
+  final Map<String, List<StatusChange>> _histories = {};
+  final _changes = StreamController<void>.broadcast();
 
-  /// When set, reading the requestor's reports fails with this.
+  /// When set, listening to the requestor's reports fails with this.
   Failure? failure;
+
+  /// When set, listening to a report's status history fails with this.
+  Failure? historyFailure;
 
   final reporterQueries = <String>[];
 
+  /// How many listeners are open on reports or histories right now — zero
+  /// once every screen using them has gone.
+  int get openListeners => _open;
+  int _open = 0;
+
+  /// Saves [report] over its earlier version, as an administrator's change
+  /// would land.
+  void put(DamageReport report) {
+    _reports[report.id] = report;
+    _changes.add(null);
+  }
+
+  /// Appends to a report's status history.
+  void record(String reportId, StatusChange change) {
+    (_histories[reportId] ??= []).add(change);
+    _changes.add(null);
+  }
+
+  /// The current answer, then a fresh one after every change.
+  Stream<T> _live<T>(T Function() read) => Stream.multi((listener) {
+    _open++;
+    listener.add(read());
+    final changes = _changes.stream.listen((_) => listener.add(read()));
+    listener.onCancel = () {
+      _open--;
+      return changes.cancel();
+    };
+  });
+
   @override
-  Future<Result<List<DamageReport>>> getByReporter(String reporterId) async {
+  Stream<Result<List<DamageReport>>> watchByReporter(String reporterId) {
     reporterQueries.add(reporterId);
-    if (failure case final failure?) return Result.failure(failure);
-    return Result.success(
-      reports.toList()..sort((a, b) => b.submittedAt.compareTo(a.submittedAt)),
+    if (failure case final failure?) {
+      return Stream.value(Result.failure(failure));
+    }
+    return _live(
+      () => Result.success(
+        _reports.values
+            .where((report) => report.reporterId == reporterId)
+            .toList()
+          ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt)),
+      ),
     );
   }
 
   @override
-  Future<Result<DamageReport>> getById(String id) async {
-    for (final report in reports) {
-      if (report.id == id) return Result.success(report);
+  Stream<Result<DamageReport>> watchById(String id) => _live(
+    () => switch (_reports[id]) {
+      final report? => Result.success(report),
+      null => const Result.failure(NotFoundFailure('No such report.')),
+    },
+  );
+
+  @override
+  Stream<Result<List<StatusChange>>> watchStatusHistory(String reportId) {
+    if (historyFailure case final failure?) {
+      return Stream.value(Result.failure(failure));
     }
-    return const Result.failure(NotFoundFailure('No such report.'));
+    return _live(
+      () => Result.success(
+        (_histories[reportId] ?? const <StatusChange>[]).toList()
+          ..sort((a, b) => a.changedAt.compareTo(b.changedAt)),
+      ),
+    );
   }
+
+  Future<void> dispose() => _changes.close();
 
   @override
   Future<Result<void>> submit({
@@ -181,7 +256,7 @@ class FakeRequestorReportRepository extends FakeSubmittingReportRepository {
     );
     if (result.isSuccess) {
       final coordinates = submission.coordinates;
-      reports.add(
+      put(
         DamageReport(
           id: reportId,
           reporterId: submission.reporter.id,
@@ -231,6 +306,32 @@ class FakeRequestorUserRepository implements UserRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Backend reachability a test can switch, for the offline banner.
+class FakeConnectivityService implements ConnectivityService {
+  final _changes = StreamController<BackendReachability>.broadcast();
+  BackendReachability _current = BackendReachability.online;
+
+  void set(BackendReachability reachability) {
+    _current = reachability;
+    _changes.add(reachability);
+  }
+
+  @override
+  BackendReachability get current => _current;
+
+  @override
+  Stream<BackendReachability> get reachability async* {
+    yield _current;
+    yield* _changes.stream;
+  }
+
+  @override
+  Future<Result<bool>> checkReachable() async =>
+      Result.success(_current == BackendReachability.online);
+
+  Future<void> dispose() => _changes.close();
+}
+
 /// The fakes one test works with.
 class RequestorHarness {
   RequestorHarness({
@@ -248,6 +349,7 @@ class RequestorHarness {
   final picker = FakePhotoPicker();
   final storage = FakeStorageService();
   final facilities = FakeFacilityRepository();
+  final connectivity = FakeConnectivityService();
 
   /// Boots the app at [start] on a phone-sized screen.
   Future<void> pump(
@@ -259,6 +361,8 @@ class RequestorHarness {
       ..devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     addTearDown(auth.dispose);
+    addTearDown(reports.dispose);
+    addTearDown(connectivity.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -272,6 +376,7 @@ class RequestorHarness {
           photoPickerServiceProvider.overrideWithValue(picker),
           locationServiceProvider.overrideWithValue(location),
           storageServiceProvider.overrideWithValue(storage),
+          connectivityServiceProvider.overrideWithValue(connectivity),
           mapTileLayerProvider.overrideWithValue(const SizedBox.shrink()),
           qrScanLauncherProvider.overrideWithValue((_) async => null),
           mapPinLauncherProvider.overrideWithValue((_, _) async => null),

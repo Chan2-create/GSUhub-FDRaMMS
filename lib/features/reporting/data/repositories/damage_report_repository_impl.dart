@@ -11,6 +11,7 @@ import '../../../audit/data/models/audit_actor.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../models/damage_report.dart';
 import '../models/report_submission.dart';
+import '../models/status_change.dart';
 import 'damage_report_repository.dart';
 
 /// Firestore-backed [DamageReportRepository]. Persistence only — no
@@ -30,28 +31,34 @@ class DamageReportRepositoryImpl extends FirestoreRepository
       watchOne(path: _path, id: id, convert: DamageReport.fromFirestore);
 
   @override
-  Future<Result<List<DamageReport>>> getByReporter(String reporterId) =>
-      getMany(
-        query: _byReporter(reporterId),
-        convert: DamageReport.fromFirestore,
+  Stream<Result<List<StatusChange>>> watchStatusHistory(String reportId) =>
+      watchMany(
+        query: collection(_path)
+            .doc(reportId)
+            .collection(FirestorePaths.statusHistory)
+            .orderBy('changedAt')
+            // Far beyond any real report's history — even one sent back
+            // for rework a few times has a dozen entries. A bound all the
+            // same, so one malformed report cannot run up the reads.
+            .limit(statusHistoryLimit),
+        convert: StatusChange.fromFirestore,
       );
 
-  @override
-  Stream<Result<List<DamageReport>>> watchByReporter(String reporterId) =>
-      watchMany(
-        query: _byReporter(reporterId),
-        convert: DamageReport.fromFirestore,
-      );
+  static const int statusHistoryLimit = 50;
 
   /// Backed by the (reporterId, submittedAt desc) composite index. The
   /// limit is not optional: without it the rules refuse a requestor's query
-  /// outright, which until 3.A left [watchByReporter] unusable by the very
-  /// people it was written for.
-  Query<Map<String, dynamic>> _byReporter(String reporterId) =>
-      collection(_path)
-          .where('reporterId', isEqualTo: reporterId)
-          .orderBy('submittedAt', descending: true)
-          .limit(DamageReportRepository.reporterQueryLimit);
+  /// outright, which until 3.A left this unusable by the very people it was
+  /// written for.
+  @override
+  Stream<Result<List<DamageReport>>> watchByReporter(String reporterId) =>
+      watchMany(
+        query: collection(_path)
+            .where('reporterId', isEqualTo: reporterId)
+            .orderBy('submittedAt', descending: true)
+            .limit(DamageReportRepository.reporterQueryLimit),
+        convert: DamageReport.fromFirestore,
+      );
 
   @override
   Stream<Result<List<DamageReport>>> watchAll({

@@ -19,87 +19,74 @@ import '../../user_management/presentation/profile_providers.dart';
 /// greeting, two quick actions, the reports overview, and the three most
 /// recent reports.
 ///
-/// Every figure is the signed-in requestor's own, read once — the mockup's
-/// "James Landoy" and "8 Active • 2 In-Progress • 10 Completed" are
-/// placeholders. Pull down to read again; live updates are 3.B's.
+/// Every figure is the signed-in requestor's own and live (3.B) — the
+/// mockup's "James Landoy" and "8 Active • 2 In-Progress • 10 Completed"
+/// are placeholders.
 class RequestorHomeScreen extends ConsumerWidget {
   const RequestorHomeScreen({super.key});
 
   /// How many recent reports the home screen lists, as drawn.
   static const int recentCount = 3;
 
-  Future<void> _refresh(WidgetRef ref) async {
-    ref
-      ..invalidate(myReportsProvider)
-      ..invalidate(signedInProfileProvider);
-    await ref.read(myReportsProvider.future);
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reports = ref.watch(myReportsProvider);
 
-    return RefreshIndicator(
-      onRefresh: () => _refresh(ref),
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(9, 7, 11, requestorBottomInset(context)),
-        children: [
-          const _GreetingCard(),
-          const SizedBox(height: 16),
-          const _QuickActions(),
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.only(left: 3, right: 2),
-            child: _OverviewBanner(reports: reports),
+    return ListView(
+      padding: EdgeInsets.fromLTRB(9, 7, 11, requestorBottomInset(context)),
+      children: [
+        const _GreetingCard(),
+        const SizedBox(height: 16),
+        const _QuickActions(),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.only(left: 3, right: 2),
+          child: _OverviewBanner(reports: reports),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 13, right: 2),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Recent Reports',
+                  style: AppTextStyles.homeSectionTitle,
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.go(RoutePaths.staffMyReports),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('View All', style: AppTextStyles.homeViewAll),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.only(left: 13, right: 2),
-            child: Row(
+        ),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.only(left: 2),
+          child: AsyncValueView<List<DamageReport>>(
+            value: reports,
+            isEmpty: (list) => list.isEmpty,
+            emptyIcon: Icons.assignment_outlined,
+            emptyMessage: 'No reports yet. Tap + to report facility damage.',
+            onRetry: () => ref.invalidate(myReportsProvider),
+            data: (list) => Column(
               children: [
-                const Expanded(
-                  child: Text(
-                    'Recent Reports',
-                    style: AppTextStyles.homeSectionTitle,
+                for (final report in list.take(recentCount))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 7),
+                    child: _RecentReportRow(report: report),
                   ),
-                ),
-                TextButton(
-                  onPressed: () => context.go(RoutePaths.staffMyReports),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    minimumSize: const Size(0, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text(
-                    'View All',
-                    style: AppTextStyles.homeViewAll,
-                  ),
-                ),
               ],
             ),
           ),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(left: 2),
-            child: AsyncValueView<List<DamageReport>>(
-              value: reports,
-              isEmpty: (list) => list.isEmpty,
-              emptyIcon: Icons.assignment_outlined,
-              emptyMessage: 'No reports yet. Tap + to report facility damage.',
-              onRetry: () => ref.invalidate(myReportsProvider),
-              data: (list) => Column(
-                children: [
-                  for (final report in list.take(recentCount))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 7),
-                      child: _RecentReportRow(report: report),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

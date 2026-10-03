@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/routing/route_paths.dart';
+import '../../core/widgets/offline_banner.dart';
 import 'requestor_bottom_bar.dart';
 import 'requestor_header.dart';
 
@@ -34,6 +35,7 @@ class RequestorShell extends StatelessWidget {
       body: Column(
         children: [
           const RequestorHeader(),
+          const OfflineBanner(),
           Expanded(child: child),
         ],
       ),

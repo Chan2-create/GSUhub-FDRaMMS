@@ -5,7 +5,7 @@ import 'package:gsuhub/features/reporting/data/repositories/damage_report_reposi
 
 import '../../support/fake_firestore_repositories.dart';
 
-/// The requestor's own-report read (Objective 3.A) against the real
+/// The requestor's own-report query (Objectives 3.A and 3.B) against the real
 /// repository over fake_cloud_firestore: their reports only, newest first,
 /// and never more than the rules allow a requestor to ask for.
 void main() {
@@ -27,7 +27,7 @@ void main() {
       submittedAt: DateTime.utc(2026, 9, 25),
     );
 
-    final result = await harness.reports.getByReporter('faculty-1');
+    final result = await harness.reports.watchByReporter('faculty-1').first;
 
     expect(idsOf(result), ['newer', 'older']);
   });
@@ -41,7 +41,7 @@ void main() {
       );
     }
 
-    final result = await harness.reports.getByReporter('faculty-1');
+    final result = await harness.reports.watchByReporter('faculty-1').first;
 
     expect(idsOf(result), hasLength(limit));
     // The newest are the ones kept.
