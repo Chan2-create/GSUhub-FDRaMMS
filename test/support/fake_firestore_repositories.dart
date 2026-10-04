@@ -10,6 +10,7 @@ import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/services/firebase/firebase_call_guard.dart';
 import 'package:gsuhub/core/services/firebase/firestore_service_impl.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
+import 'package:gsuhub/features/feedback/data/repositories/feedback_repository_impl.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_impl.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
@@ -32,12 +33,14 @@ class FirestoreHarness {
     reports = DamageReportRepositoryImpl(db: db, guard: guard);
     workOrders = WorkOrderRepositoryImpl(db: db, guard: guard);
     users = UserRepositoryImpl(db: db, guard: guard);
+    feedback = FeedbackRepositoryImpl(db: db, guard: guard);
   }
 
   final FakeFirebaseFirestore firestore;
   late final DamageReportRepositoryImpl reports;
   late final WorkOrderRepositoryImpl workOrders;
   late final UserRepositoryImpl users;
+  late final FeedbackRepositoryImpl feedback;
 
   static const admin = AuditActor(id: 'admin-1', name: 'Ramon Dela Cruz');
 

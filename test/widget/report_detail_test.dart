@@ -292,10 +292,11 @@ void main() {
     await tester.ensureVisible(rate);
     await tester.pumpAndSettle();
     await tester.tap(rate);
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    // The rating itself is Objective 3.C's.
-    expect(find.textContaining('Objective 3.C'), findsOneWidget);
+    // The Ratings screen (3.C), over the report it rates.
+    expect(find.text('How would you rate the service?'), findsOneWidget);
+    expect(currentPath(tester), RoutePaths.staffRateReportFor(id));
   });
 
   testWidgets('a report filed before 3.B still shows when it was filed', (

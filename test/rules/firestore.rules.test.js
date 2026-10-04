@@ -1211,6 +1211,170 @@ describe('notifications (3.B)', () => {
   });
 });
 
+describe('rating the service (3.C)', () => {
+  // Each test seeds its own completed report, so none depends on another.
+  const seedCompleted = (id, data = {}) =>
+    testEnv.withSecurityRulesDisabled((context) =>
+      context.firestore().doc(`damage_reports/${id}`).set({
+        reporterId: FACULTY_UID,
+        reporterName: 'Maria Santos',
+        title: 'Flickering lights',
+        description: 'Lights in Room 101 flicker constantly.',
+        requestorPriority: 'high',
+        status: 'completed',
+        workOrderId: 'wo-assigned',
+        ...data,
+      }),
+    );
+
+  /// The rating the app files, with [overrides] applied.
+  const rating = (reportId, overrides = {}) => ({
+    workOrderId: 'wo-assigned',
+    reportId,
+    submittedBy: FACULTY_UID,
+    responseTimeRating: 4,
+    serviceQualityRating: 5,
+    overallSatisfactionRating: 3,
+    comments: 'Quick and tidy.',
+    submittedAt: serverNow(),
+    ...overrides,
+  });
+
+  /// What the rating transaction writes: the rating, the report's close,
+  /// its timeline entry and the audit entry. [skip] leaves parts out.
+  const rateAndClose = (db, reportId, { overrides = {}, skip = [] } = {}) => {
+    const batch = db.batch();
+    if (!skip.includes('rating')) {
+      batch.set(db.doc(`feedback/${reportId}`), rating(reportId, overrides));
+    }
+    if (!skip.includes('close')) {
+      batch.update(db.doc(`damage_reports/${reportId}`), {
+        status: 'closed',
+        updatedAt: serverNow(),
+      });
+    }
+    if (!skip.includes('history')) {
+      batch.set(db.collection(`damage_reports/${reportId}/status_history`).doc(), {
+        status: 'closed',
+        changedAt: serverNow(),
+        changedBy: FACULTY_UID,
+        note: null,
+        personnelName: null,
+        personnelSpecialization: null,
+      });
+    }
+    batch.set(db.collection('audit_logs').doc(), {
+      actorId: FACULTY_UID,
+      actorName: 'Maria Santos',
+      action: 'statusChanged',
+      entityType: 'damage_reports',
+      entityId: reportId,
+      description: 'Rated the service and closed the report',
+    });
+    return batch.commit();
+  };
+
+  it('a requestor rates their completed report, closing it', async () => {
+    await seedCompleted('rt-ok');
+    await assertSucceeds(rateAndClose(asFaculty(), 'rt-ok'));
+  });
+
+  it('a rating without comments is fine', async () => {
+    await seedCompleted('rt-nocomment');
+    await assertSucceeds(
+      rateAndClose(asFaculty(), 'rt-nocomment', { overrides: { comments: null } }),
+    );
+  });
+
+  it('cannot rate without closing the report', async () => {
+    await seedCompleted('rt-noclose');
+    await assertFails(rateAndClose(asFaculty(), 'rt-noclose', { skip: ['close'] }));
+  });
+
+  it('cannot close the report without rating it', async () => {
+    await seedCompleted('rt-norating');
+    await assertFails(rateAndClose(asFaculty(), 'rt-norating', { skip: ['rating'] }));
+  });
+
+  it("cannot rate another requestor's report", async () => {
+    await seedCompleted('rt-other', { reporterId: OTHER_FACULTY_UID });
+    await assertFails(rateAndClose(asFaculty(), 'rt-other'));
+  });
+
+  it('cannot rate work that is not completed', async () => {
+    await seedCompleted('rt-early', { status: 'inProgress' });
+    await assertFails(rateAndClose(asFaculty(), 'rt-early'));
+  });
+
+  it('cannot rate under another work order, as someone else, or off the scale', async () => {
+    await seedCompleted('rt-bad');
+    for (const overrides of [
+      { workOrderId: 'wo-unassigned' },
+      { submittedBy: OTHER_FACULTY_UID },
+      { responseTimeRating: 6 },
+      { serviceQualityRating: 0 },
+      { overallSatisfactionRating: 4.5 },
+      { comments: 'x'.repeat(1001) },
+      { score: 5 },
+      { submittedAt: firebase.firestore.Timestamp.fromDate(new Date(2020, 0, 1)) },
+    ]) {
+      await assertFails(rateAndClose(asFaculty(), 'rt-bad', { overrides }));
+    }
+  });
+
+  it('cannot file a rating under another id than its report', async () => {
+    await seedCompleted('rt-id');
+    const db = asFaculty();
+    const batch = db.batch();
+    batch.set(db.doc('feedback/some-other-id'), rating('rt-id'));
+    batch.update(db.doc('damage_reports/rt-id'), {
+      status: 'closed',
+      updatedAt: serverNow(),
+    });
+    await assertFails(batch.commit());
+  });
+
+  it('cannot rate twice, or change a rating', async () => {
+    await seedCompleted('rt-twice');
+    await assertSucceeds(rateAndClose(asFaculty(), 'rt-twice'));
+    await assertFails(
+      asFaculty().doc('feedback/rt-twice').set(rating('rt-twice', { overallSatisfactionRating: 1 })),
+    );
+    await assertFails(
+      asFaculty().doc('feedback/rt-twice').update({ overallSatisfactionRating: 1 }),
+    );
+  });
+
+  it('can ask whether their report was rated before rating it', async () => {
+    // The rating transaction reads first, so a second tap cannot rate twice.
+    await assertSucceeds(asFaculty().doc('feedback/never-rated').get());
+  });
+
+  it('personnel and other requestors cannot read a rating', async () => {
+    await seedCompleted('rt-read');
+    await assertSucceeds(rateAndClose(asFaculty(), 'rt-read'));
+    await assertSucceeds(asFaculty().doc('feedback/rt-read').get());
+    await assertFails(asPersonnel().doc('feedback/rt-read').get());
+    await assertFails(
+      testEnv.authenticatedContext(OTHER_FACULTY_UID).firestore().doc('feedback/rt-read').get(),
+    );
+  });
+
+  it('an administrator lists every rating', async () => {
+    await assertSucceeds(asAdmin().collection('feedback').get());
+  });
+
+  it('a requestor cannot otherwise move their own report', async () => {
+    await seedCompleted('rt-move', { status: 'approved' });
+    await assertFails(
+      asFaculty().doc('damage_reports/rt-move').update({
+        status: 'closed',
+        updatedAt: serverNow(),
+      }),
+    );
+  });
+});
+
 describe('unknown collections', () => {
   it('are denied by the catch-all rule', async () => {
     await assertFails(asAdmin().doc('not_a_real_collection/doc').get());
