@@ -2,8 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firestore_paths.dart';
 import '../../../../core/data/firestore_repository.dart';
-import '../../../../core/errors/failures.dart';
+import '../../../../core/enums/audit_action.dart';
+import '../../../../core/enums/report_status.dart';
 import '../../../../core/utils/result.dart';
+import '../../../audit/data/models/audit_actor.dart';
+import '../../../audit/data/repositories/audit_writes.dart';
+import '../../../reporting/data/models/damage_report.dart';
+import '../../../reporting/data/repositories/status_history_writes.dart';
 import '../models/service_feedback.dart';
 import 'feedback_repository.dart';
 
@@ -61,22 +66,114 @@ class FeedbackRepositoryImpl extends FirestoreRepository
   );
 
   @override
-  Future<Result<String>> submit(ServiceFeedback feedback) async {
-    // One rating per work order. Checked here rather than relying on the
-    // UI hiding the button, because a stale screen or a back-navigation
-    // would otherwise let a second rating through and skew the averages
-    // the Admin analytics view will compute.
-    final existing = await getByWorkOrder(feedback.workOrderId);
+  Stream<Result<ServiceFeedback?>> watchForReport(String reportId) =>
+      guard.stream(
+        collection(_path)
+            .doc(reportId)
+            .snapshots()
+            .map(
+              (snapshot) => snapshot.exists
+                  ? ServiceFeedback.fromFirestore(snapshot)
+                  : null,
+            ),
+      );
 
-    return existing.fold((found) async {
-      if (found != null) {
-        return const Result<String>.failure(
-          ValidationFailure(
-            'Feedback has already been submitted for this work order.',
-          ),
-        );
+  @override
+  Future<Result<void>> rate({
+    required String reportId,
+    required AuditActor rater,
+    required int responseTime,
+    required int serviceQuality,
+    required int overallSatisfaction,
+    String? comments,
+  }) => db.runTransaction<void>((transaction) async {
+    final reportReference = collection(FirestorePaths.damageReports)
+        .doc(reportId);
+    final feedbackReference = collection(_path).doc(reportId);
+
+    // Every read before any write, as transactions require.
+    final reportSnapshot = await transaction.get(reportReference);
+    final feedbackSnapshot = await transaction.get(feedbackReference);
+
+    if (!reportSnapshot.exists) {
+      throw FirestoreRepository.notFound('No damage report $reportId');
+    }
+    final report = DamageReport.fromFirestore(reportSnapshot);
+    if (report.reporterId != rater.id) {
+      throw FirestoreRepository.precondition(
+        'Only the person who filed this report can rate the service.',
+      );
+    }
+
+    // A retry of a rating that already reached the server: done. Read from
+    // the stored documents, not the caller's copy, so a timed-out first
+    // attempt is not mistaken for a second rating.
+    if (feedbackSnapshot.exists) {
+      if (feedbackSnapshot.data()?['submittedBy'] == rater.id &&
+          report.status == ReportStatus.closed) {
+        return;
       }
-      return add(path: _path, data: feedback.toFirestore());
-    }, (failure) async => Result.failure(failure));
-  }
+      throw FirestoreRepository.precondition(
+        'This service has already been rated.',
+      );
+    }
+
+    final workOrderId = report.workOrderId;
+    if (report.status != ReportStatus.completed || workOrderId == null) {
+      throw FirestoreRepository.precondition(
+        'Only completed work can be rated. This report is '
+        '${report.status.timelineLabel.toLowerCase()}.',
+      );
+    }
+
+    final trimmed = comments?.trim() ?? '';
+    // Built through the model so its validation (1–5 each) and field names
+    // stay the single definition, then stamped with server time.
+    final feedback = ServiceFeedback(
+      id: reportId,
+      workOrderId: workOrderId,
+      reportId: reportId,
+      submittedBy: rater.id,
+      responseTimeRating: responseTime,
+      serviceQualityRating: serviceQuality,
+      overallSatisfactionRating: overallSatisfaction,
+      comments: trimmed.isEmpty ? null : trimmed,
+      submittedAt: DateTime.now().toUtc(),
+    );
+
+    transaction
+      ..set(feedbackReference, {
+        ...feedback.toFirestore(),
+        'submittedAt': FirestoreRepository.serverNow,
+      })
+      ..update(reportReference, {
+        'status': ReportStatus.closed.id,
+        'updatedAt': FirestoreRepository.serverNow,
+      });
+
+    stageReportMove(
+      transaction,
+      db.raw,
+      reportId: reportId,
+      reporterId: report.reporterId,
+      reportTitle: report.title,
+      to: ReportStatus.closed,
+      from: ReportStatus.completed,
+      changedBy: rater.id,
+    );
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: rater,
+      action: AuditAction.statusChanged,
+      entityType: FirestorePaths.damageReports,
+      entityId: reportId,
+      description: 'Rated the service and closed the report',
+      changes: {
+        'from': ReportStatus.completed.id,
+        'to': ReportStatus.closed.id,
+        'feedbackId': reportId,
+      },
+    );
+  });
 }
