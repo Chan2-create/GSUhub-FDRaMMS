@@ -1561,4 +1561,106 @@ abstract final class AppTextStyles {
     color: AppColors.warmMuted,
     height: 16 / 11,
   );
+
+  // --- faculty and staff app: Ratings (Figma 169:1797, Objective 3.C) ---
+
+  /// "WO-88421-2024", "May 24, 2026".
+  static const TextStyle ratingMeta = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    color: AppColors.ratingMeta,
+    height: 16 / 11,
+  );
+
+  /// "Room 302 • HVAC Maintenance".
+  static const TextStyle ratingRoom = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.ratingMeta,
+    height: 20 / 14,
+  );
+
+  /// The personnel's name on the card.
+  static const TextStyle ratingPerson = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.warmHeading,
+    height: 20 / 15,
+  );
+
+  /// The trade, white on indigo.
+  static const TextStyle ratingTrade = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w500,
+    color: Colors.white,
+    height: 14 / 10,
+  );
+
+  /// "How would you rate the service?".
+  static const TextStyle ratingQuestion = TextStyle(
+    fontFamily: _ui,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: AppColors.warmHeading,
+    height: 28 / 20,
+  );
+
+  /// Each rating's name — "Response time".
+  static const TextStyle ratingDimension = TextStyle(
+    fontFamily: _ui,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.ratingLabel,
+    height: 18 / 13,
+  );
+
+  /// "Very Good" under the stars, in gold.
+  static const TextStyle ratingWord = TextStyle(
+    fontFamily: _ui,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.accentGold,
+    height: 24 / 18,
+  );
+
+  /// "Comments".
+  static const TextStyle ratingCommentsLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    color: AppColors.ratingLabel,
+    height: 16 / 11,
+  );
+
+  /// Typed comments, and the placeholder in [AppColors.warmMuted].
+  static const TextStyle ratingComment = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmHeading,
+    height: 20 / 14,
+  );
+
+  /// "Submit Rating".
+  static const TextStyle ratingSubmit = TextStyle(
+    fontFamily: _ui,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    height: 28 / 20,
+  );
+
+  /// "Skip", underlined.
+  static const TextStyle ratingSkip = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.myReportsTitle,
+    decoration: TextDecoration.underline,
+    height: 20 / 14,
+  );
 }
