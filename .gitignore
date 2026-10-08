@@ -68,6 +68,9 @@ ios/Runner/GoogleService-Info.plist
 *.jks
 android/key.properties
 
+# Vercel's project link, written by `vercel deploy` (scripts/deploy_web.ps1).
+.vercel
+
 # Editor state, personal to whoever opened the project.
 .vscode/
 .idea/
