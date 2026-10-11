@@ -10,11 +10,14 @@ import '../../../../core/enums/report_status.dart';
 import '../../../../core/routing/route_paths.dart';
 import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/relative_time.dart';
+import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/async_value_view.dart';
 import '../../../../core/widgets/person_avatar.dart';
 import '../../../../core/widgets/priority_chip.dart';
 import '../../../../shells/requestor/requestor_shell.dart';
 import '../../../../shells/requestor/requestor_title_row.dart';
+import '../../../feedback/presentation/rating_controller.dart';
+import '../../../feedback/presentation/widgets/rating_summary.dart';
 import '../../data/models/damage_report.dart';
 import '../../data/models/status_change.dart';
 import 'my_reports_providers.dart';
@@ -130,10 +133,7 @@ class _Tracking extends ConsumerWidget {
         ),
         const SizedBox(height: 24),
         _SubmittedCard(report: report),
-        if (progress == ReportProgress.completed) ...[
-          const SizedBox(height: 24),
-          const _RateButton(),
-        ],
+        _RatingSection(report: report),
       ],
     );
   }
@@ -757,10 +757,48 @@ class _SubmittedCard extends StatelessWidget {
       text[0] + text.substring(1).toLowerCase();
 }
 
-/// "Rate this Service" (`169:1094`), on a completed report. The rating
-/// screen itself is Objective 3.C.
+/// The rating, once given; until then, on a completed report, the button
+/// that opens the Ratings screen (Objective 3.C).
+class _RatingSection extends ConsumerWidget {
+  const _RatingSection({required this.report});
+
+  final DamageReport report;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rating = switch (ref.watch(reportFeedbackProvider(report.id)).value) {
+      Success(:final value) => value,
+      _ => null,
+    };
+    if (rating != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 24),
+        child: _GoldEdgeCard(
+          children: [
+            const Text(
+              'Your rating',
+              style: AppTextStyles.trackingSectionTitle,
+            ),
+            const SizedBox(height: 12),
+            RatingSummary(rating: rating),
+          ],
+        ),
+      );
+    }
+    if (report.status != ReportStatus.completed) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: _RateButton(reportId: report.id),
+    );
+  }
+}
+
+/// "Rate this Service" (`169:1094`), on a completed report: opens the
+/// Ratings screen (Figma `169:1797`).
 class _RateButton extends StatelessWidget {
-  const _RateButton();
+  const _RateButton({required this.reportId});
+
+  final String reportId;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -775,16 +813,7 @@ class _RateButton extends StatelessWidget {
       ],
     ),
     child: FilledButton.icon(
-      onPressed: () => ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Rating the service arrives with the feedback screen in '
-              'Objective 3.C.',
-            ),
-          ),
-        ),
+      onPressed: () => context.push(RoutePaths.staffRateReportFor(reportId)),
       style: FilledButton.styleFrom(
         backgroundColor: AppColors.accentGold,
         foregroundColor: Colors.white,

@@ -54,7 +54,7 @@ Work proceeds objective by objective against the project WBS.
 | 3.A | Faculty and staff sign-in and sign-up (pending approval), home, My Reports, bottom bar | Complete |
 | 3.B | Real-time report tracking, status timeline, notifications and the Alerts tab | Complete (push to a closed app needs Blaze; not yet tried on a phone) |
 | 3.C | Faculty and staff damage report submission (photos, geo-tag, QR lookup) | Complete |
-| 3 (rest) | Feedback and rating | Not started |
+| 3.C (feedback) | Post-service feedback and rating: three ratings, rating closes the report | Complete |
 | 5 | Maintenance personnel mobile app | Not started |
 | 6 | Inventory management | Not started |
 
@@ -64,8 +64,9 @@ the work-order board, the personnel directory, analytics with a CSV
 export, and user account management, where faculty sign-ups are
 approved. The faculty and staff app has its own sign-in and sign-up, a
 home screen with the requestor's report overview, My Reports, the damage
-report form (3.C), and live tracking with a status timeline and an
-Alerts tab (3.B) — see docs/emulator_setup.md. Its Profile tab holds
+report form (3.C), live tracking with a status timeline and an Alerts
+tab (3.B), and rating a finished job, which closes the report (3.C) —
+see docs/emulator_setup.md. Its Profile tab holds
 only Sign out. The personnel shell routes
 correctly and is guarded by role, but resolves to placeholders.
 

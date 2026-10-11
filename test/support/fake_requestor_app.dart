@@ -27,6 +27,7 @@ import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_ta
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository.dart';
 
+import 'fake_feedback.dart';
 import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
 import 'test_app_config.dart';
@@ -186,6 +187,9 @@ class FakeRequestorReportRepository extends FakeSubmittingReportRepository {
 
   /// Saves [report] over its earlier version, as an administrator's change
   /// would land.
+  /// The report as it stands, if there is one.
+  DamageReport? byId(String id) => _reports[id];
+
   void put(DamageReport report) {
     _reports[report.id] = report;
     _changes.add(null);
@@ -361,6 +365,18 @@ class RequestorHarness {
   final FakeNotificationRepository notifications;
   final push = FakeNotificationService();
   final location = FakeLocationService();
+
+  /// Ratings (3.C). Rating a report closes it here, as the real transaction
+  /// does.
+  late final feedback = FakeFeedbackRepository(
+    onRated: (reportId) {
+      final report = reports.byId(reportId);
+      if (report == null) return;
+      reports.put(
+        report.copyWith(status: ReportStatus.closed, updatedAt: DateTime.now()),
+      );
+    },
+  );
   final picker = FakePhotoPicker();
   final storage = FakeStorageService();
   final facilities = FakeFacilityRepository();
@@ -380,6 +396,7 @@ class RequestorHarness {
     addTearDown(connectivity.dispose);
     addTearDown(notifications.dispose);
     addTearDown(push.dispose);
+    addTearDown(feedback.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -396,6 +413,7 @@ class RequestorHarness {
           connectivityServiceProvider.overrideWithValue(connectivity),
           notificationRepositoryProvider.overrideWithValue(notifications),
           notificationServiceProvider.overrideWithValue(push),
+          feedbackRepositoryProvider.overrideWithValue(feedback),
           mapTileLayerProvider.overrideWithValue(const SizedBox.shrink()),
           qrScanLauncherProvider.overrideWithValue((_) async => null),
           mapPinLauncherProvider.overrideWithValue((_, _) async => null),

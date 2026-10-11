@@ -437,6 +437,19 @@ Per §1.5, ratings "do not automatically determine personnel performance
 evaluations" — which is why `firestore.rules` denies personnel read access
 to this collection entirely.
 
+### One rating per report, and it closes the report (Objective 3.C)
+
+The document id is the report's id (**DERIVED**), so a report has at most
+one rating and a second is an update, which the rules refuse.
+`FeedbackRepository.rate` writes it in one transaction with the report's
+move from `completed` to `closed`, a `closed` `status_history` entry and
+an `audit_logs` entry. The rules hold the rating to the report's own
+reporter, its work order, three integers 1–5 and server time, and allow
+it only in the write that closes the report; that close is the one
+change a requestor may make to their report. `comments` is trimmed and
+at most 1,000 characters; blank means none. Rating is optional: a
+report not rated stays `completed`.
+
 ## notifications
 
 Model: `AppNotification`. **Document shape is DERIVED** — the manuscript
@@ -582,14 +595,14 @@ unavailable. Shape:
 |---|---|---|---|
 | `users` | own record; create own as a pending requestor (3.A) | own record | all |
 | `facilities`, `assets` | read | read | full |
-| `damage_reports` | create + read own | read assigned, advance status | full |
+| `damage_reports` | create + read own; close own completed report by rating it (3.C) | read assigned, advance status | full |
 | `work_orders` | — | read/update **assigned only** | full |
 | `tasks` | — | read/update own | full |
 | `accomplishment_reports` | — | create own | read all, review |
 | `inventory_items` | read | read + balance via transaction | full |
 | `inventory_transactions` | — | create only | create only |
 | `tools`, `tool_loans` | read tools | borrow/return own | full |
-| `feedback` | create + read own | **no access** (§1.5) | read all |
+| `feedback` | rate own completed report, which closes it (3.C); read own | **no access** (§1.5) | read all |
 | `notifications` | read own, mark own read; create own "received" while filing (3.B) | read own, mark own read; create for a report with a work order | read own; create for any report's reporter (3.B) |
 | `damage_reports/*/status_history` | read own reports'; create the first `submitted` entry while filing | create on a report with a work order | read + create; nobody updates or deletes |
 | `audit_logs` | — | create only | read + create |

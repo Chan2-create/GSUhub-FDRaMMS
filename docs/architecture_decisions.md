@@ -669,4 +669,59 @@ card shows initials and the person's trade: accounts have no photo and
 no job title. The design's written updates ("Spare parts ordered",
 "ADMIN FOLLOW-UP") have no source in GSUhub yet, so the timeline shows
 status changes only. "Rate this Service" shows on completed reports and
-says rating arrives with 3.C.
+opens the Ratings screen (§17).
+
+## 17. Objective 3.C: post-service feedback and rating
+
+**Numbering.** The prompt briefs number feedback and rating 3.C; the
+report form built earlier under "3.C" is the same objective's submission
+step, already merged. No brief was written for this one, so it was built
+from the manuscript (§1.5, §1.7, §3.4 requestor capabilities), the 1.B
+`feedback` model, and Chris's export of the Ratings frame (Figma
+`169:1797`, `Mobile app SS/Group 32.png`).
+
+**Three ratings, as the manuscript asks.** §1.5 and §1.7 rate the service
+on response time, service quality and overall satisfaction, and 1.B
+stores the three separately. The frame draws one star row. Chris chose
+three rows in the drawn style; submitting waits for all three, since
+none can be guessed from the others. The word under each row is Chris's
+scale: Poor, Fair, Good, Very Good, Excellent (the frame shows "Very
+Good" at four). Comments are optional, up to 1,000 characters.
+
+**One rating per report, filed under the report's id.** `feedback/{id}`
+uses the report's id, so "has this been rated?" is one document read —
+which a requestor may make before the document exists (`resource ==
+null`, as for report ids in 3.C) — and a second rating is an update the
+rules refuse. 1.B's `submit` checked for an earlier rating with a list
+query only administrators may run; `FeedbackRepository.rate` replaces it.
+
+**Rating closes the report.** The lifecycle ends "completion, and
+feedback evaluation" (§1.7), and nothing in the console moves a report
+to `closed`. Chris chose: rating it closes it. `rate` runs one
+transaction — the rating, the report's move from `completed` to
+`closed`, its timeline entry, and an audit entry — and is idempotent
+like `submit`. Skip leaves the report completed; the detail page keeps
+offering "Rate this Service", and shows the rating once given. Closing
+sends no notification: the requestor just did it.
+
+**Rules.** A requestor gets exactly one new write on a report: their own,
+from `completed` to `closed`, status and `updatedAt` only, and only in
+the write that creates its rating. The rating must be theirs, under the
+report's id and its work order, three integers 1–5, a known set of keys
+and server time, and only as the report closes. They may also write the
+`closed` timeline entry in that write. Personnel still cannot read
+feedback (§1.5).
+
+**Seed.** Every closed report in the six-month history now has a rating,
+and its `closed` step is the requestor's. `rep-0005` stays completed and
+unrated, with its "Work completed … rate the service" notice, to try the
+flow on.
+
+**Design notes.** Colours were sampled from the export; the type is
+Public Sans like the detail frame. The job card shows the work order,
+the date the work was completed, the building, "room • confirmed type",
+and the assigned person with their trade — initials in place of the
+photo, as on the detail page. Plain additions: the hint under an
+unrated row, "Rate all three to submit", the error line, the read-only
+view of a rating already given, and a note when the report is not yet
+completed (a stale link).

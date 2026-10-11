@@ -17,7 +17,7 @@ void main() {
     fakeMyReport(
       'r-newest',
       location: 'AB Bldg, Room 101',
-      submittedAt: now.subtract(const Duration(hours: 3)),
+      submittedAt: now.subtract(const Duration(minutes: 20)),
     ),
     fakeMyReport(
       'r-second',
@@ -93,7 +93,7 @@ void main() {
         tester.getTopLeft(find.text(rows[0])).dy,
         lessThan(tester.getTopLeft(find.text(rows[1])).dy),
       );
-      expect(find.text('3H AGO'), findsOneWidget);
+      expect(find.text('20M AGO'), findsOneWidget);
       expect(find.text('YESTERDAY'), findsOneWidget);
       expect(find.text('Pending'), findsOneWidget);
       expect(find.text('In Progress'), findsOneWidget);
@@ -266,7 +266,7 @@ void main() {
         'r-newest',
         status: status,
         location: 'AB Bldg, Room 101',
-        submittedAt: now.subtract(const Duration(hours: 3)),
+        submittedAt: now.subtract(const Duration(minutes: 20)),
       ),
     );
 

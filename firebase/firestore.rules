@@ -254,7 +254,18 @@ service cloud.firestore {
       allow update: if isAdmin()
         // Personnel may advance status on a report tied to their work,
         // nothing more.
-        || (isPersonnel() && onlyChanged(['status', 'updatedAt']));
+        || (isPersonnel() && onlyChanged(['status', 'updatedAt']))
+        // A requestor closes their own completed report by rating the
+        // service (Objective 3.C): the status only, completed to closed,
+        // in the same write as their one rating of it.
+        || (isRequestor()
+            && resource.data.reporterId == request.auth.uid
+            && resource.data.status == 'completed'
+            && request.resource.data.status == 'closed'
+            && onlyChanged(['status', 'updatedAt'])
+            && request.resource.data.updatedAt == request.time
+            && !exists(/databases/$(database)/documents/feedback/$(reportId))
+            && existsAfter(/databases/$(database)/documents/feedback/$(reportId)));
 
       allow delete: if false;
 
@@ -284,6 +295,12 @@ service cloud.firestore {
                   && request.resource.data.status == 'submitted'
                   && !exists(report())
                   && getAfter(report()).data.reporterId == request.auth.uid)
+              // ...and the "closed" entry when rating closes it (3.C).
+              || (isRequestor()
+                  && request.resource.data.status == 'closed'
+                  && get(report()).data.reporterId == request.auth.uid
+                  && get(report()).data.status == 'completed'
+                  && existsAfter(/databases/$(database)/documents/feedback/$(reportId)))
               || (isPersonnel()
                   && getAfter(report()).data.workOrderId != null));
 
@@ -418,13 +435,46 @@ service cloud.firestore {
     // personnel performance evaluations" — hence personnel cannot read
     // them; only administrators see the evaluation data.
 
+    function isRating(value) {
+      return value is int && value >= 1 && value <= 5;
+    }
+
+    // One rating per report, filed under the report's own id (3.C): by the
+    // person who filed the report, for its work order, while it is
+    // completed — and only in the write that closes it.
+    function isRatingOf(feedbackId) {
+      let data = request.resource.data;
+      let report = /databases/$(database)/documents/damage_reports/$(feedbackId);
+      return data.keys().hasOnly([
+               'workOrderId', 'reportId', 'submittedBy', 'responseTimeRating',
+               'serviceQualityRating', 'overallSatisfactionRating',
+               'comments', 'submittedAt'
+             ])
+        && data.reportId == feedbackId
+        && data.submittedBy == request.auth.uid
+        && isRating(data.responseTimeRating)
+        && isRating(data.serviceQualityRating)
+        && isRating(data.overallSatisfactionRating)
+        && (data.get('comments', null) == null
+            || (data.comments is string && data.comments.size() <= 1000))
+        && data.submittedAt == request.time
+        && get(report).data.reporterId == request.auth.uid
+        && get(report).data.status == 'completed'
+        && get(report).data.workOrderId == data.workOrderId
+        && getAfter(report).data.status == 'closed';
+    }
+
     match /feedback/{feedbackId} {
+      // `resource == null` lets a requestor ask whether their report has
+      // been rated — the rating screen's transaction reads first, so a
+      // second tap cannot rate twice. The ids are report ids, random.
       allow get: if isAdmin()
-        || (isRequestor() && resource.data.submittedBy == request.auth.uid);
+        || (isRequestor()
+            && (resource == null
+                || resource.data.submittedBy == request.auth.uid));
       allow list: if isAdmin();
 
-      allow create: if isRequestor()
-        && request.resource.data.submittedBy == request.auth.uid;
+      allow create: if isRequestor() && isRatingOf(feedbackId);
 
       // Feedback is a point-in-time evaluation; editing it after the fact
       // would misrepresent the record.

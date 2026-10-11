@@ -97,8 +97,13 @@ abstract final class RoutePaths {
   /// sign-out.
   static const String staffProfile = '/staff/profile';
 
-  /// Post-service feedback and rating — a later Objective 3 step.
-  static const String staffFeedback = '/staff/feedback';
+  /// Rating the service on one of the requestor's completed reports
+  /// (Objective 3.C, Figma `169:1797`). Rating closes the report.
+  static const String staffRateReport = '/staff/reports/:reportId/rate';
+
+  /// Link to [staffRateReport] for a given report.
+  static String staffRateReportFor(String reportId) =>
+      '/staff/reports/$reportId/rate';
 
   // --- Maintenance Personnel (mobile) — WBS Objective 5 ---
 

@@ -407,4 +407,16 @@ abstract final class AppColors {
 
   /// The tick on a "work completed" notice, read or not.
   static const Color alertCompleted = Color(0xFF1C5EAD);
+
+  // --- faculty and staff app: Ratings (Figma 169:1797, Objective 3.C),
+  // sampled from the exported frame ---
+
+  /// The work order number, date and room line on the rating card.
+  static const Color ratingMeta = Color(0xFF474747);
+
+  /// "Comments", and each rating's name.
+  static const Color ratingLabel = Color(0xFF3B33AC);
+
+  /// The comment box.
+  static const Color ratingCommentFill = Color(0xFFF5F5F5);
 }

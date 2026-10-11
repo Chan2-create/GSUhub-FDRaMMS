@@ -7,6 +7,7 @@ import '../../features/auth/presentation/requestor_login_screen.dart';
 import '../../features/auth/presentation/requestor_sign_up_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/dashboard/presentation/requestor_home_screen.dart';
+import '../../features/feedback/presentation/rate_service_screen.dart';
 import '../../features/notifications/presentation/alerts_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_report_detail_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_reports_screen.dart';
@@ -142,6 +143,14 @@ GoRouter buildAppRouter({
               builder: (context, state) => MyReportDetailScreen(
                 reportId: state.pathParameters['reportId']!,
               ),
+              routes: [
+                GoRoute(
+                  path: 'rate',
+                  builder: (context, state) => RateServiceScreen(
+                    reportId: state.pathParameters['reportId']!,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -152,11 +161,6 @@ GoRouter buildAppRouter({
         GoRoute(
           path: RoutePaths.staffProfile,
           builder: (context, state) => const RequestorProfileScreen(),
-        ),
-        GoRoute(
-          path: RoutePaths.staffFeedback,
-          builder: (context, state) =>
-              const RoutePlaceholderScreen(routeName: RoutePaths.staffFeedback),
         ),
       ],
     ),

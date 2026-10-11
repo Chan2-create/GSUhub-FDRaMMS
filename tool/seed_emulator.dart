@@ -1170,6 +1170,7 @@ Future<void> _seedHistory() async {
 
   final now = DateTime.now();
   var seeded = 0;
+  var rated = 0;
   for (var m = 0; m < months.length; m++) {
     final (count, days) = months[m];
     final monthsAgo = months.length - 1 - m;
@@ -1258,8 +1259,9 @@ Future<void> _seedHistory() async {
         ('inProgress', created.add(const Duration(hours: 2)), adminUid),
         ('forReview', completed.subtract(const Duration(hours: 2)), adminUid),
         ('completed', completed, adminUid),
+        // Closed by the requestor's rating (Objective 3.C).
         if (monthsAgo > 0)
-          ('closed', completed.add(const Duration(days: 1)), adminUid),
+          ('closed', completed.add(const Duration(days: 1)), facultyUid),
       ];
       for (final (n, (status, moment, by)) in steps.indexed) {
         await _writeStep(
@@ -1271,11 +1273,40 @@ Future<void> _seedHistory() async {
           personnelUid: status == 'assigned' ? assignee : null,
         );
       }
+
+      // The rating that closed it, filed under the report's id as the app
+      // files it. The three ratings vary independently (§1.5).
+      if (monthsAgo > 0) {
+        await _writeDoc('feedback', reportId, {
+          'workOrderId': _str(workOrderId),
+          'reportId': _str(reportId),
+          'submittedBy': _str(facultyUid),
+          'responseTimeRating': _int(const [4, 5, 3, 4, 2, 5, 4][seeded % 7]),
+          'serviceQualityRating': _int(
+            const [5, 4, 4, 5, 3, 5, 4][(seeded + 2) % 7],
+          ),
+          'overallSatisfactionRating': _int(
+            const [4, 5, 4, 4, 3, 5, 5][(seeded + 4) % 7],
+          ),
+          'comments': switch (seeded % 3) {
+            0 => _str('Fixed quickly and cleaned up after. Thank you.'),
+            1 => _str('Good repair, but it took a while to get started.'),
+            _ => _null(),
+          },
+          'submittedAt': _at(completed.add(const Duration(days: 1))),
+        });
+        rated++;
+      }
       seeded++;
     }
   }
 
-  stdout.writeln('  history: $seeded resolved reports over six months');
+  stdout
+    ..writeln('  history: $seeded resolved reports over six months')
+    ..writeln(
+      '  feedback: $rated ratings, one per closed report; '
+      'rep-0005 is completed and still unrated',
+    );
 }
 
 /// A short audit trail, so the dashboard's Recent Activity panel and the

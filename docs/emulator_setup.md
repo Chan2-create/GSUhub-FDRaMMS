@@ -124,6 +124,9 @@ All use the password `password123`.
 - **30 notifications** — one for each move a reporter is told of, on the
   current reports; those older than two days are already read, so Alerts
   shows both states.
+- **Ratings** — every closed report in the six-month history has one,
+  and was closed by it (3.C). `rep-0005`, "Cracked Wall Near Stairwell",
+  is completed and not yet rated, to try rating on.
 
 ## The faculty and staff app (Objectives 3.A, 3.B and 3.C)
 
@@ -138,6 +141,10 @@ one session).
   the console (another browser profile, or a private window) Start
   review, Approve or assign it. The faculty page, its timeline, the
   Alerts list and the unread badge update without a reload.
+- **Rate a finished job.** Open "Cracked Wall Near Stairwell" (completed)
+  and tap Rate this Service, or its "Work completed" alert. Give all three
+  ratings and submit: the report closes, "Closed" joins its timeline, and
+  the rating shows at the bottom of the report. Skip leaves it completed.
 - **Sign up** from CREATE ACCOUNT. The new account is `pending`: signing
   in says it awaits approval. Approve it from the console's User Accounts
   (⋮ → Approve), then it signs in. `liza.tan@dorsu.edu.ph` is a seeded
@@ -168,7 +175,7 @@ run overwrites rather than duplicating.
 
 ## Rules tests
 
-**86 tests, all passing.** They start their own emulator, so nothing needs
+**99 tests, all passing.** They start their own emulator, so nothing needs
 to be running first:
 
 ```powershell
@@ -209,6 +216,9 @@ to be wrong:
 - notifications (3.B): each reaches only the report's own reporter; a
   requestor creates none for anyone else, reads only their own, and may
   change nothing but marking one read
+- rating (3.C): a requestor rates only their own completed report, once,
+  three ratings 1–5, and only in the write that closes it; closing it is
+  the one change they may make to their report
 - nobody — administrators included — can edit or delete an inventory
   transaction or an audit log entry
 - unknown collections are denied by the catch-all
