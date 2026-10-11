@@ -1,13 +1,20 @@
-# Manual deployment and debugging
+# Deployment and debugging
 
-How to put the admin console on Vercel and build the Android APK by hand,
-both against the **live** Firebase project (`gsuhub-dorsu`), and how to
-find and fix bugs found there. This is deployment tooling, not a WBS
+How the admin console reaches Vercel and the Android APK is built, both
+against the **live** Firebase project (`gsuhub-dorsu`), and how to find
+and fix bugs found there. This is deployment tooling, not a WBS
 objective.
 
+- **Web: automatic.** Every push to `main` builds the console and
+  publishes it to Vercel (GitHub Actions; see "Automatic web deploys").
+  `scripts\deploy_web.ps1` is still there for a deploy by hand.
+- **Android: by hand.** Build an APK for each major update with
+  `scripts\build_apk.ps1`, after raising the version
+  (see "Before each APK build").
+
 Debug builds still default to the emulators (see
-`docs/emulator_setup.md`). Only release builds, which the two scripts
-below make, talk to live Firebase.
+`docs/emulator_setup.md`). Only release builds — the workflow's and the
+two scripts' — talk to live Firebase.
 
 All commands run in PowerShell from the repo root, `D:\Capstone System`.
 
@@ -16,7 +23,7 @@ All commands run in PowerShell from the repo root, `D:\Capstone System`.
 ## The two commands
 
 ```powershell
-.\scripts\deploy_web.ps1      # build the admin console and deploy it to Vercel
+.\scripts\deploy_web.ps1      # build the admin console and deploy it to Vercel by hand
 .\scripts\build_apk.ps1       # build the release APKs
 ```
 
@@ -29,11 +36,74 @@ All commands run in PowerShell from the repo root, `D:\Capstone System`.
 | `build_apk.ps1 -Clean` | `flutter clean` first |
 
 Both scripts stop at the first failing step and say which one. Both end
-with a **release check** (`scripts\check_release_output.ps1`) that fails
+(as does the automatic web deploy) with a **release check** (`scripts\check_release_output.ps1`) that fails
 the build if it still points at the emulators: `127.0.0.1`, `10.0.2.2`,
 an emulator port (`:8080`, `:9099`, `:9199`), or `localhost` outside the
 few places Flutter and Firebase use it themselves. It also confirms the
 live project id was compiled in.
+
+---
+
+## Automatic web deploys
+
+`.github/workflows/deploy-web.yml` runs on every push to `main`, and on
+demand from the repo's **Actions** tab (**Deploy web → Run workflow**).
+On a Windows runner it:
+
+1. writes `lib/firebase_options.dart` from a secret (the file is
+   gitignored);
+2. builds the console with Flutter 3.47.4 for live Firebase;
+3. adds `deploy/vercel.json` and runs the same release check as the
+   scripts — a build that still points at the emulators stops here and
+   is never published;
+4. publishes it to the Vercel project as production
+   (**https://gsuhub-dorsu.vercel.app**).
+
+The repo is not connected to Vercel; this workflow is the only thing that
+deploys. A deploy takes roughly 10 minutes. Each run's log is under the
+repo's **Actions** tab; a failed run is marked with a red ✗ on the commit
+and GitHub emails you.
+
+### First time: the Vercel project
+
+The workflow publishes to an existing Vercel project; it does not create
+one. Create it once from this computer: run `.\scripts\deploy_web.ps1`
+and answer the link questions (see "One-time setup → Vercel" below). That
+also writes `.vercel\project.json` (gitignored), where two of the
+secrets come from.
+
+### The secrets to add
+
+Add each one in GitHub: the repo → **Settings → Secrets and variables →
+Actions → New repository secret**. The name must match exactly. None of
+them is ever committed; the workflow reads them at run time and GitHub
+hides them in logs.
+
+1. **`VERCEL_TOKEN`** — lets the workflow deploy as you.
+   https://vercel.com/account/tokens → **Create Token**. Name it
+   `github-actions-gsuhub`, scope your personal projects
+   (`christianvillemasucolranque-gmailcom's projects`), and pick an
+   expiration. Copy it straight away; Vercel shows it once. When it
+   expires, deploys fail until you create a new one and replace the
+   secret.
+2. **`VERCEL_ORG_ID`** — which Vercel account owns the project. The
+   `"orgId"` value in `.vercel\project.json`
+   (`Get-Content .vercel\project.json`). Also on Vercel: your team's
+   **Settings → General → Team ID**.
+3. **`VERCEL_PROJECT_ID`** — which project to deploy to. The
+   `"projectId"` value in the same file (starts with `prj_`). Also on
+   Vercel: the project → **Settings → General → Project ID**.
+4. **`FIREBASE_OPTIONS_DART`** — the Firebase configuration. The whole
+   content of your local `lib\firebase_options.dart`, pasted as is. To
+   copy it: `Get-Content lib\firebase_options.dart -Raw | Set-Clipboard`.
+   If you ever re-run `flutterfire configure`, update this secret too.
+
+Once all four exist, push to `main` (or use **Run workflow**) and watch
+the run in the **Actions** tab. A missing secret stops the first step
+with a message naming it.
+
+The Firebase checklist below still applies: in particular, the Vercel
+domain must be an authorised domain, or sign-in on the site fails.
 
 ---
 
@@ -132,14 +202,34 @@ If you are not sure what a tester's phone is, run
 `.\scripts\build_apk.ps1 -Universal` and share the single
 `app-release.apk`, which works everywhere but is larger.
 
-### Version numbers
+### Before each APK build
 
-`pubspec.yaml` has `version: 1.0.0+1`: the part before `+` is the
-version people see, the number after it is the build number Android
-compares. **Raise the build number for every APK you share**
-(`1.0.0+2`, `1.0.0+3`, …). Android refuses to install an older build
-number over a newer one. Raise the visible version (`1.1.0+N`) for
-bigger releases.
+The version lives in one line of `pubspec.yaml`:
+
+```yaml
+version: 1.0.0+1
+```
+
+The part before `+` is the version people see (in Android's app info).
+The number after it is the **build number**, which Android compares:
+it refuses to install a lower build number over a higher one.
+
+Before every APK you share:
+
+1. Open `pubspec.yaml` and raise the version line:
+   - **always** add 1 to the build number: `1.0.0+1` → `1.0.0+2`;
+   - for a **major update**, also raise the visible version and keep
+     counting the build number: `1.0.0+2` → `1.1.0+3`. (Use
+     `1.0.1+N` for a fix-only update, `2.0.0+N` for a big redesign.)
+   - never lower the build number, even when the visible version goes up.
+2. Run `.\scripts\build_apk.ps1`. Its first line prints the version it
+   is building, e.g. `Building GSUhub 1.1.0+3`; check it is the new one.
+3. Install it over the old one (`adb install -r …`) or share the APK.
+4. Commit the `pubspec.yaml` change with the release, so the next build
+   starts from the right number.
+
+The web console uses the same number but needs nothing from you: it
+shows whatever `main` has.
 
 ---
 
@@ -187,13 +277,16 @@ bigger releases.
 2. Fix it in the code, on a `fix/<short-description>` branch.
 3. Check it locally: `flutter test`, and `flutter run` against the
    emulators (`tool\run_local.cmd`).
-4. Ship the fix:
-   - web: `.\scripts\deploy_web.ps1`, then Ctrl+Shift+R;
+4. Try the fix on live before merging, if you want to:
+   - web: `.\scripts\deploy_web.ps1 -Preview` gives a preview address
+     (add it to Firebase's authorised domains to sign in there), or
+     `.\scripts\deploy_web.ps1` deploys to production directly;
    - Android: raise the build number in `pubspec.yaml`,
      `.\scripts\build_apk.ps1`, then
      `adb install -r build\app\outputs\flutter-apk\app-arm64-v8a-release.apk`.
-5. Test it again on live. Repeat until it holds, then commit and open a
-   pull request.
+5. Commit, open a pull request and merge it. The merge is a push to
+   `main`, so the web console redeploys by itself; reload the site with
+   Ctrl+Shift+R once the run in the **Actions** tab is green.
 
 ---
 

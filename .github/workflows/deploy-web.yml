@@ -1,0 +1,95 @@
+# Builds the GSUhub admin console and publishes it to Vercel on every push
+# to main. See docs/manual_deploy.md, "Automatic web deploys".
+#
+# Built here, not by Vercel: Vercel's build image has no Flutter, and
+# lib/firebase_options.dart is gitignored, so it is written from a secret.
+# The repo is not connected to Vercel; this workflow is the only deployer.
+#
+# Runs on Windows so the release check runs under the same Windows
+# PowerShell 5.1 it was verified with (Windows runners are free on a
+# public repo). Native tools (flutter, npm, vercel) run in pwsh, which,
+# unlike Windows PowerShell, does not treat their stderr output as an
+# error.
+
+name: Deploy web
+
+on:
+  push:
+    branches: [main]
+  # Lets a deploy be re-run from the Actions tab without a new push.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time. A push that arrives mid-deploy waits, then the
+# newest one deploys; a deploy is never cut off halfway.
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy to Vercel
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Check the secrets are set
+        env:
+          FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          $names = 'FIREBASE_OPTIONS_DART', 'VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'
+          $missing = $names | Where-Object { -not [Environment]::GetEnvironmentVariable($_) }
+          if ($missing) {
+            Write-Host "::error::Missing repository secrets: $($missing -join ', '). See docs/manual_deploy.md, 'Automatic web deploys'."
+            exit 1
+          }
+
+      - uses: actions/checkout@v5
+
+      - name: Write lib/firebase_options.dart from its secret
+        env:
+          FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+        run: |
+          $path = Join-Path $env:GITHUB_WORKSPACE 'lib/firebase_options.dart'
+          [System.IO.File]::WriteAllText($path, $env:FIREBASE_OPTIONS_DART)
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.4
+          cache: true
+
+      - run: flutter pub get
+
+      # A release build uses live Firebase; IS_PRODUCTION makes that explicit.
+      - name: Build for live Firebase
+        run: flutter build web --release --dart-define=IS_PRODUCTION=true
+
+      - name: Add Vercel's settings to the build
+        run: Copy-Item deploy/vercel.json build/web/vercel.json
+
+      - name: Release check (fails on emulator references)
+        shell: powershell
+        run: .\scripts\check_release_output.ps1 -WebDir build\web
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Install the Vercel CLI
+        run: npm install --global vercel@63
+
+      - name: Deploy to production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel deploy build/web --prod --yes --token $env:VERCEL_TOKEN

@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 #
 # GSUhub: raise the build number (+N) for every APK shared with testers;
 # Android will not install a lower build number over a higher one. See
-# docs/manual_deploy.md, "Version numbers".
+# docs/manual_deploy.md, "Before each APK build".
 version: 1.0.0+1
 
 environment:
