@@ -123,6 +123,23 @@ class FirestoreHarness {
           .map((doc) => doc.data())
           .toList();
 
+  /// Every notification written, in no particular order.
+  Future<List<Map<String, dynamic>>> notifications() async =>
+      (await firestore.collection(FirestorePaths.notifications).get()).docs
+          .map((doc) => doc.data())
+          .toList();
+
+  /// A report's status history entries, in no particular order.
+  Future<List<Map<String, dynamic>>> history(String reportId) async =>
+      (await firestore
+              .collection(FirestorePaths.damageReports)
+              .doc(reportId)
+              .collection(FirestorePaths.statusHistory)
+              .get())
+          .docs
+          .map((doc) => doc.data())
+          .toList();
+
   Future<int> count(String collection) async =>
       (await firestore.collection(collection).get()).size;
 }

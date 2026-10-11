@@ -12,7 +12,6 @@ import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/filter_select.dart';
 import '../../../../shells/requestor/requestor_header.dart';
 import '../../../facilities/presentation/facility_directory.dart';
-import '../my_reports/my_reports_providers.dart';
 import 'qr_scanner_screen.dart';
 import 'report_form_controller.dart';
 import 'report_form_state.dart';
@@ -110,9 +109,6 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> {
       ),
     );
     if (!mounted) return;
-    // Home and My Reports read the requestor's reports once; the new one
-    // should be there when they come back into view.
-    ref.invalidate(myReportsProvider);
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop();

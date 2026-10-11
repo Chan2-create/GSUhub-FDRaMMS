@@ -27,6 +27,10 @@ abstract final class FirestorePaths {
   /// "Facility Damage Report").
   static const String damageReports = 'damage_reports';
 
+  /// Subcollection of each [damageReports] document: one entry per status
+  /// change, for the requestor's progress timeline (Objective 3.B).
+  static const String statusHistory = 'status_history';
+
   /// Work orders generated from approved damage reports and assigned to
   /// maintenance personnel (manuscript §1.7 "Work Order").
   static const String workOrders = 'work_orders';

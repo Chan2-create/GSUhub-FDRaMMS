@@ -8,6 +8,7 @@ import 'core/di/service_providers.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
 import 'core/routing/route_paths.dart';
+import 'features/notifications/presentation/push_coordinator.dart';
 
 /// Where the app opens, or null for the router's default (the admin
 /// dashboard).
@@ -68,6 +69,9 @@ class GsuhubApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final router = ref.watch(appRouterProvider);
+    // Lives as long as the app: notifications for whoever is signed in,
+    // and a tapped one opens its report through the router (3.B).
+    ref.watch(pushCoordinatorProvider).attach(router.go);
 
     return MaterialApp.router(
       title: config.appName,

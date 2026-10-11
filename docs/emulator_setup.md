@@ -117,9 +117,15 @@ All use the password `password123`.
 - **Damage reports and work orders** — spread across categories,
   statuses and priorities, plus six months of resolved history for
   Analytics. All are `faculty@`'s except one filed by `ana.gomez@`, so
-  My Reports can be seen leaving someone else's report out.
+  My Reports can be seen leaving someone else's report out. Between them
+  the current reports reach every status, including one waiting for
+  sign-off, one rejected with a reason, one merged and one archived, and
+  every report has its status history (3.B).
+- **30 notifications** — one for each move a reporter is told of, on the
+  current reports; those older than two days are already read, so Alerts
+  shows both states.
 
-## The faculty and staff app (Objectives 3.A and 3.C)
+## The faculty and staff app (Objectives 3.A, 3.B and 3.C)
 
 Off the web the app opens on the faculty and staff sign-in. In a browser
 the app is the admin console; go to `http://localhost:<port>/#/staff/login`
@@ -128,6 +134,10 @@ one session).
 
 - **Sign in** as `faculty@dorsu.edu.ph` to reach Home, My Reports and the
   report form (the gold **+**).
+- **Watch a report move.** Open a report on the faculty side, then in
+  the console (another browser profile, or a private window) Start
+  review, Approve or assign it. The faculty page, its timeline, the
+  Alerts list and the unread badge update without a reload.
 - **Sign up** from CREATE ACCOUNT. The new account is `pending`: signing
   in says it awaits approval. Approve it from the console's User Accounts
   (⋮ → Approve), then it signs in. `liza.tan@dorsu.edu.ph` is a seeded
@@ -135,6 +145,17 @@ one session).
 - Firebase shows its own "Running in emulator mode" bar along the bottom
   of the page in a browser; it covers the bottom bar's labels and is not
   part of the app.
+- In a browser, don't reload a page while signed in on the faculty side:
+  Firebase restores the session against the live Auth service before the
+  app points it at the emulator, and later sign-ins in that tab fail.
+  Open a new tab instead.
+
+Push on a phone (3.B): with GSUhub open or in the background, a report's
+move raises a system notification on the phone itself. Nothing reaches
+a phone whose GSUhub is closed — that needs a Cloud Function on the
+Blaze plan (docs/architecture_decisions.md §16). To try a real push,
+send a test message from the Firebase console to the token saved on the
+account, with data `reportId`, `recipientId` and `notificationId`.
 
 To test QR lookup on a phone, show a QR code for a seeded value (e.g.
 `FAC-FAC-ENGINEERING-203`, or `AST-ASSET-AIRCON-01` for equipment) from
@@ -147,7 +168,7 @@ run overwrites rather than duplicating.
 
 ## Rules tests
 
-**59 tests, all passing.** They start their own emulator, so nothing needs
+**86 tests, all passing.** They start their own emulator, so nothing needs
 to be running first:
 
 ```powershell
@@ -182,6 +203,12 @@ to be wrong:
   only as a `pending` requestor under their own email with server time;
   a pending account reads nothing but its own profile until approved
 - a requestor lists their own reports only, at most 100 at a time
+- status history (3.B) is append-only: a requestor reads only their own
+  reports' and writes only the first entry while filing; nobody edits or
+  deletes one
+- notifications (3.B): each reaches only the report's own reporter; a
+  requestor creates none for anyone else, reads only their own, and may
+  change nothing but marking one read
 - nobody — administrators included — can edit or delete an inventory
   transaction or an audit log entry
 - unknown collections are denied by the catch-all

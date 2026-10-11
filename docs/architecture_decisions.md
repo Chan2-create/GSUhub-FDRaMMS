@@ -555,3 +555,118 @@ no forgot-password link because the design has none. Unselected My
 Reports filters are neutral, as yellow text is unreadable there. Plain
 additions: field validation, the sign-in notices, the report detail
 page, and the Alerts and Profile placeholders (Profile holds Sign out).
+
+## 16. Objective 3.B: live tracking, the status timeline and notifications
+
+**Live, not read once.** Home, My Reports and a report's detail page now
+listen (`watchByReporter`, `watchById`, `watchStatusHistory`) where 3.A
+read once; `getByReporter` and pull-to-refresh are gone. The providers
+are `autoDispose`, so a listener closes with the last screen using it,
+and they switch to an empty list on sign-out before the rules would
+refuse them. A strip under the header says when the app is offline; the
+last loaded data stays on screen. Not in the design.
+
+**Status history is a subcollection.** 1.B recorded moves only in
+`audit_logs`, which requestors cannot read, and a work order's moves were
+logged against the work order, not its reports. Approved with the plan:
+`damage_reports/{id}/status_history`, one entry per move — status, server
+time, who, and a note (a rejection's reason) or the assigned person's
+name and trade, which the detail page's staff card needs because a
+requestor cannot read `users` or `work_orders`. A list on the report was
+ruled out: Firestore cannot put server timestamps inside an array.
+
+Every move writes its entry in the same transaction as the status, so
+the timeline cannot disagree with the report. That touched filing (3.C),
+`transitionStatus` and assignment (2.B), the work-order status change
+(2.B), and `mergeDuplicates` (1.B, unused by any screen yet), which
+became a transaction so each duplicate can be read for its reporter.
+The rules make entries append-only: an administrator writes any, a
+requestor only the first `submitted` entry while filing that report, and
+personnel only on a report with a work order (Objective 5's need). Old
+reports with no history still show their filing and current status, from
+`submittedAt` and `updatedAt`.
+
+**The timeline's words.** `ReportStatus.timelineLabel` is the single
+source: Report received, Under review, Approved, Personnel assigned, Work
+started, Work done, being checked, Completed, Closed, Not accepted,
+Merged with an existing report, Archived.
+
+**Official versus suggested.** The detail page shows GSU's priority only
+once `officialPriority` is set, and "AWAITING REVIEW" until then — never
+the requestor's urgency in its place. A damage type counts as GSU's only
+once the report has been reviewed and approved (or set by hand), so the
+keyword classifier's guess is not shown as a decision; Home and My
+Reports use the same rule. Ended reports (rejected, merged, archived)
+show a note card with the reason in place of the progress steps.
+
+**Notifications without Cloud Functions.** 1.B left notifications to
+server code, and the rules refused every client write. The project is on
+the Spark plan, which has none, so the client that moves a report writes
+the reporter's notification in the same transaction (`stageReportMove`
+writes the history entry and the notice together, so no caller can do
+one without the other). The rules hold each notice to the report's own
+reporter, checked with `getAfter` against the report as the transaction
+leaves it: an administrator may notify any report's reporter; a
+requestor only themselves, with "Report received", while filing that
+report; personnel only on a report with a work order. A recipient may
+only mark their own notice read, at server time, and not unread again.
+
+Notified moves: received, approved, assigned, work started (or resumed
+after a send-back), completed (with a prompt to rate), rejected (with the
+reason) and merged (naming the report it joined). Review, sign-off,
+closing and archiving appear on the timeline only. The wording lives in
+`ReportNotice.forMove`, which the seed script also uses.
+
+**What Spark can and cannot do.** Without a server nothing can *push* to
+a phone: sending an FCM message needs a server credential, and shipping
+one inside the app would let anyone who unpacks the APK message every
+user. So, on Spark:
+
+- the Alerts list and its badge update live, from Firestore;
+- while GSUhub is running — open, or in the background for as long as
+  Android keeps it alive — `PushCoordinator` raises a system notification
+  itself for each new notice;
+- the push token is saved on sign-in, kept current when it rotates, and
+  cleared and deleted on sign-out, so the next account on the phone never
+  receives the last one's;
+- a push that does arrive (sent from the Firebase console today, or a
+  Cloud Function later) is shown in the foreground and opens its report
+  when tapped, from foreground, background or a cold start.
+
+A phone whose GSUhub has been closed hears nothing until it is opened.
+Guaranteed delivery to a closed app needs the Blaze plan and a Cloud
+Function that sends to `users/{uid}.fcmToken` when a notice is written.
+Nothing in the app changes for that: the notices and tokens are already
+there.
+
+**Permission.** Android 13+ asks at run time. The app asks once per
+sign-in while Android will still show the prompt; refused, the Alerts tab
+offers Allow, and refused for good, Open settings. In-app notifications
+never depend on it. `permission_handler` is pinned to 12.0.1: 13.x needs
+compile SDK 37, which the build machine does not have.
+`flutter_local_notifications` needs core-library desugaring, now enabled.
+Neither needs more than API 24, below the project's pinned 26. One Android channel,
+`report_updates`, is also FCM's default, so pushes and the app's own
+notices land together.
+
+**Alerts.** Built from Chris's PNG of `169:1459`: Today and Earlier,
+unread notices pale gold with a gold edge, read ones white. Tapping one
+marks it read and opens its report; the header's bell opens the tab; the
+Alerts tab carries the live unread count. Not in the design: Mark all as
+read, the empty state, the permission card, and the times ("2 minutes
+ago" through today, the date after).
+
+**Design source.** The one Figma call allowed for 3.B (`169:1355`) was
+refused — the Starter quota was still spent — and not retried. Both
+screens were built from Chris's 1x PNG exports (`Group 28.png`,
+`Group 29.png` in `Desktop\Mobile app SS`), with colours sampled from the
+pixels and positions from the saved file metadata. Fonts and icons are
+assumptions: Public Sans, as on the 3.C form the frame matches, and
+Material icons. The design draws a work order ("Work Order Details",
+"WO-2023-0892", "Linked Report"); until a report is assigned the page is
+the report's own, and from assignment on it reads as drawn. The staff
+card shows initials and the person's trade: accounts have no photo and
+no job title. The design's written updates ("Spare parts ordered",
+"ADMIN FOLLOW-UP") have no source in GSUhub yet, so the timeline shows
+status changes only. "Rate this Service" shows on completed reports and
+says rating arrives with 3.C.

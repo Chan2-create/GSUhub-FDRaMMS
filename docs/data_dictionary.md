@@ -252,7 +252,31 @@ scoring fields are left to Objective 4.
 A requestor reads their own reports with `reporterId == uid`, newest
 first by `submittedAt`, at most 100 at a time — the rules refuse a
 requestor's list query without a limit at or below 100 (Objective 3.A;
-the reporter-history composite index serves it).
+the reporter-history composite index serves it). Since 3.B the query is
+a live listener.
+
+### status_history (subcollection, Objective 3.B)
+
+`damage_reports/{reportId}/status_history/{entryId}` — one entry per
+status move, the requestor's progress timeline. Model: `StatusChange`.
+**DERIVED** — §1.5 asks for "real-time status monitoring" without saying
+how progress is stored.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `status` | enum `ReportStatus` | ✔ | The status moved to |
+| `changedAt` | DateTime (UTC) | ✔ | Server time of the move |
+| `changedBy` | String → `users` | ✔ | Whoever made the move; the rules require the writer |
+| `note` | String | — | A rejection's reason |
+| `personnelName` | String | — | On `assigned`: who will do the work. **Denormalized** — a requestor cannot read `users` |
+| `personnelSpecialization` | enum `DamageCategory` | — | On `assigned`: their trade |
+
+Written in the same transaction as the move by every repository method
+that moves a report: `submit`, `transitionStatus`, `mergeDuplicates`,
+`WorkOrderRepository.assignFromReport` and `setStatus`. Append-only.
+Read oldest first, at most 50. Reports filed before 3.B have none; the
+timeline then shows their filing and current status from `submittedAt`
+and `updatedAt`.
 
 ## work_orders
 
@@ -424,6 +448,16 @@ says when notifications fire (§1.5), not how they are stored.
 
 *Invariant:* `isRead == true` requires a `readAt`.
 
+**Who writes them (Objective 3.B).** Not a server: the project is on the
+Spark plan. The client that moves a report writes its reporter's notice
+in the same transaction, with `relatedEntityType: damage_reports` and
+the report's id. Notified moves and their `type`: received
+(`reportAcknowledged`), approved, work started or resumed, rejected and
+merged (`statusUpdate`), assigned (`workOrderAssigned`), completed
+(`maintenanceCompleted`). Wording: `ReportNotice.forMove` (**DERIVED**).
+`createdAt` is server time, `isRead` false. A recipient marks one read
+by setting `isRead` and `readAt` (server time) and nothing else.
+
 ## audit_logs — append-only
 
 Model: `AuditLogEntry`. Backs §3.4's Auditability requirement.
@@ -556,7 +590,8 @@ unavailable. Shape:
 | `inventory_transactions` | — | create only | create only |
 | `tools`, `tool_loans` | read tools | borrow/return own | full |
 | `feedback` | create + read own | **no access** (§1.5) | read all |
-| `notifications` | own only | own only | own only |
+| `notifications` | read own, mark own read; create own "received" while filing (3.B) | read own, mark own read; create for a report with a work order | read own; create for any report's reporter (3.B) |
+| `damage_reports/*/status_history` | read own reports'; create the first `submitted` entry while filing | create on a report with a work order | read + create; nobody updates or deletes |
 | `audit_logs` | — | create only | read + create |
 | `config/*` | read | read | full |
 

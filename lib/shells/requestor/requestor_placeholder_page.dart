@@ -8,8 +8,8 @@ import 'requestor_shell.dart';
 import 'requestor_title_row.dart';
 
 /// A tab the faculty and staff app has but does not build yet, marked as
-/// such (Objective 3.A builds the bar; Alerts arrives with 3.B). Plain:
-/// the design draws no empty state.
+/// such — Profile, until a later objective. Plain: the design draws no
+/// empty state.
 class RequestorPlaceholderPage extends StatelessWidget {
   const RequestorPlaceholderPage({
     required this.title,
@@ -61,19 +61,5 @@ class RequestorPlaceholderPage extends StatelessWidget {
         ),
       ),
     ],
-  );
-}
-
-/// Alerts — notifications about the requestor's reports, Objective 3.B.
-class RequestorAlertsPage extends StatelessWidget {
-  const RequestorAlertsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) => const RequestorPlaceholderPage(
-    title: 'Alerts',
-    icon: Icons.notifications_none_rounded,
-    message:
-        'Updates on your reports will appear here. Notifications arrive '
-        'in Objective 3.B.',
   );
 }

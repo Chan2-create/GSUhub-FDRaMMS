@@ -19,8 +19,8 @@ import 'widgets/report_pills.dart';
 /// filtered by stage (Figma `169:1251`, Objective 3.A).
 ///
 /// Only their own: the query asks for the requestor's reports, and the
-/// security rules refuse anything else. Read once; pull down to read
-/// again. A card opens what was submitted; the status timeline is 3.B's.
+/// security rules refuse anything else. Live (3.B): a status change moves a
+/// card between filters without a refresh. A card opens its detail page.
 class MyReportsScreen extends ConsumerWidget {
   const MyReportsScreen({super.key});
 
@@ -37,64 +37,58 @@ class MyReportsScreen extends ConsumerWidget {
           onBack: () => context.go(RoutePaths.staffHome),
         ),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(myReportsProvider);
-              await ref.read(myReportsProvider.future);
-            },
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                22,
-                24,
-                requestorBottomInset(context),
-              ),
-              children: [
-                _SearchBox(
-                  initial: view.search,
-                  onChanged: ref.read(myReportsViewProvider.notifier).setSearch,
-                ),
-                const SizedBox(height: 16),
-                _Filters(
-                  selected: view.progress,
-                  onSelected: ref
-                      .read(myReportsViewProvider.notifier)
-                      .setProgress,
-                ),
-                const SizedBox(height: 24),
-                AsyncValueView<List<DamageReport>>(
-                  value: reports,
-                  isEmpty: (list) => list.isEmpty,
-                  emptyIcon: Icons.assignment_outlined,
-                  emptyMessage:
-                      'You have not filed any reports yet. Tap + to report '
-                      'facility damage.',
-                  onRetry: () => ref.invalidate(myReportsProvider),
-                  data: (list) {
-                    final shown = list.where(view.matches).toList();
-                    if (shown.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 40),
-                        child: Text(
-                          'No reports match your search or filter.',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.placeholderBody,
-                        ),
-                      );
-                    }
-                    return Column(
-                      children: [
-                        for (final report in shown)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _ReportCard(report: report),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ],
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              24,
+              22,
+              24,
+              requestorBottomInset(context),
             ),
+            children: [
+              _SearchBox(
+                initial: view.search,
+                onChanged: ref.read(myReportsViewProvider.notifier).setSearch,
+              ),
+              const SizedBox(height: 16),
+              _Filters(
+                selected: view.progress,
+                onSelected: ref
+                    .read(myReportsViewProvider.notifier)
+                    .setProgress,
+              ),
+              const SizedBox(height: 24),
+              AsyncValueView<List<DamageReport>>(
+                value: reports,
+                isEmpty: (list) => list.isEmpty,
+                emptyIcon: Icons.assignment_outlined,
+                emptyMessage:
+                    'You have not filed any reports yet. Tap + to report '
+                    'facility damage.',
+                onRetry: () => ref.invalidate(myReportsProvider),
+                data: (list) {
+                  final shown = list.where(view.matches).toList();
+                  if (shown.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Text(
+                        'No reports match your search or filter.',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.placeholderBody,
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (final report in shown)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _ReportCard(report: report),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ],

@@ -25,4 +25,35 @@ void main() {
     expect(stamp(DateTime(2026, 5, 24, 10)), 'May 24');
     expect(stamp(DateTime(2025, 12, 3)), 'Dec 3, 2025');
   });
+
+  group('dayAndTime — the timeline (Figma 169:1064, 3.B)', () {
+    String dayAndTime(DateTime when) => RelativeTime.dayAndTime(when, now: now);
+
+    test('today and yesterday by name', () {
+      expect(dayAndTime(DateTime(2026, 10, 1, 9, 45)), 'Today, 09:45 AM');
+      expect(dayAndTime(DateTime(2026, 9, 30, 16, 30)), 'Yesterday, 04:30 PM');
+    });
+
+    test('older by date, with the year once it differs', () {
+      expect(dayAndTime(DateTime(2026, 9, 25, 14, 15)), 'Sep 25, 02:15 PM');
+      expect(dayAndTime(DateTime(2025, 12, 3, 8)), 'Dec 3, 2025, 08:00 AM');
+    });
+  });
+
+  group('ago — Notifications (Figma 169:1459, 3.B)', () {
+    String ago(DateTime when) => RelativeTime.ago(when, now: now);
+
+    test('in words through today', () {
+      expect(ago(now.subtract(const Duration(seconds: 20))), 'Just now');
+      expect(ago(now.subtract(const Duration(minutes: 1))), '1 minute ago');
+      expect(ago(now.subtract(const Duration(minutes: 45))), '45 minutes ago');
+      expect(ago(now.subtract(const Duration(hours: 1))), '1 hour ago');
+      expect(ago(now.subtract(const Duration(hours: 5))), '5 hours ago');
+    });
+
+    test('before today, the day and time', () {
+      expect(ago(DateTime(2026, 9, 30, 16, 30)), 'Yesterday, 04:30 PM');
+      expect(ago(DateTime(2026, 9, 24, 10, 15)), 'Sep 24, 10:15 AM');
+    });
+  });
 }

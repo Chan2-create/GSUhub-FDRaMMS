@@ -4,6 +4,7 @@ import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../models/damage_report.dart';
 import '../models/report_submission.dart';
+import '../models/status_change.dart';
 
 /// Abstract contract for the `damage_reports` collection.
 ///
@@ -16,8 +17,9 @@ abstract interface class DamageReportRepository {
   String newReportId();
 
   /// Files a requestor's report as [reportId]: status `submitted`, stamped
-  /// with server time, with an `audit_logs` entry in the same transaction
-  /// (§3.4 Auditability names report submissions).
+  /// with server time, with the first `status_history` entry and an
+  /// `audit_logs` entry in the same transaction (§3.4 Auditability names
+  /// report submissions).
   ///
   /// Idempotent. When [reportId] already exists and is the same
   /// reporter's — an earlier attempt that reached the server even though
@@ -34,17 +36,18 @@ abstract interface class DamageReportRepository {
   /// tracking (manuscript §1.5, "real-time status monitoring").
   Stream<Result<DamageReport>> watchById(String id);
 
+  /// Live view of one report's status history, oldest first: the
+  /// requestor's progress timeline (Objective 3.B). Every method here that
+  /// moves a report writes its entry in the same transaction.
+  Stream<Result<List<StatusChange>>> watchStatusHistory(String reportId);
+
   /// The most reports a requestor's own-report query returns, newest
   /// first. The rules refuse a requestor's list query without a limit at
-  /// or below 100, so neither query below may go without one.
+  /// or below 100, so the query may not go without one.
   static const int reporterQueryLimit = 100;
 
-  /// A requestor's own submissions, newest first, read once — the home
-  /// screen and My Reports (Objective 3.A). Live tracking is 3.B's, through
-  /// [watchByReporter].
-  Future<Result<List<DamageReport>>> getByReporter(String reporterId);
-
-  /// A requestor's own submissions, for "My Reports" (Figure 22).
+  /// A requestor's own submissions, newest first, live — the home screen
+  /// and My Reports (Objectives 3.A and 3.B).
   Stream<Result<List<DamageReport>>> watchByReporter(String reporterId);
 
   /// Admin queue, filtered. Backs the Damage Reports table and its filter
@@ -97,6 +100,7 @@ abstract interface class DamageReportRepository {
   ///   with the report's work order, never on its own;
   /// - require a non-blank [reason] when rejecting, and store it;
   /// - record the reviewer on approval or rejection;
+  /// - append a `status_history` entry, carrying the rejection reason;
   /// - append an `audit_logs` entry naming [actor].
   ///
   /// Replaces 1.B's `setStatus`, which wrote the status blindly.
@@ -114,7 +118,7 @@ abstract interface class DamageReportRepository {
 
   /// Marks [duplicateReportIds] as duplicates of [parentReportId]. The
   /// merged reports keep their own documents and ids; they gain a
-  /// `duplicateOf` pointer (§3.4).
+  /// `duplicateOf` pointer (§3.4) and a `status_history` entry.
   Future<Result<void>> mergeDuplicates({
     required String parentReportId,
     required List<String> duplicateReportIds,

@@ -120,10 +120,6 @@ final notificationServiceProvider = Provider<NotificationService>(
   ),
 );
 
-final fcmNotificationServiceProvider = Provider<FcmNotificationService>(
-  (ref) => ref.watch(notificationServiceProvider) as FcmNotificationService,
-);
-
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
   final service = FirebaseConnectivityService(
     firestore: ref.watch(firebaseStartupProvider).firestore,

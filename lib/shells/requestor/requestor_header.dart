@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/routing/route_paths.dart';
 
 /// The faculty and staff app's header: the GSUhub mark, the bell, and the
 /// gold rule beneath (Figma `165:137`, top 77px).
@@ -43,11 +45,10 @@ class RequestorHeader extends StatelessWidget {
                   top: 18,
                   right: 11,
                   child: Tooltip(
-                    message: 'Notifications arrive in a later objective.',
+                    message: 'Notifications',
                     child: IconButton(
-                      // The notification centre is not built yet (as on the
-                      // admin console's bell).
-                      onPressed: null,
+                      // Opens the Alerts tab (3.B).
+                      onPressed: () => context.go(RoutePaths.staffAlerts),
                       padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
                       constraints: const BoxConstraints(),
                       icon: SvgPicture.asset(
