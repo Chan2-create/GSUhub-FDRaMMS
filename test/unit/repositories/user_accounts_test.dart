@@ -214,6 +214,55 @@ void main() {
       expect(stored['accountStatus'], 'active');
     });
 
+    test(
+      'approving a sign-up request activates it, worded as approval',
+      () async {
+        await store(
+          technician(
+            id: 'faculty-9',
+            role: UserRole.requestor,
+            specialization: null,
+            availability: null,
+          ).copyWith(accountStatus: AccountStatus.pending),
+        );
+
+        final result = await harness.users.setAccountStatus(
+          'faculty-9',
+          AccountStatus.active,
+          actor: admin,
+        );
+
+        expect(result.isSuccess, isTrue);
+        final stored = await harness.doc(FirestorePaths.users, 'faculty-9');
+        expect(stored['accountStatus'], 'active');
+        final audit = await harness.auditEntries();
+        expect(audit.single['description'], startsWith('Approved the account'));
+        expect(audit.single['changes'], {'from': 'pending', 'to': 'active'});
+      },
+    );
+
+    test('declining a sign-up request leaves it inactive', () async {
+      await store(
+        technician(
+          id: 'faculty-9',
+          role: UserRole.requestor,
+          specialization: null,
+          availability: null,
+        ).copyWith(accountStatus: AccountStatus.pending),
+      );
+
+      await harness.users.setAccountStatus(
+        'faculty-9',
+        AccountStatus.inactive,
+        actor: admin,
+      );
+
+      final stored = await harness.doc(FirestorePaths.users, 'faculty-9');
+      expect(stored['accountStatus'], 'inactive');
+      final audit = await harness.auditEntries();
+      expect(audit.single['description'], startsWith('Declined the account'));
+    });
+
     test('setting the status it already has does nothing', () async {
       await store(technician());
 
@@ -226,5 +275,36 @@ void main() {
       expect(result.isSuccess, isTrue);
       expect(await harness.auditEntries(), isEmpty);
     });
+  });
+
+  group('createSelfRegistration', () {
+    test(
+      'saves a pending requestor with server time and no audit entry',
+      () async {
+        final result = await harness.users.createSelfRegistration(
+          AppUser(
+            id: 'new-faculty',
+            fullName: 'Liza Mae Tan',
+            email: 'liza.tan@dorsu.edu.ph',
+            role: UserRole.requestor,
+            accountStatus: AccountStatus.pending,
+            // A device clock years out: the stored times must not be these.
+            createdAt: DateTime.utc(2001),
+            updatedAt: DateTime.utc(2001),
+          ),
+        );
+
+        expect(result.isSuccess, isTrue);
+        final stored = await harness.doc(FirestorePaths.users, 'new-faculty');
+        expect(stored['role'], 'requestor');
+        expect(stored['accountStatus'], 'pending');
+        expect(stored['email'], 'liza.tan@dorsu.edu.ph');
+        final created = (stored['createdAt'] as dynamic).toDate() as DateTime;
+        expect(created.year, isNot(2001));
+        // The rules let only an active account write the audit trail; the
+        // administrator's approval is what gets recorded.
+        expect(await harness.auditEntries(), isEmpty);
+      },
+    );
   });
 }

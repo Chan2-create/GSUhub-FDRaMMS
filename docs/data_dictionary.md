@@ -101,7 +101,7 @@ Firestore id = Firebase Auth uid. Model: `AppUser`
 | `fullName` | String | ✔ | Display name; must not be blank | Fig 20 |
 | `email` | String | ✔ | Institutional email | Fig 20 |
 | `role` | enum `UserRole` | ✔ | `requestor` / `maintenancePersonnel` / `admin` | §1.5 |
-| `accountStatus` | enum `AccountStatus` | ✔ | `active` / `inactive`; gates all access | §1.5 |
+| `accountStatus` | enum `AccountStatus` | ✔ | `active` / `inactive` / `pending`; only `active` may sign in | §1.5; `pending` **DERIVED** (3.A) |
 | `department` | String | — | Owning department | **DERIVED** |
 | `contactNumber` | String | — | Phone contact | **DERIVED** (Fig 17 shows a CONTACT INFO column, populated with email only) |
 | `specialization` | enum `DamageCategory` | — | Personnel trade; drives assignment suggestions | Fig 17 |
@@ -126,6 +126,19 @@ Account changes made from User Accounts write an `audit_logs` entry with
 `entityType: users` — `created`, `updated` (with a field-by-field
 `changes` map) or `statusChanged` — in the same transaction as the
 change.
+
+### Self-registration (Objective 3.A)
+
+A faculty or staff member who signs up from the mobile app gets a
+profile written by `UserRepository.createSelfRegistration`: `role:
+requestor`, `accountStatus: pending`, the lower-cased email they signed
+up with, no department, the personnel fields null, and `createdAt` /
+`updatedAt` as server timestamps. The security rules accept exactly that
+shape and nothing more (`isSelfRegistration`). No audit entry is written
+then — the rules let only active accounts write one — but approving or
+declining the request from User Accounts is audited as `statusChanged`
+("Approved the account request of …"). A declined request becomes
+`inactive`.
 
 ## facilities
 
@@ -235,6 +248,35 @@ at most ten photo URLs and a real geo-point, and refuse any pre-set
 review field (`officialPriority`, `duplicateOf`, `workOrderId`,
 `reviewedBy`, `reviewedAt`, `rejectionReason`). Classification and
 scoring fields are left to Objective 4.
+
+A requestor reads their own reports with `reporterId == uid`, newest
+first by `submittedAt`, at most 100 at a time — the rules refuse a
+requestor's list query without a limit at or below 100 (Objective 3.A;
+the reporter-history composite index serves it). Since 3.B the query is
+a live listener.
+
+### status_history (subcollection, Objective 3.B)
+
+`damage_reports/{reportId}/status_history/{entryId}` — one entry per
+status move, the requestor's progress timeline. Model: `StatusChange`.
+**DERIVED** — §1.5 asks for "real-time status monitoring" without saying
+how progress is stored.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `status` | enum `ReportStatus` | ✔ | The status moved to |
+| `changedAt` | DateTime (UTC) | ✔ | Server time of the move |
+| `changedBy` | String → `users` | ✔ | Whoever made the move; the rules require the writer |
+| `note` | String | — | A rejection's reason |
+| `personnelName` | String | — | On `assigned`: who will do the work. **Denormalized** — a requestor cannot read `users` |
+| `personnelSpecialization` | enum `DamageCategory` | — | On `assigned`: their trade |
+
+Written in the same transaction as the move by every repository method
+that moves a report: `submit`, `transitionStatus`, `mergeDuplicates`,
+`WorkOrderRepository.assignFromReport` and `setStatus`. Append-only.
+Read oldest first, at most 50. Reports filed before 3.B have none; the
+timeline then shows their filing and current status from `submittedAt`
+and `updatedAt`.
 
 ## work_orders
 
@@ -395,6 +437,19 @@ Per §1.5, ratings "do not automatically determine personnel performance
 evaluations" — which is why `firestore.rules` denies personnel read access
 to this collection entirely.
 
+### One rating per report, and it closes the report (Objective 3.C)
+
+The document id is the report's id (**DERIVED**), so a report has at most
+one rating and a second is an update, which the rules refuse.
+`FeedbackRepository.rate` writes it in one transaction with the report's
+move from `completed` to `closed`, a `closed` `status_history` entry and
+an `audit_logs` entry. The rules hold the rating to the report's own
+reporter, its work order, three integers 1–5 and server time, and allow
+it only in the write that closes the report; that close is the one
+change a requestor may make to their report. `comments` is trimmed and
+at most 1,000 characters; blank means none. Rating is optional: a
+report not rated stays `completed`.
+
 ## notifications
 
 Model: `AppNotification`. **Document shape is DERIVED** — the manuscript
@@ -405,6 +460,16 @@ says when notifications fire (§1.5), not how they are stored.
 `relatedEntityId`, `isRead`, `readAt`, `createdAt`.
 
 *Invariant:* `isRead == true` requires a `readAt`.
+
+**Who writes them (Objective 3.B).** Not a server: the project is on the
+Spark plan. The client that moves a report writes its reporter's notice
+in the same transaction, with `relatedEntityType: damage_reports` and
+the report's id. Notified moves and their `type`: received
+(`reportAcknowledged`), approved, work started or resumed, rejected and
+merged (`statusUpdate`), assigned (`workOrderAssigned`), completed
+(`maintenanceCompleted`). Wording: `ReportNotice.forMove` (**DERIVED**).
+`createdAt` is server time, `isRead` false. A recipient marks one read
+by setting `isRead` and `readAt` (server time) and nothing else.
 
 ## audit_logs — append-only
 
@@ -528,22 +593,23 @@ unavailable. Shape:
 
 | | requestor | personnel | admin |
 |---|---|---|---|
-| `users` | own record | own record | all |
+| `users` | own record; create own as a pending requestor (3.A) | own record | all |
 | `facilities`, `assets` | read | read | full |
-| `damage_reports` | create + read own | read assigned, advance status | full |
+| `damage_reports` | create + read own; close own completed report by rating it (3.C) | read assigned, advance status | full |
 | `work_orders` | — | read/update **assigned only** | full |
 | `tasks` | — | read/update own | full |
 | `accomplishment_reports` | — | create own | read all, review |
 | `inventory_items` | read | read + balance via transaction | full |
 | `inventory_transactions` | — | create only | create only |
 | `tools`, `tool_loans` | read tools | borrow/return own | full |
-| `feedback` | create + read own | **no access** (§1.5) | read all |
-| `notifications` | own only | own only | own only |
+| `feedback` | rate own completed report, which closes it (3.C); read own | **no access** (§1.5) | read all |
+| `notifications` | read own, mark own read; create own "received" while filing (3.B) | read own, mark own read; create for a report with a work order | read own; create for any report's reporter (3.B) |
+| `damage_reports/*/status_history` | read own reports'; create the first `submitted` entry while filing | create on a report with a work order | read + create; nobody updates or deletes |
 | `audit_logs` | — | create only | read + create |
 | `config/*` | read | read | full |
 
-Deactivated accounts (`accountStatus != 'active'`) lose all access
-regardless of role. Users cannot modify their own `role` or
+Deactivated and pending accounts (`accountStatus != 'active'`) lose all
+access regardless of role, except reading their own `users` record. Users cannot modify their own `role` or
 `accountStatus` — the obvious privilege-escalation path. Storage uploads
 are capped at 10 MB and restricted to `image/*` (both **DERIVED**).
 

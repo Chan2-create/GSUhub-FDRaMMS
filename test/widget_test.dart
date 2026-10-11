@@ -50,16 +50,12 @@ void main() {
 
   testWidgets('the mobile app boots a signed-out visitor to the staff '
       'sign-in', (tester) async {
-    // Off the web, the app is the faculty and staff app (3.C). Its sign-in
-    // is the emulator stand-in until 3.A — never the admin console's.
-    await pumpApp(
-      tester,
-      user: null,
-      useEmulator: true,
-      startLocation: RoutePaths.staffSubmitReport,
-    );
+    // Off the web, the app is the faculty and staff app. Its sign-in is
+    // its own (3.A) — never the admin console's.
+    await pumpApp(tester, user: null, startLocation: RoutePaths.staffHome);
 
-    expect(find.text('Developer sign-in'), findsOneWidget);
+    expect(find.text('LOGIN TO DASHBOARD'), findsOneWidget);
+    expect(find.text('CREATE ACCOUNT'), findsOneWidget);
     expect(find.text('Welcome back!'), findsNothing);
   });
 

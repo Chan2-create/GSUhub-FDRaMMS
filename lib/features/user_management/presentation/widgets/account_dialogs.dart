@@ -60,38 +60,61 @@ Future<void> showEditAccountDialog(
   }
 }
 
-/// Asks before activating or deactivating [person], then does it.
+/// Asks before moving [person]'s account to [to], then does it: activating
+/// or deactivating it, or — for someone who signed themselves up (3.A) —
+/// approving or declining the request.
 Future<void> confirmStatusChange(
   BuildContext context,
   WidgetRef ref, {
   required AppUser person,
+  required AccountStatus to,
 }) async {
   final messenger = ScaffoldMessenger.of(context);
-  final deactivating = person.accountStatus == AccountStatus.active;
+  final deactivating = to == AccountStatus.inactive;
+  final request = person.accountStatus == AccountStatus.pending;
   final work = person.activeTaskCount;
+  final (title, body, action, done) = switch ((request, deactivating)) {
+    (true, false) => (
+      'Approve ${person.fullName}?',
+      'They will be able to sign in to the faculty and staff app and file '
+          'damage reports as ${person.email}.',
+      'Approve',
+      'Approved',
+    ),
+    (true, true) => (
+      'Decline ${person.fullName}?',
+      'They will not be able to sign in. The request stays on record as an '
+          'inactive account, and can be reactivated later.',
+      'Decline',
+      'Declined',
+    ),
+    (false, true) => (
+      'Deactivate ${person.fullName}?',
+      'They will no longer be able to use GSUhub. Their reports and work '
+          'history stay on record, and the account can be reactivated at '
+          'any time.',
+      'Deactivate',
+      'Deactivated',
+    ),
+    (false, false) => (
+      'Reactivate ${person.fullName}?',
+      'They will be able to sign in and use GSUhub again.',
+      'Reactivate',
+      'Reactivated',
+    ),
+  };
 
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(
-        deactivating
-            ? 'Deactivate ${person.fullName}?'
-            : 'Reactivate ${person.fullName}?',
-      ),
+      title: Text(title),
       content: SizedBox(
         width: 420,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              deactivating
-                  ? 'They will no longer be able to use GSUhub. Their '
-                        'reports and work history stay on record, and the '
-                        'account can be reactivated at any time.'
-                  : 'They will be able to sign in and use GSUhub again.',
-              style: AppTextStyles.bodyText,
-            ),
+            Text(body, style: AppTextStyles.bodyText),
             if (deactivating && work > 0) ...[
               const SizedBox(height: 12),
               // A warning rather than a refusal: someone who has left must
@@ -118,7 +141,7 @@ Future<void> confirmStatusChange(
               ? FilledButton.styleFrom(backgroundColor: AppColors.error)
               : null,
           onPressed: () => Navigator.of(context).pop(true),
-          child: Text(deactivating ? 'Deactivate' : 'Reactivate'),
+          child: Text(action),
         ),
       ],
     ),
@@ -127,18 +150,10 @@ Future<void> confirmStatusChange(
 
   final result = await ref
       .read(accountControllerProvider)
-      .setStatus(
-        person,
-        deactivating ? AccountStatus.inactive : AccountStatus.active,
-      );
+      .setStatus(person, to);
   result.fold(
     (_) => messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          '${deactivating ? 'Deactivated' : 'Reactivated'} '
-          '${person.fullName}.',
-        ),
-      ),
+      SnackBar(content: Text('$done ${person.fullName}.')),
     ),
     (failure) => messenger.showSnackBar(
       SnackBar(

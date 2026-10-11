@@ -1,0 +1,13 @@
+# Release signing for the GSUhub APK. Copy this file to
+# android/key.properties (gitignored) and fill in your own values.
+# See docs/manual_deploy.md, "Release signing".
+#
+# Keep the keystore OUTSIDE the repo, and back it up together with its
+# passwords somewhere safe (a password manager, a private drive). If it is
+# lost, an installed GSUhub can never be updated again.
+#
+# Use forward slashes in the path, even on Windows.
+storeFile=C:/Users/YOUR_NAME/keys/gsuhub-release.jks
+storePassword=CHANGE_ME
+keyAlias=gsuhub
+keyPassword=CHANGE_ME

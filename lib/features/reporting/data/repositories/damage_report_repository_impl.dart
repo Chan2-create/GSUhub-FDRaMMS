@@ -11,7 +11,9 @@ import '../../../audit/data/models/audit_actor.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../models/damage_report.dart';
 import '../models/report_submission.dart';
+import '../models/status_change.dart';
 import 'damage_report_repository.dart';
+import 'status_history_writes.dart';
 
 /// Firestore-backed [DamageReportRepository]. Persistence only — no
 /// classification or scoring logic, which belongs to Objective 4.
@@ -30,11 +32,32 @@ class DamageReportRepositoryImpl extends FirestoreRepository
       watchOne(path: _path, id: id, convert: DamageReport.fromFirestore);
 
   @override
+  Stream<Result<List<StatusChange>>> watchStatusHistory(String reportId) =>
+      watchMany(
+        query: collection(_path)
+            .doc(reportId)
+            .collection(FirestorePaths.statusHistory)
+            .orderBy('changedAt')
+            // Far beyond any real report's history — even one sent back
+            // for rework a few times has a dozen entries. A bound all the
+            // same, so one malformed report cannot run up the reads.
+            .limit(statusHistoryLimit),
+        convert: StatusChange.fromFirestore,
+      );
+
+  static const int statusHistoryLimit = 50;
+
+  /// Backed by the (reporterId, submittedAt desc) composite index. The
+  /// limit is not optional: without it the rules refuse a requestor's query
+  /// outright, which until 3.A left this unusable by the very people it was
+  /// written for.
+  @override
   Stream<Result<List<DamageReport>>> watchByReporter(String reporterId) =>
       watchMany(
         query: collection(_path)
             .where('reporterId', isEqualTo: reporterId)
-            .orderBy('submittedAt', descending: true),
+            .orderBy('submittedAt', descending: true)
+            .limit(DamageReportRepository.reporterQueryLimit),
         convert: DamageReport.fromFirestore,
       );
 
@@ -126,6 +149,17 @@ class DamageReportRepositoryImpl extends FirestoreRepository
       'submittedAt': FirestoreRepository.serverNow,
       'updatedAt': FirestoreRepository.serverNow,
     });
+
+    // The first timeline entry and the requestor's "Report received".
+    stageReportMove(
+      transaction,
+      db.raw,
+      reportId: reportId,
+      reporterId: submission.reporter.id,
+      reportTitle: report.title,
+      to: ReportStatus.submitted,
+      changedBy: submission.reporter.id,
+    );
 
     stageAuditEntry(
       transaction,
@@ -239,7 +273,8 @@ class DamageReportRepositoryImpl extends FirestoreRepository
 
       // The stored status, not the caller's copy: a second administrator
       // may have acted on this report since the screen last refreshed.
-      final current = DamageReport.fromFirestore(snapshot).status;
+      final stored = DamageReport.fromFirestore(snapshot);
+      final current = stored.status;
       if (current == to) return;
 
       if (!current.canTransitionTo(to)) {
@@ -260,6 +295,18 @@ class DamageReportRepositoryImpl extends FirestoreRepository
         if (isDecision) 'reviewedAt': FirestoreRepository.serverNow,
         if (to == ReportStatus.rejected) 'rejectionReason': trimmedReason,
       });
+
+      stageReportMove(
+        transaction,
+        db.raw,
+        reportId: reportId,
+        reporterId: stored.reporterId,
+        reportTitle: stored.title,
+        to: to,
+        from: current,
+        changedBy: actor.id,
+        note: to == ReportStatus.rejected ? trimmedReason : null,
+      );
 
       stageAuditEntry(
         transaction,
@@ -330,20 +377,43 @@ class DamageReportRepositoryImpl extends FirestoreRepository
     required String parentReportId,
     required List<String> duplicateReportIds,
     required String mergedBy,
-  }) => db.runBatch((batch) {
+  }) => db.runTransaction<void>((transaction) async {
+    // One transaction so a partial merge cannot happen: reports pointing at
+    // a parent that was never marked reviewed would be invisible in both
+    // the active queue and the merged set. A transaction rather than a
+    // batch so each report's history entry and notice commit with its
+    // status, and so each duplicate can be read for who filed it — every
+    // read before any write.
+    final duplicates = <DamageReport>[];
     for (final id in duplicateReportIds) {
-      batch.update(collection(_path).doc(id), {
+      final snapshot = await transaction.get(collection(_path).doc(id));
+      if (!snapshot.exists) {
+        throw FirestoreRepository.notFound('No damage report $id');
+      }
+      duplicates.add(DamageReport.fromFirestore(snapshot));
+    }
+
+    for (final duplicate in duplicates) {
+      transaction.update(collection(_path).doc(duplicate.id), {
         'duplicateOf': parentReportId,
         'status': ReportStatus.merged.id,
         'reviewedBy': mergedBy,
         'reviewedAt': FirestoreRepository.serverNow,
         'updatedAt': FirestoreRepository.serverNow,
       });
+      stageReportMove(
+        transaction,
+        db.raw,
+        reportId: duplicate.id,
+        reporterId: duplicate.reporterId,
+        reportTitle: duplicate.title,
+        to: ReportStatus.merged,
+        from: duplicate.status,
+        changedBy: mergedBy,
+        mergedInto: parentReportId,
+      );
     }
-    // Batched so a partial merge cannot happen: reports pointing at a
-    // parent that was never marked reviewed would be invisible in both
-    // the active queue and the merged set.
-    batch.update(collection(_path).doc(parentReportId), {
+    transaction.update(collection(_path).doc(parentReportId), {
       'updatedAt': FirestoreRepository.serverNow,
     });
   });

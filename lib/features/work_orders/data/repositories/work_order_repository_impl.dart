@@ -12,6 +12,7 @@ import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../../../reporting/data/models/damage_report.dart';
+import '../../../reporting/data/repositories/status_history_writes.dart';
 import '../../../user_management/data/models/app_user.dart';
 import '../models/work_order.dart';
 import 'work_order_repository.dart';
@@ -158,6 +159,18 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
         'updatedAt': FirestoreRepository.serverNow,
       });
 
+    stageReportMove(
+      transaction,
+      db.raw,
+      reportId: reportId,
+      reporterId: report.reporterId,
+      reportTitle: report.title,
+      to: ReportStatus.assigned,
+      from: report.status,
+      changedBy: actor.id,
+      personnel: person,
+    );
+
     stageAuditEntry(
       transaction,
       db.raw,
@@ -229,10 +242,11 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
       );
     }
 
-    final reportsToMove = <DocumentReference<Map<String, dynamic>>>[];
+    final reportsToMove = <DamageReport>[];
     for (final reportSnapshot in reportSnapshots) {
       if (!reportSnapshot.exists) continue;
-      final reportStatus = DamageReport.fromFirestore(reportSnapshot).status;
+      final linked = DamageReport.fromFirestore(reportSnapshot);
+      final reportStatus = linked.status;
       if (reportStatus == reportTarget) continue;
       if (!reportStatus.canTransitionTo(reportTarget)) {
         // The report and its work order disagree about where the job is.
@@ -242,7 +256,7 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
           'move to ${reportTarget.label} with this work order.',
         );
       }
-      reportsToMove.add(reportSnapshot.reference);
+      reportsToMove.add(linked);
     }
 
     // Completed is terminal, so the job stops counting against whoever did
@@ -272,11 +286,21 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
         'completedAt': FirestoreRepository.serverNow,
     });
 
-    for (final reportReference in reportsToMove) {
-      transaction.update(reportReference, {
-        'status': reportTarget.id,
-        'updatedAt': FirestoreRepository.serverNow,
-      });
+    for (final linked in reportsToMove) {
+      transaction.update(
+        collection(FirestorePaths.damageReports).doc(linked.id),
+        {'status': reportTarget.id, 'updatedAt': FirestoreRepository.serverNow},
+      );
+      stageReportMove(
+        transaction,
+        db.raw,
+        reportId: linked.id,
+        reporterId: linked.reporterId,
+        reportTitle: linked.title,
+        to: reportTarget,
+        from: linked.status,
+        changedBy: actor.id,
+      );
     }
 
     releasedCounts.forEach((personReference, remaining) {

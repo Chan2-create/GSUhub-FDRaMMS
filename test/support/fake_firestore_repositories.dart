@@ -10,6 +10,7 @@ import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/services/firebase/firebase_call_guard.dart';
 import 'package:gsuhub/core/services/firebase/firestore_service_impl.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
+import 'package:gsuhub/features/feedback/data/repositories/feedback_repository_impl.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_impl.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
@@ -32,12 +33,14 @@ class FirestoreHarness {
     reports = DamageReportRepositoryImpl(db: db, guard: guard);
     workOrders = WorkOrderRepositoryImpl(db: db, guard: guard);
     users = UserRepositoryImpl(db: db, guard: guard);
+    feedback = FeedbackRepositoryImpl(db: db, guard: guard);
   }
 
   final FakeFirebaseFirestore firestore;
   late final DamageReportRepositoryImpl reports;
   late final WorkOrderRepositoryImpl workOrders;
   late final UserRepositoryImpl users;
+  late final FeedbackRepositoryImpl feedback;
 
   static const admin = AuditActor(id: 'admin-1', name: 'Ramon Dela Cruz');
 
@@ -46,13 +49,15 @@ class FirestoreHarness {
     ReportStatus status = ReportStatus.approved,
     DamageCategory? category = DamageCategory.electrical,
     String? workOrderId,
+    String reporterId = 'faculty-1',
+    DateTime? submittedAt,
   }) => firestore
       .collection(FirestorePaths.damageReports)
       .doc(id)
       .set(
         DamageReport(
           id: id,
-          reporterId: 'faculty-1',
+          reporterId: reporterId,
           reporterName: 'Maria Santos',
           title: 'Flickering lights',
           description: 'Lights in Room 101 flicker constantly.',
@@ -62,7 +67,7 @@ class FirestoreHarness {
           facilityId: 'fac-engineering',
           facilityName: 'Engineering Building',
           workOrderId: workOrderId,
-          submittedAt: DateTime.utc(2026, 9),
+          submittedAt: submittedAt ?? DateTime.utc(2026, 9),
           updatedAt: DateTime.utc(2026, 9),
         ).toFirestore(),
       );
@@ -118,6 +123,23 @@ class FirestoreHarness {
 
   Future<List<Map<String, dynamic>>> auditEntries() async =>
       (await firestore.collection(FirestorePaths.auditLogs).get()).docs
+          .map((doc) => doc.data())
+          .toList();
+
+  /// Every notification written, in no particular order.
+  Future<List<Map<String, dynamic>>> notifications() async =>
+      (await firestore.collection(FirestorePaths.notifications).get()).docs
+          .map((doc) => doc.data())
+          .toList();
+
+  /// A report's status history entries, in no particular order.
+  Future<List<Map<String, dynamic>>> history(String reportId) async =>
+      (await firestore
+              .collection(FirestorePaths.damageReports)
+              .doc(reportId)
+              .collection(FirestorePaths.statusHistory)
+              .get())
+          .docs
           .map((doc) => doc.data())
           .toList();
 

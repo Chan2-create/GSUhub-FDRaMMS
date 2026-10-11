@@ -287,5 +287,12 @@ class _FakeAuthService implements AuthService {
   }
 
   @override
+  Future<Result<void>> register({
+    required String email,
+    required String password,
+    required Future<Result<void>> Function(String uid) writeProfile,
+  }) async => const Result.success(null);
+
+  @override
   Future<Result<void>> signOut() async => const Result.success(null);
 }

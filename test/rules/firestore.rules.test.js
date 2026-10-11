@@ -24,6 +24,8 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 import { GeoPoint } from 'firebase/firestore';
 
 const PROJECT_ID = 'gsuhub-rules-test';
@@ -33,6 +35,9 @@ const FACULTY_UID = 'faculty-uid';
 const PERSONNEL_UID = 'personnel-uid';
 const OTHER_FACULTY_UID = 'other-faculty-uid';
 const INACTIVE_UID = 'inactive-uid';
+const PENDING_UID = 'pending-uid';
+const SIGNUP_UID = 'signup-uid';
+const SIGNUP_EMAIL = 'liza.tan@dorsu.edu.ph';
 
 let testEnv;
 
@@ -88,6 +93,15 @@ before(async () => {
       email: 'former@dorsu.edu.ph',
       role: 'requestor',
       accountStatus: 'inactive',
+      activeTaskCount: 0,
+    });
+    // Signed themselves up from the faculty and staff app and not yet
+    // approved (3.A).
+    await db.doc(`users/${PENDING_UID}`).set({
+      fullName: 'Ana Request',
+      email: 'ana.request@dorsu.edu.ph',
+      role: 'requestor',
+      accountStatus: 'pending',
       activeTaskCount: 0,
     });
 
@@ -192,6 +206,33 @@ const asPersonnel = () =>
   testEnv.authenticatedContext(PERSONNEL_UID).firestore();
 const asInactive = () => testEnv.authenticatedContext(INACTIVE_UID).firestore();
 const asAnonymous = () => testEnv.unauthenticatedContext().firestore();
+const asPending = () => testEnv.authenticatedContext(PENDING_UID).firestore();
+// Signed in with the account Firebase Auth just created, profile not yet
+// written — the moment self-registration writes it.
+const asNewSignUp = () =>
+  testEnv
+    .authenticatedContext(SIGNUP_UID, { email: SIGNUP_EMAIL })
+    .firestore();
+
+const serverNow = () => firebase.firestore.FieldValue.serverTimestamp();
+
+/// The profile the faculty and staff sign-up writes (3.A), with
+/// [overrides] applied.
+const signUpProfile = (overrides = {}) => ({
+  fullName: 'Liza Mae Tan',
+  email: SIGNUP_EMAIL,
+  role: 'requestor',
+  accountStatus: 'pending',
+  department: null,
+  contactNumber: null,
+  specialization: null,
+  availability: null,
+  activeTaskCount: 0,
+  fcmToken: null,
+  createdAt: serverNow(),
+  updatedAt: serverNow(),
+  ...overrides,
+});
 
 describe('unauthenticated access', () => {
   it('cannot read damage reports', async () => {
@@ -208,6 +249,104 @@ describe('unauthenticated access', () => {
         reporterId: 'anyone',
         description: 'Should be denied',
       }),
+    );
+  });
+});
+
+describe('self-registration (3.A)', () => {
+  it('may file a request for their own account, pending approval', async () => {
+    await assertSucceeds(
+      asNewSignUp().doc(`users/${SIGNUP_UID}`).set(signUpProfile()),
+    );
+    // Cleaned up so the refusals below meet a missing document.
+    await testEnv.withSecurityRulesDisabled((context) =>
+      context.firestore().doc(`users/${SIGNUP_UID}`).delete(),
+    );
+  });
+
+  it('cannot let themselves in, or as anything but a requestor', async () => {
+    for (const overrides of [
+      { accountStatus: 'active' },
+      { role: 'admin' },
+      { role: 'maintenancePersonnel' },
+    ]) {
+      await assertFails(
+        asNewSignUp()
+          .doc(`users/${SIGNUP_UID}`)
+          .set(signUpProfile(overrides)),
+      );
+    }
+  });
+
+  it('cannot file under another address or another uid', async () => {
+    await assertFails(
+      asNewSignUp()
+        .doc(`users/${SIGNUP_UID}`)
+        .set(signUpProfile({ email: 'someone.else@dorsu.edu.ph' })),
+    );
+    await assertFails(
+      asNewSignUp().doc('users/somebody-else').set(signUpProfile()),
+    );
+  });
+
+  it('cannot carry personnel fields, extra fields or its own clock', async () => {
+    for (const overrides of [
+      { specialization: 'electrical' },
+      { activeTaskCount: 3 },
+      { isAdmin: true },
+      { createdAt: new Date('2001-01-01T00:00:00Z') },
+    ]) {
+      await assertFails(
+        asNewSignUp()
+          .doc(`users/${SIGNUP_UID}`)
+          .set(signUpProfile(overrides)),
+      );
+    }
+  });
+
+  it('is not open to anyone signed out', async () => {
+    await assertFails(
+      asAnonymous().doc(`users/${SIGNUP_UID}`).set(signUpProfile()),
+    );
+  });
+});
+
+describe('account awaiting approval (3.A)', () => {
+  it('can read its own profile, so sign-in can say it is pending', async () => {
+    await assertSucceeds(asPending().doc(`users/${PENDING_UID}`).get());
+  });
+
+  it('has no other access until approved', async () => {
+    await assertFails(asPending().doc('facilities/fac-engineering').get());
+    await assertFails(
+      asPending()
+        .collection('damage_reports')
+        .where('reporterId', '==', PENDING_UID)
+        .limit(10)
+        .get(),
+    );
+  });
+
+  it('cannot approve itself', async () => {
+    await assertFails(
+      asPending()
+        .doc(`users/${PENDING_UID}`)
+        .update({ accountStatus: 'active' }),
+    );
+  });
+
+  it('is approved by an administrator', async () => {
+    await assertSucceeds(
+      asAdmin()
+        .doc(`users/${PENDING_UID}`)
+        .update({ accountStatus: 'active' }),
+    );
+    // Restored for any later test that relies on it being pending.
+    await testEnv.withSecurityRulesDisabled((context) =>
+      context
+        .firestore()
+        .doc(`users/${PENDING_UID}`)
+        .update({ accountStatus: 'pending' }),
     );
   });
 });
@@ -390,6 +529,32 @@ describe('requestor (faculty/staff)', () => {
         .collection('damage_reports')
         .where('reporterId', '==', FACULTY_UID)
         .limit(50)
+        .get(),
+    );
+  });
+
+  it('lists their own reports only in pages of at most 100', async () => {
+    // The app's own-report query (3.A) asks for exactly the maximum.
+    await assertSucceeds(
+      asFaculty()
+        .collection('damage_reports')
+        .where('reporterId', '==', FACULTY_UID)
+        .orderBy('submittedAt', 'desc')
+        .limit(100)
+        .get(),
+    );
+    await assertFails(
+      asFaculty()
+        .collection('damage_reports')
+        .where('reporterId', '==', FACULTY_UID)
+        .limit(101)
+        .get(),
+    );
+    // No limit at all — how watchByReporter asked until 3.A.
+    await assertFails(
+      asFaculty()
+        .collection('damage_reports')
+        .where('reporterId', '==', FACULTY_UID)
         .get(),
     );
   });
@@ -640,6 +805,573 @@ describe('administrator', () => {
 
   it('cannot delete a user account', async () => {
     await assertFails(asAdmin().doc(`users/${FACULTY_UID}`).delete());
+  });
+});
+
+describe('status history (3.B)', () => {
+  // Each test seeds its own report, so none depends on another's moves.
+  const seedReport = (id, data = {}) =>
+    testEnv.withSecurityRulesDisabled((context) =>
+      context.firestore().doc(`damage_reports/${id}`).set({
+        reporterId: FACULTY_UID,
+        reporterName: 'Maria Santos',
+        title: 'Flickering lights',
+        description: 'Lights in Room 101 flicker constantly.',
+        requestorPriority: 'high',
+        status: 'underReview',
+        workOrderId: null,
+        ...data,
+      }),
+    );
+
+  const seedEntry = (reportId) =>
+    testEnv.withSecurityRulesDisabled((context) =>
+      context.firestore().doc(`damage_reports/${reportId}/status_history/e1`).set({
+        status: 'submitted',
+        changedAt: firebase.firestore.Timestamp.now(),
+        changedBy: FACULTY_UID,
+      }),
+    );
+
+  const historyOf = (db, reportId) =>
+    db.collection(`damage_reports/${reportId}/status_history`);
+
+  /// What the repositories write, with [overrides] applied.
+  const entry = (overrides = {}) => ({
+    status: 'approved',
+    changedAt: serverNow(),
+    changedBy: ADMIN_UID,
+    note: null,
+    personnelName: null,
+    personnelSpecialization: null,
+    ...overrides,
+  });
+
+  /// Moves [reportId] to [status] and records it, in one batch, as [db].
+  const move = (db, reportId, status, entryOverrides = {}) => {
+    const batch = db.batch();
+    batch.update(db.doc(`damage_reports/${reportId}`), { status });
+    batch.set(historyOf(db, reportId).doc(), entry({ status, ...entryOverrides }));
+    return batch.commit();
+  };
+
+  it('a requestor reads the history of their own report', async () => {
+    await seedReport('h-own');
+    await seedEntry('h-own');
+    await assertSucceeds(historyOf(asFaculty(), 'h-own').orderBy('changedAt').get());
+  });
+
+  it("a requestor cannot read another requestor's history", async () => {
+    await seedReport('h-other', { reporterId: OTHER_FACULTY_UID });
+    await seedEntry('h-other');
+    await assertFails(historyOf(asFaculty(), 'h-other').get());
+    await assertFails(asFaculty().doc('damage_reports/h-other/status_history/e1').get());
+  });
+
+  it('a deactivated account cannot read even its own history', async () => {
+    await seedReport('h-inactive', { reporterId: INACTIVE_UID });
+    await assertFails(historyOf(asInactive(), 'h-inactive').get());
+  });
+
+  it('a requestor starts the history while filing their report', async () => {
+    const db = asFaculty();
+    const report = db.collection('damage_reports').doc();
+    const batch = db.batch();
+    batch.set(report, {
+      reporterId: FACULTY_UID,
+      reporterName: 'Maria Santos',
+      title: 'Cracked window pane',
+      description: 'The pane beside the door is cracked across.',
+      requestorPriority: 'high',
+      status: 'submitted',
+    });
+    batch.set(
+      historyOf(db, report.id).doc(),
+      entry({ status: 'submitted', changedBy: FACULTY_UID }),
+    );
+    await assertSucceeds(batch.commit());
+  });
+
+  it('a requestor cannot add to the history of an existing report', async () => {
+    // Their own report, already filed: anything they add now would be a
+    // claim about progress they do not make.
+    await seedReport('h-filed', { status: 'submitted' });
+    await assertFails(
+      historyOf(asFaculty(), 'h-filed').add(
+        entry({ status: 'submitted', changedBy: FACULTY_UID }),
+      ),
+    );
+  });
+
+  it('a requestor cannot open the history at a later stage', async () => {
+    const db = asFaculty();
+    const report = db.collection('damage_reports').doc();
+    const batch = db.batch();
+    batch.set(report, {
+      reporterId: FACULTY_UID,
+      reporterName: 'Maria Santos',
+      title: 'Cracked window pane',
+      description: 'The pane beside the door is cracked across.',
+      requestorPriority: 'high',
+      status: 'submitted',
+    });
+    batch.set(
+      historyOf(db, report.id).doc(),
+      entry({ status: 'completed', changedBy: FACULTY_UID }),
+    );
+    await assertFails(batch.commit());
+  });
+
+  it("an administrator's move records its entry alongside", async () => {
+    await seedReport('h-approve');
+    await assertSucceeds(move(asAdmin(), 'h-approve', 'approved'));
+  });
+
+  it('an entry must name the status the report actually has', async () => {
+    // The report stays under review; an entry saying "completed" would
+    // put a move on the timeline that never happened.
+    await seedReport('h-claim');
+    await assertFails(
+      historyOf(asAdmin(), 'h-claim').add(entry({ status: 'completed' })),
+    );
+  });
+
+  it('an entry is stamped by its writer, at server time', async () => {
+    await seedReport('h-stamp-1');
+    await assertFails(
+      move(asAdmin(), 'h-stamp-1', 'approved', { changedBy: FACULTY_UID }),
+    );
+    await seedReport('h-stamp-2');
+    await assertFails(
+      move(asAdmin(), 'h-stamp-2', 'approved', {
+        changedAt: firebase.firestore.Timestamp.fromDate(new Date(2020, 0, 1)),
+      }),
+    );
+  });
+
+  it('an entry carries only the fields the timeline reads', async () => {
+    await seedReport('h-extra');
+    await assertFails(
+      move(asAdmin(), 'h-extra', 'approved', { officialPriority: 'critical' }),
+    );
+  });
+
+  it('personnel record a move on a report with a work order', async () => {
+    await seedReport('h-worked', {
+      status: 'assigned',
+      workOrderId: 'wo-assigned',
+    });
+    await assertSucceeds(
+      move(asPersonnel(), 'h-worked', 'inProgress', { changedBy: PERSONNEL_UID }),
+    );
+  });
+
+  it('personnel cannot record a move on a report with no work order', async () => {
+    await seedReport('h-unworked', { status: 'approved' });
+    await assertFails(
+      historyOf(asPersonnel(), 'h-unworked').add(
+        entry({ status: 'approved', changedBy: PERSONNEL_UID }),
+      ),
+    );
+  });
+
+  it('nobody, an administrator included, can edit or delete an entry', async () => {
+    await seedReport('h-locked');
+    await seedEntry('h-locked');
+    const path = 'damage_reports/h-locked/status_history/e1';
+    await assertFails(asAdmin().doc(path).update({ status: 'approved' }));
+    await assertFails(asAdmin().doc(path).delete());
+    await assertFails(asFaculty().doc(path).delete());
+  });
+});
+
+describe('notifications (3.B)', () => {
+  const seed = (path, data) =>
+    testEnv.withSecurityRulesDisabled((context) =>
+      context.firestore().doc(path).set(data),
+    );
+
+  const seedReport = (id, data = {}) =>
+    seed(`damage_reports/${id}`, {
+      reporterId: FACULTY_UID,
+      reporterName: 'Maria Santos',
+      title: 'Flickering lights',
+      description: 'Lights in Room 101 flicker constantly.',
+      requestorPriority: 'high',
+      status: 'underReview',
+      workOrderId: null,
+      ...data,
+    });
+
+  const seedNotice = (id, data = {}) =>
+    seed(`notifications/${id}`, {
+      recipientId: FACULTY_UID,
+      type: 'statusUpdate',
+      title: 'Report approved',
+      body: 'Your report was approved.',
+      relatedEntityType: 'damage_reports',
+      relatedEntityId: 'rep-faculty',
+      isRead: false,
+      readAt: null,
+      createdAt: firebase.firestore.Timestamp.now(),
+      ...data,
+    });
+
+  /// A notice as the repositories write it, with [overrides] applied.
+  const notice = (reportId, overrides = {}) => ({
+    recipientId: FACULTY_UID,
+    type: 'statusUpdate',
+    title: 'Report approved',
+    body: 'Your report "Flickering lights" was approved.',
+    relatedEntityType: 'damage_reports',
+    relatedEntityId: reportId,
+    isRead: false,
+    readAt: null,
+    createdAt: serverNow(),
+    ...overrides,
+  });
+
+  const filing = (db, report, noticeOverrides = {}) => {
+    const batch = db.batch();
+    batch.set(report, {
+      reporterId: FACULTY_UID,
+      reporterName: 'Maria Santos',
+      title: 'Cracked window pane',
+      description: 'The pane beside the door is cracked across.',
+      requestorPriority: 'high',
+      status: 'submitted',
+    });
+    batch.set(
+      db.collection('notifications').doc(),
+      notice(report.id, { type: 'reportAcknowledged', title: 'Report received', ...noticeOverrides }),
+    );
+    return batch;
+  };
+
+  it('a requestor reads their own notifications', async () => {
+    await seedNotice('n-own');
+    await assertSucceeds(asFaculty().doc('notifications/n-own').get());
+    await assertSucceeds(
+      asFaculty()
+        .collection('notifications')
+        .where('recipientId', '==', FACULTY_UID)
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .get(),
+    );
+  });
+
+  it("a requestor cannot read anyone else's", async () => {
+    await seedNotice('n-other', { recipientId: OTHER_FACULTY_UID });
+    await assertFails(asFaculty().doc('notifications/n-other').get());
+    await assertFails(
+      asFaculty()
+        .collection('notifications')
+        .where('recipientId', '==', OTHER_FACULTY_UID)
+        .get(),
+    );
+    // Nor the whole collection.
+    await assertFails(asFaculty().collection('notifications').limit(10).get());
+  });
+
+  it('a deactivated account cannot read even its own', async () => {
+    await seedNotice('n-inactive', { recipientId: INACTIVE_UID });
+    await assertFails(asInactive().doc('notifications/n-inactive').get());
+  });
+
+  it('a requestor marks their own notification read, and only that', async () => {
+    await seedNotice('n-read');
+    const doc = asFaculty().doc('notifications/n-read');
+    await assertFails(doc.update({ title: 'Something else' }));
+    await assertFails(
+      doc.update({ isRead: true, readAt: serverNow(), recipientId: OTHER_FACULTY_UID }),
+    );
+    await assertSucceeds(doc.update({ isRead: true, readAt: serverNow() }));
+  });
+
+  it('a read notification is not marked unread again', async () => {
+    await seedNotice('n-done', {
+      isRead: true,
+      readAt: firebase.firestore.Timestamp.now(),
+    });
+    await assertFails(
+      asFaculty()
+        .doc('notifications/n-done')
+        .update({ isRead: false, readAt: serverNow() }),
+    );
+  });
+
+  it("a requestor cannot mark someone else's notification read", async () => {
+    await seedNotice('n-theirs', { recipientId: OTHER_FACULTY_UID });
+    await assertFails(
+      asFaculty()
+        .doc('notifications/n-theirs')
+        .update({ isRead: true, readAt: serverNow() }),
+    );
+  });
+
+  it('a requestor gets their own "received" notice while filing', async () => {
+    const db = asFaculty();
+    await assertSucceeds(filing(db, db.collection('damage_reports').doc()).commit());
+  });
+
+  it('a requestor cannot create a notification for anyone else', async () => {
+    const db = asFaculty();
+    // Addressed to another person while filing their own report.
+    await assertFails(
+      filing(db, db.collection('damage_reports').doc(), {
+        recipientId: OTHER_FACULTY_UID,
+      }).commit(),
+    );
+    // About another person's report.
+    await seedReport('nr-other', { reporterId: OTHER_FACULTY_UID });
+    await assertFails(
+      db.collection('notifications').add(
+        notice('nr-other', {
+          recipientId: OTHER_FACULTY_UID,
+          type: 'reportAcknowledged',
+        }),
+      ),
+    );
+  });
+
+  it('a requestor cannot notify themselves of progress', async () => {
+    // Only the acknowledgment, only while filing: anything else would be a
+    // claim about GSU's progress that GSU never made.
+    await seedReport('nr-mine');
+    await assertFails(asFaculty().collection('notifications').add(notice('nr-mine')));
+    await assertFails(
+      asFaculty()
+        .collection('notifications')
+        .add(notice('nr-mine', { type: 'reportAcknowledged' })),
+    );
+    const db = asFaculty();
+    await assertFails(
+      filing(db, db.collection('damage_reports').doc(), {
+        type: 'maintenanceCompleted',
+      }).commit(),
+    );
+  });
+
+  it("an administrator notifies a report's reporter with the move", async () => {
+    await seedReport('nr-approve');
+    const db = asAdmin();
+    const batch = db.batch();
+    batch.update(db.doc('damage_reports/nr-approve'), { status: 'approved' });
+    batch.set(db.collection('notifications').doc(), notice('nr-approve'));
+    await assertSucceeds(batch.commit());
+  });
+
+  it("an administrator cannot address a report's notice to someone else", async () => {
+    await seedReport('nr-misaddressed');
+    await assertFails(
+      asAdmin()
+        .collection('notifications')
+        .add(notice('nr-misaddressed', { recipientId: OTHER_FACULTY_UID })),
+    );
+  });
+
+  it('a new notification is unread and stamped at server time', async () => {
+    await seedReport('nr-shape');
+    const db = asAdmin();
+    await assertFails(
+      db.collection('notifications').add(
+        notice('nr-shape', { isRead: true, readAt: serverNow() }),
+      ),
+    );
+    await assertFails(
+      db.collection('notifications').add(
+        notice('nr-shape', {
+          createdAt: firebase.firestore.Timestamp.fromDate(new Date(2020, 0, 1)),
+        }),
+      ),
+    );
+    await assertFails(
+      db.collection('notifications').add(notice('nr-shape', { type: 'nonsense' })),
+    );
+  });
+
+  it('personnel notify the reporter of a report they are working', async () => {
+    await seedReport('nr-worked', { status: 'assigned', workOrderId: 'wo-assigned' });
+    const db = asPersonnel();
+    const batch = db.batch();
+    batch.update(db.doc('damage_reports/nr-worked'), { status: 'inProgress' });
+    batch.set(
+      db.collection('notifications').doc(),
+      notice('nr-worked', { title: 'Work started' }),
+    );
+    await assertSucceeds(batch.commit());
+  });
+
+  it('personnel cannot notify about a report with no work order', async () => {
+    await seedReport('nr-unworked', { status: 'approved' });
+    await assertFails(
+      asPersonnel().collection('notifications').add(notice('nr-unworked')),
+    );
+  });
+});
+
+describe('rating the service (3.C)', () => {
+  // Each test seeds its own completed report, so none depends on another.
+  const seedCompleted = (id, data = {}) =>
+    testEnv.withSecurityRulesDisabled((context) =>
+      context.firestore().doc(`damage_reports/${id}`).set({
+        reporterId: FACULTY_UID,
+        reporterName: 'Maria Santos',
+        title: 'Flickering lights',
+        description: 'Lights in Room 101 flicker constantly.',
+        requestorPriority: 'high',
+        status: 'completed',
+        workOrderId: 'wo-assigned',
+        ...data,
+      }),
+    );
+
+  /// The rating the app files, with [overrides] applied.
+  const rating = (reportId, overrides = {}) => ({
+    workOrderId: 'wo-assigned',
+    reportId,
+    submittedBy: FACULTY_UID,
+    responseTimeRating: 4,
+    serviceQualityRating: 5,
+    overallSatisfactionRating: 3,
+    comments: 'Quick and tidy.',
+    submittedAt: serverNow(),
+    ...overrides,
+  });
+
+  /// What the rating transaction writes: the rating, the report's close,
+  /// its timeline entry and the audit entry. [skip] leaves parts out.
+  const rateAndClose = (db, reportId, { overrides = {}, skip = [] } = {}) => {
+    const batch = db.batch();
+    if (!skip.includes('rating')) {
+      batch.set(db.doc(`feedback/${reportId}`), rating(reportId, overrides));
+    }
+    if (!skip.includes('close')) {
+      batch.update(db.doc(`damage_reports/${reportId}`), {
+        status: 'closed',
+        updatedAt: serverNow(),
+      });
+    }
+    if (!skip.includes('history')) {
+      batch.set(db.collection(`damage_reports/${reportId}/status_history`).doc(), {
+        status: 'closed',
+        changedAt: serverNow(),
+        changedBy: FACULTY_UID,
+        note: null,
+        personnelName: null,
+        personnelSpecialization: null,
+      });
+    }
+    batch.set(db.collection('audit_logs').doc(), {
+      actorId: FACULTY_UID,
+      actorName: 'Maria Santos',
+      action: 'statusChanged',
+      entityType: 'damage_reports',
+      entityId: reportId,
+      description: 'Rated the service and closed the report',
+    });
+    return batch.commit();
+  };
+
+  it('a requestor rates their completed report, closing it', async () => {
+    await seedCompleted('rt-ok');
+    await assertSucceeds(rateAndClose(asFaculty(), 'rt-ok'));
+  });
+
+  it('a rating without comments is fine', async () => {
+    await seedCompleted('rt-nocomment');
+    await assertSucceeds(
+      rateAndClose(asFaculty(), 'rt-nocomment', { overrides: { comments: null } }),
+    );
+  });
+
+  it('cannot rate without closing the report', async () => {
+    await seedCompleted('rt-noclose');
+    await assertFails(rateAndClose(asFaculty(), 'rt-noclose', { skip: ['close'] }));
+  });
+
+  it('cannot close the report without rating it', async () => {
+    await seedCompleted('rt-norating');
+    await assertFails(rateAndClose(asFaculty(), 'rt-norating', { skip: ['rating'] }));
+  });
+
+  it("cannot rate another requestor's report", async () => {
+    await seedCompleted('rt-other', { reporterId: OTHER_FACULTY_UID });
+    await assertFails(rateAndClose(asFaculty(), 'rt-other'));
+  });
+
+  it('cannot rate work that is not completed', async () => {
+    await seedCompleted('rt-early', { status: 'inProgress' });
+    await assertFails(rateAndClose(asFaculty(), 'rt-early'));
+  });
+
+  it('cannot rate under another work order, as someone else, or off the scale', async () => {
+    await seedCompleted('rt-bad');
+    for (const overrides of [
+      { workOrderId: 'wo-unassigned' },
+      { submittedBy: OTHER_FACULTY_UID },
+      { responseTimeRating: 6 },
+      { serviceQualityRating: 0 },
+      { overallSatisfactionRating: 4.5 },
+      { comments: 'x'.repeat(1001) },
+      { score: 5 },
+      { submittedAt: firebase.firestore.Timestamp.fromDate(new Date(2020, 0, 1)) },
+    ]) {
+      await assertFails(rateAndClose(asFaculty(), 'rt-bad', { overrides }));
+    }
+  });
+
+  it('cannot file a rating under another id than its report', async () => {
+    await seedCompleted('rt-id');
+    const db = asFaculty();
+    const batch = db.batch();
+    batch.set(db.doc('feedback/some-other-id'), rating('rt-id'));
+    batch.update(db.doc('damage_reports/rt-id'), {
+      status: 'closed',
+      updatedAt: serverNow(),
+    });
+    await assertFails(batch.commit());
+  });
+
+  it('cannot rate twice, or change a rating', async () => {
+    await seedCompleted('rt-twice');
+    await assertSucceeds(rateAndClose(asFaculty(), 'rt-twice'));
+    await assertFails(
+      asFaculty().doc('feedback/rt-twice').set(rating('rt-twice', { overallSatisfactionRating: 1 })),
+    );
+    await assertFails(
+      asFaculty().doc('feedback/rt-twice').update({ overallSatisfactionRating: 1 }),
+    );
+  });
+
+  it('can ask whether their report was rated before rating it', async () => {
+    // The rating transaction reads first, so a second tap cannot rate twice.
+    await assertSucceeds(asFaculty().doc('feedback/never-rated').get());
+  });
+
+  it('personnel and other requestors cannot read a rating', async () => {
+    await seedCompleted('rt-read');
+    await assertSucceeds(rateAndClose(asFaculty(), 'rt-read'));
+    await assertSucceeds(asFaculty().doc('feedback/rt-read').get());
+    await assertFails(asPersonnel().doc('feedback/rt-read').get());
+    await assertFails(
+      testEnv.authenticatedContext(OTHER_FACULTY_UID).firestore().doc('feedback/rt-read').get(),
+    );
+  });
+
+  it('an administrator lists every rating', async () => {
+    await assertSucceeds(asAdmin().collection('feedback').get());
+  });
+
+  it('a requestor cannot otherwise move their own report', async () => {
+    await seedCompleted('rt-move', { status: 'approved' });
+    await assertFails(
+      asFaculty().doc('damage_reports/rt-move').update({
+        status: 'closed',
+        updatedAt: serverNow(),
+      }),
+    );
   });
 });
 

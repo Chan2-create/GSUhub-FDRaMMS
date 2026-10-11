@@ -1079,4 +1079,588 @@ abstract final class AppTextStyles {
     fontWeight: FontWeight.w500,
     height: 16 / 12,
   );
+
+  // --- faculty and staff app: sign-in and sign-up (193:310, 194:455, 3.A) ---
+  //
+  // Sizes from the frames' text boxes; the families are an assumption until
+  // the design context can be read again (the MCP quota was spent). The
+  // frames are HTML imports in a grotesque face, and Public Sans is the
+  // closest family the app bundles.
+
+  /// "DAVAO ORIENTAL STATE UNIVERSITY".
+  static const TextStyle authUniversity = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: AppColors.authUniversity,
+    letterSpacing: 2.4,
+    height: 16 / 12,
+  );
+
+  /// "Welcome back".
+  static const TextStyle authWelcome = TextStyle(
+    fontFamily: _ui,
+    fontSize: 30,
+    fontWeight: FontWeight.w700,
+    color: AppColors.authHeading,
+    height: 36 / 30,
+  );
+
+  /// "Please enter your credentials to access the system."
+  static const TextStyle authSubtitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.authSubtitle,
+    height: 24 / 16,
+  );
+
+  /// "Email", "Password" on the sign-in card.
+  static const TextStyle authLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.authHeading,
+    height: 20 / 14,
+  );
+
+  /// Typed text in any sign-in or sign-up box.
+  static const TextStyle authInput = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.authHeading,
+    height: 21 / 16,
+  );
+
+  /// LOGIN TO DASHBOARD, CREATE ACCOUNT, REGISTER.
+  static const TextStyle authButton = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+    letterSpacing: 1.4,
+    height: 20 / 14,
+  );
+
+  /// The footer line under both cards.
+  static const TextStyle authFooter = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.authFooter,
+    height: 16 / 12,
+  );
+
+  /// "Create Account".
+  static const TextStyle signUpTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmHeading,
+    height: 32 / 24,
+  );
+
+  /// "Create An Account and Report", and "Already have an account?".
+  static const TextStyle signUpText = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 20 / 14,
+  );
+
+  /// "FULL NAME", "EMAIL" — upper case in the design.
+  static const TextStyle signUpLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmText,
+    letterSpacing: 1.2,
+    height: 18 / 12,
+  );
+
+  /// "Login" after "Already have an account?".
+  static const TextStyle signUpLink = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppColors.linkIndigo,
+    height: 20 / 14,
+  );
+
+  /// "© 2026 GSUHUB. EXCELLENCE, INNOVATION, AND INCLUSION."
+  static const TextStyle signUpFooter = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.signUpFooter,
+    letterSpacing: 1.6,
+    height: 18 / 12,
+  );
+
+  // --- faculty and staff app: home, My Reports, bottom bar (3.A) ---
+  //
+  // Poppins, as the rendered frames read; sizes from their text boxes.
+
+  /// "Hello, James Landoy".
+  static const TextStyle homeGreeting = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.homeText,
+    height: 17 / 15,
+  );
+
+  /// "Faculty" under the greeting.
+  static const TextStyle homeRole = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w300,
+    color: AppColors.homeText,
+    height: 17 / 15,
+  );
+
+  /// "Submit Damage Report", "My Reports" on the two tiles.
+  static const TextStyle homeTile = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    height: 20 / 15,
+  );
+
+  /// "Reports Overview".
+  static const TextStyle bannerTitle = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: Colors.white,
+    height: 24 / 15,
+  );
+
+  /// "8 Active • 2 In-Progress • 10 Completed".
+  static const TextStyle bannerCounts = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: AppColors.bannerCounts,
+    height: 24 / 15,
+  );
+
+  /// "Recent Reports".
+  static const TextStyle homeSectionTitle = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: AppColors.homeSectionTitle,
+    height: 17 / 15,
+  );
+
+  /// "View All".
+  static const TextStyle homeViewAll = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: AppColors.accentGold,
+    height: 17 / 15,
+  );
+
+  /// "AB Bldg, Room 101" on a recent report.
+  static const TextStyle homeRowLocation = TextStyle(
+    fontFamily: _display,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.homeText,
+    height: 17 / 13,
+  );
+
+  /// "3H AGO".
+  static const TextStyle homeRowTime = TextStyle(
+    fontFamily: _display,
+    fontSize: 8,
+    fontWeight: FontWeight.w500,
+    color: AppColors.homeTextMuted,
+    height: 12 / 8,
+  );
+
+  /// The home screen's category and progress pills ("Electrical",
+  /// "Pending"). Colour comes from the pill.
+  static const TextStyle requestorChip = TextStyle(
+    fontFamily: _display,
+    fontSize: 9,
+    fontWeight: FontWeight.w500,
+    height: 14 / 9,
+  );
+
+  /// My Reports' progress pill. Colour comes from the pill.
+  static const TextStyle requestorChipLarge = TextStyle(
+    fontFamily: _display,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    height: 24 / 14,
+  );
+
+  /// My Reports' category pill.
+  static const TextStyle myReportsCategory = TextStyle(
+    fontFamily: _display,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 24 / 14,
+  );
+
+  /// "Reports", the tab title beside the back arrow.
+  static const TextStyle myReportsTitle = TextStyle(
+    fontFamily: _display,
+    fontSize: 20,
+    fontWeight: FontWeight.w500,
+    color: AppColors.myReportsTitle,
+    height: 28 / 20,
+  );
+
+  /// The search box, typed and placeholder.
+  static const TextStyle myReportsSearch = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmHeading,
+    height: 24 / 15,
+  );
+
+  /// "All", "Pending" — colour comes from the filter.
+  static const TextStyle myReportsFilter = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    height: 24 / 15,
+  );
+
+  /// "Science Lab, Room 204" on a report card.
+  static const TextStyle myReportsLocation = TextStyle(
+    fontFamily: _display,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.warmHeading,
+    height: 24 / 15,
+  );
+
+  /// "Submitted: Oct 24, 2023".
+  static const TextStyle myReportsSubmitted = TextStyle(
+    fontFamily: _display,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmMuted,
+    height: 24 / 14,
+  );
+
+  /// "Home", "Reports", "Alerts", "Profile" in the bottom bar. The current
+  /// tab is bolder.
+  static const TextStyle navLabel = TextStyle(
+    fontFamily: _display,
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primary,
+    height: 17 / 11,
+  );
+
+  /// A placeholder tab's heading and copy.
+  static const TextStyle placeholderTitle = TextStyle(
+    fontFamily: _display,
+    fontSize: 17,
+    fontWeight: FontWeight.w600,
+    color: AppColors.homeSectionTitle,
+    height: 24 / 17,
+  );
+
+  static const TextStyle placeholderBody = TextStyle(
+    fontFamily: _display,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.homeTextMuted,
+    height: 20 / 14,
+  );
+
+  // --- faculty and staff app: report detail and timeline (Figma 169:1355,
+  // Objective 3.B). Public Sans, like the report form the frame was built
+  // from. ---
+
+  /// The report number at the top, in gold.
+  static const TextStyle trackingNumber = TextStyle(
+    fontFamily: _ui,
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: AppColors.accentGold,
+    height: 32 / 24,
+  );
+
+  /// "In Progress" in the navy status pill.
+  static const TextStyle trackingStatus = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    height: 24 / 16,
+  );
+
+  /// "Submitted", "Active", "Finished" under the progress steps; the
+  /// current one is bold and gold.
+  static const TextStyle trackingStep = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 16 / 11,
+  );
+
+  /// "Linked Report", "Assigned Maintenance Personnel".
+  static const TextStyle trackingCardLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.warmText,
+    height: 16 / 12,
+  );
+
+  /// The report's title in its card.
+  static const TextStyle trackingTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmHeading,
+    height: 28 / 20,
+  );
+
+  /// The building and the room under the title, and timeline entries.
+  static const TextStyle trackingBody = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmHeading,
+    height: 20 / 14,
+  );
+
+  /// The confirmed damage type, navy on sand.
+  static const TextStyle trackingCategory = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primary,
+    height: 24 / 16,
+  );
+
+  /// "HIGH PRIORITY", and the trade under the personnel's name.
+  static const TextStyle trackingBadge = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+    letterSpacing: 0.5,
+    height: 15 / 10,
+  );
+
+  /// The assigned personnel's name.
+  static const TextStyle trackingPersonName = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmHeading,
+    height: 24 / 16,
+  );
+
+  /// "Assigned May 24".
+  static const TextStyle trackingMeta = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 16 / 11,
+  );
+
+  /// "Updates Timeline".
+  static const TextStyle trackingSectionTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: AppColors.warmHeading,
+    height: 28 / 20,
+  );
+
+  /// "Today, 09:45 AM" above a timeline entry.
+  static const TextStyle trackingWhen = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    color: AppColors.warmText,
+    height: 16 / 11,
+  );
+
+  /// "ADMIN FOLLOW-UP" — the label on a note from GSU.
+  static const TextStyle trackingNoteLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.trackingAccentText,
+    letterSpacing: 0.6,
+    height: 24 / 15,
+  );
+
+  /// The quoted note itself.
+  static const TextStyle trackingNote = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    fontStyle: FontStyle.italic,
+    color: AppColors.warmHeading,
+    height: 20 / 14,
+  );
+
+  /// "Rate this Service".
+  static const TextStyle trackingAction = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    height: 24 / 16,
+  );
+
+  // --- faculty and staff app: Notifications (Figma 169:1459, 3.B) ---
+
+  /// "Today", "Earlier".
+  static const TextStyle alertsSection = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmMuted,
+    height: 20 / 15,
+  );
+
+  /// An unread notice: bold and dark.
+  static const TextStyle alertsUnread = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w700,
+    color: AppColors.warmHeading,
+    height: 20 / 15,
+  );
+
+  /// A read notice: regular and softer.
+  static const TextStyle alertsRead = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmText,
+    height: 20 / 15,
+  );
+
+  /// "2 minutes ago", "Oct 24, 10:15 AM".
+  static const TextStyle alertsTime = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmMuted,
+    height: 16 / 11,
+  );
+
+  // --- faculty and staff app: Ratings (Figma 169:1797, Objective 3.C) ---
+
+  /// "WO-88421-2024", "May 24, 2026".
+  static const TextStyle ratingMeta = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    color: AppColors.ratingMeta,
+    height: 16 / 11,
+  );
+
+  /// "Room 302 • HVAC Maintenance".
+  static const TextStyle ratingRoom = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.ratingMeta,
+    height: 20 / 14,
+  );
+
+  /// The personnel's name on the card.
+  static const TextStyle ratingPerson = TextStyle(
+    fontFamily: _ui,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.warmHeading,
+    height: 20 / 15,
+  );
+
+  /// The trade, white on indigo.
+  static const TextStyle ratingTrade = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w500,
+    color: Colors.white,
+    height: 14 / 10,
+  );
+
+  /// "How would you rate the service?".
+  static const TextStyle ratingQuestion = TextStyle(
+    fontFamily: _ui,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: AppColors.warmHeading,
+    height: 28 / 20,
+  );
+
+  /// Each rating's name — "Response time".
+  static const TextStyle ratingDimension = TextStyle(
+    fontFamily: _ui,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.ratingLabel,
+    height: 18 / 13,
+  );
+
+  /// "Very Good" under the stars, in gold.
+  static const TextStyle ratingWord = TextStyle(
+    fontFamily: _ui,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.accentGold,
+    height: 24 / 18,
+  );
+
+  /// "Comments".
+  static const TextStyle ratingCommentsLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    color: AppColors.ratingLabel,
+    height: 16 / 11,
+  );
+
+  /// Typed comments, and the placeholder in [AppColors.warmMuted].
+  static const TextStyle ratingComment = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.warmHeading,
+    height: 20 / 14,
+  );
+
+  /// "Submit Rating".
+  static const TextStyle ratingSubmit = TextStyle(
+    fontFamily: _ui,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    height: 28 / 20,
+  );
+
+  /// "Skip", underlined.
+  static const TextStyle ratingSkip = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.myReportsTitle,
+    decoration: TextDecoration.underline,
+    height: 20 / 14,
+  );
 }

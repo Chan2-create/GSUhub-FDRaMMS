@@ -89,15 +89,45 @@ service cloud.firestore {
     // Everyone may read their own record (the app needs the role to route);
     // personnel are readable by admins for assignment.
 
+    // A faculty or staff member signing themselves up (Objective 3.A).
+    // They may only ever ask: the profile is their own, under the email
+    // they signed in with, as a requestor, pending an administrator's
+    // approval, and carrying none of the personnel-only fields. §1.5 limits
+    // GSUhub to "authorized" faculty and staff, so nothing a person writes
+    // here lets them in — activation is the administrator's.
+    function isSelfRegistration(uid) {
+      let data = request.resource.data;
+      return isSelf(uid)
+        && data.keys().hasOnly([
+             'fullName', 'email', 'role', 'accountStatus', 'department',
+             'contactNumber', 'specialization', 'availability',
+             'activeTaskCount', 'fcmToken', 'createdAt', 'updatedAt'
+           ])
+        && data.role == 'requestor'
+        && data.accountStatus == 'pending'
+        && data.email == request.auth.token.email
+        && data.fullName is string
+        && data.fullName.size() > 0 && data.fullName.size() <= 120
+        && (data.get('department', null) == null
+            || (data.department is string && data.department.size() <= 120))
+        && (data.get('contactNumber', null) == null
+            || (data.contactNumber is string
+                && data.contactNumber.size() <= 40))
+        && data.get('specialization', null) == null
+        && data.get('availability', null) == null
+        && data.get('activeTaskCount', 0) == 0
+        && data.get('fcmToken', null) == null
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
     match /users/{uid} {
       allow get: if isSelf(uid) || isAdmin();
       allow list: if isAdmin();
 
-      // Account creation is administrator-driven: §1.5 limits access to
-      // "authorized" faculty, staff and GSU personnel, so self-registration
-      // cannot mint an arbitrary role. 1.C decides whether the signup screen
-      // writes a pending record or an admin provisions accounts outright.
-      allow create: if isAdmin();
+      // Administrators provision accounts outright (2.C); anyone else may
+      // only file a request for their own (3.A).
+      allow create: if isAdmin() || isSelfRegistration(uid);
 
       // A user may maintain their own contact details and push token, but
       // never their own role or account status — that would let any account
@@ -170,6 +200,25 @@ service cloud.firestore {
         && data.get('rejectionReason', null) == null;
     }
 
+    // A status history entry (Objective 3.B) for the report at [reportPath]:
+    // the status that report has once this request commits, stamped by its
+    // writer at server time, with only the fields the timeline reads.
+    function isStatusChange(reportPath) {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+               'status', 'changedAt', 'changedBy', 'note', 'personnelName',
+               'personnelSpecialization'
+             ])
+        && data.status == getAfter(reportPath).data.status
+        && data.changedBy == request.auth.uid
+        && data.changedAt == request.time
+        && (data.get('note', null) == null || data.note is string)
+        && (data.get('personnelName', null) == null
+            || data.personnelName is string)
+        && (data.get('personnelSpecialization', null) == null
+            || data.personnelSpecialization is string);
+    }
+
     match /damage_reports/{reportId} {
       allow get: if isAdmin()
         // `resource == null` lets a requestor ask whether a report id is
@@ -205,9 +254,58 @@ service cloud.firestore {
       allow update: if isAdmin()
         // Personnel may advance status on a report tied to their work,
         // nothing more.
-        || (isPersonnel() && onlyChanged(['status', 'updatedAt']));
+        || (isPersonnel() && onlyChanged(['status', 'updatedAt']))
+        // A requestor closes their own completed report by rating the
+        // service (Objective 3.C): the status only, completed to closed,
+        // in the same write as their one rating of it.
+        || (isRequestor()
+            && resource.data.reporterId == request.auth.uid
+            && resource.data.status == 'completed'
+            && request.resource.data.status == 'closed'
+            && onlyChanged(['status', 'updatedAt'])
+            && request.resource.data.updatedAt == request.time
+            && !exists(/databases/$(database)/documents/feedback/$(reportId))
+            && existsAfter(/databases/$(database)/documents/feedback/$(reportId)));
 
       allow delete: if false;
+
+      // One entry per status change, for the requestor's progress
+      // timeline (3.B). Requestors cannot read audit_logs, so the timeline
+      // needs its own record. Append-only: a timeline that could be
+      // rewritten would record nothing.
+      match /status_history/{entryId} {
+        function report() {
+          return /databases/$(database)/documents/damage_reports/$(reportId);
+        }
+
+        // Whoever may read the report may read how it got where it is.
+        allow read: if isAdmin()
+          || (isActive() && get(report()).data.reporterId == request.auth.uid)
+          || (isPersonnel() && get(report()).data.workOrderId != null);
+
+        // Each entry is written in the same transaction as the move it
+        // records, so it must name the status the report has once that
+        // transaction commits — an entry cannot claim a move that did not
+        // happen. A requestor writes only the first, while filing their
+        // own report; personnel, a move on a report with a work order —
+        // the same reach their report update has.
+        allow create: if isStatusChange(report())
+          && (isAdmin()
+              || (isRequestor()
+                  && request.resource.data.status == 'submitted'
+                  && !exists(report())
+                  && getAfter(report()).data.reporterId == request.auth.uid)
+              // ...and the "closed" entry when rating closes it (3.C).
+              || (isRequestor()
+                  && request.resource.data.status == 'closed'
+                  && get(report()).data.reporterId == request.auth.uid
+                  && get(report()).data.status == 'completed'
+                  && existsAfter(/databases/$(database)/documents/feedback/$(reportId)))
+              || (isPersonnel()
+                  && getAfter(report()).data.workOrderId != null));
+
+        allow update, delete: if false;
+      }
     }
 
     // ---------- work_orders ----------
@@ -337,13 +435,46 @@ service cloud.firestore {
     // personnel performance evaluations" — hence personnel cannot read
     // them; only administrators see the evaluation data.
 
+    function isRating(value) {
+      return value is int && value >= 1 && value <= 5;
+    }
+
+    // One rating per report, filed under the report's own id (3.C): by the
+    // person who filed the report, for its work order, while it is
+    // completed — and only in the write that closes it.
+    function isRatingOf(feedbackId) {
+      let data = request.resource.data;
+      let report = /databases/$(database)/documents/damage_reports/$(feedbackId);
+      return data.keys().hasOnly([
+               'workOrderId', 'reportId', 'submittedBy', 'responseTimeRating',
+               'serviceQualityRating', 'overallSatisfactionRating',
+               'comments', 'submittedAt'
+             ])
+        && data.reportId == feedbackId
+        && data.submittedBy == request.auth.uid
+        && isRating(data.responseTimeRating)
+        && isRating(data.serviceQualityRating)
+        && isRating(data.overallSatisfactionRating)
+        && (data.get('comments', null) == null
+            || (data.comments is string && data.comments.size() <= 1000))
+        && data.submittedAt == request.time
+        && get(report).data.reporterId == request.auth.uid
+        && get(report).data.status == 'completed'
+        && get(report).data.workOrderId == data.workOrderId
+        && getAfter(report).data.status == 'closed';
+    }
+
     match /feedback/{feedbackId} {
+      // `resource == null` lets a requestor ask whether their report has
+      // been rated — the rating screen's transaction reads first, so a
+      // second tap cannot rate twice. The ids are report ids, random.
       allow get: if isAdmin()
-        || (isRequestor() && resource.data.submittedBy == request.auth.uid);
+        || (isRequestor()
+            && (resource == null
+                || resource.data.submittedBy == request.auth.uid));
       allow list: if isAdmin();
 
-      allow create: if isRequestor()
-        && request.resource.data.submittedBy == request.auth.uid;
+      allow create: if isRequestor() && isRatingOf(feedbackId);
 
       // Feedback is a point-in-time evaluation; editing it after the fact
       // would misrepresent the record.
@@ -352,18 +483,73 @@ service cloud.firestore {
 
     // ---------- notifications ----------
 
+    // A notification as the app writes it (Objective 3.B): well-formed,
+    // unread, stamped at server time.
+    function isNewNotification() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+               'recipientId', 'type', 'title', 'body', 'relatedEntityType',
+               'relatedEntityId', 'isRead', 'readAt', 'createdAt'
+             ])
+        && data.recipientId is string
+        && data.type in [
+             'reportAcknowledged', 'workOrderAssigned', 'taskAssigned',
+             'statusUpdate', 'maintenanceCompleted', 'lowStockAlert'
+           ]
+        && data.title is string
+        && data.title.size() > 0 && data.title.size() <= 120
+        && data.body is string && data.body.size() <= 1000
+        && data.isRead == false
+        && data.get('readAt', null) == null
+        && data.createdAt == request.time;
+    }
+
+    // A notification about a damage report, addressed to the person who
+    // filed it — checked against the report as it stands once the write
+    // commits, which is how it stands in the transaction that moved it.
+    function isToReporter() {
+      let data = request.resource.data;
+      return data.get('relatedEntityType', null) == 'damage_reports'
+        && data.relatedEntityId is string
+        && getAfter(/databases/$(database)/documents/damage_reports/$(data.relatedEntityId))
+             .data.reporterId == data.recipientId;
+    }
+
     match /notifications/{notificationId} {
       allow get, list: if isActive()
         && resource.data.recipientId == request.auth.uid;
 
-      // Notifications are raised by trusted server-side logic (Cloud
-      // Functions, 1.C), not by clients.
-      allow create: if false;
+      // 1.B left this to Cloud Functions; the project is on the Spark plan,
+      // which has none (3.B). So the client that moves a report writes the
+      // notice in the same transaction, and these rules keep each one to
+      // the report's own reporter:
+      // - an administrator, for any report's reporter;
+      // - a requestor, only their own "received" notice, while filing that
+      //   very report — never one for anybody else;
+      // - personnel, a move on a report with a work order (Objective 5) —
+      //   the same reach their report update has.
+      allow create: if isNewNotification()
+        && (isAdmin() && (
+              request.resource.data.get('relatedEntityType', null)
+                != 'damage_reports'
+              || isToReporter())
+          || (isRequestor()
+              && request.resource.data.recipientId == request.auth.uid
+              && request.resource.data.type == 'reportAcknowledged'
+              && isToReporter()
+              && !exists(/databases/$(database)/documents/damage_reports/$(request.resource.data.relatedEntityId)))
+          || (isPersonnel()
+              && isToReporter()
+              && getAfter(/databases/$(database)/documents/damage_reports/$(request.resource.data.relatedEntityId))
+                   .data.workOrderId != null));
 
-      // A recipient may only mark their own notification read.
+      // A recipient may only mark their own notification read: nothing
+      // else about it changes, and it is not marked unread again.
       allow update: if isActive()
         && resource.data.recipientId == request.auth.uid
-        && onlyChanged(['isRead', 'readAt']);
+        && onlyChanged(['isRead', 'readAt'])
+        && request.resource.data.isRead == true
+        && request.resource.data.readAt == request.time;
 
       allow delete: if isActive()
         && resource.data.recipientId == request.auth.uid;

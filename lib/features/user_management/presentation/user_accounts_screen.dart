@@ -378,7 +378,7 @@ class _AccountRow extends ConsumerWidget {
             ),
           ),
           _cell(4, Text(_date.format(person.createdAt.toLocal()), style: text)),
-          _cell(5, _StatusLabel(inactive: inactive)),
+          _cell(5, _StatusLabel(status: person.accountStatus)),
           _cell(6, _RowMenu(person: person, isSelf: isSelf)),
         ],
       ),
@@ -433,15 +433,17 @@ class _RoleChip extends StatelessWidget {
 }
 
 class _StatusLabel extends StatelessWidget {
-  const _StatusLabel({required this.inactive});
+  const _StatusLabel({required this.status});
 
-  final bool inactive;
+  final AccountStatus status;
 
   @override
   Widget build(BuildContext context) {
-    final color = inactive
-        ? AppColors.inactiveForeground
-        : AppColors.accountActive;
+    final color = switch (status) {
+      AccountStatus.active => AppColors.accountActive,
+      AccountStatus.inactive => AppColors.inactiveForeground,
+      AccountStatus.pending => AppColors.accountPending,
+    };
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -452,7 +454,7 @@ class _StatusLabel extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          inactive ? 'INACTIVE' : 'ACTIVE',
+          status.label,
           style: AppTextStyles.roleChip.copyWith(color: color),
         ),
       ],
@@ -460,10 +462,11 @@ class _StatusLabel extends StatelessWidget {
   }
 }
 
-enum _RowAction { edit, toggleStatus, resetPassword }
+enum _RowAction { edit, toggleStatus, approve, decline, resetPassword }
 
 /// Edit details, Deactivate/Reactivate, Send password reset (decided for
-/// 2.C; the frame draws the ⋮ but not its contents).
+/// 2.C; the frame draws the ⋮ but not its contents). A pending sign-up
+/// (3.A) offers Approve and Decline in place of the status toggle.
 class _RowMenu extends ConsumerWidget {
   const _RowMenu({required this.person, required this.isSelf});
 
@@ -473,6 +476,7 @@ class _RowMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = person.accountStatus == AccountStatus.active;
+    final pending = person.accountStatus == AccountStatus.pending;
     return PopupMenuButton<_RowAction>(
       tooltip: 'Account actions',
       icon: const Icon(Icons.more_vert, size: 20, color: AppColors.iconMuted),
@@ -486,6 +490,19 @@ class _RowMenu extends ConsumerWidget {
           context,
           ref,
           person: person,
+          to: active ? AccountStatus.inactive : AccountStatus.active,
+        ),
+        _RowAction.approve => confirmStatusChange(
+          context,
+          ref,
+          person: person,
+          to: AccountStatus.active,
+        ),
+        _RowAction.decline => confirmStatusChange(
+          context,
+          ref,
+          person: person,
+          to: AccountStatus.inactive,
         ),
         _RowAction.resetPassword => sendPasswordReset(
           context,
@@ -498,13 +515,17 @@ class _RowMenu extends ConsumerWidget {
           value: _RowAction.edit,
           child: Text('Edit details'),
         ),
-        PopupMenuItem(
-          value: _RowAction.toggleStatus,
-          // Your own account cannot be deactivated from here — nor, by the
-          // security rules, from anywhere.
-          enabled: !(isSelf && active),
-          child: Text(active ? 'Deactivate' : 'Reactivate'),
-        ),
+        if (pending) ...const [
+          PopupMenuItem(value: _RowAction.approve, child: Text('Approve')),
+          PopupMenuItem(value: _RowAction.decline, child: Text('Decline')),
+        ] else
+          PopupMenuItem(
+            value: _RowAction.toggleStatus,
+            // Your own account cannot be deactivated from here — nor, by
+            // the security rules, from anywhere.
+            enabled: !(isSelf && active),
+            child: Text(active ? 'Deactivate' : 'Reactivate'),
+          ),
         const PopupMenuItem(
           value: _RowAction.resetPassword,
           child: Text('Send password reset'),

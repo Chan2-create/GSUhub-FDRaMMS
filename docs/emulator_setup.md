@@ -94,6 +94,7 @@ All use the password `password123`.
 | `ana.gomez@dorsu.edu.ph` | Faculty/Staff |
 | `paolo.garcia@dorsu.edu.ph` | Faculty/Staff |
 | `grace.lim@dorsu.edu.ph` | Faculty/Staff — **deactivated**, cannot sign in |
+| `liza.tan@dorsu.edu.ph` | Faculty/Staff — signed up, **awaiting approval**; approve it from User Accounts |
 | `personnel@dorsu.edu.ph` | Maintenance personnel (electrical) |
 | `plumber@dorsu.edu.ph` | Maintenance personnel (plumbing) |
 | `structural@dorsu.edu.ph` | Maintenance personnel (structural) |
@@ -115,15 +116,53 @@ All use the password `password123`.
   weight schemes (see `docs/data_dictionary.md`)
 - **Damage reports and work orders** — spread across categories,
   statuses and priorities, plus six months of resolved history for
-  Analytics
+  Analytics. All are `faculty@`'s except one filed by `ana.gomez@`, so
+  My Reports can be seen leaving someone else's report out. Between them
+  the current reports reach every status, including one waiting for
+  sign-off, one rejected with a reason, one merged and one archived, and
+  every report has its status history (3.B).
+- **30 notifications** — one for each move a reporter is told of, on the
+  current reports; those older than two days are already read, so Alerts
+  shows both states.
+- **Ratings** — every closed report in the six-month history has one,
+  and was closed by it (3.C). `rep-0005`, "Cracked Wall Near Stairwell",
+  is completed and not yet rated, to try rating on.
 
-## The faculty and staff report form (Objective 3.C)
+## The faculty and staff app (Objectives 3.A, 3.B and 3.C)
 
-The faculty and staff sign-in is Objective 3.A and is not built yet. In
-debug builds against the emulator, `/staff/login` shows a plain
-**Developer sign-in** form instead — sign in as `faculty@dorsu.edu.ph`.
-Off the web the app opens there; in a browser, go to
-`http://localhost:<port>/staff/submit`.
+Off the web the app opens on the faculty and staff sign-in. In a browser
+the app is the admin console; go to `http://localhost:<port>/#/staff/login`
+for the faculty side (sign out of the console first — one browser holds
+one session).
+
+- **Sign in** as `faculty@dorsu.edu.ph` to reach Home, My Reports and the
+  report form (the gold **+**).
+- **Watch a report move.** Open a report on the faculty side, then in
+  the console (another browser profile, or a private window) Start
+  review, Approve or assign it. The faculty page, its timeline, the
+  Alerts list and the unread badge update without a reload.
+- **Rate a finished job.** Open "Cracked Wall Near Stairwell" (completed)
+  and tap Rate this Service, or its "Work completed" alert. Give all three
+  ratings and submit: the report closes, "Closed" joins its timeline, and
+  the rating shows at the bottom of the report. Skip leaves it completed.
+- **Sign up** from CREATE ACCOUNT. The new account is `pending`: signing
+  in says it awaits approval. Approve it from the console's User Accounts
+  (⋮ → Approve), then it signs in. `liza.tan@dorsu.edu.ph` is a seeded
+  request to try this on.
+- Firebase shows its own "Running in emulator mode" bar along the bottom
+  of the page in a browser; it covers the bottom bar's labels and is not
+  part of the app.
+- In a browser, don't reload a page while signed in on the faculty side:
+  Firebase restores the session against the live Auth service before the
+  app points it at the emulator, and later sign-ins in that tab fail.
+  Open a new tab instead.
+
+Push on a phone (3.B): with GSUhub open or in the background, a report's
+move raises a system notification on the phone itself. Nothing reaches
+a phone whose GSUhub is closed — that needs a Cloud Function on the
+Blaze plan (docs/architecture_decisions.md §16). To try a real push,
+send a test message from the Firebase console to the token saved on the
+account, with data `reportId`, `recipientId` and `notificationId`.
 
 To test QR lookup on a phone, show a QR code for a seeded value (e.g.
 `FAC-FAC-ENGINEERING-203`, or `AST-ASSET-AIRCON-01` for equipment) from
@@ -136,7 +175,7 @@ run overwrites rather than duplicating.
 
 ## Rules tests
 
-**39 tests, all passing.** They start their own emulator, so nothing needs
+**99 tests, all passing.** They start their own emulator, so nothing needs
 to be running first:
 
 ```powershell
@@ -167,6 +206,19 @@ to be wrong:
 - personnel cannot read work orders assigned to someone else, reassign one
   to themselves, or read feedback (§1.5)
 - a **deactivated** account loses access despite valid credentials
+- self-registration (3.A): a person may create only their own profile,
+  only as a `pending` requestor under their own email with server time;
+  a pending account reads nothing but its own profile until approved
+- a requestor lists their own reports only, at most 100 at a time
+- status history (3.B) is append-only: a requestor reads only their own
+  reports' and writes only the first entry while filing; nobody edits or
+  deletes one
+- notifications (3.B): each reaches only the report's own reporter; a
+  requestor creates none for anyone else, reads only their own, and may
+  change nothing but marking one read
+- rating (3.C): a requestor rates only their own completed report, once,
+  three ratings 1–5, and only in the write that closes it; closing it is
+  the one change they may make to their report
 - nobody — administrators included — can edit or delete an inventory
   transaction or an audit log entry
 - unknown collections are denied by the catch-all

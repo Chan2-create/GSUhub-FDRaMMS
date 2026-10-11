@@ -472,3 +472,256 @@ the scan button, the camera-or-gallery sheet, the scanner and pin-picker
 screens, validation messages (a light red on navy and a dark red on gold,
 since the console's red is unreadable on both), the AUTO-CAPTURE off
 state, upload progress in the Submit button, and the confirmation.
+
+## 15. Objective 3.A: faculty and staff sign-in, home and My Reports
+
+**Scope.** Chris's 3.A brief bundles the report form with sign-in, the
+home screen, My Reports and the bottom bar. The form is 3.C, already
+built and merged, so 3.A builds only the rest and opens the 3.C form
+from the new screens unchanged.
+
+**One sign-in path.** `AuthService` gains `register()`, beside sign-in,
+so faculty sign-up goes through the same service as everyone else. It
+creates the Firebase account, runs a callback that writes the `users`
+profile, and deletes the account again if the profile cannot be saved
+(the pattern 2.C's provisioning uses). It leaves nobody signed in. The
+create call is not retried — `FirebaseCallGuard.callOnce()` — because a
+retry after a timeout would fail as "email already in use" and hide that
+the account exists. The emulator-only `DevSignInScreen` is gone.
+
+**Sign-up asks; an administrator lets in.** §1.5 limits GSUhub to
+authorized faculty and staff, so a sign-up is a request.
+`AccountStatus` gains `pending`: kept apart from `inactive` so an
+administrator can tell a new request from someone who left, and so the
+person is told "waiting for approval" rather than "deactivated". The
+service refuses a pending account at sign-in with that message, given
+only after the password checks out. Any valid address may sign up
+(Chris's decision); approval is the gate. Passwords need eight
+characters.
+
+**The self-registration rule.** `users` creation was administrator-only.
+A person may now create their own document, and only as: a requestor,
+`pending`, under the email in their sign-in token, with none of the
+personnel fields, a known set of keys, and server timestamps (a device
+clock cannot back-date a request). The client lower-cases the address
+so it matches the token. No audit entry: the rules let only active
+accounts write the trail, and the administrator's approval is what is
+recorded ("Approved the account request of …").
+
+**Approval lives in 2.C's User Accounts.** The brief assumed activation
+would wait for 2.C; 2.C already shipped Activate and Deactivate. A
+pending row reads PENDING in amber, sorts to the top, and its menu
+offers Approve and Decline (decline leaves the account `inactive`).
+
+**Reads, not listeners.** Home and My Reports share one read of the
+requestor's reports (`getByReporter`, newest first, 100 at most); live
+updates are 3.B's. Pull down to read again; filing a report refreshes
+it. `watchByReporter` had no limit since 1.B, which the list rule
+refuses for a requestor; both queries now carry the limit the rule
+allows.
+
+**Three stages.** `ReportStatus.progress` collapses the eleven statuses
+into Pending, In Progress, Completed, plus Closed (merged, rejected,
+archived). The faculty app's chips, filters and counts read it, and the
+admin chip palette now does too, unchanged. The home banner counts the
+three stages and leaves Closed out.
+
+**Navigation.** A `ShellRoute` holds Home, Reports, Alerts and Profile
+under the header and the floating bar. The report form opens over it
+with `push` (its frame has no bar), so Back returns where it came from,
+and filing a report pops back and refreshes. Tabs switch with `go`; the
+device's Back on a tab other than Home returns Home rather than closing
+the app. A report's detail page sits under Reports.
+
+**Design source.** Figma's MCP quota was spent, so the screens were
+built from Chris's 1x PNG exports of `193:310`, `194:455`, `170:2050`
+and `169:1251` (the last is My Reports, not in the brief's table), with
+positions and text from the saved file metadata and colours sampled
+from the PNGs. Not yet checked against the file: exact colours, font
+families (Public Sans on the sign-in pages, Poppins on the rest, both
+assumptions) and the icons (Material stand-ins; the SVGs were too large
+to send). The banner's campus photo (`image 9`) has not been exported,
+so the banner shows its navy-to-purple wash alone.
+
+**Decisions where the design disagreed with itself or was silent.**
+Status colours differ between the home screen and My Reports; Chris
+chose the home screen's yellow, blue and green for both. The My Reports
+frame highlights Home in the bar; the current tab is highlighted. The
+home rows' coloured rules follow each report's stage. The grey squares
+show the report's first photo. The greeting's second line shows the
+department, or "Faculty & Staff" — accounts do not record faculty versus
+staff. "Username" is relabelled Email, as on 2.A's login, and there is
+no forgot-password link because the design has none. Unselected My
+Reports filters are neutral, as yellow text is unreadable there. Plain
+additions: field validation, the sign-in notices, the report detail
+page, and the Alerts and Profile placeholders (Profile holds Sign out).
+
+## 16. Objective 3.B: live tracking, the status timeline and notifications
+
+**Live, not read once.** Home, My Reports and a report's detail page now
+listen (`watchByReporter`, `watchById`, `watchStatusHistory`) where 3.A
+read once; `getByReporter` and pull-to-refresh are gone. The providers
+are `autoDispose`, so a listener closes with the last screen using it,
+and they switch to an empty list on sign-out before the rules would
+refuse them. A strip under the header says when the app is offline; the
+last loaded data stays on screen. Not in the design.
+
+**Status history is a subcollection.** 1.B recorded moves only in
+`audit_logs`, which requestors cannot read, and a work order's moves were
+logged against the work order, not its reports. Approved with the plan:
+`damage_reports/{id}/status_history`, one entry per move — status, server
+time, who, and a note (a rejection's reason) or the assigned person's
+name and trade, which the detail page's staff card needs because a
+requestor cannot read `users` or `work_orders`. A list on the report was
+ruled out: Firestore cannot put server timestamps inside an array.
+
+Every move writes its entry in the same transaction as the status, so
+the timeline cannot disagree with the report. That touched filing (3.C),
+`transitionStatus` and assignment (2.B), the work-order status change
+(2.B), and `mergeDuplicates` (1.B, unused by any screen yet), which
+became a transaction so each duplicate can be read for its reporter.
+The rules make entries append-only: an administrator writes any, a
+requestor only the first `submitted` entry while filing that report, and
+personnel only on a report with a work order (Objective 5's need). Old
+reports with no history still show their filing and current status, from
+`submittedAt` and `updatedAt`.
+
+**The timeline's words.** `ReportStatus.timelineLabel` is the single
+source: Report received, Under review, Approved, Personnel assigned, Work
+started, Work done, being checked, Completed, Closed, Not accepted,
+Merged with an existing report, Archived.
+
+**Official versus suggested.** The detail page shows GSU's priority only
+once `officialPriority` is set, and "AWAITING REVIEW" until then — never
+the requestor's urgency in its place. A damage type counts as GSU's only
+once the report has been reviewed and approved (or set by hand), so the
+keyword classifier's guess is not shown as a decision; Home and My
+Reports use the same rule. Ended reports (rejected, merged, archived)
+show a note card with the reason in place of the progress steps.
+
+**Notifications without Cloud Functions.** 1.B left notifications to
+server code, and the rules refused every client write. The project is on
+the Spark plan, which has none, so the client that moves a report writes
+the reporter's notification in the same transaction (`stageReportMove`
+writes the history entry and the notice together, so no caller can do
+one without the other). The rules hold each notice to the report's own
+reporter, checked with `getAfter` against the report as the transaction
+leaves it: an administrator may notify any report's reporter; a
+requestor only themselves, with "Report received", while filing that
+report; personnel only on a report with a work order. A recipient may
+only mark their own notice read, at server time, and not unread again.
+
+Notified moves: received, approved, assigned, work started (or resumed
+after a send-back), completed (with a prompt to rate), rejected (with the
+reason) and merged (naming the report it joined). Review, sign-off,
+closing and archiving appear on the timeline only. The wording lives in
+`ReportNotice.forMove`, which the seed script also uses.
+
+**What Spark can and cannot do.** Without a server nothing can *push* to
+a phone: sending an FCM message needs a server credential, and shipping
+one inside the app would let anyone who unpacks the APK message every
+user. So, on Spark:
+
+- the Alerts list and its badge update live, from Firestore;
+- while GSUhub is running — open, or in the background for as long as
+  Android keeps it alive — `PushCoordinator` raises a system notification
+  itself for each new notice;
+- the push token is saved on sign-in, kept current when it rotates, and
+  cleared and deleted on sign-out, so the next account on the phone never
+  receives the last one's;
+- a push that does arrive (sent from the Firebase console today, or a
+  Cloud Function later) is shown in the foreground and opens its report
+  when tapped, from foreground, background or a cold start.
+
+A phone whose GSUhub has been closed hears nothing until it is opened.
+Guaranteed delivery to a closed app needs the Blaze plan and a Cloud
+Function that sends to `users/{uid}.fcmToken` when a notice is written.
+Nothing in the app changes for that: the notices and tokens are already
+there.
+
+**Permission.** Android 13+ asks at run time. The app asks once per
+sign-in while Android will still show the prompt; refused, the Alerts tab
+offers Allow, and refused for good, Open settings. In-app notifications
+never depend on it. `permission_handler` is pinned to 12.0.1: 13.x needs
+compile SDK 37, which the build machine does not have.
+`flutter_local_notifications` needs core-library desugaring, now enabled.
+Neither needs more than API 24, below the project's pinned 26. One Android channel,
+`report_updates`, is also FCM's default, so pushes and the app's own
+notices land together.
+
+**Alerts.** Built from Chris's PNG of `169:1459`: Today and Earlier,
+unread notices pale gold with a gold edge, read ones white. Tapping one
+marks it read and opens its report; the header's bell opens the tab; the
+Alerts tab carries the live unread count. Not in the design: Mark all as
+read, the empty state, the permission card, and the times ("2 minutes
+ago" through today, the date after).
+
+**Design source.** The one Figma call allowed for 3.B (`169:1355`) was
+refused — the Starter quota was still spent — and not retried. Both
+screens were built from Chris's 1x PNG exports (`Group 28.png`,
+`Group 29.png` in `Desktop\Mobile app SS`), with colours sampled from the
+pixels and positions from the saved file metadata. Fonts and icons are
+assumptions: Public Sans, as on the 3.C form the frame matches, and
+Material icons. The design draws a work order ("Work Order Details",
+"WO-2023-0892", "Linked Report"); until a report is assigned the page is
+the report's own, and from assignment on it reads as drawn. The staff
+card shows initials and the person's trade: accounts have no photo and
+no job title. The design's written updates ("Spare parts ordered",
+"ADMIN FOLLOW-UP") have no source in GSUhub yet, so the timeline shows
+status changes only. "Rate this Service" shows on completed reports and
+opens the Ratings screen (§17).
+
+## 17. Objective 3.C: post-service feedback and rating
+
+**Numbering.** The prompt briefs number feedback and rating 3.C; the
+report form built earlier under "3.C" is the same objective's submission
+step, already merged. No brief was written for this one, so it was built
+from the manuscript (§1.5, §1.7, §3.4 requestor capabilities), the 1.B
+`feedback` model, and Chris's export of the Ratings frame (Figma
+`169:1797`, `Mobile app SS/Group 32.png`).
+
+**Three ratings, as the manuscript asks.** §1.5 and §1.7 rate the service
+on response time, service quality and overall satisfaction, and 1.B
+stores the three separately. The frame draws one star row. Chris chose
+three rows in the drawn style; submitting waits for all three, since
+none can be guessed from the others. The word under each row is Chris's
+scale: Poor, Fair, Good, Very Good, Excellent (the frame shows "Very
+Good" at four). Comments are optional, up to 1,000 characters.
+
+**One rating per report, filed under the report's id.** `feedback/{id}`
+uses the report's id, so "has this been rated?" is one document read —
+which a requestor may make before the document exists (`resource ==
+null`, as for report ids in 3.C) — and a second rating is an update the
+rules refuse. 1.B's `submit` checked for an earlier rating with a list
+query only administrators may run; `FeedbackRepository.rate` replaces it.
+
+**Rating closes the report.** The lifecycle ends "completion, and
+feedback evaluation" (§1.7), and nothing in the console moves a report
+to `closed`. Chris chose: rating it closes it. `rate` runs one
+transaction — the rating, the report's move from `completed` to
+`closed`, its timeline entry, and an audit entry — and is idempotent
+like `submit`. Skip leaves the report completed; the detail page keeps
+offering "Rate this Service", and shows the rating once given. Closing
+sends no notification: the requestor just did it.
+
+**Rules.** A requestor gets exactly one new write on a report: their own,
+from `completed` to `closed`, status and `updatedAt` only, and only in
+the write that creates its rating. The rating must be theirs, under the
+report's id and its work order, three integers 1–5, a known set of keys
+and server time, and only as the report closes. They may also write the
+`closed` timeline entry in that write. Personnel still cannot read
+feedback (§1.5).
+
+**Seed.** Every closed report in the six-month history now has a rating,
+and its `closed` step is the requestor's. `rep-0005` stays completed and
+unrated, with its "Work completed … rate the service" notice, to try the
+flow on.
+
+**Design notes.** Colours were sampled from the export; the type is
+Public Sans like the detail frame. The job card shows the work order,
+the date the work was completed, the building, "room • confirmed type",
+and the assigned person with their trade — initials in place of the
+photo, as on the detail page. Plain additions: the hint under an
+unrated row, "Rate all three to submit", the error line, the read-only
+view of a rating already given, and a note when the report is not yet
+completed (a stale link).

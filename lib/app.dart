@@ -8,16 +8,17 @@ import 'core/di/service_providers.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
 import 'core/routing/route_paths.dart';
+import 'features/notifications/presentation/push_coordinator.dart';
 
 /// Where the app opens, or null for the router's default (the admin
 /// dashboard).
 ///
 /// The web build is the administrator console. Anything else is the
-/// mobile app, which opens on the faculty and staff area until Objective 5
+/// mobile app, which opens on the faculty and staff home until Objective 5
 /// gives personnel a mobile area of their own to start in. A provider so
 /// tests — which never run as web — can boot either one.
 final startLocationProvider = Provider<String?>(
-  (ref) => kIsWeb ? null : RoutePaths.staffSubmitReport,
+  (ref) => kIsWeb ? null : RoutePaths.staffHome,
 );
 
 /// The app's [GoRouter].
@@ -68,6 +69,9 @@ class GsuhubApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final router = ref.watch(appRouterProvider);
+    // Lives as long as the app: notifications for whoever is signed in,
+    // and a tapped one opens its report through the router (3.B).
+    ref.watch(pushCoordinatorProvider).attach(router.go);
 
     return MaterialApp.router(
       title: config.appName,

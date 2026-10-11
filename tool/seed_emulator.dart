@@ -17,6 +17,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:gsuhub/core/enums/report_status.dart';
+import 'package:gsuhub/features/notifications/data/models/report_notice.dart';
+
 const String projectId = 'gsuhub-dorsu';
 
 /// Emulator endpoints, overridable through the standard Firebase emulator
@@ -55,6 +58,10 @@ Future<void> main() async {
   await _seedWorkOrders();
   await _seedHistory();
   await _seedAuditLogs();
+  stdout.writeln(
+    '  notifications: $_notices (one per move a reporter is told of; '
+    'older than two days already read)',
+  );
 
   if (_failures > 0) {
     stderr
@@ -73,6 +80,9 @@ Future<void> main() async {
     ..writeln('  admin@dorsu.edu.ph      / password123  (GSU Administrator)')
     ..writeln('  faculty@dorsu.edu.ph    / password123  (Faculty/Staff)')
     ..writeln('  personnel@dorsu.edu.ph  / password123  (Maintenance)')
+    ..writeln()
+    ..writeln('  liza.tan@dorsu.edu.ph   / password123  is a faculty sign-up')
+    ..writeln('  still awaiting approval: approve it from User Accounts.')
     ..writeln()
     ..writeln('Emulator UI: http://localhost:4000');
 }
@@ -95,6 +105,22 @@ const String personnelAirconUid = 'seed-personnel-0006';
 const String facultyCasUid = 'seed-faculty-0002';
 const String facultyRegistrarUid = 'seed-faculty-0003';
 const String facultyFormerUid = 'seed-faculty-0004';
+
+// Objective 3.A: a faculty member who signed themselves up and is waiting
+// for an administrator, so User Accounts has a request to approve and the
+// faculty sign-in has an account to refuse with "awaiting approval".
+const String facultyPendingUid = 'seed-faculty-0005';
+
+/// Names and trades of the personnel the seeded work orders go to, as an
+/// `assigned` timeline entry records them (Objective 3.B).
+const Map<String, (String, String)> _personnel = {
+  personnelUid: ('Marcus Wright', 'electrical'),
+  personnelPlumberUid: ('Juan Luna', 'plumbing'),
+  personnelStructuralUid: ('Rosa Villanueva', 'structural'),
+  personnelCarpenterUid: ('Pedro Reyes', 'carpentry'),
+  personnelGeneralUid: ('Liza Mendoza', 'generalMaintenance'),
+  personnelAirconUid: ('Carlo Bato', 'airConditioning'),
+};
 const String secondAdminUid = 'seed-admin-0002';
 
 Future<void> _seedUsers() async {
@@ -246,6 +272,17 @@ Future<void> _seedUsers() async {
       null,
       null,
     ),
+    // Signed up from the app: no department, as sign-up does not ask.
+    (
+      facultyPendingUid,
+      'Liza Mae Tan',
+      'liza.tan@dorsu.edu.ph',
+      'requestor',
+      'pending',
+      null,
+      null,
+      null,
+    ),
   ];
 
   for (final (uid, name, email, role, status, department, trade, availability)
@@ -258,11 +295,12 @@ Future<void> _seedUsers() async {
       'email': _str(email),
       'role': _str(role),
       'accountStatus': _str(status),
-      'department': _str(department),
+      'department': department == null ? _null() : _str(department),
       'contactNumber': _null(),
       'specialization': trade == null ? _null() : _str(trade),
       'availability': availability == null ? _null() : _str(availability),
-      'activeTaskCount': _int(0),
+      // Rosa Villanueva has the one job waiting for sign-off (wo-0009).
+      'activeTaskCount': _int(uid == personnelStructuralUid ? 1 : 0),
       'createdAt': _ago(const Duration(days: 150)),
       'updatedAt': _now(),
     });
@@ -534,6 +572,8 @@ class _SeededReport {
     this.category,
     this.officialPriority,
     this.workOrderId,
+    this.rejectionReason,
+    this.duplicateOf,
   });
 
   final String id;
@@ -556,6 +596,12 @@ class _SeededReport {
   final String status;
   final int submittedHoursAgo;
   final String? workOrderId;
+
+  /// Why an administrator turned the report down, for `rejected`.
+  final String? rejectionReason;
+
+  /// The report a `merged` one was folded into.
+  final String? duplicateOf;
 
   bool get isReviewed => status != 'submitted' && status != 'underReview';
 }
@@ -673,6 +719,66 @@ const List<_SeededReport> _seededReports = [
     status: 'approved',
     submittedHoursAgo: 20,
   ),
+  // Objective 3.B: the stages the reports above never reach, so the
+  // faculty timeline can be seen in every one of them.
+  _SeededReport(
+    id: 'rep-0009',
+    title: 'Loose Ceiling Panel',
+    description:
+        'A ceiling panel above the Science Building lobby sags at one '
+        'corner and moves when the door slams.',
+    category: 'structural',
+    facilityId: 'fac-science',
+    facilityName: 'Science Building',
+    requestorPriority: 'high',
+    officialPriority: 'medium',
+    status: 'forReview',
+    submittedHoursAgo: 120,
+    workOrderId: 'wo-0009',
+  ),
+  _SeededReport(
+    id: 'rep-0010',
+    title: 'Projector Mount Rattling',
+    description:
+        'The projector in Engineering Room 204 rattles on its ceiling mount '
+        'whenever it is switched on.',
+    category: 'electrical',
+    facilityId: 'fac-engineering',
+    facilityName: 'Engineering Building',
+    requestorPriority: 'low',
+    status: 'rejected',
+    submittedHoursAgo: 50,
+    rejectionReason:
+        'Projectors are serviced by the ICT Office, not the General '
+        'Services Unit. Please raise this with ICT.',
+  ),
+  _SeededReport(
+    id: 'rep-0011',
+    title: 'Noisy Fan in Room 101',
+    description:
+        'The ceiling fan in Engineering Room 101 grinds loudly when it '
+        'runs at full speed.',
+    category: 'electrical',
+    facilityId: 'fac-engineering',
+    facilityName: 'Engineering Building',
+    requestorPriority: 'medium',
+    status: 'merged',
+    submittedHoursAgo: 4,
+    duplicateOf: 'rep-0001',
+  ),
+  _SeededReport(
+    id: 'rep-0012',
+    title: 'Faded Room Signage',
+    description:
+        'The room number signs along the Administration Building corridor '
+        'have faded and are hard to read.',
+    category: 'generalMaintenance',
+    facilityId: 'fac-admin',
+    facilityName: 'Administration Building',
+    requestorPriority: 'low',
+    status: 'archived',
+    submittedHoursAgo: 400,
+  ),
 ];
 
 Future<void> _seedDamageReports() async {
@@ -709,7 +815,9 @@ Future<void> _seedDamageReports() async {
       'officialPriority': report.officialPriority == null
           ? _null()
           : _str(report.officialPriority!),
-      'duplicateOf': _null(),
+      'duplicateOf': report.duplicateOf == null
+          ? _null()
+          : _str(report.duplicateOf!),
       'workOrderId': report.workOrderId == null
           ? _null()
           : _str(report.workOrderId!),
@@ -717,17 +825,184 @@ Future<void> _seedDamageReports() async {
       'reviewedAt': report.isReviewed
           ? _ago(Duration(hours: report.submittedHoursAgo - 1))
           : _null(),
-      'rejectionReason': _null(),
+      'rejectionReason': report.rejectionReason == null
+          ? _null()
+          : _str(report.rejectionReason!),
       'submittedAt': _ago(Duration(hours: report.submittedHoursAgo)),
       'updatedAt': _now(),
     });
+    await _seedReviewTimeline(report);
   }
 
+  // Objective 3.A: one report filed by somebody else, so signing in as
+  // faculty@ shows My Reports leaving it out.
+  await _writeDoc('damage_reports', 'rep-ana-0001', {
+    'reporterId': _str(facultyCasUid),
+    'reporterName': _str('Ana Gomez'),
+    'title': _str('Projector will not turn on'),
+    'description': _str(
+      'The ceiling projector in the reading area shows no power light.',
+    ),
+    'category': _null(),
+    'classifiedAutomatically': _bool(false),
+    'requestorCategory': _str('electrical'),
+    'facilityId': _str('fac-library-reading'),
+    'facilityName': _str('Main Library'),
+    'locationDescription': _str('Main Library, Reading Area'),
+    'photoUrls': _strArray([]),
+    'requestorPriority': _str('medium'),
+    'status': _str('submitted'),
+    'assetId': _null(),
+    'coordinates': _null(),
+    'severityRating': _null(),
+    'safetyRiskRating': _null(),
+    'frequencyRating': _null(),
+    'locationImportanceRating': _null(),
+    'priorityScore': _null(),
+    'recommendedPriority': _null(),
+    'officialPriority': _null(),
+    'duplicateOf': _null(),
+    'workOrderId': _null(),
+    'reviewedBy': _null(),
+    'reviewedAt': _null(),
+    'rejectionReason': _null(),
+    'submittedAt': _ago(const Duration(hours: 5)),
+    'updatedAt': _now(),
+  });
+  await _writeStep(
+    'rep-ana-0001',
+    1,
+    'submitted',
+    _ago(const Duration(hours: 5)),
+    changedBy: facultyCasUid,
+    notify: (
+      recipientId: facultyCasUid,
+      reportTitle: 'Projector will not turn on',
+      mergedInto: null,
+    ),
+  );
+
   stdout.writeln(
-    '  damage_reports: ${_seededReports.length} '
-    '(3 approved and awaiting assignment, 1 unclassified)',
+    '  damage_reports: ${_seededReports.length + 1} '
+    '(3 approved and awaiting assignment, 1 unclassified, 1 each rejected, '
+    'merged and archived, 1 filed by another faculty member), each with '
+    'its status history',
   );
 }
+
+/// The first part of a seeded report's timeline (Objective 3.B): filed,
+/// reviewed, and the administrator's decision. Work-order stages are
+/// appended by [_seedWorkOrders], numbered on from 4.
+Future<void> _seedReviewTimeline(_SeededReport report) async {
+  final filed = report.submittedHoursAgo;
+  Map<String, Object?> at(double hoursAgo) =>
+      _ago(Duration(minutes: (hoursAgo * 60).round()));
+  final notify = _notifyOf(report);
+
+  await _writeStep(
+    report.id,
+    1,
+    'submitted',
+    at(filed.toDouble()),
+    changedBy: facultyUid,
+    notify: notify,
+  );
+  if (report.status == 'submitted') return;
+
+  await _writeStep(
+    report.id,
+    2,
+    'underReview',
+    at(filed - 0.5),
+    notify: notify,
+  );
+  if (report.status == 'underReview') return;
+
+  // The decision, at the report's reviewedAt.
+  final decision = switch (report.status) {
+    'rejected' || 'merged' || 'archived' => report.status,
+    _ => 'approved',
+  };
+  await _writeStep(
+    report.id,
+    3,
+    decision,
+    at(filed - 1.0),
+    note: report.rejectionReason,
+    notify: notify,
+  );
+}
+
+/// Who a seeded report's notifications go to, and what they name.
+typedef _Notify = ({
+  String recipientId,
+  String reportTitle,
+  String? mergedInto,
+});
+
+_Notify _notifyOf(_SeededReport report) => (
+  recipientId: facultyUid,
+  reportTitle: report.title,
+  mergedInto: report.duplicateOf,
+);
+
+/// Notices older than this are seeded already read, so Alerts shows both
+/// states, with unread ones in Today and Earlier alike.
+const Duration _seededReadAfter = Duration(hours: 48);
+
+/// Writes one status history entry the way the app's repositories do
+/// (Objective 3.B) and, given [notify], the reporter's notification for it
+/// when the move is one they are told of — in the app's own wording
+/// (`ReportNotice`). Fixed ids, so a re-run overwrites rather than
+/// doubling the timeline or the Alerts list.
+Future<void> _writeStep(
+  String reportId,
+  int step,
+  String status,
+  Map<String, Object?> at, {
+  String changedBy = adminUid,
+  String? note,
+  String? personnelUid,
+  _Notify? notify,
+}) async {
+  final person = personnelUid == null ? null : _personnel[personnelUid];
+  await _writeDoc('damage_reports/$reportId/status_history', 'h$step', {
+    'status': _str(status),
+    'changedAt': at,
+    'changedBy': _str(changedBy),
+    'note': note == null ? _null() : _str(note),
+    'personnelName': person == null ? _null() : _str(person.$1),
+    'personnelSpecialization': person == null ? _null() : _str(person.$2),
+  });
+
+  if (notify == null) return;
+  final notice = ReportNotice.forMove(
+    to: ReportStatus.fromId(status),
+    reportTitle: notify.reportTitle,
+    personnelName: person?.$1,
+    reason: note,
+    mergedInto: notify.mergedInto,
+  );
+  if (notice == null) return;
+
+  final created = DateTime.parse(at['timestampValue']! as String);
+  final isRead = DateTime.now().toUtc().difference(created) > _seededReadAfter;
+  _notices++;
+  await _writeDoc('notifications', 'nt-$reportId-h$step', {
+    'recipientId': _str(notify.recipientId),
+    'type': _str(notice.type.id),
+    'title': _str(notice.title),
+    'body': _str(notice.body),
+    'relatedEntityType': _str('damage_reports'),
+    'relatedEntityId': _str(reportId),
+    'isRead': _bool(isRead),
+    'readAt': isRead ? _at(created.add(const Duration(hours: 1))) : _null(),
+    'createdAt': at,
+  });
+}
+
+/// How many notifications [_writeStep] seeded, for the summary line.
+var _notices = 0;
 
 /// Work orders for the three reports that have been assigned.
 ///
@@ -769,6 +1044,18 @@ Future<void> _seedWorkOrders() async {
       24,
       true,
     ),
+    // Done and waiting for the administrator's sign-off (3.B).
+    (
+      'wo-0009',
+      'rep-0009',
+      'structural',
+      'medium',
+      'forReview',
+      personnelStructuralUid,
+      96,
+      24,
+      false,
+    ),
   ];
 
   for (final (
@@ -807,9 +1094,46 @@ Future<void> _seedWorkOrders() async {
       'createdAt': _ago(Duration(hours: createdHoursAgo)),
       'updatedAt': _now(),
     });
+
+    // The rest of the report's timeline, after _seedReviewTimeline's three.
+    final notify = _notifyOf(report);
+    await _writeStep(
+      reportId,
+      4,
+      'assigned',
+      _ago(Duration(hours: createdHoursAgo)),
+      personnelUid: assignee,
+      notify: notify,
+    );
+    if (status == 'pending') continue;
+    await _writeStep(
+      reportId,
+      5,
+      'inProgress',
+      _ago(Duration(hours: createdHoursAgo - 4)),
+      notify: notify,
+    );
+    if (status == 'inProgress') continue;
+    await _writeStep(
+      reportId,
+      6,
+      'forReview',
+      _ago(Duration(hours: isCompleted ? 5 : 6)),
+      notify: notify,
+    );
+    if (status == 'forReview') continue;
+    await _writeStep(
+      reportId,
+      7,
+      'completed',
+      _ago(const Duration(hours: 3)),
+      notify: notify,
+    );
   }
 
-  stdout.writeln('  work_orders: ${workOrders.length} (1 overdue)');
+  stdout.writeln(
+    '  work_orders: ${workOrders.length} (1 overdue, 1 awaiting sign-off)',
+  );
 }
 
 /// Six months of resolved work, so Analytics has a history to chart
@@ -846,6 +1170,7 @@ Future<void> _seedHistory() async {
 
   final now = DateTime.now();
   var seeded = 0;
+  var rated = 0;
   for (var m = 0; m < months.length; m++) {
     final (count, days) = months[m];
     final monthsAgo = months.length - 1 - m;
@@ -925,11 +1250,63 @@ Future<void> _seedHistory() async {
         'createdAt': _at(created),
         'updatedAt': _at(completed),
       });
+
+      final steps = [
+        ('submitted', submitted, facultyUid),
+        ('underReview', submitted.add(const Duration(hours: 1)), adminUid),
+        ('approved', submitted.add(const Duration(hours: 2)), adminUid),
+        ('assigned', created, adminUid),
+        ('inProgress', created.add(const Duration(hours: 2)), adminUid),
+        ('forReview', completed.subtract(const Duration(hours: 2)), adminUid),
+        ('completed', completed, adminUid),
+        // Closed by the requestor's rating (Objective 3.C).
+        if (monthsAgo > 0)
+          ('closed', completed.add(const Duration(days: 1)), facultyUid),
+      ];
+      for (final (n, (status, moment, by)) in steps.indexed) {
+        await _writeStep(
+          reportId,
+          n + 1,
+          status,
+          _at(moment),
+          changedBy: by,
+          personnelUid: status == 'assigned' ? assignee : null,
+        );
+      }
+
+      // The rating that closed it, filed under the report's id as the app
+      // files it. The three ratings vary independently (§1.5).
+      if (monthsAgo > 0) {
+        await _writeDoc('feedback', reportId, {
+          'workOrderId': _str(workOrderId),
+          'reportId': _str(reportId),
+          'submittedBy': _str(facultyUid),
+          'responseTimeRating': _int(const [4, 5, 3, 4, 2, 5, 4][seeded % 7]),
+          'serviceQualityRating': _int(
+            const [5, 4, 4, 5, 3, 5, 4][(seeded + 2) % 7],
+          ),
+          'overallSatisfactionRating': _int(
+            const [4, 5, 4, 4, 3, 5, 5][(seeded + 4) % 7],
+          ),
+          'comments': switch (seeded % 3) {
+            0 => _str('Fixed quickly and cleaned up after. Thank you.'),
+            1 => _str('Good repair, but it took a while to get started.'),
+            _ => _null(),
+          },
+          'submittedAt': _at(completed.add(const Duration(days: 1))),
+        });
+        rated++;
+      }
       seeded++;
     }
   }
 
-  stdout.writeln('  history: $seeded resolved reports over six months');
+  stdout
+    ..writeln('  history: $seeded resolved reports over six months')
+    ..writeln(
+      '  feedback: $rated ratings, one per closed report; '
+      'rep-0005 is completed and still unrated',
+    );
 }
 
 /// A short audit trail, so the dashboard's Recent Activity panel and the
