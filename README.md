@@ -196,7 +196,7 @@ the reason a backend swap would touch the DI files and nothing else.
 | [`docs/data_dictionary.md`](docs/data_dictionary.md) | Every collection, field, type and constraint |
 | [`docs/firebase_setup.md`](docs/firebase_setup.md) | Console configuration |
 | [`docs/emulator_setup.md`](docs/emulator_setup.md) | Local emulator suite |
-| [`docs/manual_deploy.md`](docs/manual_deploy.md) | Deploying the console to Vercel, building the release APK, debugging on live |
+| [`docs/manual_deploy.md`](docs/manual_deploy.md) | Automatic web deploys to Vercel and their secrets, building the release APK, debugging on live |
 | [`docs/git_workflow.md`](docs/git_workflow.md) | Branches, commit conventions, PR process |
 
 ## Contributing
