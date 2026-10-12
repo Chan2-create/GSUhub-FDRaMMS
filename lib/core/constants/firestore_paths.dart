@@ -35,6 +35,12 @@ abstract final class FirestorePaths {
   /// maintenance personnel (manuscript §1.7 "Work Order").
   static const String workOrders = 'work_orders';
 
+  /// Subcollection of each [workOrders] document: the materials recorded
+  /// as used while the work is under way, one entry per inventory item
+  /// (Objective 5.C). They are deducted from stock when the accomplishment
+  /// report is submitted (§3.4), and cleared then.
+  static const String materialsUsed = 'materials_used';
+
   /// Individual tasks under a work order, for personnel daily task
   /// management (manuscript §1.2 objectives, mobile personnel app).
   static const String tasks = 'tasks';

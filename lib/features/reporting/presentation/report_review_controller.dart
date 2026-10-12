@@ -4,8 +4,10 @@ import '../../../core/di/repository_providers.dart';
 import '../../../core/enums/report_status.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/utils/result.dart';
+import '../../audit/data/models/audit_actor.dart';
 import '../../audit/data/models/audit_log_entry.dart';
 import '../../audit/presentation/current_actor_provider.dart';
+import '../data/models/report_assessment.dart';
 
 /// The recorded history of one report, for the detail view's timeline.
 final reportHistoryProvider =
@@ -35,11 +37,73 @@ class ReportReviewController {
   Future<Result<void>> reject(String reportId, String reason) =>
       _transition(reportId, ReportStatus.rejected, reason: reason);
 
+  /// Saves the administrator's classification and priority (Objectives
+  /// 4.A–4.C).
+  Future<Result<void>> recordAssessment(
+    String reportId,
+    ReportAssessment assessment,
+  ) => _act(
+    [reportId],
+    (actor) => _ref
+        .read(damageReportRepositoryProvider)
+        .recordAssessment(
+          reportId: reportId,
+          assessment: assessment,
+          actor: actor,
+        ),
+  );
+
+  /// Closes [duplicateId] as a duplicate of [parentId] (Objective 4.C).
+  Future<Result<void>> merge({
+    required String parentId,
+    required String duplicateId,
+  }) => _act(
+    [parentId, duplicateId],
+    (actor) => _ref
+        .read(damageReportRepositoryProvider)
+        .mergeDuplicates(
+          parentReportId: parentId,
+          duplicateReportIds: [duplicateId],
+          actor: actor,
+        ),
+  );
+
+  /// Records that the two reports are separate requests, not duplicates
+  /// (Objective 4.C).
+  Future<Result<void>> keepSeparate(String reportId, String otherReportId) =>
+      _act(
+        [reportId, otherReportId],
+        (actor) => _ref
+            .read(damageReportRepositoryProvider)
+            .keepSeparate(
+              reportId: reportId,
+              otherReportId: otherReportId,
+              actor: actor,
+            ),
+      );
+
   Future<Result<void>> _transition(
     String reportId,
     ReportStatus to, {
     String? reason,
-  }) async {
+  }) => _act(
+    [reportId],
+    (actor) => _ref
+        .read(damageReportRepositoryProvider)
+        .transitionStatus(
+          reportId: reportId,
+          to: to,
+          actor: actor,
+          reason: reason,
+        ),
+  );
+
+  /// Runs [action] as the signed-in administrator, then refreshes the
+  /// history of every report it touched.
+  Future<Result<void>> _act(
+    List<String> reportIds,
+    Future<Result<void>> Function(AuditActor actor) action,
+  ) async {
     final actor = await _ref.read(currentActorProvider.future);
     if (actor == null) {
       return const Result.failure(
@@ -47,19 +111,13 @@ class ReportReviewController {
       );
     }
 
-    final result = await _ref
-        .read(damageReportRepositoryProvider)
-        .transitionStatus(
-          reportId: reportId,
-          to: to,
-          actor: actor,
-          reason: reason,
-        );
-
+    final result = await action(actor);
     if (result.isSuccess) {
-      // The report itself is watched live; its audit trail is a one-shot
-      // read, so it needs telling.
-      _ref.invalidate(reportHistoryProvider(reportId));
+      // The reports themselves are watched live; their audit trails are
+      // one-shot reads, so they need telling.
+      for (final id in reportIds) {
+        _ref.invalidate(reportHistoryProvider(id));
+      }
     }
     return result;
   }

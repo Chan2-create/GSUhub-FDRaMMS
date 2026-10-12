@@ -43,6 +43,18 @@ void main() {
 
   RequestorHarness withHistory() => RequestorHarness(reports: history().cast());
 
+  testWidgets('the header reaches screen readers, not only the page', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await RequestorHarness().pump(tester);
+
+    // The page's route barrier hid everything above it in the shell's
+    // column until the page area got a semantics container of its own.
+    expect(find.bySemanticsLabel('GSUhub'), findsOneWidget);
+    semantics.dispose();
+  });
+
   group('home', () {
     testWidgets('greets the requestor by name, with their department', (
       tester,

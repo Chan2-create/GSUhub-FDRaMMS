@@ -18,7 +18,8 @@ import '../../../../core/utils/firestore_converters.dart';
 /// numeric values for the similarity threshold or the time window, so
 /// [descriptionSimilarityThreshold] and [timeWindowHours] are DERIVED
 /// starting points meant to be tuned against real GSU data — see
-/// docs/data_dictionary.md.
+/// docs/data_dictionary.md. How the criteria combine is the detector's
+/// (`DuplicateDetector`, Objective 4.C).
 ///
 /// Detection only ever *flags*: §1.5 is explicit that flagged reports
 /// "still require verification by an authorized GSU Administrator before
@@ -80,12 +81,16 @@ class DuplicateDetectionConfig {
   }
 
   /// Defaults using the DERIVED starting values described on the class.
+  /// The threshold was 0.75 until 4.C defined how similarity is measured
+  /// (the share of the shorter report's key words the other also uses):
+  /// two people describing one problem rarely share three in four words,
+  /// so 0.75 would almost never flag a real duplicate.
   factory DuplicateDetectionConfig.defaults({
     required DateTime updatedAt,
     required String updatedBy,
   }) => DuplicateDetectionConfig(
     enabled: true,
-    descriptionSimilarityThreshold: 0.75,
+    descriptionSimilarityThreshold: 0.5,
     timeWindowHours: 72,
     updatedAt: updatedAt,
     updatedBy: updatedBy,
@@ -102,8 +107,9 @@ class DuplicateDetectionConfig {
   /// Compare the classified damage category (§3.4 criterion 3).
   final bool matchOnCategory;
 
-  /// Minimum description similarity, 0.0–1.0, for two reports to be
-  /// considered a potential duplicate (§3.4 criterion 4). DERIVED value.
+  /// Minimum description similarity, 0.0–1.0, for two reports of
+  /// different (or unknown) damage types to be considered potential
+  /// duplicates (§3.4 criterion 4). DERIVED value.
   final double descriptionSimilarityThreshold;
 
   /// How recent the other report must be, in hours (§3.4 criterion 5:

@@ -336,7 +336,75 @@ void main() {
     });
   });
 
-  group('PrioritizationConfig — the unresolved weight conflict', () {
+  group('PrioritizationConfig — the two weight schemes', () {
+    test("the §3.4 formula's weights are the ones in use (4.B)", () {
+      // Chris chose the formula's 0.40/0.30/0.20/0.10 over Table 3.2's
+      // integers on 2026-10-12.
+      final config = PrioritizationConfig.manuscriptDefaults(
+        updatedAt: now,
+        updatedBy: 'admin-1',
+      );
+
+      expect(config.activeScheme, PrioritizationScheme.decimalWeights);
+      expect(config.activeWeights[PrioritizationCriterion.severity], 0.40);
+      expect(config.activeWeights[PrioritizationCriterion.safetyRisk], 0.30);
+      expect(config.activeWeights[PrioritizationCriterion.frequency], 0.20);
+      expect(
+        config.activeWeights[PrioritizationCriterion.locationImportance],
+        0.10,
+      );
+    });
+
+    test(
+      'suggests Frequency from the last 30 days, in bands of 2, 3 and 5',
+      () {
+        final config = PrioritizationConfig.manuscriptDefaults(
+          updatedAt: now,
+          updatedBy: 'admin-1',
+        );
+
+        expect(config.frequencyWindowDays, 30);
+        expect(config.frequencyBands, [2, 3, 5]);
+      },
+    );
+
+    test('rejects Frequency bands that do not fit the rating scale', () {
+      final config = PrioritizationConfig.manuscriptDefaults(
+        updatedAt: now,
+        updatedBy: 'admin-1',
+      );
+
+      // A 1–4 scale has three steps up from 1, so three bands.
+      expect(
+        () => config.copyWith(frequencyBands: const [2, 3]),
+        throwsArgumentError,
+      );
+      // Each band is a larger count than the one before, and above 1.
+      expect(
+        () => config.copyWith(frequencyBands: const [2, 2, 5]),
+        throwsArgumentError,
+      );
+      expect(
+        () => config.copyWith(frequencyBands: const [1, 3, 5]),
+        throwsArgumentError,
+      );
+    });
+
+    test(
+      'rejects a Frequency window that is not a positive number of days',
+      () {
+        final config = PrioritizationConfig.manuscriptDefaults(
+          updatedAt: now,
+          updatedBy: 'admin-1',
+        );
+
+        expect(
+          () => config.copyWith(frequencyWindowDays: 0),
+          throwsArgumentError,
+        );
+      },
+    );
+
     test('holds both schemes simultaneously', () {
       final config = PrioritizationConfig.manuscriptDefaults(
         updatedAt: now,
@@ -418,6 +486,16 @@ void main() {
   });
 
   group('DuplicateDetectionConfig validation', () {
+    test('defaults to half the key words shared, within 72 hours (4.C)', () {
+      final config = DuplicateDetectionConfig.defaults(
+        updatedAt: now,
+        updatedBy: 'admin-1',
+      );
+
+      expect(config.descriptionSimilarityThreshold, 0.5);
+      expect(config.timeWindow, const Duration(hours: 72));
+    });
+
     test('rejects a similarity threshold outside 0.0-1.0', () {
       expect(
         () => DuplicateDetectionConfig(

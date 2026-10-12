@@ -27,6 +27,7 @@ import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_ta
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository.dart';
 
+import 'fake_config_repository.dart';
 import 'fake_feedback.dart';
 import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
@@ -382,6 +383,9 @@ class RequestorHarness {
   final facilities = FakeFacilityRepository();
   final connectivity = FakeConnectivityService();
 
+  /// The keyword dictionary a new report is classified with (4.A).
+  final config = FakeConfigRepository();
+
   /// Boots the app at [start] on a phone-sized screen.
   Future<void> pump(
     WidgetTester tester, {
@@ -414,6 +418,7 @@ class RequestorHarness {
           notificationRepositoryProvider.overrideWithValue(notifications),
           notificationServiceProvider.overrideWithValue(push),
           feedbackRepositoryProvider.overrideWithValue(feedback),
+          configRepositoryProvider.overrideWithValue(config),
           mapTileLayerProvider.overrideWithValue(const SizedBox.shrink()),
           qrScanLauncherProvider.overrideWithValue((_) async => null),
           mapPinLauncherProvider.overrideWithValue((_, _) async => null),

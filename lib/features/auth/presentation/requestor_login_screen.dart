@@ -149,6 +149,15 @@ class _RequestorLoginScreenState extends ConsumerState<RequestorLoginScreen> {
                       context.go(RoutePaths.staffSignUp);
                     },
             ),
+            const SizedBox(height: 16),
+            // Personnel sign in here too (Objective 5); their accounts come
+            // from the console (2.C), so Create Account is not theirs.
+            const Text(
+              'Maintenance personnel: GSU creates your account. Sign in '
+              'with the email it was made for.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.authSubtitle,
+            ),
           ],
         ),
       ),

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_text_styles.dart';
 import '../../core/routing/route_paths.dart';
+import '../mobile/mobile_bottom_bar.dart';
 
 /// The four tabs of the faculty and staff app (Figma `170:2050`, "Group
 /// 6"). Alerts and Profile are marked placeholders in 3.A.
@@ -53,7 +52,7 @@ enum RequestorTab {
 
 /// The floating bottom bar: four tabs on a gold-edged pill, and the raised
 /// gold button between them that opens the report form (Figma `170:2050`,
-/// `166:2261`).
+/// `166:2261`). The shared [MobileBottomBar], with the faculty tabs.
 class RequestorBottomBar extends StatelessWidget {
   const RequestorBottomBar({
     required this.location,
@@ -69,134 +68,25 @@ class RequestorBottomBar extends StatelessWidget {
   /// draws no badge; it takes the console bell's red.
   final int unreadAlerts;
 
-  /// The pill's height, the button's diameter, and how far it rises above
-  /// the pill's top edge.
-  static const double _pillHeight = 65;
-  static const double _fabSize = 55;
-  static const double _fabRise = 28;
-
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    minimum: const EdgeInsets.only(bottom: 12),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: SizedBox(
-        height: _pillHeight + _fabRise,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
-          children: [
-            Container(
-              height: _pillHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: AppColors.navBar,
-                borderRadius: BorderRadius.circular(_pillHeight / 2),
-                border: Border.all(color: AppColors.accentGold, width: 2),
-              ),
-              child: Row(
-                children: [
-                  _item(context, RequestorTab.home),
-                  _item(context, RequestorTab.reports),
-                  // The raised button's slot.
-                  const Expanded(child: SizedBox()),
-                  _item(context, RequestorTab.alerts),
-                  _item(context, RequestorTab.profile),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 0,
-              child: _ReportButton(
-                size: _fabSize,
-                onPressed: () => context.push(RoutePaths.staffSubmitReport),
-              ),
-            ),
-          ],
+  Widget build(BuildContext context) {
+    final tabs = [
+      for (final tab in RequestorTab.values)
+        MobileTab(
+          label: tab.label,
+          path: tab.path,
+          icon: tab.icon,
+          selectedIcon: tab.selectedIcon,
+          badge: tab == RequestorTab.alerts ? unreadAlerts : 0,
         ),
-      ),
-    ),
-  );
-
-  Widget _item(BuildContext context, RequestorTab tab) {
-    final selected = tab == RequestorTab.of(location);
-    final badge = tab == RequestorTab.alerts ? unreadAlerts : 0;
-    final icon = Icon(
-      selected ? tab.selectedIcon : tab.icon,
-      size: 22,
-      color: AppColors.primary,
-    );
-    return Expanded(
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: badge > 0 ? '${tab.label}, $badge unread' : tab.label,
-        excludeSemantics: true,
-        child: InkResponse(
-          onTap: location == tab.path ? null : () => context.go(tab.path),
-          radius: 30,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (badge > 0)
-                Badge(
-                  label: Text(badge > 99 ? '99+' : '$badge'),
-                  backgroundColor: AppColors.notificationBadge,
-                  textColor: Colors.white,
-                  child: icon,
-                )
-              else
-                icon,
-              Text(
-                tab.label,
-                style: AppTextStyles.navLabel.copyWith(
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    ];
+    final current = RequestorTab.of(location);
+    return MobileBottomBar(
+      tabs: tabs,
+      location: location,
+      selected: current == null ? null : tabs[current.index],
+      actionLabel: 'Report damage',
+      onAction: () => context.push(RoutePaths.staffSubmitReport),
     );
   }
-}
-
-/// The raised gold "+" — opens the damage report form.
-class _ReportButton extends StatelessWidget {
-  const _ReportButton({required this.size, required this.onPressed});
-
-  final double size;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: 'Report damage',
-    child: DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.accentGold,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navFabGlow,
-            blurRadius: 18,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: SizedBox.square(
-            dimension: size,
-            child: const Icon(Icons.add, color: Colors.white, size: 28),
-          ),
-        ),
-      ),
-    ),
-  );
 }

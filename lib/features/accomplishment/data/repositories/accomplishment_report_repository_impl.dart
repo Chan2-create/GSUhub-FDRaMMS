@@ -2,15 +2,26 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firestore_paths.dart';
 import '../../../../core/data/firestore_repository.dart';
+import '../../../../core/enums/audit_action.dart';
 import '../../../../core/enums/inventory_transaction_type.dart';
+import '../../../../core/enums/work_order_status.dart';
+import '../../../../core/errors/failures.dart';
+import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/result.dart';
+import '../../../audit/data/models/audit_actor.dart';
+import '../../../audit/data/repositories/audit_writes.dart';
+import '../../../notifications/data/models/personnel_notice.dart';
+import '../../../notifications/data/repositories/notification_writes.dart';
+import '../../../work_orders/data/models/work_order.dart';
+import '../../../work_orders/data/repositories/work_order_moves.dart';
 import '../models/accomplishment_report.dart';
+import '../models/material_usage.dart';
 import 'accomplishment_report_repository.dart';
 
 /// Firestore-backed [AccomplishmentReportRepository].
 ///
 /// [submit] carries the most important invariant in the system: filing a
-/// completion report and deducting the materials it consumed must happen
+/// completion report and deducting the materials it consumed happen
 /// together or not at all (manuscript §3.4).
 class AccomplishmentReportRepositoryImpl extends FirestoreRepository
     implements AccomplishmentReportRepository {
@@ -23,153 +34,314 @@ class AccomplishmentReportRepositoryImpl extends FirestoreRepository
   static const String _items = FirestorePaths.inventoryItems;
   static const String _transactions = FirestorePaths.inventoryTransactions;
 
+  /// The longest completion note accepted.
+  static const int notesLimit = 2000;
+
+  /// Photos a report needs: §3.4 has personnel "upload photo evidence of
+  /// completed maintenance", and the form takes up to five.
+  static const int minPhotos = 1;
+  static const int maxPhotos = 5;
+
+  @override
+  String newReportId() => collection(_path).doc().id;
+
   @override
   Future<Result<AccomplishmentReport>> getById(String id) =>
       getOne(path: _path, id: id, convert: AccomplishmentReport.fromFirestore);
 
   @override
-  Future<Result<List<AccomplishmentReport>>> getByWorkOrder(
-    String workOrderId,
-  ) => getMany(
-    query: collection(_path)
-        .where('workOrderId', isEqualTo: workOrderId)
-        .orderBy('submittedAt', descending: true),
-    convert: AccomplishmentReport.fromFirestore,
-  );
+  Stream<Result<List<AccomplishmentReport>>> watchByWorkOrder(
+    String workOrderId, {
+    String? submittedBy,
+  }) {
+    var query = collection(_path).where('workOrderId', isEqualTo: workOrderId);
+    if (submittedBy != null) {
+      query = query.where('submittedBy', isEqualTo: submittedBy);
+    }
+    return watchMany(
+      query: query,
+      convert: AccomplishmentReport.fromFirestore,
+    ).map(
+      (result) => result.map(
+        (reports) =>
+            [...reports]
+              ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt)),
+      ),
+    );
+  }
 
   @override
-  Stream<Result<List<AccomplishmentReport>>> watchPendingReview() => watchMany(
-    query: collection(_path)
-        .where('reviewedAt', isNull: true)
-        .orderBy('submittedAt'),
-    convert: AccomplishmentReport.fromFirestore,
-  );
+  Future<Result<void>> submit({
+    required String reportId,
+    required String workOrderId,
+    required String completionNotes,
+    required List<String> photoUrls,
+    required List<MaterialUsage> materialsUsed,
+    required AuditActor actor,
+  }) async {
+    final notes = completionNotes.trim();
+    if (notes.isEmpty) {
+      return const Result.failure(
+        ValidationFailure('Describe the work that was done.'),
+      );
+    }
+    if (notes.length > notesLimit) {
+      return const Result.failure(
+        ValidationFailure('Keep the notes to $notesLimit characters.'),
+      );
+    }
+    if (photoUrls.length < minPhotos) {
+      return const Result.failure(
+        ValidationFailure('Add at least one photo of the finished work.'),
+      );
+    }
+    if (photoUrls.length > maxPhotos) {
+      return const Result.failure(
+        ValidationFailure('Attach at most $maxPhotos photos.'),
+      );
+    }
 
-  @override
-  Future<Result<String>> submit(AccomplishmentReport report) =>
-      db.runTransaction<String>((transaction) async {
-        final reportRef = collection(_path).doc();
+    return db.runTransaction<void>((transaction) async {
+      // Every read before any write.
+      final reportReference = collection(_path).doc(reportId);
+      if ((await transaction.get(reportReference)).exists) {
+        // Filed already: the first attempt reached the server and the
+        // phone retried. Nothing more to do — and nothing deducted twice.
+        return;
+      }
 
-        // Firestore requires every read in a transaction to happen before
-        // any write, so all stock levels are read up front.
-        final itemRefs = report.materialsUsed
-            .map((material) => collection(_items).doc(material.inventoryItemId))
-            .toList(growable: false);
+      final workOrder = await _readWorkOrder(transaction, workOrderId);
+      if (!workOrder.assignedPersonnelIds.contains(actor.id)) {
+        throw FirestoreRepository.precondition(
+          'This work order is not assigned to you.',
+        );
+      }
+      if (workOrder.status != WorkOrderStatus.inProgress) {
+        throw FirestoreRepository.precondition(
+          workOrder.status == WorkOrderStatus.pending
+              ? 'Start the work before marking it complete.'
+              : 'This work order is ${workOrder.status.title}, so it cannot '
+                    'be submitted again.',
+        );
+      }
 
-        final itemSnapshots = <DocumentSnapshot<Map<String, dynamic>>>[];
-        for (final reference in itemRefs) {
-          itemSnapshots.add(await transaction.get(reference));
-        }
-
-        // Validate everything before writing anything. A partially
-        // applied deduction would leave stock and ledger permanently
-        // disagreeing, which no later correction can fully unwind.
-        final deductions = <_PlannedDeduction>[];
-        for (var i = 0; i < report.materialsUsed.length; i++) {
-          final material = report.materialsUsed[i];
-          final snapshot = itemSnapshots[i];
-
-          if (!snapshot.exists) {
-            throw FirebaseException(
-              plugin: 'gsuhub',
-              code: 'not-found',
-              message:
-                  'Inventory item ${material.itemName} '
-                  '(${material.inventoryItemId}) no longer exists.',
-            );
-          }
-
-          final before =
-              (snapshot.data()?['quantityAvailable'] as num?)?.toDouble() ?? 0;
-          final after = before - material.quantityUsed;
-
-          if (after < 0) {
-            throw FirebaseException(
-              plugin: 'gsuhub',
-              code: 'failed-precondition',
-              message:
-                  'Not enough ${material.itemName} in stock: '
-                  '$before available, ${material.quantityUsed} used.',
-            );
-          }
-
-          deductions.add(
-            _PlannedDeduction(
-              itemRef: itemRefs[i],
-              itemName: material.itemName,
-              inventoryItemId: material.inventoryItemId,
-              quantity: material.quantityUsed,
-              before: before,
-              after: after,
-            ),
+      final deductions = <_PlannedDeduction>[];
+      for (final material in materialsUsed) {
+        final itemReference = collection(_items).doc(material.inventoryItemId);
+        final snapshot = await transaction.get(itemReference);
+        if (!snapshot.exists) {
+          throw FirestoreRepository.notFound(
+            '${material.itemName} is no longer in the inventory. Remove it '
+            'from the materials used.',
           );
         }
-
-        transaction.set(reportRef, {
-          ...report.toFirestore(),
-          // Set here rather than by the caller: the flag means "the
-          // deductions below were written", and only this transaction can
-          // truthfully claim that.
-          'inventoryDeducted': report.materialsUsed.isNotEmpty,
-        });
-
-        for (final deduction in deductions) {
-          transaction.update(deduction.itemRef, {
-            'quantityAvailable': deduction.after,
-            'updatedAt': FirestoreRepository.serverNow,
-          });
-
-          transaction.set(collection(_transactions).doc(), {
-            'inventoryItemId': deduction.inventoryItemId,
-            'itemName': deduction.itemName,
-            'type': InventoryTransactionType.consumption.id,
-            'quantity': deduction.quantity,
-            'quantityBefore': deduction.before,
-            'quantityAfter': deduction.after,
-            'workOrderId': report.workOrderId,
-            // Doubles as the idempotency key: a retried submission
-            // creates a new report id, so a duplicate deduction against
-            // the same report is identifiable.
-            'accomplishmentReportId': reportRef.id,
-            'notes': 'Automatic deduction on accomplishment report submission',
-            'performedBy': report.submittedBy,
-            'performedAt': FirestoreRepository.serverNow,
-          });
+        final before =
+            (snapshot.data()?['quantityAvailable'] as num?)?.toDouble() ?? 0;
+        final after = before - material.quantityUsed;
+        if (after < 0) {
+          throw FirestoreRepository.precondition(
+            'Not enough ${material.itemName} in stock: '
+            '${_amount(before)} ${material.unitOfMeasurement} left, '
+            '${_amount(material.quantityUsed)} recorded as used.',
+          );
         }
+        deductions.add(
+          _PlannedDeduction(
+            itemReference: itemReference,
+            material: material,
+            before: before,
+            after: after,
+          ),
+        );
+      }
 
-        return reportRef.id;
+      final move = await WorkOrderMove.prepare(
+        transaction,
+        db.raw,
+        workOrder: workOrder,
+        to: WorkOrderStatus.forReview,
+      );
+
+      transaction.set(reportReference, {
+        ...AccomplishmentReport(
+          id: reportId,
+          workOrderId: workOrderId,
+          submittedBy: actor.id,
+          completionNotes: notes,
+          photoUrls: photoUrls,
+          materialsUsed: materialsUsed,
+          // Set here, not by the caller: the flag means "the deductions
+          // below were written", and only this transaction can say so.
+          inventoryDeducted: materialsUsed.isNotEmpty,
+          submittedAt: DateTime.now().toUtc(),
+        ).toFirestore(),
+        'submittedAt': FirestoreRepository.serverNow,
       });
 
+      for (final deduction in deductions) {
+        final material = deduction.material;
+        transaction
+          ..update(deduction.itemReference, {
+            'quantityAvailable': deduction.after,
+            'updatedAt': FirestoreRepository.serverNow,
+          })
+          ..set(collection(_transactions).doc(), {
+            'inventoryItemId': material.inventoryItemId,
+            'itemName': material.itemName,
+            'type': InventoryTransactionType.consumption.id,
+            'quantity': material.quantityUsed,
+            'quantityBefore': deduction.before,
+            'quantityAfter': deduction.after,
+            'workOrderId': workOrderId,
+            'accomplishmentReportId': reportId,
+            'notes': 'Deducted on accomplishment report submission',
+            'performedBy': actor.id,
+            'performedAt': FirestoreRepository.serverNow,
+          })
+          // The recorded line has done its job once deducted.
+          ..delete(_recorded(workOrderId, material.inventoryItemId));
+      }
+
+      move.stage(transaction, db.raw, actor: actor);
+      stageAuditEntry(
+        transaction,
+        db.raw,
+        actor: actor,
+        action: AuditAction.created,
+        entityType: _path,
+        entityId: reportId,
+        description:
+            'Accomplishment report filed for '
+            '${DisplayId.workOrder(workOrderId)}',
+        changes: {
+          'workOrderId': workOrderId,
+          'photos': photoUrls.length,
+          'materials': [
+            for (final material in materialsUsed)
+              {
+                'item': material.inventoryItemId,
+                'quantity': material.quantityUsed,
+              },
+          ],
+        },
+      );
+    });
+  }
+
   @override
-  Future<Result<void>> markReviewed({
+  Future<Result<void>> review({
     required String reportId,
-    required String reviewedBy,
-  }) => updateDoc(
-    path: _path,
-    id: reportId,
-    data: {
-      'reviewedBy': reviewedBy,
+    required bool approve,
+    required AuditActor actor,
+    String? note,
+  }) => db.runTransaction<void>((transaction) async {
+    final reportReference = collection(_path).doc(reportId);
+    final reportSnapshot = await transaction.get(reportReference);
+    if (!reportSnapshot.exists) {
+      throw FirestoreRepository.notFound('No accomplishment report $reportId');
+    }
+    final report = AccomplishmentReport.fromFirestore(reportSnapshot);
+    if (report.reviewedAt != null) {
+      throw FirestoreRepository.precondition(
+        'This accomplishment report was reviewed already.',
+      );
+    }
+
+    final workOrder = await _readWorkOrder(transaction, report.workOrderId);
+    if (workOrder.status != WorkOrderStatus.forReview) {
+      throw FirestoreRepository.precondition(
+        'This work order is ${workOrder.status.title}, not waiting for '
+        'sign-off.',
+      );
+    }
+
+    final move = await WorkOrderMove.prepare(
+      transaction,
+      db.raw,
+      workOrder: workOrder,
+      to: approve ? WorkOrderStatus.completed : WorkOrderStatus.inProgress,
+    );
+
+    final reason = note?.trim();
+    transaction.update(reportReference, {
+      'reviewedBy': actor.id,
       'reviewedAt': FirestoreRepository.serverNow,
-    },
-  );
+    });
+    if (!approve && reason != null && reason.isNotEmpty) {
+      // Shown at the top of the work order on the technician's phone.
+      transaction.update(
+        collection(FirestorePaths.workOrders).doc(workOrder.id),
+        {'adminNotes': reason},
+      );
+    }
+    move.stage(transaction, db.raw, actor: actor);
+
+    for (final personnelId in workOrder.assignedPersonnelIds) {
+      stagePersonnelNotice(
+        transaction,
+        db.raw,
+        recipientId: personnelId,
+        workOrderId: workOrder.id,
+        notice: approve
+            ? PersonnelNotice.signedOff(workOrderTitle: workOrder.title)
+            : PersonnelNotice.sentBack(workOrderTitle: workOrder.title),
+      );
+    }
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: actor,
+      action: AuditAction.updated,
+      entityType: _path,
+      entityId: reportId,
+      description: approve
+          ? 'Accomplishment report approved; '
+                '${DisplayId.workOrder(workOrder.id)} signed off'
+          : 'Accomplishment report sent back; '
+                '${DisplayId.workOrder(workOrder.id)} reopened',
+      changes: {
+        'approved': approve,
+        if (reason != null && reason.isNotEmpty) 'note': reason,
+      },
+    );
+  });
+
+  DocumentReference<Map<String, dynamic>> _recorded(
+    String workOrderId,
+    String inventoryItemId,
+  ) =>
+      collection(FirestorePaths.workOrders)
+          .doc(workOrderId)
+          .collection(FirestorePaths.materialsUsed)
+          .doc(inventoryItemId);
+
+  Future<WorkOrder> _readWorkOrder(Transaction transaction, String id) async {
+    final snapshot = await transaction.get(
+      collection(FirestorePaths.workOrders).doc(id),
+    );
+    if (!snapshot.exists) {
+      throw FirestoreRepository.notFound('No work order $id');
+    }
+    return WorkOrder.fromFirestore(snapshot);
+  }
+
+  /// 2, not 2.0; 1.5 as it is.
+  static String _amount(double value) => value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toString();
 }
 
-/// A validated deduction, held between the read and write phases of the
-/// submission transaction.
+/// A validated deduction, held between the read and write phases.
 class _PlannedDeduction {
   const _PlannedDeduction({
-    required this.itemRef,
-    required this.itemName,
-    required this.inventoryItemId,
-    required this.quantity,
+    required this.itemReference,
+    required this.material,
     required this.before,
     required this.after,
   });
 
-  final DocumentReference<Map<String, dynamic>> itemRef;
-  final String itemName;
-  final String inventoryItemId;
-  final double quantity;
+  final DocumentReference<Map<String, dynamic>> itemReference;
+  final MaterialUsage material;
   final double before;
   final double after;
 }

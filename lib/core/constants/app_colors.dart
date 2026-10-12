@@ -234,6 +234,10 @@ abstract final class AppColors {
   /// PENDING: someone who signed themselves up and awaits approval (3.A).
   /// Amber, as the console's other "needs a decision" states are.
   static const Color accountPending = Color(0xFFB45309);
+
+  /// The mark on a report the duplicate rules flag (Objective 4.C): the
+  /// same amber, since it too waits on an administrator's decision.
+  static const Color duplicateFlag = accountPending;
   static const Color accountInactiveDot = presenceInactive;
 
   // --- feedback ---
@@ -419,4 +423,50 @@ abstract final class AppColors {
 
   /// The comment box.
   static const Color ratingCommentFill = Color(0xFFF5F5F5);
+
+  // --- maintenance personnel app (Objective 5; Figures 24 and 25, Chris's
+  // exports Group 39, 41, 42, 43 and 47), sampled from the frames ---
+
+  /// The Today's Tasks tile and the open to-do cards' edge.
+  static const Color personnelHighlight = Color(0xFFFFC641);
+
+  /// The other stat tiles.
+  static const Color personnelTile = Color(0xFFE7EEFF);
+
+  /// A finished to-do on the dashboard.
+  static const Color personnelDoneCard = Color(0xFFEDF1FC);
+
+  /// Headings and card titles on the personnel pages.
+  static const Color personnelTitle = Color(0xFF23334C);
+
+  /// Body text and secondary lines.
+  static const Color personnelBody = Color(0xFF64748B);
+
+  /// The dashboard's work-order cards.
+  static const Color personnelWorkOrderCard = Color(0xFF031632);
+
+  /// Damage-type chips: light, as on the to-do cards.
+  static const Color personnelChip = Color(0xFFDEE8FF);
+  static const Color personnelChipText = Color(0xFF1A2B48);
+
+  /// "Upload Proof" outline.
+  static const Color personnelProofBorder = Color(0xFFDAD1B8);
+
+  /// A work order's status pill (Figure 25).
+  static const Color personnelStatusPill = Color(0xFF1D0892);
+
+  /// The completion notes field.
+  static const Color personnelNotesFill = Color(0xFFFDF2E4);
+
+  /// My Work Orders: the List / Board toggle's track, and a board column.
+  static const Color personnelToggleTrack = Color(0xFFE0E3E6);
+  static const Color personnelColumn = Color(0xFFEEF0F3);
+
+  /// "HIGH PRIORITY" and low-stock chips.
+  static const Color personnelUrgentFill = Color(0xFFFFDAD6);
+  static const Color personnelUrgentText = Color(0xFFBA1A1A);
+
+  /// "AVAILABLE" stock chip (Group 43).
+  static const Color personnelStockFill = Color(0xFFE3ECF8);
+  static const Color personnelStockText = Color(0xFF3E6AA8);
 }

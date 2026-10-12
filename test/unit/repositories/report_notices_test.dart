@@ -17,8 +17,13 @@ void main() {
   setUp(() => h = FirestoreHarness());
 
   /// The one notification written so far.
+  /// The one notice to the requestor. Since 5.A an assignment also tells
+  /// the technician; that one is tested on its own.
   Future<Map<String, dynamic>> onlyNotice() async {
-    final all = await h.notifications();
+    final all = [
+      for (final notice in await h.notifications())
+        if (notice['relatedEntityType'] == 'damage_reports') notice,
+    ];
     expect(all, hasLength(1));
     return all.single;
   }
@@ -114,6 +119,31 @@ void main() {
     expect(notice['body'], startsWith('Marcus Wright was assigned'));
   });
 
+  test('assignment tells the technician too (5.A)', () async {
+    await h.addReport('r1');
+    await h.addPersonnel('p1');
+
+    final result = await h.workOrders.assignFromReport(
+      reportId: 'r1',
+      personnelId: 'p1',
+      actor: admin,
+    );
+    final workOrderId = result.fold((id) => id, (f) => fail(f.message));
+
+    final notice = (await h.notifications()).singleWhere(
+      (n) => n['recipientId'] == 'p1',
+    );
+    expect(notice['type'], 'workOrderAssigned');
+    expect(notice['title'], 'New work order');
+    expect(
+      notice['body'],
+      'You have been assigned "Flickering lights" at '
+      'Engineering Building.',
+    );
+    expect(notice['relatedEntityType'], 'work_orders');
+    expect(notice['relatedEntityId'], workOrderId);
+  });
+
   test('work starting and finishing are told; sign-off is not', () async {
     await h.addReport('r1', status: ReportStatus.assigned, workOrderId: 'w1');
     await h.addWorkOrder(
@@ -188,7 +218,7 @@ void main() {
     await h.reports.mergeDuplicates(
       parentReportId: 'parent',
       duplicateReportIds: ['d1', 'd2'],
-      mergedBy: admin.id,
+      actor: admin,
     );
 
     final notices = await h.notifications();
@@ -206,7 +236,7 @@ void main() {
     final result = await h.reports.mergeDuplicates(
       parentReportId: 'parent',
       duplicateReportIds: ['missing'],
-      mergedBy: admin.id,
+      actor: admin,
     );
 
     expect(result.isSuccess, isFalse);

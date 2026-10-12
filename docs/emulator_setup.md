@@ -112,21 +112,50 @@ All use the password `password123`.
 - **5 inventory items** — two deliberately below their minimum threshold,
   so the low-stock alert path has something to show
 - **4 tools** — one already in repair, one in poor condition
-- **3 config documents** — including both conflicting prioritization
-  weight schemes (see `docs/data_dictionary.md`)
+- **3 config documents** — Table 3.3's keywords, both prioritization
+  weight schemes with the formula's in use, and the duplicate settings
+  (see `docs/data_dictionary.md`)
 - **Damage reports and work orders** — spread across categories,
   statuses and priorities, plus six months of resolved history for
-  Analytics. All are `faculty@`'s except one filed by `ana.gomez@`, so
+  Analytics. All are `faculty@`'s except two filed by `ana.gomez@`, so
   My Reports can be seen leaving someone else's report out. Between them
   the current reports reach every status, including one waiting for
   sign-off, one rejected with a reason, one merged and one archived, and
-  every report has its status history (3.B).
-- **30 notifications** — one for each move a reporter is told of, on the
+  every report has its status history (3.B). Reviewed reports carry the
+  four ratings and score behind their official priority (4.B).
+- **31 notifications** — one for each move a reporter is told of, on the
   current reports; those older than two days are already read, so Alerts
   shows both states.
 - **Ratings** — every closed report in the six-month history has one,
   and was closed by it (3.C). `rep-0005`, "Cracked Wall Near Stairwell",
   is completed and not yet rated, to try rating on.
+
+## Classification, priority and duplicates (Objectives 4.A–4.C)
+
+Sign in to the console as `admin@`.
+
+- **Review a report.** Task Assignment lists "Clogged Drain in
+  Laboratory 2" (`rep-0007`) and "Ceiling Stain Spreading" (`rep-0008`)
+  with **Review type and priority** instead of Assign: neither has an
+  official priority yet. Open one. The **Classification and priority**
+  panel shows the keywords found ("clogged drain" → Plumbing; none for
+  the stain, so pick a type), a Frequency rating filled in from similar
+  reports at the building, and the score as you rate Severity, Safety
+  risk and Location importance. The official priority follows the
+  recommendation until you pick another. Confirm, and the report can be
+  assigned.
+- **Duplicates.** The reports table marks `#REP-0001` and
+  `#REP-ANA-0002`: Ana reported the same fan in Room 101. Open either:
+  **Possible duplicates** gives the reasons, and offers **Merge** (the
+  one still awaiting review is closed into the other, and its requestor
+  told) or **Keep separate**. `rep-0002` and `rep-0007`, plumbing at the
+  same building, were already kept separate and are not flagged.
+- **Keywords.** **Settings** lists the keywords per damage type. Type a
+  description into **Try a description**, add a keyword, and watch the
+  result change before you save. Saved keywords classify reports filed
+  from then on, on the phone, as they are submitted: file a report
+  whose description says "short circuit" and it arrives classified as
+  Electrical.
 
 ## The faculty and staff app (Objectives 3.A, 3.B and 3.C)
 

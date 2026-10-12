@@ -14,6 +14,14 @@ enum ItemCondition {
   /// The value persisted on the owning document's `condition` field.
   String get id => name;
 
+  /// How the apps name it (Objective 5.C).
+  String get label => switch (this) {
+    ItemCondition.excellent => 'Excellent',
+    ItemCondition.good => 'Good',
+    ItemCondition.fair => 'Fair',
+    ItemCondition.poor => 'Poor',
+  };
+
   static ItemCondition fromId(String id) => ItemCondition.values.firstWhere(
     (condition) => condition.id == id,
     orElse: () => throw ArgumentError.value(id, 'id', 'Unknown ItemCondition'),

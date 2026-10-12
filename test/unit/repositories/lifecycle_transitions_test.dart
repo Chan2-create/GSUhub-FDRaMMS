@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/firestore_paths.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
+import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
@@ -258,6 +259,50 @@ void main() {
 
         expect(failureMessage(result), contains('no damage category'));
         await expectNothingWritten();
+      },
+    );
+
+    test(
+      'refuses a report whose official priority is not confirmed (4.C)',
+      () async {
+        // §1.5: the administrator confirms or modifies the official
+        // priority "before work-order assignment".
+        await h.addReport('r1', officialPriority: null);
+        await h.addPersonnel('p1');
+
+        final result = await h.workOrders.assignFromReport(
+          reportId: 'r1',
+          personnelId: 'p1',
+          actor: admin,
+        );
+
+        expect(
+          failureMessage(result),
+          contains('official priority has not been confirmed'),
+        );
+        await expectNothingWritten();
+        expect((await h.doc(FirestorePaths.users, 'p1'))['activeTaskCount'], 0);
+      },
+    );
+
+    test(
+      "the work order takes the official priority, not the requestor's",
+      () async {
+        // The harness files every report as HIGH urgency by the requestor.
+        await h.addReport('r1', officialPriority: PriorityLevel.critical);
+        await h.addPersonnel('p1');
+
+        final result = await h.workOrders.assignFromReport(
+          reportId: 'r1',
+          personnelId: 'p1',
+          actor: admin,
+        );
+
+        final id = result.fold((id) => id, (f) => fail(f.message));
+        expect(
+          (await h.doc(FirestorePaths.workOrders, id))['priority'],
+          'critical',
+        );
       },
     );
 

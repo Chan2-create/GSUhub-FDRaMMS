@@ -1663,4 +1663,91 @@ abstract final class AppTextStyles {
     decoration: TextDecoration.underline,
     height: 20 / 14,
   );
+
+  // --- maintenance personnel app (Objective 5) ---
+
+  /// "Good morning, Marcus Wright"; page titles ("Tasks", "My Work
+  /// Orders").
+  static const TextStyle personnelGreeting = TextStyle(
+    fontFamily: _ui,
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    color: AppColors.personnelTitle,
+    height: 28 / 20,
+  );
+
+  /// "Ready to tackle today's maintenance?", and other lines under a
+  /// title.
+  static const TextStyle personnelSubtitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.personnelBody,
+    height: 20 / 14,
+  );
+
+  /// "Today's To-Do", "My Work Orders".
+  static const TextStyle personnelSection = TextStyle(
+    fontFamily: _ui,
+    fontSize: 18,
+    fontWeight: FontWeight.w700,
+    color: AppColors.personnelTitle,
+    height: 24 / 18,
+  );
+
+  /// A stat tile's name.
+  static const TextStyle personnelTileLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.personnelTitle,
+    height: 16 / 12,
+  );
+
+  /// A stat tile's number.
+  static const TextStyle personnelTileValue = TextStyle(
+    fontFamily: _ui,
+    fontSize: 30,
+    fontWeight: FontWeight.w700,
+    color: AppColors.personnelTitle,
+    height: 36 / 30,
+  );
+
+  /// A card's title: a task, a work order.
+  static const TextStyle personnelCardTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.personnelTitle,
+    height: 22 / 16,
+  );
+
+  /// A card's body text.
+  static const TextStyle personnelCardBody = TextStyle(
+    fontFamily: _ui,
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    color: AppColors.personnelBody,
+    height: 18 / 13,
+  );
+
+  /// Small capitals: chips, labels ("DAMAGE DESCRIPTION").
+  static const TextStyle personnelChip = TextStyle(
+    fontFamily: _ui,
+    fontSize: 11,
+    fontWeight: FontWeight.w700,
+    color: AppColors.personnelChipText,
+    letterSpacing: 0.4,
+    height: 14 / 11,
+  );
+
+  /// A work order's number ("WO-…"), on cards.
+  static const TextStyle personnelWorkOrderId = TextStyle(
+    fontFamily: _mono,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: AppColors.personnelBody,
+    letterSpacing: 0.4,
+    height: 16 / 12,
+  );
 }

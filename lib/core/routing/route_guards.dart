@@ -70,6 +70,12 @@ class AppRouteGuard {
       return _homeFor(role);
     }
 
+    if (_isPersonnelArea(location) && role != UserRole.maintenancePersonnel) {
+      // The personnel app reads and writes as the assigned technician; the
+      // rules refuse anyone else, so the screens would only show failures.
+      return _homeFor(role);
+    }
+
     if (_isStaffArea(location) && role != UserRole.requestor) {
       // The faculty and staff app files reports as the signed-in user, and
       // the rules accept reports from requestors only (3.C) — another role
@@ -88,11 +94,13 @@ class AppRouteGuard {
       location == RoutePaths.staffLogin ||
       location == RoutePaths.staffSignUp;
 
-  /// The sign-in page for [location]'s area. The faculty and staff app has
-  /// its own (3.A); personnel have none until Objective 5, so they keep
-  /// using the administrator's.
+  /// The sign-in page for [location]'s area. The mobile app has one for
+  /// faculty, staff and personnel alike (3.A; Objective 5, Chris's
+  /// decision); the console has its own.
   static String _loginFor(String location) =>
-      _isStaffArea(location) ? RoutePaths.staffLogin : RoutePaths.adminLogin;
+      _isStaffArea(location) || _isPersonnelArea(location)
+      ? RoutePaths.staffLogin
+      : RoutePaths.adminLogin;
 
   /// Where each sign-in page sends a user by default — a redirect to that
   /// place needs no round-trip bookkeeping.
@@ -112,6 +120,9 @@ class AppRouteGuard {
   static bool _isProtected(String location) =>
       _isAdminArea(location) ||
       _isStaffArea(location) ||
+      _isPersonnelArea(location);
+
+  static bool _isPersonnelArea(String location) =>
       location.startsWith('/personnel');
 
   static bool _isAdminArea(String location) => location.startsWith('/admin');
@@ -121,11 +132,6 @@ class AppRouteGuard {
       location.startsWith('/staff') && !_isSignInPage(location);
 
   /// Where each role belongs after signing in.
-  ///
-  /// The personnel shell is placeholders until Objective 5; sending a
-  /// technician there is still correct — they land on their own area
-  /// rather than being told they are unauthorized for a system they are
-  /// authorized to use.
   static String _homeFor(UserRole role) => switch (role) {
     UserRole.admin => RoutePaths.adminDashboard,
     UserRole.requestor => RoutePaths.staffHome,

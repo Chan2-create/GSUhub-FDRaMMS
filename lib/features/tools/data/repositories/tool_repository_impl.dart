@@ -2,10 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firestore_paths.dart';
 import '../../../../core/data/firestore_repository.dart';
+import '../../../../core/enums/audit_action.dart';
 import '../../../../core/enums/item_condition.dart';
 import '../../../../core/enums/tool_status.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/result.dart';
+import '../../../audit/data/models/audit_actor.dart';
+import '../../../audit/data/repositories/audit_writes.dart';
 import '../models/tool.dart';
 import '../models/tool_loan.dart';
 import 'tool_repository.dart';
@@ -67,10 +71,11 @@ class ToolRepositoryImpl extends FirestoreRepository implements ToolRepository {
   @override
   Future<Result<ToolLoan>> borrowTool({
     required String toolId,
-    required String borrowedBy,
+    required AuditActor borrower,
     String? workOrderId,
     DateTime? expectedReturnAt,
   }) => db.runTransaction<ToolLoan>((transaction) async {
+    final borrowedBy = borrower.id;
     final toolRef = collection(_tools).doc(toolId);
     final snapshot = await transaction.get(toolRef);
 
@@ -88,8 +93,8 @@ class ToolRepositoryImpl extends FirestoreRepository implements ToolRepository {
         plugin: 'gsuhub',
         code: 'failed-precondition',
         message:
-            '${tool.name} cannot be issued: it is currently '
-            '${tool.status.id}.',
+            '${tool.name} cannot be borrowed: it is '
+            '${tool.status.label.toLowerCase()}.',
       );
     }
 
@@ -114,6 +119,22 @@ class ToolRepositoryImpl extends FirestoreRepository implements ToolRepository {
       'currentLoanId': loanRef.id,
       'updatedAt': FirestoreRepository.serverNow,
     });
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: borrower,
+      action: AuditAction.created,
+      entityType: _loans,
+      entityId: loanRef.id,
+      description:
+          'Borrowed ${tool.name}'
+          '${workOrderId == null ? '' : ' for ${DisplayId.workOrder(workOrderId)}'}',
+      changes: {
+        'toolId': toolId,
+        'condition': tool.condition.id,
+        'workOrderId': ?workOrderId,
+      },
+    );
 
     return loan;
   });
@@ -122,6 +143,7 @@ class ToolRepositoryImpl extends FirestoreRepository implements ToolRepository {
   Future<Result<void>> returnTool({
     required String loanId,
     required ItemCondition conditionOnReturn,
+    required AuditActor actor,
     String? notes,
   }) => db.runTransaction<void>((transaction) async {
     final loanRef = collection(_loans).doc(loanId);
@@ -166,7 +188,44 @@ class ToolRepositoryImpl extends FirestoreRepository implements ToolRepository {
       'currentLoanId': null,
       'updatedAt': FirestoreRepository.serverNow,
     });
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: actor,
+      action: AuditAction.updated,
+      entityType: _loans,
+      entityId: loanId,
+      description:
+          'Returned ${loan.toolName} in '
+          '${conditionOnReturn.label.toLowerCase()} condition',
+      changes: {
+        'toolId': loan.toolId,
+        'conditionOnBorrow': loan.conditionOnBorrow.id,
+        'conditionOnReturn': conditionOnReturn.id,
+      },
+    );
   });
+
+  @override
+  Stream<Result<List<ToolLoan>>> watchOpenLoansFor(String personnelId) =>
+      // Two equality filters and a sort here: served without a composite
+      // index on the live project.
+      watchMany(
+        query: collection(_loans)
+            .where('borrowedBy', isEqualTo: personnelId)
+            .where('returnedAt', isNull: true),
+        convert: ToolLoan.fromFirestore,
+      ).map((result) => result.map(_newestFirst));
+
+  @override
+  Stream<Result<List<ToolLoan>>> watchLoansForWorkOrder(String workOrderId) =>
+      watchMany(
+        query: collection(_loans).where('workOrderId', isEqualTo: workOrderId),
+        convert: ToolLoan.fromFirestore,
+      ).map((result) => result.map(_newestFirst));
+
+  static List<ToolLoan> _newestFirst(List<ToolLoan> loans) =>
+      [...loans]..sort((a, b) => b.borrowedAt.compareTo(a.borrowedAt));
 
   @override
   Stream<Result<List<ToolLoan>>> watchOpenLoans() => watchMany(

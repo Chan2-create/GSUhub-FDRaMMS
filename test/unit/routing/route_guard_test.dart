@@ -90,16 +90,22 @@ void main() {
     });
 
     test('is blocked from the mobile shells too', () {
-      // The faculty and staff app has its own sign-in (3.C); personnel
-      // have none until Objective 5 and use the administrator's.
+      // The mobile app has one sign-in for faculty, staff and personnel
+      // (3.A; Objective 5).
       expect(
         redirectFor(guard, RoutePaths.staffMyReports),
         startsWith(RoutePaths.staffLogin),
       );
       expect(
         redirectFor(guard, RoutePaths.personnelDashboard),
-        startsWith(RoutePaths.adminLogin),
+        startsWith(RoutePaths.staffLogin),
       );
+    });
+
+    test('keeps a personnel deep link through the mobile sign-in', () {
+      final link = RoutePaths.personnelWorkOrderFor('wo-1');
+      final redirect = redirectFor(guard, link);
+      expect(Uri.parse(redirect!).queryParameters['redirect'], link);
     });
 
     test('keeps a faculty deep link through the staff sign-in', () {
@@ -182,6 +188,15 @@ void main() {
         RoutePaths.adminDashboard,
       );
     });
+
+    test('is kept out of the personnel app (5.A)', () {
+      // It reads and writes as the assigned technician; the rules would
+      // refuse an administrator there.
+      expect(
+        redirectFor(guard, RoutePaths.personnelDashboard),
+        RoutePaths.adminDashboard,
+      );
+    });
   });
 
   group('requestor', () {
@@ -216,6 +231,13 @@ void main() {
       expect(redirectFor(guard, RoutePaths.staffSignUp), RoutePaths.staffHome);
     });
 
+    test('is kept out of the personnel app (5.A)', () {
+      expect(
+        redirectFor(guard, RoutePaths.personnelWorkOrderFor('wo-1')),
+        RoutePaths.staffHome,
+      );
+    });
+
     test('reaches their own shell', () {
       for (final path in [
         RoutePaths.staffHome,
@@ -248,8 +270,25 @@ void main() {
     });
 
     test('reaches their own shell', () {
-      expect(redirectFor(guard, RoutePaths.personnelDashboard), isNull);
-      expect(redirectFor(guard, RoutePaths.personnelWorkOrders), isNull);
+      for (final path in [
+        RoutePaths.personnelDashboard,
+        RoutePaths.personnelTasks,
+        RoutePaths.personnelWorkOrders,
+        RoutePaths.personnelWorkOrderFor('wo-1'),
+        RoutePaths.personnelMaterials,
+        RoutePaths.personnelScanFor('INV-1'),
+        RoutePaths.personnelAlerts,
+        RoutePaths.personnelProfile,
+      ]) {
+        expect(redirectFor(guard, path), isNull, reason: path);
+      }
+    });
+
+    test('lands on their dashboard from the mobile sign-in', () {
+      expect(
+        redirectFor(guard, RoutePaths.staffLogin),
+        RoutePaths.personnelDashboard,
+      );
     });
 
     test('is kept out of the faculty and staff app', () {

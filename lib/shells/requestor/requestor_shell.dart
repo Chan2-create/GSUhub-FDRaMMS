@@ -7,6 +7,7 @@ import '../../core/routing/route_paths.dart';
 import '../../core/utils/result.dart';
 import '../../core/widgets/offline_banner.dart';
 import '../../features/notifications/presentation/notification_providers.dart';
+import '../mobile/mobile_bottom_bar.dart';
 import 'requestor_bottom_bar.dart';
 import 'requestor_header.dart';
 
@@ -43,7 +44,10 @@ class RequestorShell extends ConsumerWidget {
         children: [
           const RequestorHeader(),
           const OfflineBanner(),
-          Expanded(child: child),
+          // A container of its own, so the page route's modal barrier
+          // does not hide the header and the offline banner above it from
+          // screen readers.
+          Expanded(child: Semantics(container: true, child: child)),
         ],
       ),
       bottomNavigationBar: RequestorBottomBar(
@@ -72,5 +76,4 @@ class RequestorShell extends ConsumerWidget {
 
 /// The bottom padding a page inside [RequestorShell] needs so its last item
 /// clears the floating bar.
-double requestorBottomInset(BuildContext context) =>
-    MediaQuery.paddingOf(context).bottom + 16;
+double requestorBottomInset(BuildContext context) => mobileBottomInset(context);

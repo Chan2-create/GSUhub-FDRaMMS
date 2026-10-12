@@ -26,7 +26,13 @@ import {
 } from '@firebase/rules-unit-testing';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
-import { GeoPoint } from 'firebase/firestore';
+import {
+  GeoPoint,
+  collection,
+  getCountFromServer,
+  query,
+  where,
+} from 'firebase/firestore';
 
 const PROJECT_ID = 'gsuhub-rules-test';
 
@@ -500,6 +506,62 @@ describe('requestor (faculty/staff)', () => {
     );
   });
 
+  // --- Objectives 4.A–4.C: classified on the phone, reviewed by GSU ---
+
+  const file = (overrides) =>
+    asFaculty().collection('damage_reports').add(fullSubmission(overrides));
+
+  it("may file the keyword classifier's damage type, marked automatic", async () => {
+    // No Cloud Functions on the Spark plan: the phone runs the classifier.
+    await assertSucceeds(
+      file({
+        category: 'electrical',
+        classifiedAutomatically: true,
+        dismissedDuplicateIds: [],
+      }),
+    );
+  });
+
+  it('cannot file a damage type as if an administrator had set it', async () => {
+    for (const overrides of [
+      { category: 'electrical', classifiedAutomatically: false },
+      { category: 'electrical', classifiedAutomatically: null },
+      { category: null, classifiedAutomatically: true },
+      { category: 'nuclear', classifiedAutomatically: true },
+    ]) {
+      await assertFails(file(overrides));
+    }
+  });
+
+  it('cannot pre-set the ratings, the score or the recommendation', async () => {
+    for (const overrides of [
+      { severityRating: 4 },
+      { safetyRiskRating: 4 },
+      { frequencyRating: 4 },
+      { locationImportanceRating: 4 },
+      { priorityScore: 4.0 },
+      { recommendedPriority: 'critical' },
+    ]) {
+      await assertFails(file(overrides));
+    }
+  });
+
+  it('cannot pre-set which reports it is not a duplicate of', async () => {
+    await assertFails(file({ dismissedDuplicateIds: ['rep-other'] }));
+  });
+
+  it('can read the keyword list it classifies with, but not change it', async () => {
+    await assertSucceeds(asFaculty().doc('config/classification_rules').get());
+    await assertFails(
+      asFaculty().doc('config/classification_rules').set({
+        keywordsByCategory: { electrical: ['anything'] },
+        caseSensitive: false,
+        updatedAt: serverNow(),
+        updatedBy: FACULTY_UID,
+      }),
+    );
+  });
+
   it('cannot submit a malformed report', async () => {
     for (const overrides of [
       { description: '' },
@@ -794,6 +856,72 @@ describe('administrator', () => {
   it('can update configuration', async () => {
     await assertSucceeds(
       asAdmin().doc('config/prioritization').update({ maxRating: 5 }),
+    );
+  });
+
+  it('can save the keyword list from Settings (4.A)', async () => {
+    await assertSucceeds(
+      asAdmin().doc('config/classification_rules').set({
+        keywordsByCategory: {
+          electrical: ['power outage', 'exposed wire'],
+          generalMaintenance: [],
+        },
+        caseSensitive: false,
+        updatedAt: serverNow(),
+        updatedBy: ADMIN_UID,
+      }),
+    );
+  });
+
+  it('can record a review: type, ratings, score and official priority (4.C)', async () => {
+    await assertSucceeds(
+      asAdmin().doc('damage_reports/rep-faculty').update({
+        category: 'plumbing',
+        classifiedAutomatically: false,
+        severityRating: 4,
+        safetyRiskRating: 4,
+        frequencyRating: 2,
+        locationImportanceRating: 3,
+        priorityScore: 3.5,
+        recommendedPriority: 'critical',
+        officialPriority: 'critical',
+        reviewedBy: ADMIN_UID,
+        reviewedAt: serverNow(),
+        updatedAt: serverNow(),
+      }),
+    );
+  });
+
+  it('can keep two reports separate, on both (4.C)', async () => {
+    const db = asAdmin();
+    await assertSucceeds(
+      db.runTransaction(async (transaction) => {
+        transaction.update(db.doc('damage_reports/rep-faculty'), {
+          dismissedDuplicateIds: firebase.firestore.FieldValue.arrayUnion(
+            'rep-other',
+          ),
+        });
+        transaction.update(db.doc('damage_reports/rep-other'), {
+          dismissedDuplicateIds: firebase.firestore.FieldValue.arrayUnion(
+            'rep-faculty',
+          ),
+        });
+      }),
+    );
+  });
+
+  it('can count similar reports for the Frequency hint (4.B)', async () => {
+    // A count is authorized by the list rule. The compat SDK the other
+    // tests use has no count(), so this one goes through the modular API.
+    const db = asAdmin()._delegate;
+    await assertSucceeds(
+      getCountFromServer(
+        query(
+          collection(db, 'damage_reports'),
+          where('facilityId', '==', 'fac-engineering'),
+          where('category', '==', 'electrical'),
+        ),
+      ),
     );
   });
 

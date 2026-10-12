@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 import '../../../../core/enums/priority_level.dart';
 import '../../../../core/utils/firestore_converters.dart';
@@ -32,7 +33,7 @@ enum PrioritizationScheme {
 /// The `config/prioritization` document — the weighted-scoring parameters
 /// used to compute a report's recommended priority.
 ///
-/// ## Unresolved conflict in the source material
+/// ## Conflict in the source material
 ///
 /// The manuscript specifies the prioritization weights **twice, and the
 /// two do not agree**:
@@ -53,8 +54,8 @@ enum PrioritizationScheme {
 /// This model therefore stores **both schemes side by side** and defers to
 /// [activeScheme]. Nothing is hardcoded, nothing is silently reconciled,
 /// and switching the decision later is a single field edit rather than a
-/// data migration. Flagged in docs/data_dictionary.md and pending
-/// confirmation.
+/// data migration. Chris chose the formula's weights on 2026-10-12
+/// (Objective 4.B); the manuscript's Table 3.2 needs correcting to match.
 class PrioritizationConfig {
   PrioritizationConfig({
     required this.activeScheme,
@@ -65,6 +66,8 @@ class PrioritizationConfig {
     required this.updatedBy,
     this.minRating = 1,
     this.maxRating = 4,
+    this.frequencyWindowDays = defaultFrequencyWindowDays,
+    this.frequencyBands = defaultFrequencyBands,
   }) {
     for (final criterion in PrioritizationCriterion.values) {
       if (!integerWeights.containsKey(criterion)) {
@@ -89,6 +92,30 @@ class PrioritizationConfig {
         'maxRating must exceed minRating',
       );
     }
+    if (frequencyWindowDays <= 0) {
+      throw ArgumentError.value(
+        frequencyWindowDays,
+        'frequencyWindowDays',
+        'The frequency window must be a positive number of days',
+      );
+    }
+    if (frequencyBands.length != maxRating - minRating) {
+      throw ArgumentError.value(
+        frequencyBands,
+        'frequencyBands',
+        'One report count is needed for each rating above the lowest',
+      );
+    }
+    for (var i = 0; i < frequencyBands.length; i++) {
+      final previous = i == 0 ? 1 : frequencyBands[i - 1];
+      if (frequencyBands[i] <= previous) {
+        throw ArgumentError.value(
+          frequencyBands,
+          'frequencyBands',
+          'Report counts must rise with the rating, starting above 1',
+        );
+      }
+    }
   }
 
   factory PrioritizationConfig.fromFirestore(
@@ -106,6 +133,17 @@ class PrioritizationConfig {
       thresholds: _readThresholds(data),
       minRating: FirestoreConverters.optional<int>(data, 'minRating') ?? 1,
       maxRating: FirestoreConverters.optional<int>(data, 'maxRating') ?? 4,
+      // Added in 4.B; a document saved before then has neither.
+      frequencyWindowDays:
+          FirestoreConverters.optional<int>(data, 'frequencyWindowDays') ??
+          defaultFrequencyWindowDays,
+      frequencyBands: data['frequencyBands'] == null
+          ? defaultFrequencyBands
+          : List<int>.unmodifiable(
+              (data['frequencyBands'] as List<dynamic>).map(
+                (value) => (value as num).toInt(),
+              ),
+            ),
       updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
       updatedBy: FirestoreConverters.require<String>(data, 'updatedBy'),
     );
@@ -174,8 +212,9 @@ class PrioritizationConfig {
     };
   }
 
-  /// Which weight scheme the scoring engine should read. **Pending GSU
-  /// confirmation** — see the class doc.
+  /// Which weight scheme the scoring engine reads. Chris chose the §3.4
+  /// formula's decimal weights on 2026-10-12 (Objective 4.B); the integer
+  /// scheme stays stored so the choice can be revisited with the GSU.
   final PrioritizationScheme activeScheme;
 
   /// Table 3.2's weights, stored verbatim.
@@ -191,6 +230,22 @@ class PrioritizationConfig {
   /// 4 = Very High).
   final int minRating;
   final int maxRating;
+
+  /// How far back the Frequency hint counts similar reports, in days
+  /// (Objective 4.B). DERIVED, Chris's decision of 2026-10-12: the
+  /// manuscript defines Frequency as "the recurrence or number of reports
+  /// involving the same issue" but gives no period.
+  final int frequencyWindowDays;
+
+  /// The report counts at which the Frequency hint rises a rating: with
+  /// the default `[2, 3, 5]`, one report suggests 1 (Low), two suggest 2
+  /// (Moderate), three or four suggest 3 (High), and five or more suggest 4
+  /// (Very High). One count per rating above [minRating]. DERIVED, like
+  /// [frequencyWindowDays]; the administrator can always change the rating.
+  final List<int> frequencyBands;
+
+  static const int defaultFrequencyWindowDays = 30;
+  static const List<int> defaultFrequencyBands = [2, 3, 5];
 
   final DateTime updatedAt;
   final String updatedBy;
@@ -232,6 +287,8 @@ class PrioritizationConfig {
     },
     'minRating': minRating,
     'maxRating': maxRating,
+    'frequencyWindowDays': frequencyWindowDays,
+    'frequencyBands': frequencyBands,
     'updatedAt': Timestamp.fromDate(updatedAt),
     'updatedBy': updatedBy,
   };
@@ -243,6 +300,8 @@ class PrioritizationConfig {
     Map<PriorityLevel, double>? thresholds,
     int? minRating,
     int? maxRating,
+    int? frequencyWindowDays,
+    List<int>? frequencyBands,
     DateTime? updatedAt,
     String? updatedBy,
   }) => PrioritizationConfig(
@@ -252,6 +311,8 @@ class PrioritizationConfig {
     thresholds: thresholds ?? this.thresholds,
     minRating: minRating ?? this.minRating,
     maxRating: maxRating ?? this.maxRating,
+    frequencyWindowDays: frequencyWindowDays ?? this.frequencyWindowDays,
+    frequencyBands: frequencyBands ?? this.frequencyBands,
     updatedAt: updatedAt ?? this.updatedAt,
     updatedBy: updatedBy ?? this.updatedBy,
   );
@@ -266,6 +327,8 @@ class PrioritizationConfig {
           _mapEquals(other.thresholds, thresholds) &&
           other.minRating == minRating &&
           other.maxRating == maxRating &&
+          other.frequencyWindowDays == frequencyWindowDays &&
+          listEquals(other.frequencyBands, frequencyBands) &&
           other.updatedAt == updatedAt &&
           other.updatedBy == updatedBy;
 
@@ -285,6 +348,8 @@ class PrioritizationConfig {
     Object.hashAll(thresholds.entries.map((e) => '${e.key}:${e.value}')),
     minRating,
     maxRating,
+    frequencyWindowDays,
+    Object.hashAll(frequencyBands),
     updatedAt,
     updatedBy,
   );

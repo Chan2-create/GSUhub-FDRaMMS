@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/di/repository_providers.dart';
 import 'package:gsuhub/core/di/service_providers.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
@@ -11,11 +12,13 @@ import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/photo_picker_service.dart';
 import 'package:gsuhub/core/utils/result.dart';
+import 'package:gsuhub/features/classification/data/models/classification_rules_config.dart';
 import 'package:gsuhub/features/facilities/data/models/asset.dart';
 import 'package:gsuhub/features/reporting/presentation/submission/report_form_controller.dart';
 import 'package:gsuhub/features/reporting/presentation/submission/report_form_state.dart';
 
 import '../../support/fake_admin_backend.dart';
+import '../../support/fake_config_repository.dart';
 import '../../support/fake_report_form_backend.dart';
 
 /// The report form's behaviour (Objective 3.C), with the camera, GPS,
@@ -32,6 +35,7 @@ void main() {
   late FakeStorageService storage;
   late FakeSubmittingReportRepository reports;
   late FakeFacilityRepository facilities;
+  late FakeConfigRepository config;
   late ProviderContainer container;
 
   final aircon = Asset(
@@ -51,6 +55,7 @@ void main() {
     storage = FakeStorageService();
     reports = FakeSubmittingReportRepository();
     facilities = FakeFacilityRepository(assets: [aircon]);
+    config = FakeConfigRepository();
     container = ProviderContainer(
       overrides: [
         authServiceProvider.overrideWithValue(FakeAuthService(user: requestor)),
@@ -65,6 +70,7 @@ void main() {
         storageServiceProvider.overrideWithValue(storage),
         damageReportRepositoryProvider.overrideWithValue(reports),
         facilityRepositoryProvider.overrideWithValue(facilities),
+        configRepositoryProvider.overrideWithValue(config),
       ],
     );
     // The provider is autoDispose; hold it open as the screen would.
@@ -301,6 +307,68 @@ void main() {
       expect(filed.submission.photoUrls, [
         for (final path in storage.uploadedPaths) 'https://storage.test/$path',
       ]);
+    });
+
+    test(
+      'classifies the report by its keywords as it is filed (4.A)',
+      () async {
+        await form().addPhotos(PhotoSource.camera);
+        fillIn();
+        form().setDescription('The broken door will not close.');
+
+        await form().submit();
+
+        expect(
+          reports.submissions.single.submission.classifiedCategory,
+          DamageCategory.carpentry,
+        );
+      },
+    );
+
+    test('files the report unclassified when no keyword matched', () async {
+      await form().addPhotos(PhotoSource.camera);
+      // "The pane beside the door is cracked across" names no keyword.
+      fillIn();
+
+      await form().submit();
+
+      expect(state().phase, isA<SubmissionDone>());
+      expect(reports.submissions.single.submission.classifiedCategory, isNull);
+    });
+
+    test('classifies with the saved keyword list, not Table 3.3', () async {
+      config.keywords = Result.success(
+        ClassificationRulesConfig(
+          keywordsByCategory: const {
+            DamageCategory.carpentry: ['cracked across'],
+          },
+          updatedAt: DateTime.utc(2026, 10, 12),
+          updatedBy: 'admin-1',
+        ),
+      );
+      await form().addPhotos(PhotoSource.camera);
+      fillIn();
+
+      await form().submit();
+
+      expect(
+        reports.submissions.single.submission.classifiedCategory,
+        DamageCategory.carpentry,
+      );
+    });
+
+    test('still files the report when the keywords cannot be read', () async {
+      // Unclassified, it goes to an administrator, as any unmatched
+      // report does (§3.4). Losing the report would be far worse.
+      config.keywords = const Result.failure(NetworkFailure('No connection.'));
+      await form().addPhotos(PhotoSource.camera);
+      fillIn();
+      form().setDescription('The broken door will not close.');
+
+      await form().submit();
+
+      expect(state().phase, isA<SubmissionDone>());
+      expect(reports.submissions.single.submission.classifiedCategory, isNull);
     });
 
     test('files no coordinates when the geo-tag is off', () async {

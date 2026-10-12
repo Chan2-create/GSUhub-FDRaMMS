@@ -26,7 +26,19 @@ import 'notification_providers.dart';
 /// prompt to allow notifications on the phone — which this list never
 /// depends on, since it reads Firestore, not the push.
 class AlertsScreen extends ConsumerStatefulWidget {
-  const AlertsScreen({super.key});
+  const AlertsScreen({
+    super.key,
+    this.homePath = RoutePaths.staffHome,
+    this.emptyMessage =
+        'No notifications yet. You will be told here when a report you '
+        'filed moves along.',
+  });
+
+  /// Where back leads: the app's home. The personnel app (Objective 5)
+  /// shows the same list, opened from its header's bell.
+  final String homePath;
+
+  final String emptyMessage;
 
   @override
   ConsumerState<AlertsScreen> createState() => _AlertsScreenState();
@@ -73,7 +85,7 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
       children: [
         RequestorTitleRow(
           title: 'Notifications',
-          onBack: () => context.go(RoutePaths.staffHome),
+          onBack: () => context.go(widget.homePath),
           trailing: hasUnread ?? false
               ? TextButton(
                   onPressed: _markAllRead,
@@ -99,9 +111,7 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
                 value: notifications,
                 isEmpty: (list) => list.isEmpty,
                 emptyIcon: Icons.notifications_none,
-                emptyMessage:
-                    'No notifications yet. You will be told here when a '
-                    'report you filed moves along.',
+                emptyMessage: widget.emptyMessage,
                 onRetry: () => ref.invalidate(myNotificationsProvider),
                 data: (list) => _Grouped(notifications: list),
               ),
@@ -182,10 +192,15 @@ class _AlertCard extends ConsumerWidget {
     if (!notice.isRead) {
       ref.read(notificationActionsProvider).markRead(notice.id);
     }
-    final reportId = notice.relatedEntityId;
-    if (notice.relatedEntityType == FirestorePaths.damageReports &&
-        reportId != null) {
-      context.push(RoutePaths.staffReportDetailFor(reportId));
+    final id = notice.relatedEntityId;
+    if (id == null) return;
+    // A requestor's notice is about their report; a technician's, about
+    // their work order (Objective 5).
+    switch (notice.relatedEntityType) {
+      case FirestorePaths.damageReports:
+        context.push(RoutePaths.staffReportDetailFor(id));
+      case FirestorePaths.workOrders:
+        context.push(RoutePaths.personnelWorkOrderFor(id));
     }
   }
 

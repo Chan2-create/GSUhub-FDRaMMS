@@ -48,6 +48,7 @@ class FirestoreHarness {
     String id, {
     ReportStatus status = ReportStatus.approved,
     DamageCategory? category = DamageCategory.electrical,
+    PriorityLevel? officialPriority = PriorityLevel.high,
     String? workOrderId,
     String reporterId = 'faculty-1',
     DateTime? submittedAt,
@@ -64,6 +65,7 @@ class FirestoreHarness {
           requestorPriority: PriorityLevel.high,
           status: status,
           category: category,
+          officialPriority: officialPriority,
           facilityId: 'fac-engineering',
           facilityName: 'Engineering Building',
           workOrderId: workOrderId,

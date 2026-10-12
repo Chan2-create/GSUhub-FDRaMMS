@@ -11,6 +11,7 @@ import '../../../../core/services/location_service.dart';
 import '../../../../core/services/photo_picker_service.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/presentation/current_actor_provider.dart';
+import '../../../classification/presentation/classification_providers.dart';
 import '../../../facilities/data/models/facility.dart';
 import '../../../facilities/presentation/facility_directory.dart';
 import '../../../facilities/presentation/qr_lookup.dart';
@@ -273,6 +274,13 @@ class ReportFormController extends Notifier<ReportFormState> {
 
     // --- the report ---
     state = state.copyWith(phase: const SubmissionSaving());
+    // The keyword classifier (Objective 4.A) runs here, on the phone: there
+    // is no server on the Spark plan to run it later. No match, or no
+    // dictionary to read, leaves the report for an administrator.
+    final classifiedCategory = await ref
+        .read(reportClassifierProvider)
+        .classify(title: state.title, description: state.description);
+    if (!ref.mounted) return;
     final facility = state.facility!;
     final result = await reports.submit(
       reportId: reportId,
@@ -282,6 +290,7 @@ class ReportFormController extends Notifier<ReportFormState> {
         description: state.description,
         requestorPriority: state.urgency!,
         requestorCategory: state.damageType,
+        classifiedCategory: classifiedCategory,
         facilityId: facility.id,
         facilityName: facility.name,
         locationDescription:

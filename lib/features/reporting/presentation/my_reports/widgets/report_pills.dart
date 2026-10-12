@@ -15,10 +15,11 @@ DamageCategory? shownCategoryOf(DamageReport report) =>
     confirmedCategoryOf(report) ?? report.requestorCategory;
 
 /// The damage type GSU has decided on, or null until it has (Objective
-/// 3.B): an administrator set it by hand, or approved the report with it.
-/// The keyword classifier's guess (Objective 4) on a report still in
-/// review — or one turned down, merged or archived — is not GSU's
-/// decision, so the detail page does not present it as one.
+/// 3.B): an administrator set it by hand, confirmed it with the official
+/// priority (Objective 4.C), or approved the report with it. The keyword
+/// classifier's guess (4.A) on a report still in review — or one turned
+/// down, merged or archived — is not GSU's decision, so the detail page
+/// does not present it as one.
 DamageCategory? confirmedCategoryOf(DamageReport report) {
   final category = report.category;
   if (category == null || report.reviewedBy == null) return null;
@@ -26,7 +27,11 @@ DamageCategory? confirmedCategoryOf(DamageReport report) {
     ReportProgress.inProgress || ReportProgress.completed => true,
     ReportProgress.pending || ReportProgress.closedOut => false,
   };
-  return approved || !report.classifiedAutomatically ? category : null;
+  return approved ||
+          !report.classifiedAutomatically ||
+          report.isPriorityConfirmed
+      ? category
+      : null;
 }
 
 /// The room part of where a report was filed: what its location says

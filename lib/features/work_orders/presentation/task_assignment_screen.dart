@@ -160,9 +160,10 @@ class _QueueCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isSelected = ref.watch(selectedReportProvider) == report.id;
     // The repository will not raise a work order without a category — it
-    // is what routes the job to a trade — so the card says so here rather
-    // than letting an administrator choose a technician and then fail.
-    final needsCategory = !report.isAssignable;
+    // routes the job to a trade — or without a confirmed official priority
+    // (Objective 4.C), so the card says so here rather than letting an
+    // administrator choose a technician and then fail.
+    final needsReview = !report.isAssignable;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -249,7 +250,8 @@ class _QueueCard extends ConsumerWidget {
                       SizedBox(
                         width: double.infinity,
                         child: _SelectButton(
-                          needsCategory: needsCategory,
+                          needsReview: needsReview,
+                          reportId: report.id,
                           isSelected: isSelected,
                           onPressed: () => ref
                               .read(selectedReportProvider.notifier)
@@ -272,19 +274,25 @@ class _QueueCard extends ConsumerWidget {
 /// cannot be picked.
 class _SelectButton extends StatelessWidget {
   const _SelectButton({
-    required this.needsCategory,
+    required this.needsReview,
+    required this.reportId,
     required this.isSelected,
     required this.onPressed,
   });
 
-  final bool needsCategory;
+  final bool needsReview;
+  final String reportId;
   final bool isSelected;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
+    // A report not yet reviewed opens its page, where the type and
+    // priority are set (4.C), rather than sitting there disabled.
     final button = FilledButton(
-      onPressed: needsCategory ? null : onPressed,
+      onPressed: needsReview
+          ? () => context.go(RoutePaths.adminReportDetailFor(reportId))
+          : onPressed,
       style: FilledButton.styleFrom(
         backgroundColor: isSelected
             ? AppColors.sidebarBackground
@@ -295,25 +303,20 @@ class _SelectButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      child: Text(
-        switch ((needsCategory, isSelected)) {
-          (true, _) => 'Needs classification',
-          (false, true) => 'Selected — choose personnel',
-          (false, false) => 'Assign',
-        },
-        style: AppTextStyles.metaText.copyWith(
-          color: needsCategory ? AppColors.textSecondary : AppColors.textOnDark,
-        ),
-      ),
+      child: Text(switch ((needsReview, isSelected)) {
+        (true, _) => 'Review type and priority',
+        (false, true) => 'Selected — choose personnel',
+        (false, false) => 'Assign',
+      }, style: AppTextStyles.metaText.copyWith(color: AppColors.textOnDark)),
     );
 
     // Only wrapped when there is something to say: a Tooltip with an
     // empty message still opens an empty bubble on hover.
-    if (!needsCategory) return button;
+    if (!needsReview) return button;
     return Tooltip(
       message:
-          'This report has no damage category yet, so there is no trade to '
-          'route it to. Classifying is Objective 4.C.',
+          'The damage type and official priority are confirmed on the '
+          'report page before the work is assigned.',
       child: button,
     );
   }

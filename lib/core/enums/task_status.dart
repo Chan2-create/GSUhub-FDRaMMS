@@ -13,6 +13,13 @@ enum TaskStatus {
   /// The value persisted on `tasks/{id}.status`.
   String get id => name;
 
+  /// How the personnel app and the console name it (Objective 5.A).
+  String get label => switch (this) {
+    TaskStatus.pending => 'To do',
+    TaskStatus.inProgress => 'In progress',
+    TaskStatus.completed => 'Done',
+  };
+
   static TaskStatus fromId(String id) => TaskStatus.values.firstWhere(
     (status) => status.id == id,
     orElse: () => throw ArgumentError.value(id, 'id', 'Unknown TaskStatus'),

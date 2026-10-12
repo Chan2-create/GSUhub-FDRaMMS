@@ -191,7 +191,7 @@ Model: `DamageReport`. The primary input to the whole lifecycle (§1.7).
 | `title` | String | ✔ | Short summary | Fig 21 |
 | `description` | String | ✔ | Must not be blank | §3.4 Reporting Policy |
 | `category` | enum `DamageCategory` | — | Null until classified | §3.4 |
-| `classifiedAutomatically` | bool | ✔ (default false) | Keyword match vs. admin classification | **DERIVED** |
+| `classifiedAutomatically` | bool | ✔ (default false) | `category` came from the keyword classifier — on the phone at filing, or confirmed unchanged in review — rather than an administrator's choice (4.A) | **DERIVED** |
 | `requestorCategory` | enum `DamageCategory` | — | The requestor's suggested damage type (form's DAMAGE TYPE). **A suggestion only** — never sets `category` | Figma `165:137`; 3.C |
 | `facilityId` | String → `facilities` | — | Required by the form (Building + Room, or a QR scan) | §1.5 |
 | `facilityName` | String | — | **Denormalized** from `facilities.name` | Fig 16 |
@@ -200,41 +200,43 @@ Model: `DamageReport`. The primary input to the whole lifecycle (§1.7).
 | `coordinates` | GeoPoint | — | Geo-tag; **supplementary only**. The device's fix, or a point the requestor moved the pin to | §1.5, §2.2 |
 | `photoUrls` | List\<String\> | ✔ (default `[]`) | Storage download URLs under `damage_reports/{id}/`; the form requires 1–5, the rules allow up to 10 | §1.5 |
 | `requestorPriority` | enum `PriorityLevel` | ✔ | Requestor's own urgency pick | §1.2 |
-| `severityRating` | int 1–4 | — | | **PENDING** — see below |
-| `safetyRiskRating` | int 1–4 | — | | **PENDING** |
-| `frequencyRating` | int 1–4 | — | | **PENDING** |
-| `locationImportanceRating` | int 1–4 | — | | **PENDING** |
-| `priorityScore` | double 1.00–4.00 | — | Computed weighted score | §3.4 |
+| `severityRating` | int 1–4 | — | Rated by the administrator in review | Table 3.4; who rates: Chris, 4.B — see below |
+| `safetyRiskRating` | int 1–4 | — | Rated by the administrator in review | Table 3.4; Chris, 4.B |
+| `frequencyRating` | int 1–4 | — | Rated by the administrator; pre-filled from the count of similar reports | Table 3.4; Chris, 4.B |
+| `locationImportanceRating` | int 1–4 | — | Rated by the administrator in review | Table 3.4; Chris, 4.B |
+| `priorityScore` | double 1.00–4.00 | — | Weighted score of the four ratings, to two decimals | §3.4 |
 | `recommendedPriority` | enum `PriorityLevel` | — | Score mapped via Table 3.5 | §3.4 |
-| `officialPriority` | enum `PriorityLevel` | — | **The only authoritative priority** | §1.2 |
+| `officialPriority` | enum `PriorityLevel` | — | **The only authoritative priority.** Set in review; required before a work order is raised (4.C) | §1.2, §1.5 |
 | `status` | enum `ReportStatus` | ✔ | | §1.7 |
 | `duplicateOf` | String → `damage_reports` | — | Parent after a merge | §3.4 |
+| `dismissedDuplicateIds` | List\<String\> → `damage_reports` | ✔ (default `[]`) | Reports an administrator ruled are **not** duplicates of this one ("Keep separate"); written on both reports, so the pair is not flagged again | §3.4 "retain as separate"; field **DERIVED** (4.C) |
 | `workOrderId` | String → `work_orders` | — | | §1.7 |
 | `reviewedBy` | String → `users` | — | | §1.2 |
 | `reviewedAt` | DateTime (UTC) | — | | **DERIVED** |
 | `rejectionReason` | String | — | Required when `status == rejected`; null otherwise | **DERIVED** |
 | `submittedAt`, `updatedAt` | DateTime (UTC) | ✔ | | §1.5 |
 
-### PENDING — who assigns the four criterion ratings?
+### Who assigns the four criterion ratings — decided (Objective 4.B)
 
 The manuscript defines the 1–4 scale (Table 3.4) and the formula that
-consumes it (§3.4), but **never says who supplies the ratings, or when**.
-Three readings are possible and they produce different systems:
+consumes it (§3.4), but never says who supplies the ratings, or when.
+**Chris decided on 2026-10-12: the administrator rates all four while
+reviewing the report**, on the report page, and the score and
+recommended level update as they rate. Frequency is pre-filled from how
+many reports of the same damage type were filed at the same facility in
+the last 30 days, this one included (2, 3 and 5 reports suggest
+Moderate, High and Very High — **DERIVED**, held in
+`config/prioritization`); the administrator can change it. The count is
+of every report filed, merged duplicates and rejected reports included:
+each is the issue reported again.
 
-1. The **requestor** rates them at submission — but §1.5 says the
-   requestor's input is "supplementary information", and asking a
-   faculty member to rate Safety Risk contradicts that.
-2. The **Administrator** rates them during review — plausible, but then
-   the "recommended" priority is derived from the Administrator's own
-   judgement and adds little over simply setting the priority directly.
-3. The **system** derives them from keywords/history — but §1.5 forbids
-   AI/ML and limits the mechanism to predefined rules.
-
-All four fields are therefore **nullable**, and `priorityScore` /
-`recommendedPriority` stay null until they are populated.
+The four ratings, `priorityScore`, `recommendedPriority` and
+`officialPriority` are saved together, with `reviewedBy`/`reviewedAt`
+and an audit entry, and may be revised until a work order is raised.
+They stay null on a report not yet reviewed, and
 `DamageReport.effectivePriority` falls back official → recommended →
-requestor so the app is usable in the meantime. **Needs your decision
-before Objective 4.B.**
+requestor for display meanwhile. Reports reviewed before 4.B may carry
+an official priority with no ratings.
 
 ### What a requestor may write (Objective 3.C)
 
@@ -246,8 +248,16 @@ which writes every field above — the administrator's ones null — plus
 description (≤ 5000), a known `requestorPriority` and `requestorCategory`,
 at most ten photo URLs and a real geo-point, and refuse any pre-set
 review field (`officialPriority`, `duplicateOf`, `workOrderId`,
-`reviewedBy`, `reviewedAt`, `rejectionReason`). Classification and
-scoring fields are left to Objective 4.
+`reviewedBy`, `reviewedAt`, `rejectionReason`).
+
+Since Objective 4.A the phone runs the keyword classifier as the report
+is filed (there are no Cloud Functions on the Spark plan), so a new
+report may carry a `category` — but only a known one, and only with
+`classifiedAutomatically: true`; a category marked as an
+administrator's choice is refused, as is `classifiedAutomatically: true`
+without a category. The ratings, `priorityScore`, `recommendedPriority`
+and a non-empty `dismissedDuplicateIds` are refused: they are the
+administrator's.
 
 A requestor reads their own reports with `reporterId == uid`, newest
 first by `submittedAt`, at most 100 at a time — the rules refuse a
@@ -497,10 +507,29 @@ rebuild would not survive a real maintenance office.
 from Table 3.3), `caseSensitive` (**DERIVED**, default false),
 `updatedAt`, `updatedBy`.
 
-### config/prioritization — PENDING
+Edited on the console's **Settings** page (Objective 4.A, Chris's
+choice): keywords added and removed per damage type, saved with the
+administrator's uid in `updatedBy`. A keyword is 3–60 characters with a
+letter or digit, and belongs to one damage type only. Matching is
+**DERIVED**: a keyword's words in order, case ignored, punctuation read
+as spaces, each word allowed a longer ending ("exposed wire" matches
+"exposed wires"); title and description both; the damage type with the
+most keywords found wins, and a tie classifies nothing.
+
+**When a `config/*` document does not exist** — a live project nobody
+has saved them in — the app uses the manuscript's values (Table 3.3's
+keywords, the formula's weights, the defaults below) rather than
+failing, and Settings says the keyword list is not saved yet. Any other
+read failure is shown as a failure.
+
+### config/prioritization — decided (Objective 4.B)
 
 `activeScheme`, `integerWeights`, `decimalWeights`, `thresholds`,
-`minRating`, `maxRating`, `updatedAt`, `updatedBy`.
+`minRating`, `maxRating`, `frequencyWindowDays` (**DERIVED** default 30),
+`frequencyBands` (**DERIVED** default `[2, 3, 5]`: the report counts at
+which the suggested Frequency rises to 2, 3 and 4), `updatedAt`,
+`updatedBy`. A document saved before 4.B, without the two frequency
+fields, reads with their defaults.
 
 **The manuscript states the weights twice and they disagree:**
 
@@ -523,21 +552,40 @@ silently reconciled, and changing the answer later is a one-field edit
 rather than a migration.
 
 Note also that the integer weights sum to 12, not 1.0, so scores computed
-from them do not land in the 1.00–4.00 range Table 3.5's bands assume —
-they need normalizing first. `activeWeightsAreNormalized` surfaces this.
-**Needs your decision before Objective 4.B.**
+from them do not land in the 1.00–4.00 range Table 3.5's bands assume.
+The scorer therefore divides by the weights' sum (a divisor of 1 with
+the formula's weights), which keeps either scheme on the 1.00–4.00
+scale, and rounds to two decimals before reading the bands.
+
+**Decided 2026-10-12: Chris chose the §3.4 formula's weights (0.40 /
+0.30 / 0.20 / 0.10), so `activeScheme` is `decimalWeights`. The
+manuscript's Table 3.2 needs correcting to match.** Both schemes stay
+stored, so the conflict remains visible.
 
 ### config/duplicate_detection
 
 `enabled`, `matchOnFacilityIdentifier`, `matchOnLocation`,
 `matchOnCategory` (the first three of §3.4's five criteria),
-`descriptionSimilarityThreshold` (**DERIVED** default 0.75),
+`descriptionSimilarityThreshold` (**DERIVED** default 0.5),
 `timeWindowHours` (**DERIVED** default 72), `updatedAt`, `updatedBy`.
 
 §3.4 lists the five comparison inputs but gives no numeric values; the
 two defaults are starting points to tune against real data. Detection only
 ever **flags** — §1.5 requires administrator verification before any
 merge.
+
+How the inputs combine (**DERIVED**, Objective 4.C): two open, unmerged
+reports are flagged when an administrator has not already kept them
+separate, they are at the same place (the same `facilityId`, or the same
+stated location), they were filed within `timeWindowHours` of each
+other, and they share a damage type — or their wording is at least
+`descriptionSimilarityThreshold` alike and shares at least two key words.
+Wording is compared as the share of the shorter report's key words the
+other also uses; key words leave out common words, words under three
+letters and the report's own location words, with plain endings trimmed
+("leaks", "leaking" and "leaked" are one word). The threshold was 0.75
+until 4.C; by this measure that almost never flagged, so the default is
+0.5.
 
 ---
 
@@ -621,7 +669,7 @@ are capped at 10 MB and restricted to `image/*` (both **DERIVED**).
 
 | # | Question | Blocks | Where modelled |
 |---|---|---|---|
-| 1 | Which prioritization weight scheme is authoritative? | Objective 4.B | `config/prioritization` holds both |
-| 2 | Who assigns the four 1–4 criterion ratings, and when? | Objective 4.B | Four nullable fields on `damage_reports` |
+| 1 | ~~Which prioritization weight scheme is authoritative?~~ **Decided 2026-10-12:** the §3.4 formula's 0.40/0.30/0.20/0.10; Table 3.2 to be corrected in the manuscript | Objective 4.B (done) | `config/prioritization.activeScheme` |
+| 2 | ~~Who assigns the four 1–4 criterion ratings, and when?~~ **Decided 2026-10-12:** the administrator, in review, with Frequency pre-filled | Objective 4.B (done) | Four rating fields on `damage_reports` |
 | 3 | Does the real §4 permission matrix match the derived one? | 1.C deployment | `firestore.rules` |
 | 4 | Do the real §5 field lists match the DERIVED entities? | Objectives 2–6 | This document |

@@ -15,6 +15,7 @@ import 'package:gsuhub/features/reporting/presentation/submission/submit_report_
 import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_tag_map.dart';
 
 import '../support/fake_admin_backend.dart';
+import '../support/fake_config_repository.dart';
 import '../support/fake_report_form_backend.dart';
 
 /// The Report Damage screen (Figma `165:137`, Objective 3.C), end to end
@@ -68,6 +69,7 @@ void main() {
           storageServiceProvider.overrideWithValue(storage),
           damageReportRepositoryProvider.overrideWithValue(reports),
           facilityRepositoryProvider.overrideWithValue(facilities),
+          configRepositoryProvider.overrideWithValue(FakeConfigRepository()),
           // No network in tests: an empty tile layer, and a scanner and
           // pin picker that answer at once.
           mapTileLayerProvider.overrideWithValue(const SizedBox.shrink()),

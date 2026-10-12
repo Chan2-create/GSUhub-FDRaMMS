@@ -22,6 +22,7 @@ void main() {
 
   ReportSubmission submission({
     AuditActor reporter = requestor,
+    DamageCategory? classifiedCategory,
     GeoCoordinates? coordinates = const GeoCoordinates(
       latitude: 7.2048,
       longitude: 126.5354,
@@ -33,6 +34,7 @@ void main() {
     description: 'The pane beside the door is cracked across. ',
     requestorPriority: PriorityLevel.high,
     requestorCategory: DamageCategory.carpentry,
+    classifiedCategory: classifiedCategory,
     facilityId: 'fac-engineering',
     facilityName: 'Engineering Building',
     locationDescription: 'Engineering Building, Room 101',
@@ -95,6 +97,42 @@ void main() {
     // And it reads back as a report the admin console can show.
     final report = await harness.reports.getById(id);
     expect(report.fold((r) => r.title, (_) => null), 'Cracked window pane');
+  });
+
+  test("stores the keyword classifier's damage type, marked automatic "
+      '(4.A)', () async {
+    final id = harness.reports.newReportId();
+
+    await harness.reports.submit(
+      reportId: id,
+      submission: submission(classifiedCategory: DamageCategory.structural),
+    );
+
+    final saved = await harness.doc(FirestorePaths.damageReports, id);
+    expect(saved['category'], 'structural');
+    expect(saved['classifiedAutomatically'], isTrue);
+    // Beside, not instead of, what the requestor suggested.
+    expect(saved['requestorCategory'], 'carpentry');
+    // The priority is still the administrator's to set.
+    for (final field in [
+      'severityRating',
+      'priorityScore',
+      'recommendedPriority',
+      'officialPriority',
+      'reviewedBy',
+    ]) {
+      expect(saved[field], isNull, reason: field);
+    }
+  });
+
+  test('marks nothing automatic when no keyword matched', () async {
+    final id = harness.reports.newReportId();
+
+    await harness.reports.submit(reportId: id, submission: submission());
+
+    final saved = await harness.doc(FirestorePaths.damageReports, id);
+    expect(saved['category'], isNull);
+    expect(saved['classifiedAutomatically'], isFalse);
   });
 
   test('stores no coordinates when the geo-tag is off', () async {

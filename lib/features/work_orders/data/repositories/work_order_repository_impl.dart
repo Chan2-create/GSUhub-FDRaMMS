@@ -5,16 +5,21 @@ import '../../../../core/data/firestore_repository.dart';
 import '../../../../core/enums/account_status.dart';
 import '../../../../core/enums/audit_action.dart';
 import '../../../../core/enums/report_status.dart';
+import '../../../../core/enums/task_status.dart';
 import '../../../../core/enums/user_role.dart';
 import '../../../../core/enums/work_order_status.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
+import '../../../notifications/data/models/personnel_notice.dart';
+import '../../../notifications/data/repositories/notification_writes.dart';
 import '../../../reporting/data/models/damage_report.dart';
 import '../../../reporting/data/repositories/status_history_writes.dart';
+import '../../../tasks/data/models/maintenance_task.dart';
 import '../../../user_management/data/models/app_user.dart';
 import '../models/work_order.dart';
+import 'work_order_moves.dart';
 import 'work_order_repository.dart';
 
 /// Firestore-backed [WorkOrderRepository]. Persistence only.
@@ -50,11 +55,18 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
 
   @override
   Stream<Result<List<WorkOrder>>> watchByAssignee(String personnelId) =>
+      // Sorted here rather than by the query: one technician's work orders
+      // are few, and an orderBy beside array-contains would need its own
+      // composite index deployed to the live project.
       watchMany(
         query: collection(_path)
-            .where('assignedPersonnelIds', arrayContains: personnelId)
-            .orderBy('createdAt', descending: true),
+            .where('assignedPersonnelIds', arrayContains: personnelId),
         convert: WorkOrder.fromFirestore,
+      ).map(
+        (result) => result.map(
+          (orders) =>
+              [...orders]..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+        ),
       );
 
   @override
@@ -110,6 +122,16 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
         'raised for it. It must be classified first.',
       );
     }
+    final priority = report.officialPriority;
+    if (priority == null) {
+      // §1.5: the administrator confirms or modifies the official priority
+      // "before work-order assignment" (Objective 4.C). The work order
+      // carries it, so it cannot be guessed from the requestor's urgency.
+      throw _precondition(
+        "This report's official priority has not been confirmed yet. "
+        'Confirm it on the report page before assigning the work.',
+      );
+    }
     if (person.role != UserRole.maintenancePersonnel) {
       throw _precondition('${person.fullName} is not maintenance personnel.');
     }
@@ -120,6 +142,7 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
     }
 
     final workOrderReference = collection(_path).doc();
+    final taskReference = collection(FirestorePaths.tasks).doc();
     final now = DateTime.now().toUtc();
 
     // Built through the model so its validation and field names stay the
@@ -130,7 +153,7 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
       title: report.title,
       description: report.description,
       category: category,
-      priority: report.effectivePriority,
+      priority: priority,
       status: WorkOrderStatus.pending,
       assignedPersonnelIds: [personnelId],
       facilityId: report.facilityId,
@@ -157,7 +180,37 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
       ..update(personReference, {
         'activeTaskCount': FieldValue.increment(1),
         'updatedAt': FirestoreRepository.serverNow,
+      })
+      // Every work order starts with one task, the job itself, so the
+      // technician's daily list is never empty of work they hold
+      // (Objective 5.A, Chris's decision). Due on the target date, or the
+      // day it is assigned.
+      ..set(taskReference, {
+        ...MaintenanceTask(
+          id: taskReference.id,
+          workOrderId: workOrderReference.id,
+          title: report.title,
+          description: report.locationDescription ?? report.facilityName,
+          assignedTo: personnelId,
+          status: TaskStatus.pending,
+          dueDate: (scheduledFor ?? now).toUtc(),
+          createdAt: now,
+          updatedAt: now,
+        ).toFirestore(),
+        'createdAt': FirestoreRepository.serverNow,
+        'updatedAt': FirestoreRepository.serverNow,
       });
+
+    stagePersonnelNotice(
+      transaction,
+      db.raw,
+      recipientId: personnelId,
+      workOrderId: workOrderReference.id,
+      notice: PersonnelNotice.workOrderAssigned(
+        workOrderTitle: report.title,
+        facilityName: report.facilityName,
+      ),
+    );
 
     stageReportMove(
       transaction,
@@ -211,126 +264,54 @@ class WorkOrderRepositoryImpl extends FirestoreRepository
     WorkOrderStatus status, {
     required AuditActor actor,
   }) => db.runTransaction<void>((transaction) async {
-    final reference = collection(_path).doc(workOrderId);
-    final snapshot = await transaction.get(reference);
-
+    final snapshot = await transaction.get(collection(_path).doc(workOrderId));
     if (!snapshot.exists) throw _notFound('No work order $workOrderId');
 
-    // Reads the current status inside the transaction and rejects illegal
-    // moves, rather than trusting the caller. The enum's transition table
-    // (1.B) is the single definition of what is legal; enforcing it only
-    // in the UI would let a stale screen or a second admin push a work
-    // order backwards through the Kanban board.
     final workOrder = WorkOrder.fromFirestore(snapshot);
-    final current = workOrder.status;
-    if (current == status) return;
+    if (workOrder.status == status) return;
 
-    if (!current.canTransitionTo(status)) {
-      throw _precondition(
-        'A work order cannot move from ${current.title} to ${status.title}.',
-      );
-    }
+    final move = await WorkOrderMove.prepare(
+      transaction,
+      db.raw,
+      workOrder: workOrder,
+      to: status,
+    );
+    move.stage(transaction, db.raw, actor: actor);
+  });
 
-    // Every linked report is read before anything is written.
-    final reportTarget = reportStatusFor(status);
-    final reportSnapshots = <DocumentSnapshot<Map<String, dynamic>>>[];
-    for (final reportId in workOrder.reportIds) {
-      reportSnapshots.add(
-        await transaction.get(
-          collection(FirestorePaths.damageReports).doc(reportId),
-        ),
-      );
-    }
+  @override
+  Future<Result<void>> updateAdminNotes({
+    required String workOrderId,
+    required String? notes,
+    required AuditActor actor,
+  }) => db.runTransaction<void>((transaction) async {
+    final reference = collection(_path).doc(workOrderId);
+    final snapshot = await transaction.get(reference);
+    if (!snapshot.exists) throw _notFound('No work order $workOrderId');
 
-    final reportsToMove = <DamageReport>[];
-    for (final reportSnapshot in reportSnapshots) {
-      if (!reportSnapshot.exists) continue;
-      final linked = DamageReport.fromFirestore(reportSnapshot);
-      final reportStatus = linked.status;
-      if (reportStatus == reportTarget) continue;
-      if (!reportStatus.canTransitionTo(reportTarget)) {
-        // The report and its work order disagree about where the job is.
-        // Moving one without the other would make that worse, so refuse.
-        throw _precondition(
-          'Report ${reportSnapshot.id} is ${reportStatus.label} and cannot '
-          'move to ${reportTarget.label} with this work order.',
-        );
-      }
-      reportsToMove.add(linked);
-    }
-
-    // Completed is terminal, so the job stops counting against whoever did
-    // it — without this the count only ever rises. Read here, before any
-    // write, and clamped at zero: AppUser rejects a negative count, so one
-    // bad decrement would break every screen that lists that person. Inside
-    // a transaction this read-modify-write cannot race.
-    final releasedCounts = <DocumentReference<Map<String, dynamic>>, int>{};
-    if (status == WorkOrderStatus.completed) {
-      for (final personnelId in workOrder.assignedPersonnelIds) {
-        final personReference = collection(FirestorePaths.users)
-            .doc(personnelId);
-        final personSnapshot = await transaction.get(personReference);
-        if (!personSnapshot.exists) continue;
-        final count =
-            (personSnapshot.data()?['activeTaskCount'] as num?)?.toInt() ?? 0;
-        releasedCounts[personReference] = count > 0 ? count - 1 : 0;
-      }
-    }
-
+    final trimmed = notes?.trim();
+    final note = trimmed == null || trimmed.isEmpty ? null : trimmed;
     transaction.update(reference, {
-      'status': status.id,
+      'adminNotes': note,
       'updatedAt': FirestoreRepository.serverNow,
-      if (status == WorkOrderStatus.inProgress && workOrder.startedAt == null)
-        'startedAt': FirestoreRepository.serverNow,
-      if (status == WorkOrderStatus.completed)
-        'completedAt': FirestoreRepository.serverNow,
     });
-
-    for (final linked in reportsToMove) {
-      transaction.update(
-        collection(FirestorePaths.damageReports).doc(linked.id),
-        {'status': reportTarget.id, 'updatedAt': FirestoreRepository.serverNow},
-      );
-      stageReportMove(
-        transaction,
-        db.raw,
-        reportId: linked.id,
-        reporterId: linked.reporterId,
-        reportTitle: linked.title,
-        to: reportTarget,
-        from: linked.status,
-        changedBy: actor.id,
-      );
-    }
-
-    releasedCounts.forEach((personReference, remaining) {
-      transaction.update(personReference, {
-        'activeTaskCount': remaining,
-        'updatedAt': FirestoreRepository.serverNow,
-      });
-    });
-
     stageAuditEntry(
       transaction,
       db.raw,
       actor: actor,
-      action: AuditAction.statusChanged,
+      action: AuditAction.updated,
       entityType: FirestorePaths.workOrders,
       entityId: workOrderId,
-      description: 'Status changed from ${current.title} to ${status.title}',
-      changes: {'from': current.id, 'to': status.id},
+      description: note == null
+          ? 'Note to the technician removed'
+          : 'Note to the technician: "${note.length > 80 ? '${note.substring(0, 80)}…' : note}"',
+      changes: {'adminNotes': note},
     );
   });
 
-  /// The report status that corresponds to each Kanban column. The two
-  /// lifecycles share their later stages, so the mapping is one-to-one.
+  /// The report status that corresponds to each Kanban column.
   static ReportStatus reportStatusFor(WorkOrderStatus status) =>
-      switch (status) {
-        WorkOrderStatus.pending => ReportStatus.assigned,
-        WorkOrderStatus.inProgress => ReportStatus.inProgress,
-        WorkOrderStatus.forReview => ReportStatus.forReview,
-        WorkOrderStatus.completed => ReportStatus.completed,
-      };
+      WorkOrderMove.reportStatusFor(status);
 
   static FirebaseException _notFound(String message) => FirebaseException(
     plugin: 'cloud_firestore',
