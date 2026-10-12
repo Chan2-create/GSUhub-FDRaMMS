@@ -38,6 +38,24 @@ void main() {
       );
     });
 
+    test('a submitted report may be merged as a duplicate straight away', () {
+      // Objective 4.C: a duplicate is usually flagged before anyone has
+      // started reviewing it.
+      expect(
+        ReportStatus.submitted.canTransitionTo(ReportStatus.merged),
+        isTrue,
+      );
+      // ...but not turned down or archived without a review.
+      expect(
+        ReportStatus.submitted.canTransitionTo(ReportStatus.rejected),
+        isFalse,
+      );
+      expect(
+        ReportStatus.approved.canTransitionTo(ReportStatus.merged),
+        isFalse,
+      );
+    });
+
     test('cannot skip stages', () {
       expect(
         ReportStatus.submitted.canTransitionTo(ReportStatus.assigned),

@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/accomplishment/presentation/personnel_materials_screen.dart';
 import '../../features/analytics/presentation/analytics_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/requestor_login_screen.dart';
 import '../../features/auth/presentation/requestor_sign_up_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/dashboard/presentation/personnel_home_screen.dart';
 import '../../features/dashboard/presentation/requestor_home_screen.dart';
 import '../../features/feedback/presentation/rate_service_screen.dart';
 import '../../features/notifications/presentation/alerts_screen.dart';
@@ -14,10 +16,16 @@ import '../../features/reporting/presentation/my_reports/my_reports_screen.dart'
 import '../../features/reporting/presentation/report_detail_screen.dart';
 import '../../features/reporting/presentation/reports_screen.dart';
 import '../../features/reporting/presentation/submission/submit_report_screen.dart';
+import '../../features/scanning/presentation/scan_result_screen.dart';
+import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/tasks/presentation/personnel_tasks_screen.dart';
 import '../../features/user_management/presentation/personnel_screen.dart';
 import '../../features/user_management/presentation/requestor_profile_screen.dart';
 import '../../features/user_management/presentation/user_accounts_screen.dart';
+import '../../features/work_orders/presentation/personnel/my_work_orders_screen.dart';
+import '../../features/work_orders/presentation/personnel/personnel_work_order_screen.dart';
 import '../../features/work_orders/presentation/task_assignment_screen.dart';
+import '../../features/work_orders/presentation/work_order_detail_screen.dart';
 import '../../features/work_orders/presentation/work_orders_screen.dart';
 import '../../shells/admin/admin_shell.dart';
 import '../../shells/personnel/personnel_shell.dart';
@@ -82,6 +90,14 @@ GoRouter buildAppRouter({
         GoRoute(
           path: RoutePaths.adminWorkOrders,
           builder: (context, state) => const WorkOrdersScreen(),
+          routes: [
+            GoRoute(
+              path: ':workOrderId',
+              builder: (context, state) => WorkOrderDetailScreen(
+                workOrderId: state.pathParameters['workOrderId']!,
+              ),
+            ),
+          ],
         ),
         GoRoute(
           path: RoutePaths.adminPersonnel,
@@ -94,6 +110,10 @@ GoRouter buildAppRouter({
         GoRoute(
           path: RoutePaths.adminUsers,
           builder: (context, state) => const UserAccountsScreen(),
+        ),
+        GoRoute(
+          path: RoutePaths.adminSettings,
+          builder: (context, state) => const SettingsScreen(),
         ),
         // Reachable by URL but not from the sidebar, which disables them.
         // Each names the objective that will build it.
@@ -166,31 +186,52 @@ GoRouter buildAppRouter({
     ),
 
     // --- Maintenance Personnel (mobile) — WBS Objective 5 ---
-    GoRoute(
-      path: RoutePaths.personnelLogin,
-      builder: (context, state) =>
-          const RoutePlaceholderScreen(routeName: RoutePaths.personnelLogin),
-    ),
+    // Signed in on the mobile app's one sign-in page (staffLogin).
     ShellRoute(
-      builder: (context, state, child) => PersonnelShell(child: child),
+      builder: (context, state, child) =>
+          PersonnelShell(location: state.matchedLocation, child: child),
       routes: [
         GoRoute(
           path: RoutePaths.personnelDashboard,
-          builder: (context, state) => const RoutePlaceholderScreen(
-            routeName: RoutePaths.personnelDashboard,
-          ),
+          builder: (context, state) => const PersonnelHomeScreen(),
+        ),
+        GoRoute(
+          path: RoutePaths.personnelTasks,
+          builder: (context, state) => const PersonnelTasksScreen(),
         ),
         GoRoute(
           path: RoutePaths.personnelWorkOrders,
-          builder: (context, state) => const RoutePlaceholderScreen(
-            routeName: RoutePaths.personnelWorkOrders,
-          ),
+          builder: (context, state) => const MyWorkOrdersScreen(),
+          routes: [
+            GoRoute(
+              path: ':workOrderId',
+              builder: (context, state) => PersonnelWorkOrderScreen(
+                workOrderId: state.pathParameters['workOrderId']!,
+              ),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: RoutePaths.personnelMaterials,
+          builder: (context, state) => const PersonnelMaterialsScreen(),
         ),
         GoRoute(
           path: RoutePaths.personnelScanning,
-          builder: (context, state) => const RoutePlaceholderScreen(
-            routeName: RoutePaths.personnelScanning,
+          builder: (context, state) =>
+              ScanResultScreen(code: state.uri.queryParameters['code'] ?? ''),
+        ),
+        GoRoute(
+          path: RoutePaths.personnelAlerts,
+          builder: (context, state) => const AlertsScreen(
+            homePath: RoutePaths.personnelDashboard,
+            emptyMessage:
+                'No notifications yet. You will be told here when work is '
+                'assigned to you or a task is added.',
           ),
+        ),
+        GoRoute(
+          path: RoutePaths.personnelProfile,
+          builder: (context, state) => const RequestorProfileScreen(),
         ),
       ],
     ),
@@ -203,5 +244,4 @@ const List<(String, String)> _adminPlaceholders = [
   (RoutePaths.adminInventory, 'Inventory Management — Objective 6'),
   (RoutePaths.adminMapView, 'Map View — pending confirmation'),
   (RoutePaths.adminNotifications, 'Notifications — later objective'),
-  (RoutePaths.adminSettings, 'Settings — later objective'),
 ];

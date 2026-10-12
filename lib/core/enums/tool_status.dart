@@ -13,6 +13,14 @@ enum ToolStatus {
   /// Whether this tool can currently be issued to personnel.
   bool get isIssuable => this == ToolStatus.available;
 
+  /// How the apps name it (Objective 5.C).
+  String get label => switch (this) {
+    ToolStatus.available => 'Available',
+    ToolStatus.borrowed => 'Borrowed',
+    ToolStatus.inRepair => 'In repair',
+    ToolStatus.retired => 'Retired',
+  };
+
   /// The value persisted on `tools/{id}.status`.
   String get id => name;
 

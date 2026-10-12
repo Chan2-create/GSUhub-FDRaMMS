@@ -8,12 +8,15 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
+import '../../../core/utils/result.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../core/widgets/table_pagination.dart';
+import '../../classification/domain/duplicate_detector.dart';
+import '../../classification/presentation/classification_providers.dart';
 import '../data/models/damage_report.dart';
 import 'report_providers.dart';
 import 'widgets/report_filter_bar.dart';
@@ -247,13 +250,8 @@ class _ReportsTable extends StatelessWidget {
       columns: [
         AppTableColumn(
           label: 'Report ID',
-          width: 130,
-          cell: (report) => Text(
-            DisplayId.report(report.id),
-            style: AppTextStyles.monoIdentifier.copyWith(
-              color: AppColors.primary,
-            ),
-          ),
+          width: 150,
+          cell: (report) => _ReportIdCell(report: report),
         ),
         AppTableColumn(
           label: 'Reporter',
@@ -306,6 +304,54 @@ class _ReportsTable extends StatelessWidget {
   }
 }
 
+/// The report's number, with a mark when the duplicate rules flag it
+/// (Objective 4.C) — so a duplicate is noticed in the table, not only on
+/// its page.
+class _ReportIdCell extends ConsumerWidget {
+  const _ReportIdCell({required this.report});
+
+  final DamageReport report;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final flags = switch (ref.watch(duplicateFlagsProvider)) {
+      AsyncData(value: Success(:final value)) => value,
+      _ => const <String, List<DuplicateCandidate>>{},
+    };
+    final candidates = flags[report.id] ?? const <DuplicateCandidate>[];
+
+    return Row(
+      children: [
+        Flexible(
+          child: Text(
+            DisplayId.report(report.id),
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.monoIdentifier.copyWith(
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+        if (candidates.isNotEmpty) ...[
+          const SizedBox(width: 6),
+          Tooltip(
+            message:
+                'Possible duplicate of '
+                '${candidates.map((c) => DisplayId.report(c.report.id)).join(', ')}',
+            child: Semantics(
+              label: 'Possible duplicate',
+              child: const Icon(
+                Icons.content_copy_outlined,
+                size: 16,
+                color: AppColors.duplicateFlag,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _RowActions extends StatelessWidget {
   const _RowActions(this.report);
 
@@ -341,8 +387,8 @@ class _RowActions extends StatelessWidget {
           tooltip: canAssign
               ? 'Assign this report'
               : report.awaitsAssignment
-              ? 'This report has no damage category yet, so there is no '
-                    'trade to route it to.'
+              ? 'Confirm the damage type and official priority on the '
+                    'report page first.'
               : 'Only an approved report that has no work order can be '
                     'assigned.',
           onPressed: canAssign

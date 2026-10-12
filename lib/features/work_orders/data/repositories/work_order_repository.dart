@@ -18,8 +18,8 @@ abstract interface class WorkOrderRepository {
     String? categoryId,
   });
 
-  /// Work orders assigned to one technician, backing the personnel app's
-  /// "My Work Orders" list and board views (Figure 25).
+  /// Work orders assigned to one technician, newest first, backing the
+  /// personnel app's "My Work Orders" list and board views (Figure 25).
   Stream<Result<List<WorkOrder>>> watchByAssignee(String personnelId);
 
   /// Raises a work order from one or more approved reports. [reportIds]
@@ -34,13 +34,16 @@ abstract interface class WorkOrderRepository {
   ///
   /// Implementations must do all of this in one transaction, so a failure
   /// anywhere leaves nothing half-assigned:
-  /// - read the report and require it to be `approved`, classified, and
-  ///   without a work order already;
+  /// - read the report and require it to be `approved`, classified, with
+  ///   its official priority confirmed (Objective 4.C), and without a work
+  ///   order already;
   /// - read the person and require an active maintenance-personnel account;
   /// - create the work order as `pending`, carrying the report's category,
   ///   priority and facility, and [scheduledFor] as its target date;
   /// - move the report to `assigned` and link it to the work order;
   /// - increment the person's `activeTaskCount` atomically;
+  /// - create the work order's first task, the job itself, due on
+  ///   [scheduledFor] or today, and notify the technician (Objective 5.A);
   /// - append audit entries for the report and the work order.
   Future<Result<String>> assignFromReport({
     required String reportId,
@@ -62,6 +65,14 @@ abstract interface class WorkOrderRepository {
   Future<Result<void>> setStatus(
     String workOrderId,
     WorkOrderStatus status, {
+    required AuditActor actor,
+  });
+
+  /// Sets or clears the administrator's note to the technician, shown at
+  /// the top of the work order in the personnel app (Figure 25).
+  Future<Result<void>> updateAdminNotes({
+    required String workOrderId,
+    required String? notes,
     required AuditActor actor,
   });
 

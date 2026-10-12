@@ -14,9 +14,9 @@ import 'features/notifications/presentation/push_coordinator.dart';
 /// dashboard).
 ///
 /// The web build is the administrator console. Anything else is the
-/// mobile app, which opens on the faculty and staff home until Objective 5
-/// gives personnel a mobile area of their own to start in. A provider so
-/// tests — which never run as web — can boot either one.
+/// mobile app, which opens on the faculty and staff home; the guard sends
+/// a maintenance technician on to their own dashboard (Objective 5). A
+/// provider so tests — which never run as web — can boot either one.
 final startLocationProvider = Provider<String?>(
   (ref) => kIsWeb ? null : RoutePaths.staffHome,
 );

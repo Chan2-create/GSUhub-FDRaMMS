@@ -146,6 +146,7 @@ void main() {
         recommendedPriority: PriorityLevel.high,
         officialPriority: PriorityLevel.critical,
         status: ReportStatus.assigned,
+        dismissedDuplicateIds: const ['rep-3'],
         workOrderId: 'wo-1',
         reviewedBy: 'admin-1',
         reviewedAt: updatedAt,
@@ -186,6 +187,7 @@ void main() {
       expect(restored.category, isNull);
       expect(restored.officialPriority, isNull);
       expect(restored.photoUrls, isEmpty);
+      expect(restored.dismissedDuplicateIds, isEmpty);
     });
 
     test('WorkOrder preserves its reportIds array', () async {
@@ -481,6 +483,45 @@ void main() {
       // silently normalized away.
       expect(restored.integerWeights[PrioritizationCriterion.safetyRisk], 4);
       expect(restored.decimalWeights[PrioritizationCriterion.safetyRisk], 0.30);
+    });
+
+    test('PrioritizationConfig keeps its Frequency settings (4.B)', () async {
+      final original = PrioritizationConfig.manuscriptDefaults(
+        updatedAt: updatedAt,
+        updatedBy: 'admin-1',
+      ).copyWith(frequencyWindowDays: 14, frequencyBands: const [3, 6, 10]);
+
+      final doc = await roundTrip(
+        FirestorePaths.config,
+        'prioritization',
+        original.toFirestore(),
+      );
+      final restored = PrioritizationConfig.fromFirestore(doc);
+
+      expect(restored, original);
+      expect(restored.frequencyWindowDays, 14);
+      expect(restored.frequencyBands, [3, 6, 10]);
+    });
+
+    test('a PrioritizationConfig saved before 4.B reads with the default '
+        'Frequency settings', () async {
+      final data =
+          PrioritizationConfig.manuscriptDefaults(
+              updatedAt: updatedAt,
+              updatedBy: 'admin-1',
+            ).toFirestore()
+            ..remove('frequencyWindowDays')
+            ..remove('frequencyBands');
+
+      final doc = await roundTrip(
+        FirestorePaths.config,
+        'prioritization',
+        data,
+      );
+      final restored = PrioritizationConfig.fromFirestore(doc);
+
+      expect(restored.frequencyWindowDays, 30);
+      expect(restored.frequencyBands, [2, 3, 5]);
     });
 
     test('ClassificationRulesConfig', () async {

@@ -14,6 +14,9 @@ import '../../../core/widgets/priority_chip.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../audit/data/models/audit_log_entry.dart';
+import '../../classification/domain/duplicate_detector.dart';
+import '../../classification/presentation/possible_duplicates_card.dart';
+import '../../classification/presentation/report_assessment_panel.dart';
 import '../data/models/damage_report.dart';
 import 'report_providers.dart';
 import 'report_review_controller.dart';
@@ -24,9 +27,9 @@ import 'report_review_controller.dart';
 /// not the record behind it — so it is composed from the components 2.A
 /// established rather than invented from scratch.
 ///
-/// Read-only apart from the review decisions. Confirming category and
-/// priority is Objective 4.C; the slot for those controls is marked below
-/// so they drop in without rearranging this screen.
+/// Read-only apart from the review decisions: the status moves (2.B), and
+/// the damage type, priority criteria and official priority, with any
+/// possible duplicates (Objectives 4.A–4.C).
 class ReportDetailScreen extends ConsumerWidget {
   const ReportDetailScreen({required this.reportId, super.key});
 
@@ -100,57 +103,61 @@ class _Detail extends ConsumerWidget {
         const SizedBox(height: 24),
         LayoutBuilder(
           builder: (context, constraints) {
-            final columns = <Widget>[
-              Expanded(
-                flex: 2,
-                child: Column(
-                  children: [
-                    SectionCard(
-                      title: 'Description',
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          report.description,
-                          style: AppTextStyles.fieldValue,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _PhotoEvidence(report: report),
-                    const SizedBox(height: 16),
-                    _HistoryCard(reportId: report.id, report: report),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  children: [
-                    _ClassificationCard(report: report),
-                    const SizedBox(height: 16),
-                    _LocationCard(report: report),
-                    const SizedBox(height: 16),
-                    _ReporterCard(report: report, dateFormat: dateFormat),
-                  ],
-                ),
-              ),
-            ];
-
-            if (constraints.maxWidth >= 1000) {
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: columns,
-                ),
-              );
-            }
-            return Column(
+            final main = Column(
               children: [
-                columns.first,
+                SectionCard(
+                  title: 'Description',
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      report.description,
+                      style: AppTextStyles.fieldValue,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
-                columns.last,
+                _PhotoEvidence(report: report),
+                // The manuscript has the administrator weigh the score
+                // "together with the report description, photo evidence,
+                // facility or location details" (§3.4), so the review sits
+                // below them.
+                if (report.duplicateOf != null ||
+                    DuplicateDetector.isFlaggable(report)) ...[
+                  const SizedBox(height: 16),
+                  PossibleDuplicatesCard(report: report),
+                ],
+                if (report.canBeAssessed) ...[
+                  const SizedBox(height: 16),
+                  ReportAssessmentPanel(report: report),
+                ],
+                const SizedBox(height: 16),
+                _HistoryCard(reportId: report.id, report: report),
               ],
             );
+            final side = Column(
+              children: [
+                _ClassificationCard(report: report),
+                const SizedBox(height: 16),
+                _LocationCard(report: report),
+                const SizedBox(height: 16),
+                _ReporterCard(report: report, dateFormat: dateFormat),
+              ],
+            );
+
+            if (constraints.maxWidth >= 1000) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 2, child: main),
+                  const SizedBox(width: 16),
+                  Expanded(child: side),
+                ],
+              );
+            }
+            // Stacked on a narrower window. The columns are not wrapped in
+            // Expanded here: the page scrolls, so a Column has no height
+            // to share out.
+            return Column(children: [main, const SizedBox(height: 16), side]);
           },
         ),
       ],
@@ -292,52 +299,92 @@ class _RejectDialogState extends State<_RejectDialog> {
   );
 }
 
+/// What the report's classification and priority are now — the summary
+/// beside the review panel, and all there is once the report is past
+/// review.
 class _ClassificationCard extends StatelessWidget {
   const _ClassificationCard({required this.report});
 
   final DamageReport report;
 
   @override
-  Widget build(BuildContext context) => SectionCard(
-    title: 'Classification',
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Field(
-          label: 'Damage type',
-          value: report.category?.label ?? 'Unclassified',
-        ),
-        // What the requestor picked on the mobile form (3.C). Shown beside
-        // the category rather than as it: a suggestion, not a decision.
-        if (report.requestorCategory case final suggested?) ...[
-          const SizedBox(height: 16),
-          _Field(label: 'Suggested by requestor', value: suggested.label),
-        ],
-        const SizedBox(height: 16),
-        _Field(
-          label: 'Priority',
-          child: PriorityChip(
-            level: report.effectivePriority,
-            confirmed: report.isPriorityConfirmed,
+  Widget build(BuildContext context) {
+    final category = report.category;
+    final score = report.priorityScore;
+
+    return SectionCard(
+      title: 'Classification',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Field(
+            label: 'Damage type',
+            value: category?.label ?? 'Unclassified',
           ),
-        ),
-        // Objective 4.C adds the controls that confirm or override these
-        // two values. They slot in here, below what they change.
-        if (!report.isPriorityConfirmed) ...[
-          const SizedBox(height: 8),
-          const Text(
-            'Shown as submitted by the requestor. An administrator confirms '
-            'the official priority before work is scheduled.',
-            style: AppTextStyles.bodySmall,
-          ),
-        ],
-        if (report.rejectionReason != null) ...[
+          const SizedBox(height: 4),
+          Text(switch (report) {
+            DamageReport(category: null) =>
+              'The keywords did not decide it, so an administrator '
+                  'classifies it.',
+            // The type is confirmed with the official priority, in one
+            // review (4.C) — an approval alone does not confirm it.
+            DamageReport(
+              classifiedAutomatically: true,
+              officialPriority: null,
+            ) =>
+              'Classified automatically by keyword; not yet confirmed.',
+            DamageReport(classifiedAutomatically: true) =>
+              'Classified automatically by keyword, and confirmed.',
+            _ => 'Set by an administrator.',
+          }, style: AppTextStyles.bodySmall),
+          // What the requestor picked on the mobile form (3.C). Shown beside
+          // the category rather than as it: a suggestion, not a decision.
+          if (report.requestorCategory case final suggested?) ...[
+            const SizedBox(height: 16),
+            _Field(label: 'Suggested by requestor', value: suggested.label),
+          ],
           const SizedBox(height: 16),
-          _Field(label: 'Rejection reason', value: report.rejectionReason!),
+          _Field(
+            label: 'Priority',
+            child: PriorityChip(
+              level: report.effectivePriority,
+              confirmed: report.isPriorityConfirmed,
+            ),
+          ),
+          if (score != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Score ${score.toStringAsFixed(2)}, recommending '
+              '${report.recommendedPriority?.title ?? '—'}'
+              '${report.isPriorityConfirmed && report.officialPriority != report.recommendedPriority ? ' — changed by the administrator' : ''}.',
+              style: AppTextStyles.bodySmall,
+            ),
+          ],
+          if (!report.isPriorityConfirmed) ...[
+            const SizedBox(height: 8),
+            Text(
+              score == null
+                  ? "Shown as the requestor's own urgency. An administrator "
+                        'sets the official priority before work is assigned.'
+                  : 'Recommended by the score, not yet confirmed. An '
+                        'administrator sets the official priority before '
+                        'work is assigned.',
+              style: AppTextStyles.bodySmall,
+            ),
+          ],
+          const SizedBox(height: 16),
+          _Field(
+            label: "Requestor's urgency",
+            value: report.requestorPriority.title,
+          ),
+          if (report.rejectionReason != null) ...[
+            const SizedBox(height: 16),
+            _Field(label: 'Rejection reason', value: report.rejectionReason!),
+          ],
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _LocationCard extends StatelessWidget {

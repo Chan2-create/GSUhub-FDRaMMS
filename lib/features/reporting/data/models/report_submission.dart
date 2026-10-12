@@ -21,6 +21,7 @@ class ReportSubmission {
     required this.facilityId,
     required this.facilityName,
     this.requestorCategory,
+    this.classifiedCategory,
     this.locationDescription,
     this.assetId,
     this.coordinates,
@@ -39,6 +40,13 @@ class ReportSubmission {
   /// The damage type the requestor suggested, if any — never the report's
   /// category, which the classifier or an Administrator decides.
   final DamageCategory? requestorCategory;
+
+  /// The damage type the keyword classifier found in the title and
+  /// description on the phone (Objective 4.A), or null when no keyword
+  /// matched — the report then waits for an administrator to classify it.
+  /// Stored as the report's category, marked automatic, until an
+  /// administrator confirms or changes it (4.C).
+  final DamageCategory? classifiedCategory;
 
   final String facilityId;
 

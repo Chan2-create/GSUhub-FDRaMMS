@@ -20,10 +20,10 @@ import '../../../../core/utils/firestore_converters.dart';
 /// 3. [officialPriority] — what the authorized GSU Administrator
 ///    confirmed or overrode. The only one that drives scheduling.
 ///
-/// The four 1–4 criterion ratings that feed [priorityScore] are nullable
-/// because **the manuscript never states who assigns them or when** — an
-/// open question (development plan §2.2) still pending confirmation. See
-/// docs/data_dictionary.md.
+/// The four 1–4 criterion ratings that feed [priorityScore] are given by
+/// an administrator while reviewing the report — the manuscript never says
+/// who rates them, and Chris decided this on 2026-10-12 (Objective 4.B).
+/// They stay null until then. See docs/data_dictionary.md.
 class DamageReport {
   DamageReport({
     required this.id,
@@ -52,6 +52,7 @@ class DamageReport {
     this.recommendedPriority,
     this.officialPriority,
     this.duplicateOf,
+    this.dismissedDuplicateIds = const [],
     this.workOrderId,
     this.reviewedBy,
     this.reviewedAt,
@@ -148,6 +149,10 @@ class DamageReport {
         PriorityLevel.fromId,
       ),
       duplicateOf: FirestoreConverters.optional<String>(data, 'duplicateOf'),
+      dismissedDuplicateIds: FirestoreConverters.stringList(
+        data,
+        'dismissedDuplicateIds',
+      ),
       workOrderId: FirestoreConverters.optional<String>(data, 'workOrderId'),
       reviewedBy: FirestoreConverters.optional<String>(data, 'reviewedBy'),
       reviewedAt: FirestoreConverters.optionalDate(data, 'reviewedAt'),
@@ -187,8 +192,8 @@ class DamageReport {
   final DamageCategory? category;
 
   /// Whether [category] came from keyword matching (`true`) or an
-  /// Administrator's manual classification (`false`). Lets 4.A measure
-  /// how often the keyword dictionary actually fires.
+  /// Administrator's manual classification (`false`). Shows how often the
+  /// keyword dictionary actually fires (Objective 4.A).
   final bool classifiedAutomatically;
 
   /// The damage type the requestor picked on the form (Objective 3.C,
@@ -222,15 +227,15 @@ class DamageReport {
   /// determine [officialPriority].
   final PriorityLevel requestorPriority;
 
-  /// 1–4 weighted-formula criteria (manuscript Table 3.4). All nullable —
-  /// population path pending (§2.2).
+  /// 1–4 weighted-formula criteria (manuscript Table 3.4), rated by an
+  /// administrator during review (Objective 4.B). Null until then.
   final int? severityRating;
   final int? safetyRiskRating;
   final int? frequencyRating;
   final int? locationImportanceRating;
 
-  /// Computed weighted score, 1.00–4.00. Null until the criteria above are
-  /// populated and 4.B computes it.
+  /// Computed weighted score, 1.00–4.00 (Objective 4.B). Null until the
+  /// criteria above are rated.
   final double? priorityScore;
 
   /// [priorityScore] mapped through the Table 3.5 thresholds. Decision
@@ -247,6 +252,12 @@ class DamageReport {
   /// merged report keeps its own document and id (manuscript §3.4:
   /// administrators may "merge, dismiss, or retain" flagged duplicates).
   final String? duplicateOf;
+
+  /// Reports an administrator has ruled are *not* duplicates of this one —
+  /// §3.4's "dismiss duplicate flags, or retain reports as separate
+  /// maintenance requests" (Objective 4.C). Kept on both reports of the
+  /// pair, so the detector never flags them together again.
+  final List<String> dismissedDuplicateIds;
 
   /// The work order raised from this report. Several reports can point at
   /// the same work order — see `WorkOrder.reportIds`.
@@ -278,16 +289,30 @@ class DamageReport {
   /// one.
   bool get isPriorityConfirmed => officialPriority != null;
 
+  /// Whether an administrator may still set this report's classification
+  /// and official priority (Objective 4.C): not merged, no work order yet,
+  /// and still being reviewed or approved — the manuscript has the priority
+  /// set "before work-order assignment" (§1.5).
+  bool get canBeAssessed =>
+      duplicateOf == null &&
+      workOrderId == null &&
+      (status == ReportStatus.submitted ||
+          status == ReportStatus.underReview ||
+          status == ReportStatus.approved);
+
   /// Approved and not yet tied to a work order, so it belongs in the
   /// assignment queue.
   bool get awaitsAssignment =>
       status == ReportStatus.approved && workOrderId == null;
 
   /// Whether a work order can actually be raised from this report. The
-  /// category is what routes the job to a trade, so without one the
-  /// repository refuses — the queue and the reports table check the same
-  /// rule here rather than each keeping their own copy of it.
-  bool get isAssignable => awaitsAssignment && category != null;
+  /// category routes the job to a trade, and the manuscript has the
+  /// administrator confirm or modify the official priority "before
+  /// work-order assignment" (§1.5, Objective 4.C) — so without both the
+  /// repository refuses, and the queue and the reports table check the
+  /// same rule here rather than each keeping their own copy of it.
+  bool get isAssignable =>
+      awaitsAssignment && category != null && officialPriority != null;
 
   Map<String, dynamic> toFirestore() => {
     'reporterId': reporterId,
@@ -313,6 +338,7 @@ class DamageReport {
     'officialPriority': officialPriority?.id,
     'status': status.id,
     'duplicateOf': duplicateOf,
+    'dismissedDuplicateIds': dismissedDuplicateIds,
     'workOrderId': workOrderId,
     'reviewedBy': reviewedBy,
     'reviewedAt': reviewedAt == null ? null : Timestamp.fromDate(reviewedAt!),
@@ -346,6 +372,7 @@ class DamageReport {
     PriorityLevel? officialPriority,
     ReportStatus? status,
     String? duplicateOf,
+    List<String>? dismissedDuplicateIds,
     String? workOrderId,
     String? reviewedBy,
     DateTime? reviewedAt,
@@ -379,6 +406,7 @@ class DamageReport {
     officialPriority: officialPriority ?? this.officialPriority,
     status: status ?? this.status,
     duplicateOf: duplicateOf ?? this.duplicateOf,
+    dismissedDuplicateIds: dismissedDuplicateIds ?? this.dismissedDuplicateIds,
     workOrderId: workOrderId ?? this.workOrderId,
     reviewedBy: reviewedBy ?? this.reviewedBy,
     reviewedAt: reviewedAt ?? this.reviewedAt,
@@ -415,6 +443,7 @@ class DamageReport {
         other.officialPriority == officialPriority &&
         other.status == status &&
         other.duplicateOf == duplicateOf &&
+        listEquals(other.dismissedDuplicateIds, dismissedDuplicateIds) &&
         other.workOrderId == workOrderId &&
         other.reviewedBy == reviewedBy &&
         other.reviewedAt == reviewedAt &&
@@ -449,6 +478,7 @@ class DamageReport {
     officialPriority,
     status,
     duplicateOf,
+    ...dismissedDuplicateIds,
     workOrderId,
     reviewedBy,
     reviewedAt,

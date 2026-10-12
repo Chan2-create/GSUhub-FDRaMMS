@@ -1,8 +1,10 @@
+import '../../../../core/constants/damage_categories.dart';
 import '../../../../core/enums/priority_level.dart';
 import '../../../../core/enums/report_status.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../models/damage_report.dart';
+import '../models/report_assessment.dart';
 import '../models/report_submission.dart';
 import '../models/status_change.dart';
 
@@ -64,30 +66,38 @@ abstract interface class DamageReportRepository {
 
   Future<Result<void>> update(DamageReport report);
 
-  /// Records the Administrator's classification decision.
-  Future<Result<void>> setCategory({
+  /// Records an administrator's review of [reportId]'s classification and
+  /// priority (Objectives 4.A–4.C): the damage type, the four criterion
+  /// ratings, the score and recommended level they give, and the official
+  /// priority — the act the manuscript requires "before work-order
+  /// assignment" (§1.5).
+  ///
+  /// Implementations must, in one transaction:
+  /// - read the stored report, and refuse one that is merged, already has a
+  ///   work order, or is past review (only `submitted`, `underReview` and
+  ///   `approved` reports are assessed);
+  /// - write the assessment and record the reviewer;
+  /// - append an `audit_logs` entry naming [actor], saying whether the
+  ///   official priority confirms or modifies the recommendation.
+  ///
+  /// Replaces 1.B's `setCategory`, `setOfficialPriority` and
+  /// `setRecommendedPriority`, which wrote one field each with no audit
+  /// entry — and so could leave an official priority with no ratings
+  /// behind it.
+  Future<Result<void>> recordAssessment({
     required String reportId,
-    required String categoryId,
-    required bool classifiedAutomatically,
-    required String reviewedBy,
+    required ReportAssessment assessment,
+    required AuditActor actor,
   });
 
-  /// Records the Administrator's official priority, the only
-  /// authoritative one (§1.2). Distinct from [update] because it is the
-  /// specific act the manuscript requires before work-order assignment,
-  /// and must be audited as such.
-  Future<Result<void>> setOfficialPriority({
-    required String reportId,
-    required PriorityLevel priority,
-    required String reviewedBy,
-  });
-
-  /// Stores the computed weighted score and the level it maps to.
-  /// Decision support only — never sets the official priority.
-  Future<Result<void>> setRecommendedPriority({
-    required String reportId,
-    required double priorityScore,
-    required PriorityLevel recommendedPriority,
+  /// How many reports of [category] at [facilityId] were filed since
+  /// [since], merged duplicates included — the Frequency hint
+  /// (Objective 4.B). Administrators only: the rules let a requestor list
+  /// nothing but their own reports.
+  Future<Result<int>> countSimilarReports({
+    required String facilityId,
+    required DamageCategory category,
+    required DateTime since,
   });
 
   /// Applies an administrator's review decision: Start review, Approve or
@@ -111,21 +121,35 @@ abstract interface class DamageReportRepository {
     String? reason,
   });
 
-  /// Candidate duplicates of [reportId], per the `config/duplicate_detection`
-  /// criteria. Flagging only — §1.5 requires administrator verification
-  /// before anything is merged.
-  Future<Result<List<DamageReport>>> findPotentialDuplicates(String reportId);
-
-  /// Marks [duplicateReportIds] as duplicates of [parentReportId]. The
-  /// merged reports keep their own documents and ids; they gain a
-  /// `duplicateOf` pointer (§3.4) and a `status_history` entry.
+  /// Closes [duplicateReportIds] as duplicates of [parentReportId]
+  /// (§3.4; Objective 4.C). The merged reports keep their own documents and
+  /// ids; they gain a `duplicateOf` pointer, a `status_history` entry and
+  /// their reporter's notice, and an `audit_logs` entry naming [actor].
+  ///
+  /// In one transaction, refusing — and writing nothing — when the parent
+  /// is missing, closed or itself merged, or when a duplicate is the
+  /// parent, missing, or no longer awaiting review (only a `submitted` or
+  /// `underReview` report with no work order can be merged).
+  ///
+  /// Which reports are duplicates is the administrator's call: detection
+  /// (`DuplicateDetector`) only flags them.
   Future<Result<void>> mergeDuplicates({
     required String parentReportId,
     required List<String> duplicateReportIds,
-    required String mergedBy,
+    required AuditActor actor,
   });
 
-  /// Clears a duplicate flag, retaining the report as a separate request
-  /// (§3.4's "dismiss" / "retain" options).
-  Future<Result<void>> dismissDuplicateFlag(String reportId);
+  /// Records that [reportId] and [otherReportId] are separate requests,
+  /// not duplicates — §3.4's "dismiss duplicate flags, or retain reports as
+  /// separate maintenance requests" (Objective 4.C) — so the pair is never
+  /// flagged again. Kept on both reports, with an `audit_logs` entry.
+  ///
+  /// Replaces 1.B's `dismissDuplicateFlag`, which cleared the merge
+  /// pointer: flags are computed, not stored, so there was no flag to
+  /// clear.
+  Future<Result<void>> keepSeparate({
+    required String reportId,
+    required String otherReportId,
+    required AuditActor actor,
+  });
 }

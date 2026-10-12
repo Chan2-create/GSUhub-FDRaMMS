@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gsuhub/app.dart';
@@ -20,12 +22,14 @@ import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
 import 'package:gsuhub/features/audit/data/repositories/audit_log_repository.dart';
 import 'package:gsuhub/features/notifications/data/repositories/notification_repository.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
+import 'package:gsuhub/features/reporting/data/models/report_assessment.dart';
 import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository.dart';
 
+import 'fake_config_repository.dart';
 import 'test_app_config.dart';
 
 /// Stand-ins for the auth service and the three repositories the admin
@@ -62,6 +66,8 @@ ProviderScope fakeAdminScope({
   Result<int> unreadCount = const Result.success(0),
   Result<List<WorkOrder>> workOrders = const Result.success(<WorkOrder>[]),
   Result<List<AppUser>> personnel = const Result.success(<AppUser>[]),
+  FakeDamageReportRepository? reportRepository,
+  FakeConfigRepository? config,
   FakeWorkOrderRepository? workOrderRepository,
   FakeUserRepository? userRepository,
   FakeAccountProvisioningService? provisioning,
@@ -81,7 +87,10 @@ ProviderScope fakeAdminScope({
       authService ?? FakeAuthService(user: user),
     ),
     damageReportRepositoryProvider.overrideWithValue(
-      FakeDamageReportRepository(reports),
+      reportRepository ?? FakeDamageReportRepository(reports),
+    ),
+    configRepositoryProvider.overrideWithValue(
+      config ?? FakeConfigRepository(),
     ),
     auditLogRepositoryProvider.overrideWithValue(
       FakeAuditLogRepository(activity),
@@ -165,10 +174,49 @@ class FakeAuthService implements AuthService {
   }
 }
 
+/// The reports, held in memory and live: an assessment, a merge or a
+/// keep-separate decision changes them, and every watcher sees it, as with
+/// Firestore. The decisions themselves are recorded for assertions; the
+/// rules they obey are the real repository's, tested against it.
 class FakeDamageReportRepository implements DamageReportRepository {
-  FakeDamageReportRepository(this._reports);
+  FakeDamageReportRepository(Result<List<DamageReport>> reports)
+    : _failure = switch (reports) {
+        Error(:final failure) => failure,
+        Success() => null,
+      },
+      _store = {
+        if (reports case Success(:final value))
+          for (final report in value) report.id: report,
+      };
 
-  final Result<List<DamageReport>> _reports;
+  final Failure? _failure;
+  final Map<String, DamageReport> _store;
+  final _changes = StreamController<void>.broadcast();
+
+  Result<List<DamageReport>> get _reports => switch (_failure) {
+    final failure? => Result.failure(failure),
+    null => Result.success(List.unmodifiable(_store.values)),
+  };
+
+  /// The report as it now stands, or null.
+  DamageReport? byId(String id) => _store[id];
+
+  /// What the next decision answers instead of applying, when set.
+  Failure? decisionFailure;
+
+  /// What [countSimilarReports] answers.
+  Result<int> similarCount = const Result.success(1);
+
+  final assessments = <({String reportId, ReportAssessment assessment})>[];
+  final merges = <({String parentReportId, List<String> duplicateReportIds})>[];
+  final keptSeparate = <({String reportId, String otherReportId})>[];
+  final similarQueries =
+      <({String facilityId, DamageCategory category, DateTime since})>[];
+
+  void _put(DamageReport report) {
+    _store[report.id] = report;
+    _changes.add(null);
+  }
 
   /// Whose reports the faculty and staff screens asked for.
   final reporterQueries = <String>[];
@@ -193,12 +241,105 @@ class FakeDamageReportRepository implements DamageReportRepository {
   };
 
   @override
+  Stream<Result<DamageReport>> watchById(String id) async* {
+    yield await getById(id);
+    yield* _changes.stream.asyncMap((_) => getById(id));
+  }
+
+  @override
   Stream<Result<List<DamageReport>>> watchAll({
     ReportStatus? status,
     PriorityLevel? priority,
     String? categoryId,
     bool excludeDuplicates = true,
-  }) => Stream.value(_reports);
+  }) async* {
+    yield _reports;
+    yield* _changes.stream.map((_) => _reports);
+  }
+
+  @override
+  Future<Result<void>> recordAssessment({
+    required String reportId,
+    required ReportAssessment assessment,
+    required AuditActor actor,
+  }) async {
+    if (decisionFailure case final failure?) return Result.failure(failure);
+    assessments.add((reportId: reportId, assessment: assessment));
+    _put(
+      _store[reportId]!.copyWith(
+        category: assessment.category,
+        classifiedAutomatically: assessment.classifiedAutomatically,
+        severityRating: assessment.severityRating,
+        safetyRiskRating: assessment.safetyRiskRating,
+        frequencyRating: assessment.frequencyRating,
+        locationImportanceRating: assessment.locationImportanceRating,
+        priorityScore: assessment.priorityScore,
+        recommendedPriority: assessment.recommendedPriority,
+        officialPriority: assessment.officialPriority,
+        reviewedBy: actor.id,
+        reviewedAt: DateTime.now(),
+      ),
+    );
+    return const Result.success(null);
+  }
+
+  @override
+  Future<Result<int>> countSimilarReports({
+    required String facilityId,
+    required DamageCategory category,
+    required DateTime since,
+  }) async {
+    similarQueries.add((
+      facilityId: facilityId,
+      category: category,
+      since: since,
+    ));
+    return similarCount;
+  }
+
+  @override
+  Future<Result<void>> mergeDuplicates({
+    required String parentReportId,
+    required List<String> duplicateReportIds,
+    required AuditActor actor,
+  }) async {
+    if (decisionFailure case final failure?) return Result.failure(failure);
+    merges.add((
+      parentReportId: parentReportId,
+      duplicateReportIds: duplicateReportIds,
+    ));
+    for (final id in duplicateReportIds) {
+      _put(
+        _store[id]!.copyWith(
+          duplicateOf: parentReportId,
+          status: ReportStatus.merged,
+        ),
+      );
+    }
+    return const Result.success(null);
+  }
+
+  @override
+  Future<Result<void>> keepSeparate({
+    required String reportId,
+    required String otherReportId,
+    required AuditActor actor,
+  }) async {
+    if (decisionFailure case final failure?) return Result.failure(failure);
+    keptSeparate.add((reportId: reportId, otherReportId: otherReportId));
+    for (final (id, other) in [
+      (reportId, otherReportId),
+      (otherReportId, reportId),
+    ]) {
+      final report = _store[id]!;
+      _put(
+        report.copyWith(
+          dismissedDuplicateIds: [...report.dismissedDuplicateIds, other],
+        ),
+      );
+    }
+    return const Result.success(null);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -216,6 +357,14 @@ class FakeAuditLogRepository implements AuditLogRepository {
     DateTime? from,
     DateTime? to,
     int limit = 100,
+  }) async => _entries;
+
+  /// The same entries, whichever record is asked about.
+  @override
+  Future<Result<List<AuditLogEntry>>> getForEntity({
+    required String entityType,
+    required String entityId,
+    int limit = 50,
   }) async => _entries;
 
   @override

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/enums/work_order_status.dart';
+import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
@@ -172,9 +174,16 @@ class _WorkOrderTable extends ConsumerWidget {
           AppTableColumn(
             label: 'Work Order',
             width: 140,
-            cell: (workOrder) => Text(
-              DisplayId.workOrder(workOrder.id),
-              style: AppTextStyles.workOrderId,
+            cell: (workOrder) => InkWell(
+              onTap: () =>
+                  context.go(RoutePaths.adminWorkOrderDetailFor(workOrder.id)),
+              child: Text(
+                DisplayId.workOrder(workOrder.id),
+                style: AppTextStyles.workOrderId.copyWith(
+                  color: AppColors.primary,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
             ),
           ),
           AppTableColumn(

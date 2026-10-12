@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firestore_paths.dart';
 import '../../../../core/data/firestore_repository.dart';
+import '../../../../core/enums/notification_type.dart';
 import '../models/app_notification.dart';
+import '../models/personnel_notice.dart';
 import '../models/report_notice.dart';
 
 /// Stages a requestor's notification about their report inside the
@@ -19,16 +21,58 @@ void stageReportNotice(
   required String recipientId,
   required String reportId,
   required ReportNotice notice,
+}) => stageNotification(
+  transaction,
+  firestore,
+  recipientId: recipientId,
+  type: notice.type,
+  title: notice.title,
+  body: notice.body,
+  relatedEntityType: FirestorePaths.damageReports,
+  relatedEntityId: reportId,
+);
+
+/// Stages a maintenance technician's notification about their work inside
+/// the transaction that gives or changes it (Objective 5.A): a work order
+/// assigned, a task added, work sent back. It points at the work order, so
+/// tapping it opens that.
+void stagePersonnelNotice(
+  Transaction transaction,
+  FirebaseFirestore firestore, {
+  required String recipientId,
+  required String workOrderId,
+  required PersonnelNotice notice,
+}) => stageNotification(
+  transaction,
+  firestore,
+  recipientId: recipientId,
+  type: notice.type,
+  title: notice.title,
+  body: notice.body,
+  relatedEntityType: FirestorePaths.workOrders,
+  relatedEntityId: workOrderId,
+);
+
+/// Stages one notification, stamped with server time.
+void stageNotification(
+  Transaction transaction,
+  FirebaseFirestore firestore, {
+  required String recipientId,
+  required NotificationType type,
+  required String title,
+  required String body,
+  required String relatedEntityType,
+  required String relatedEntityId,
 }) {
   final notification = AppNotification(
     id: 'pending',
     recipientId: recipientId,
-    type: notice.type,
-    title: notice.title,
-    body: notice.body,
+    type: type,
+    title: title,
+    body: body,
     isRead: false,
-    relatedEntityType: FirestorePaths.damageReports,
-    relatedEntityId: reportId,
+    relatedEntityType: relatedEntityType,
+    relatedEntityId: relatedEntityId,
     createdAt: DateTime.now().toUtc(),
   );
 

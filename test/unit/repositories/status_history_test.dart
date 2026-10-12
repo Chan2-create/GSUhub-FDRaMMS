@@ -136,7 +136,7 @@ void main() {
     await h.reports.mergeDuplicates(
       parentReportId: 'parent',
       duplicateReportIds: ['d1', 'd2'],
-      mergedBy: admin.id,
+      actor: admin,
     );
 
     expect(statusesOf(await h.history('d1')), ['merged']);

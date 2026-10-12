@@ -362,9 +362,15 @@ here is automated.
      | `createdAt`, `updatedAt` | timestamp | now |
 
    - **Configuration** (`config/prioritization`,
-     `config/classification_rules`, `config/duplicate_detection`) is not
-     read by any screen yet; Objective 4 uses it. Copy it from
-     `tool\seed_emulator.dart` (`_seedConfig`) when that work begins.
+     `config/classification_rules`, `config/duplicate_detection`) needs
+     no copying. While a document is missing, the app uses the
+     manuscript's values: Table 3.3's keywords, the formula's weights
+     (0.40/0.30/0.20/0.10), Table 3.5's bands, and the duplicate defaults
+     (72 hours, 0.5). To save the keyword list, sign in to the console,
+     open **Settings** and press **Save keywords**; it says "Not saved
+     yet" until then. The weights and duplicate settings have no screen:
+     to change them, add the document by hand with the fields
+     `tool\seed_emulator.dart` (`_seedConfig`) writes.
 
 5. **Cloud Storage needs the Blaze plan.** The project's bucket
    (`gsuhub-dorsu.firebasestorage.app`) is the newer kind that Firebase

@@ -1,6 +1,7 @@
 import '../../../../core/enums/item_condition.dart';
 import '../../../../core/enums/tool_status.dart';
 import '../../../../core/utils/result.dart';
+import '../../../audit/data/models/audit_actor.dart';
 import '../models/tool.dart';
 import '../models/tool_loan.dart';
 
@@ -33,7 +34,7 @@ abstract interface class ToolRepository {
   /// Fails if the tool is not [ToolStatus.available].
   Future<Result<ToolLoan>> borrowTool({
     required String toolId,
-    required String borrowedBy,
+    required AuditActor borrower,
     String? workOrderId,
     DateTime? expectedReturnAt,
   });
@@ -48,12 +49,20 @@ abstract interface class ToolRepository {
   Future<Result<void>> returnTool({
     required String loanId,
     required ItemCondition conditionOnReturn,
+    required AuditActor actor,
     String? notes,
   });
 
   /// Loans not yet returned, for the Admin "Active Tool Loans" tile
   /// (Figure 15).
   Stream<Result<List<ToolLoan>>> watchOpenLoans();
+
+  /// One technician's outstanding loans, live, newest first — what the
+  /// personnel app's Materials tab shows them holding (Objective 5.C).
+  Stream<Result<List<ToolLoan>>> watchOpenLoansFor(String personnelId);
+
+  /// Every loan made for one work order, newest first.
+  Stream<Result<List<ToolLoan>>> watchLoansForWorkOrder(String workOrderId);
 
   /// One technician's outstanding loans — what they are personally
   /// accountable for right now.

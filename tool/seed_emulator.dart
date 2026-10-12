@@ -18,6 +18,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:gsuhub/core/enums/report_status.dart';
+import 'package:gsuhub/features/notifications/data/models/personnel_notice.dart';
 import 'package:gsuhub/features/notifications/data/models/report_notice.dart';
 
 const String projectId = 'gsuhub-dorsu';
@@ -56,6 +57,7 @@ Future<void> main() async {
   await _seedConfig();
   await _seedDamageReports();
   await _seedWorkOrders();
+  await _seedPersonnelWork();
   await _seedHistory();
   await _seedAuditLogs();
   stdout.writeln(
@@ -167,9 +169,10 @@ Future<void> _seedUsers() async {
     'department': _str('General Services Unit'),
     'specialization': _str('electrical'),
     'availability': _str('available'),
-    // Matches the one open work order seeded against this account; a count
-    // that disagrees with the board is the first thing an assigner distrusts.
-    'activeTaskCount': _int(1),
+    // Matches the two open work orders seeded against this account (wo-0003
+    // and wo-0013); a count that disagrees with the board is the first
+    // thing an assigner distrusts.
+    'activeTaskCount': _int(2),
     'createdAt': _now(),
     'updatedAt': _now(),
   });
@@ -468,8 +471,9 @@ Future<void> _seedTools() async {
 
 Future<void> _seedConfig() async {
   // Both weight schemes, exactly as the manuscript states them, with
-  // activeScheme selecting one. See docs/data_dictionary.md — the conflict
-  // is unresolved and this document is where the decision will land.
+  // activeScheme selecting one: the §3.4 formula's decimal weights, Chris's
+  // choice (Objective 4.B, 2026-10-12). Table 3.2's integers are kept so
+  // the conflict stays visible (docs/data_dictionary.md).
   await _writeDoc('config', 'prioritization', {
     'activeScheme': _str('decimalWeights'),
     'integerWeights': _map({
@@ -492,6 +496,11 @@ Future<void> _seedConfig() async {
     }),
     'minRating': _int(1),
     'maxRating': _int(4),
+    // The Frequency hint (4.B): reports of the same damage at the same
+    // facility in the last 30 days; 2, 3 and 5 of them suggest Moderate,
+    // High and Very High.
+    'frequencyWindowDays': _int(30),
+    'frequencyBands': _intArray([2, 3, 5]),
     'updatedAt': _now(),
     'updatedBy': _str(adminUid),
   });
@@ -545,7 +554,7 @@ Future<void> _seedConfig() async {
     'matchOnFacilityIdentifier': _bool(true),
     'matchOnLocation': _bool(true),
     'matchOnCategory': _bool(true),
-    'descriptionSimilarityThreshold': _double(0.75),
+    'descriptionSimilarityThreshold': _double(0.5),
     'timeWindowHours': _int(72),
     'updatedAt': _now(),
     'updatedBy': _str(adminUid),
@@ -570,10 +579,13 @@ class _SeededReport {
     required this.status,
     required this.submittedHoursAgo,
     this.category,
+    this.classifiedAutomatically = false,
+    this.ratings,
     this.officialPriority,
     this.workOrderId,
     this.rejectionReason,
     this.duplicateOf,
+    this.keptSeparateFrom = const [],
   });
 
   final String id;
@@ -584,6 +596,17 @@ class _SeededReport {
   /// where category is genuinely absent — assignment refuses it, and the
   /// table shows "Unclassified" rather than a blank.
   final String? category;
+
+  /// Whether the keyword classifier found [category] in the title and
+  /// description as the report was filed (Objective 4.A): true only where
+  /// a Table 3.3 keyword is in the text. Elsewhere an administrator set it.
+  final bool classifiedAutomatically;
+
+  /// The administrator's Severity, Safety risk, Frequency and Location
+  /// importance ratings (4.B), on each report whose official priority is
+  /// set: the score they give recommends that priority, as a review would
+  /// have left it.
+  final (int, int, int, int)? ratings;
 
   final String facilityId;
   final String facilityName;
@@ -603,6 +626,9 @@ class _SeededReport {
   /// The report a `merged` one was folded into.
   final String? duplicateOf;
 
+  /// Reports an administrator ruled are not duplicates of this one (4.C).
+  final List<String> keptSeparateFrom;
+
   bool get isReviewed => status != 'submitted' && status != 'underReview';
 }
 
@@ -612,8 +638,9 @@ const List<_SeededReport> _seededReports = [
     title: 'Broken Ceiling Fan',
     description:
         'Ceiling fan in Room 101 wobbles badly and makes a loud grinding '
-        'noise. It looks like it could come loose.',
+        'noise. The wall switch sparks like a short circuit.',
     category: 'electrical',
+    classifiedAutomatically: true,
     facilityId: 'fac-engineering',
     facilityName: 'Engineering Building',
     requestorPriority: 'high',
@@ -627,6 +654,14 @@ const List<_SeededReport> _seededReports = [
         'Water is pooling under the sink in Science Laboratory 3. The floor '
         'is slippery and it has been getting worse since yesterday.',
     category: 'plumbing',
+    classifiedAutomatically: true,
+    // 0.40×4 + 0.30×4 + 0.20×2 + 0.10×3 = 3.50: Critical. Frequency 2:
+    // rep-0007 is plumbing at the same building.
+    ratings: (4, 4, 2, 3),
+    // Plumbing at the same building within 72 hours, so the two were
+    // flagged as possible duplicates; a leaking pipe and a clogged drain
+    // are two jobs, and the administrator kept them separate.
+    keptSeparateFrom: ['rep-0007'],
     facilityId: 'fac-science',
     facilityName: 'Science Building',
     requestorPriority: 'critical',
@@ -642,6 +677,8 @@ const List<_SeededReport> _seededReports = [
         'Lights in the library study area flicker constantly. Possibly a '
         'ballast issue.',
     category: 'electrical',
+    // 1.90: Medium. No keyword in the text: the administrator chose it.
+    ratings: (2, 2, 1, 3),
     facilityId: 'fac-library',
     facilityName: 'Main Library',
     requestorPriority: 'medium',
@@ -657,6 +694,7 @@ const List<_SeededReport> _seededReports = [
         'The split-type aircon in the admin office runs but does not cool '
         'the room at all.',
     category: 'airConditioning',
+    classifiedAutomatically: true,
     facilityId: 'fac-admin',
     facilityName: 'Administration Building',
     requestorPriority: 'medium',
@@ -670,6 +708,9 @@ const List<_SeededReport> _seededReports = [
         'A crack has appeared along the wall beside the west stairwell. It '
         'runs about a metre.',
     category: 'structural',
+    classifiedAutomatically: true,
+    // 2.50: High, on the band's edge.
+    ratings: (3, 3, 1, 2),
     facilityId: 'fac-engineering',
     facilityName: 'Engineering Building',
     requestorPriority: 'high',
@@ -687,6 +728,9 @@ const List<_SeededReport> _seededReports = [
         'The handle on the admin office door has come away from the frame '
         'and no longer latches.',
     category: 'carpentry',
+    classifiedAutomatically: true,
+    // 1.10: Low.
+    ratings: (1, 1, 1, 2),
     facilityId: 'fac-admin',
     facilityName: 'Administration Building',
     requestorPriority: 'low',
@@ -701,6 +745,10 @@ const List<_SeededReport> _seededReports = [
         'The floor drain backs up whenever the sink is used. Standing water '
         'by the end of the afternoon.',
     category: 'plumbing',
+    classifiedAutomatically: true,
+    // Approved before 4.C, with no official priority: Task Assignment sends
+    // it to its page to be reviewed first.
+    keptSeparateFrom: ['rep-0002'],
     facilityId: 'fac-science',
     facilityName: 'Science Building',
     requestorPriority: 'high',
@@ -728,6 +776,8 @@ const List<_SeededReport> _seededReports = [
         'A ceiling panel above the Science Building lobby sags at one '
         'corner and moves when the door slams.',
     category: 'structural',
+    // 2.10: Medium, below the requestor's High.
+    ratings: (2, 3, 1, 2),
     facilityId: 'fac-science',
     facilityName: 'Science Building',
     requestorPriority: 'high',
@@ -766,6 +816,28 @@ const List<_SeededReport> _seededReports = [
     submittedHoursAgo: 4,
     duplicateOf: 'rep-0001',
   ),
+  // Objective 5: assigned to personnel@ this morning and not yet started,
+  // so "Start work" can be tried. At the Administration Building, where no
+  // other electrical report is open, so it is flagged as nobody's
+  // duplicate.
+  _SeededReport(
+    id: 'rep-0013',
+    title: 'Sparking Wall Outlet',
+    description:
+        'The wall outlet beside the registrar counter sparks whenever '
+        'anything is plugged in. Possibly a faulty outlet.',
+    category: 'electrical',
+    classifiedAutomatically: true,
+    // 0.40×3 + 0.30×4 + 0.20×1 + 0.10×2 = 2.80: High.
+    ratings: (3, 4, 1, 2),
+    facilityId: 'fac-admin',
+    facilityName: 'Administration Building',
+    requestorPriority: 'high',
+    officialPriority: 'high',
+    status: 'assigned',
+    submittedHoursAgo: 10,
+    workOrderId: 'wo-0013',
+  ),
   _SeededReport(
     id: 'rep-0012',
     title: 'Faded Room Signage',
@@ -783,13 +855,15 @@ const List<_SeededReport> _seededReports = [
 
 Future<void> _seedDamageReports() async {
   for (final report in _seededReports) {
+    final ratings = report.ratings;
+    final score = ratings == null ? null : _scoreOf(ratings);
     await _writeDoc('damage_reports', report.id, {
       'reporterId': _str(facultyUid),
       'reporterName': _str('Maria Santos'),
       'title': _str(report.title),
       'description': _str(report.description),
       'category': report.category == null ? _null() : _str(report.category!),
-      'classifiedAutomatically': _bool(report.category != null),
+      'classifiedAutomatically': _bool(report.classifiedAutomatically),
       'facilityId': _str(report.facilityId),
       'facilityName': _str(report.facilityName),
       'locationDescription': _str(report.facilityName),
@@ -803,21 +877,21 @@ Future<void> _seedDamageReports() async {
       // `duplicateOf == null` — a document missing the field does not match.
       'assetId': _null(),
       'coordinates': _null(),
-      // The four criterion ratings stay unset: who populates them is still
-      // an open question (docs/data_dictionary.md §2.2). Null is what an
-      // unrated report carries, so this is the shape either way.
-      'severityRating': _null(),
-      'safetyRiskRating': _null(),
-      'frequencyRating': _null(),
-      'locationImportanceRating': _null(),
-      'priorityScore': _null(),
-      'recommendedPriority': _null(),
+      // Rated by an administrator in review (Objective 4.B), on the
+      // reports whose official priority is set; null on the rest.
+      'severityRating': ratings == null ? _null() : _int(ratings.$1),
+      'safetyRiskRating': ratings == null ? _null() : _int(ratings.$2),
+      'frequencyRating': ratings == null ? _null() : _int(ratings.$3),
+      'locationImportanceRating': ratings == null ? _null() : _int(ratings.$4),
+      'priorityScore': score == null ? _null() : _double(score),
+      'recommendedPriority': score == null ? _null() : _str(_levelFor(score)),
       'officialPriority': report.officialPriority == null
           ? _null()
           : _str(report.officialPriority!),
       'duplicateOf': report.duplicateOf == null
           ? _null()
           : _str(report.duplicateOf!),
+      'dismissedDuplicateIds': _strArray(report.keptSeparateFrom),
       'workOrderId': report.workOrderId == null
           ? _null()
           : _str(report.workOrderId!),
@@ -862,6 +936,7 @@ Future<void> _seedDamageReports() async {
     'recommendedPriority': _null(),
     'officialPriority': _null(),
     'duplicateOf': _null(),
+    'dismissedDuplicateIds': _strArray([]),
     'workOrderId': _null(),
     'reviewedBy': _null(),
     'reviewedAt': _null(),
@@ -882,13 +957,87 @@ Future<void> _seedDamageReports() async {
     ),
   );
 
+  // Objective 4.C: the same fan in Room 101, filed by somebody else three
+  // hours ago. "short circuit" classifies it Electrical on the phone, and
+  // it is flagged as a possible duplicate of rep-0001: the same facility
+  // and damage type, filed within 72 hours.
+  await _writeDoc('damage_reports', 'rep-ana-0002', {
+    'reporterId': _str(facultyCasUid),
+    'reporterName': _str('Ana Gomez'),
+    'title': _str('Ceiling fan sparking in Room 101'),
+    'description': _str(
+      'The fan in Room 101 grinds and its switch gives off sparks. Could be '
+      'a short circuit.',
+    ),
+    'category': _str('electrical'),
+    'classifiedAutomatically': _bool(true),
+    'requestorCategory': _str('electrical'),
+    'facilityId': _str('fac-engineering'),
+    'facilityName': _str('Engineering Building'),
+    'locationDescription': _str('Engineering Building, Room 101'),
+    'photoUrls': _strArray([]),
+    'requestorPriority': _str('high'),
+    'status': _str('submitted'),
+    'assetId': _null(),
+    'coordinates': _null(),
+    'severityRating': _null(),
+    'safetyRiskRating': _null(),
+    'frequencyRating': _null(),
+    'locationImportanceRating': _null(),
+    'priorityScore': _null(),
+    'recommendedPriority': _null(),
+    'officialPriority': _null(),
+    'duplicateOf': _null(),
+    'dismissedDuplicateIds': _strArray([]),
+    'workOrderId': _null(),
+    'reviewedBy': _null(),
+    'reviewedAt': _null(),
+    'rejectionReason': _null(),
+    'submittedAt': _ago(const Duration(hours: 3)),
+    'updatedAt': _now(),
+  });
+  await _writeStep(
+    'rep-ana-0002',
+    1,
+    'submitted',
+    _ago(const Duration(hours: 3)),
+    changedBy: facultyCasUid,
+    notify: (
+      recipientId: facultyCasUid,
+      reportTitle: 'Ceiling fan sparking in Room 101',
+      mergedInto: null,
+    ),
+  );
+
   stdout.writeln(
-    '  damage_reports: ${_seededReports.length + 1} '
-    '(3 approved and awaiting assignment, 1 unclassified, 1 each rejected, '
-    'merged and archived, 1 filed by another faculty member), each with '
+    '  damage_reports: ${_seededReports.length + 2} '
+    '(3 approved and awaiting assignment, of which rep-0007 and the '
+    'unclassified rep-0008 still need their type and priority reviewed; '
+    '1 each rejected, merged and archived; 2 filed by another faculty '
+    'member; 1 possible duplicate, rep-ana-0002 of rep-0001), each with '
     'its status history',
   );
 }
+
+/// The §3.4 formula with the weights Chris chose (Objective 4.B), rounded
+/// to two decimals as the app's PriorityScorer rounds it.
+double _scoreOf((int, int, int, int) ratings) {
+  final (severity, safetyRisk, frequency, locationImportance) = ratings;
+  final score =
+      0.40 * severity +
+      0.30 * safetyRisk +
+      0.20 * frequency +
+      0.10 * locationImportance;
+  return (score * 100).roundToDouble() / 100;
+}
+
+/// Table 3.5's band for [score].
+String _levelFor(double score) => switch (score) {
+  >= 3.50 => 'critical',
+  >= 2.50 => 'high',
+  >= 1.50 => 'medium',
+  _ => 'low',
+};
 
 /// The first part of a seeded report's timeline (Objective 3.B): filed,
 /// reviewed, and the administrator's decision. Work-order stages are
@@ -1056,6 +1205,18 @@ Future<void> _seedWorkOrders() async {
       24,
       false,
     ),
+    // Objective 5: personnel@'s work not yet started.
+    (
+      'wo-0013',
+      'rep-0013',
+      'electrical',
+      'high',
+      'pending',
+      personnelUid,
+      6,
+      24,
+      false,
+    ),
   ];
 
   for (final (
@@ -1132,7 +1293,314 @@ Future<void> _seedWorkOrders() async {
   }
 
   stdout.writeln(
-    '  work_orders: ${workOrders.length} (1 overdue, 1 awaiting sign-off)',
+    '  work_orders: ${workOrders.length} (1 overdue, 1 awaiting sign-off, '
+    '1 not yet started)',
+  );
+}
+
+/// Objective 5: the personnel app's working day. personnel@ (Marcus
+/// Wright) has wo-0003 under way, with a task done this morning, one in
+/// progress and two more due today, another tomorrow, 4 LED bulbs recorded
+/// as used and the multimeter out; wo-0013 waits to be started, with a
+/// task due today that starts it when ticked. wo-0009 (Rosa Villanueva)
+/// has its accomplishment report waiting for sign-off in the console, and
+/// wo-0005 one signed off. Every work order's first task is the job itself,
+/// as assignment now creates it.
+Future<void> _seedPersonnelWork() async {
+  final now = DateTime.now();
+  DateTime today(int hour) => DateTime(now.year, now.month, now.day, hour);
+  DateTime inDays(int days, int hour) =>
+      DateTime(now.year, now.month, now.day + days, hour);
+
+  final tasks = [
+    (
+      'task-0002-1',
+      'wo-0002',
+      'Leaking Pipe Under Sink',
+      'Science Building',
+      personnelPlumberUid,
+      'pending',
+      inDays(-1, 12),
+      null,
+      24,
+    ),
+    (
+      'task-0003-1',
+      'wo-0003',
+      'Flickering Lights',
+      'Main Library',
+      personnelUid,
+      'completed',
+      today(9),
+      2,
+      48,
+    ),
+    (
+      'task-0003-2',
+      'wo-0003',
+      'Replace the ballast in the study area fixtures',
+      'The two fixtures over the study tables.',
+      personnelUid,
+      'inProgress',
+      today(12),
+      null,
+      30,
+    ),
+    (
+      'task-0003-3',
+      'wo-0003',
+      'Test every fixture on the circuit',
+      null,
+      personnelUid,
+      'pending',
+      today(15),
+      null,
+      30,
+    ),
+    (
+      'task-0003-4',
+      'wo-0003',
+      'Label the breaker in the library panel',
+      null,
+      personnelUid,
+      'pending',
+      inDays(1, 10),
+      null,
+      30,
+    ),
+    (
+      'task-0005-1',
+      'wo-0005',
+      'Cracked Wall Near Stairwell',
+      'Engineering Building',
+      personnelUid,
+      'completed',
+      inDays(-10, 12),
+      6,
+      240,
+    ),
+    (
+      'task-0009-1',
+      'wo-0009',
+      'Loose Ceiling Panel',
+      'Science Building',
+      personnelStructuralUid,
+      'completed',
+      inDays(-3, 12),
+      7,
+      96,
+    ),
+    (
+      'task-0013-1',
+      'wo-0013',
+      'Sparking Wall Outlet',
+      'Administration Building',
+      personnelUid,
+      'pending',
+      inDays(1, 12),
+      null,
+      6,
+    ),
+    (
+      'task-0013-2',
+      'wo-0013',
+      'Switch off the circuit before opening the outlet',
+      'The breaker is in the panel by the registrar office door.',
+      personnelUid,
+      'pending',
+      today(17),
+      null,
+      5,
+    ),
+  ];
+
+  for (final (
+        id,
+        workOrderId,
+        title,
+        description,
+        assignee,
+        status,
+        due,
+        completedHoursAgo,
+        createdHoursAgo,
+      )
+      in tasks) {
+    await _writeDoc('tasks', id, {
+      'workOrderId': _str(workOrderId),
+      'title': _str(title),
+      'description': description == null ? _null() : _str(description),
+      'assignedTo': _str(assignee),
+      'status': _str(status),
+      'dueDate': _at(due),
+      'proofPhotoUrls': _strArray([]),
+      'completedAt': completedHoursAgo == null
+          ? _null()
+          : _ago(Duration(hours: completedHoursAgo)),
+      'createdAt': _ago(Duration(hours: createdHoursAgo)),
+      'updatedAt': _now(),
+    });
+  }
+
+  // Recorded on wo-0003 as used, deducted when its report is filed.
+  await _writeDoc('work_orders/wo-0003/materials_used', 'inv-led-bulb', {
+    'itemName': _str('LED Bulbs (60W Eq)'),
+    'quantityUsed': _double(4),
+    'unitOfMeasurement': _str('units'),
+    'recordedBy': _str(personnelUid),
+    'recordedAt': _ago(const Duration(hours: 3)),
+  });
+
+  // The multimeter is out with personnel@, for wo-0003.
+  await _writeDoc('tool_loans', 'loan-0001', {
+    'toolId': _str('tool-multimeter'),
+    'toolName': _str('Fluke Multimeter 179'),
+    'borrowedBy': _str(personnelUid),
+    'workOrderId': _str('wo-0003'),
+    'borrowedAt': _ago(const Duration(hours: 5)),
+    'expectedReturnAt': _null(),
+    'returnedAt': _null(),
+    'conditionOnBorrow': _str('good'),
+    'conditionOnReturn': _null(),
+    'notes': _null(),
+  });
+  await _writeDoc('tools', 'tool-multimeter', {
+    'toolCode': _str('TL-0912'),
+    'name': _str('Fluke Multimeter 179'),
+    'status': _str('borrowed'),
+    'condition': _str('good'),
+    'category': _str('Power Tools'),
+    'storageLocation': _str('GSU Tool Crib'),
+    'qrCode': _str('TOOL-TL-0912'),
+    'currentHolderId': _str(personnelUid),
+    'currentLoanId': _str('loan-0001'),
+    'createdAt': _now(),
+    'updatedAt': _now(),
+  });
+
+  // Accomplishment reports: wo-0005's signed off, wo-0009's waiting.
+  final reports = [
+    (
+      'acc-0005',
+      'wo-0005',
+      personnelUid,
+      'Patched and sealed the crack beside the west stairwell and repainted '
+          'the section. The crack is in the plaster only; the wall behind '
+          'it is sound.',
+      5,
+      true,
+    ),
+    (
+      'acc-0009',
+      'wo-0009',
+      personnelStructuralUid,
+      'Re-fixed the sagging ceiling panel with four new clips and checked '
+          'the panels around it. It no longer moves when the lobby door '
+          'slams.',
+      6,
+      false,
+    ),
+  ];
+  for (final (id, workOrderId, by, notes, hoursAgo, reviewed) in reports) {
+    await _writeDoc('accomplishment_reports', id, {
+      'workOrderId': _str(workOrderId),
+      'submittedBy': _str(by),
+      'completionNotes': _str(notes),
+      'photoUrls': _strArray([]),
+      'materialsUsed': {
+        'arrayValue': {'values': <Object?>[]},
+      },
+      'inventoryDeducted': _bool(false),
+      'reviewedBy': reviewed ? _str(adminUid) : _null(),
+      'reviewedAt': reviewed ? _ago(const Duration(hours: 3)) : _null(),
+      'submittedAt': _ago(Duration(hours: hoursAgo)),
+    });
+  }
+
+  // The technicians' own notices, in the app's wording.
+  final notices = [
+    (
+      'nt-wo-0002',
+      personnelPlumberUid,
+      'wo-0002',
+      PersonnelNotice.workOrderAssigned(
+        workOrderTitle: 'Leaking Pipe Under Sink',
+        facilityName: 'Science Building',
+      ),
+      24,
+    ),
+    (
+      'nt-wo-0003',
+      personnelUid,
+      'wo-0003',
+      PersonnelNotice.workOrderAssigned(
+        workOrderTitle: 'Flickering Lights',
+        facilityName: 'Main Library',
+      ),
+      48,
+    ),
+    (
+      'nt-task-0003-2',
+      personnelUid,
+      'wo-0003',
+      PersonnelNotice.taskAssigned(
+        taskTitle: 'Replace the ballast in the study area fixtures',
+        workOrderTitle: 'Flickering Lights',
+      ),
+      30,
+    ),
+    (
+      'nt-wo-0013',
+      personnelUid,
+      'wo-0013',
+      PersonnelNotice.workOrderAssigned(
+        workOrderTitle: 'Sparking Wall Outlet',
+        facilityName: 'Administration Building',
+      ),
+      6,
+    ),
+    (
+      'nt-task-0013-2',
+      personnelUid,
+      'wo-0013',
+      PersonnelNotice.taskAssigned(
+        taskTitle: 'Switch off the circuit before opening the outlet',
+        workOrderTitle: 'Sparking Wall Outlet',
+      ),
+      5,
+    ),
+    (
+      'nt-wo-0009',
+      personnelStructuralUid,
+      'wo-0009',
+      PersonnelNotice.workOrderAssigned(
+        workOrderTitle: 'Loose Ceiling Panel',
+        facilityName: 'Science Building',
+      ),
+      96,
+    ),
+  ];
+  for (final (id, recipient, workOrderId, notice, hoursAgo) in notices) {
+    final isRead = Duration(hours: hoursAgo) > _seededReadAfter;
+    final created = DateTime.now().toUtc().subtract(Duration(hours: hoursAgo));
+    _notices++;
+    await _writeDoc('notifications', id, {
+      'recipientId': _str(recipient),
+      'type': _str(notice.type.id),
+      'title': _str(notice.title),
+      'body': _str(notice.body),
+      'relatedEntityType': _str('work_orders'),
+      'relatedEntityId': _str(workOrderId),
+      'isRead': _bool(isRead),
+      'readAt': isRead ? _at(created.add(const Duration(hours: 1))) : _null(),
+      'createdAt': _at(created),
+    });
+  }
+
+  stdout.writeln(
+    '  personnel work: ${tasks.length} tasks, 1 material recorded, 1 tool '
+    'out, 2 accomplishment reports (wo-0009 awaiting sign-off), '
+    '${notices.length} technician notices',
   );
 }
 
@@ -1507,4 +1975,7 @@ Map<String, Object?> _map(Map<String, Object?> fields) => {
 };
 Map<String, Object?> _strArray(List<String> values) => {
   'arrayValue': {'values': values.map(_str).toList(growable: false)},
+};
+Map<String, Object?> _intArray(List<int> values) => {
+  'arrayValue': {'values': values.map(_int).toList(growable: false)},
 };

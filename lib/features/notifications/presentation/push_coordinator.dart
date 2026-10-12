@@ -15,10 +15,11 @@ import '../data/models/app_notification.dart';
 import 'notification_providers.dart';
 
 /// Keeps this phone's side of notifications in step with who is signed in
-/// (Objective 3.B). Runs for a signed-in requestor only — the console's
-/// administrators and Objective 5's personnel get none of it yet.
+/// (Objective 3.B). Runs for a signed-in requestor or, since Objective 5,
+/// maintenance technician — the mobile app's two kinds of user. The
+/// console's administrators get none of it.
 ///
-/// While a requestor is signed in it:
+/// While one is signed in it:
 /// - asks for notification permission once per sign-in, while Android will
 ///   still show the prompt;
 /// - saves the device's push token on their account, and again whenever it
@@ -28,8 +29,9 @@ import 'notification_providers.dart';
 ///   long as Android keeps the app alive. With no server on the Spark plan,
 ///   this is how a requestor hears of a move without opening the app;
 /// - shows a push that arrives in the foreground, which Android would not;
-/// - opens the report a tapped notification is about, including one that
-///   launched the app from closed.
+/// - opens the report (a requestor's) or the work order (a technician's)
+///   a tapped notification is about, including one that launched the app
+///   from closed.
 ///
 /// [signOutDevice] retires the token before sign-out, so the next account
 /// on this phone never receives the last one's notifications.
@@ -39,6 +41,7 @@ class PushCoordinator {
   final Ref _ref;
 
   String? _uid;
+  UserRole? _role;
   final _subscriptions = <StreamSubscription<Object?>>[];
 
   /// Notices already raised or already there when the listener started —
@@ -66,10 +69,16 @@ class PushCoordinator {
 
   /// Called with every auth change.
   void userChanged(AuthUser? user) {
-    final uid = user != null && user.role == UserRole.requestor
-        ? user.uid
-        : null;
-    _queue = _queue.then((_) => _switchTo(uid));
+    final mobile =
+        user != null &&
+        (user.role == UserRole.requestor ||
+            user.role == UserRole.maintenancePersonnel);
+    final uid = mobile ? user.uid : null;
+    final role = mobile ? user.role : null;
+    _queue = _queue.then((_) {
+      _role = role;
+      return _switchTo(uid);
+    });
   }
 
   Future<void> _switchTo(String? uid) async {
@@ -179,6 +188,9 @@ class PushCoordinator {
             if (notice.relatedEntityType == FirestorePaths.damageReports &&
                 notice.relatedEntityId != null)
               'reportId': notice.relatedEntityId!,
+            if (notice.relatedEntityType == FirestorePaths.workOrders &&
+                notice.relatedEntityId != null)
+              'workOrderId': notice.relatedEntityId!,
           },
         ),
       );
@@ -219,11 +231,20 @@ class PushCoordinator {
       );
     }
 
-    final reportId =
-        payload['reportId'] as String? ?? payload['relatedEntityId'] as String?;
-    final location = reportId == null
-        ? RoutePaths.staffAlerts
-        : RoutePaths.staffReportDetailFor(reportId);
+    final workOrderId = payload['workOrderId'] as String?;
+    final reportId = payload['reportId'] as String?;
+    final personnel = _role == UserRole.maintenancePersonnel;
+    final location = switch ((workOrderId, reportId)) {
+      (final id?, _) when personnel => RoutePaths.personnelWorkOrderFor(id),
+      (_, final id?) when !personnel => RoutePaths.staffReportDetailFor(id),
+      _ when personnel => RoutePaths.personnelAlerts,
+      _ =>
+        payload['relatedEntityId'] is String
+            ? RoutePaths.staffReportDetailFor(
+                payload['relatedEntityId'] as String,
+              )
+            : RoutePaths.staffAlerts,
+    };
     final navigate = _navigate;
     if (navigate == null) {
       _pendingLocation = location;

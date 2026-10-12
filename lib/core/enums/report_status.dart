@@ -7,7 +7,11 @@
 /// forReview -> completed -> closed`.
 ///
 /// From [underReview], a report may branch to [merged], [rejected], or
-/// [archived] per the duplicate-report handling rules in §3.4. From
+/// [archived] per the duplicate-report handling rules in §3.4. A
+/// [submitted] report may also be [merged] straight away (Objective 4.C):
+/// a duplicate is usually flagged before anyone starts reviewing it, and
+/// making the administrator open it to start a review only to close it
+/// would add a step that decides nothing. From
 /// [forReview], a report may be sent back to [inProgress] for rework; the
 /// source documents describe review and completion narratively but do not
 /// specify whether rework is allowed, so this transition is a reasonable
@@ -51,7 +55,7 @@ enum ReportStatus {
 
   static const Map<ReportStatus, Set<ReportStatus>> _allowedTransitions =
       <ReportStatus, Set<ReportStatus>>{
-        ReportStatus.submitted: {ReportStatus.underReview},
+        ReportStatus.submitted: {ReportStatus.underReview, ReportStatus.merged},
         ReportStatus.underReview: {
           ReportStatus.approved,
           ReportStatus.merged,

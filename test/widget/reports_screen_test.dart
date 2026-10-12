@@ -61,6 +61,40 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  group('duplicates (4.C)', () {
+    testWidgets('marks the reports the duplicate rules flag', (tester) async {
+      // Same facility, same type, filed together: flagged. The plumbing
+      // report at the same facility, worded differently, is not.
+      DamageReport atEngineering(DamageReport report, String description) =>
+          report.copyWith(
+            facilityId: 'fac-engineering',
+            description: description,
+          );
+      await pump(tester, [
+        atEngineering(
+          report(id: 'rep-1', title: 'Lights flicker'),
+          'All the lamps blink.',
+        ),
+        atEngineering(
+          report(id: 'rep-2', title: 'Flickering lights'),
+          'Since this morning.',
+        ),
+        atEngineering(
+          report(
+            id: 'rep-3',
+            title: 'Clogged drain',
+            category: DamageCategory.plumbing,
+          ),
+          'Water stands in the sink.',
+        ),
+      ]);
+
+      expect(find.byTooltip('Possible duplicate of #REP-2'), findsOneWidget);
+      expect(find.byTooltip('Possible duplicate of #REP-1'), findsOneWidget);
+      expect(find.byIcon(Icons.content_copy_outlined), findsNWidgets(2));
+    });
+  });
+
   group('table', () {
     testWidgets('lists reports with their reporter and status', (tester) async {
       await pump(tester, [

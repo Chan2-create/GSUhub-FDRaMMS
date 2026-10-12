@@ -84,6 +84,16 @@ service cloud.firestore {
         .hasOnly(allowedFields);
     }
 
+    function workOrderAt(workOrderId) {
+      return get(/databases/$(database)/documents/work_orders/$(workOrderId));
+    }
+
+    // Personnel act only on work assigned to them (Objective 5).
+    function isAssignedTo(workOrderId) {
+      return isPersonnel()
+        && request.auth.uid in workOrderAt(workOrderId).data.assignedPersonnelIds;
+    }
+
     // ---------- users ----------
     // §3.4: administrators "manage user accounts, roles, permissions".
     // Everyone may read their own record (the app needs the role to route);
@@ -169,11 +179,12 @@ service cloud.firestore {
     // review sets. Absent and null count alike, so a client that leaves a
     // field out is not refused for it.
     //
-    // Classification and scoring fields (category, classifiedAutomatically,
-    // the four ratings, priorityScore, recommendedPriority) are left to
-    // Objective 4: with no Cloud Functions on the Spark plan, the keyword
-    // classifier may well run on the submitting device, and would then need
-    // to write them here.
+    // With no Cloud Functions on the Spark plan, the keyword classifier
+    // runs on the filing phone (Objective 4.A), so a new report may carry a
+    // category — but only marked automatic, never as an administrator's
+    // decision; one confirms or changes it in review (4.C). The ratings,
+    // score and recommendation (4.B) and the not-a-duplicate list (4.C) are
+    // the administrator's, and refused here.
     function isRequestorSubmission(data) {
       return data.title is string
         && data.title.size() > 0 && data.title.size() <= 200
@@ -197,7 +208,22 @@ service cloud.firestore {
         && data.get('workOrderId', null) == null
         && data.get('reviewedBy', null) == null
         && data.get('reviewedAt', null) == null
-        && data.get('rejectionReason', null) == null;
+        && data.get('rejectionReason', null) == null
+        && ((data.get('category', null) == null
+              && data.get('classifiedAutomatically', false) == false)
+            || (data.category in [
+                  'electrical', 'plumbing', 'structural', 'carpentry',
+                  'airConditioning', 'cleaningAndSanitation',
+                  'generalMaintenance'
+                ]
+                && data.get('classifiedAutomatically', false) == true))
+        && data.get('severityRating', null) == null
+        && data.get('safetyRiskRating', null) == null
+        && data.get('frequencyRating', null) == null
+        && data.get('locationImportanceRating', null) == null
+        && data.get('priorityScore', null) == null
+        && data.get('recommendedPriority', null) == null
+        && data.get('dismissedDuplicateIds', []).size() == 0;
     }
 
     // A status history entry (Objective 3.B) for the report at [reportPath]:
@@ -229,8 +255,10 @@ service cloud.firestore {
             && (resource == null
                 || resource.data.reporterId == request.auth.uid))
         // Personnel can open a report they are working: it is the context
-        // for their assigned work order.
-        || (isPersonnel() && resource.data.workOrderId != null);
+        // for their assigned work order (tightened in 5.A from "any report
+        // with a work order").
+        || (resource.data.workOrderId != null
+            && isAssignedTo(resource.data.workOrderId));
 
       // A requestor lists their own reports only. Until 3.C this checked
       // the page size and nothing else, so any requestor could query every
@@ -253,8 +281,10 @@ service cloud.firestore {
       // GSU rather than being silently edited.
       allow update: if isAdmin()
         // Personnel may advance status on a report tied to their work,
-        // nothing more.
-        || (isPersonnel() && onlyChanged(['status', 'updatedAt']))
+        // nothing more — and only their own work (5.B).
+        || (resource.data.workOrderId != null
+            && isAssignedTo(resource.data.workOrderId)
+            && onlyChanged(['status', 'updatedAt']))
         // A requestor closes their own completed report by rating the
         // service (Objective 3.C): the status only, completed to closed,
         // in the same write as their one rating of it.
@@ -281,7 +311,8 @@ service cloud.firestore {
         // Whoever may read the report may read how it got where it is.
         allow read: if isAdmin()
           || (isActive() && get(report()).data.reporterId == request.auth.uid)
-          || (isPersonnel() && get(report()).data.workOrderId != null);
+          || (get(report()).data.workOrderId != null
+              && isAssignedTo(get(report()).data.workOrderId));
 
         // Each entry is written in the same transaction as the move it
         // records, so it must name the status the report has once that
@@ -301,8 +332,8 @@ service cloud.firestore {
                   && get(report()).data.reporterId == request.auth.uid
                   && get(report()).data.status == 'completed'
                   && existsAfter(/databases/$(database)/documents/feedback/$(reportId)))
-              || (isPersonnel()
-                  && getAfter(report()).data.workOrderId != null));
+              || (getAfter(report()).data.workOrderId != null
+                  && isAssignedTo(getAfter(report()).data.workOrderId)));
 
         allow update, delete: if false;
       }
@@ -316,16 +347,52 @@ service cloud.firestore {
       allow get: if isAdmin()
         || (isPersonnel()
             && request.auth.uid in resource.data.assignedPersonnelIds);
-      allow list: if isAdmin() || isPersonnel();
+      // Personnel list only their own (5.A; was every work order).
+      allow list: if isAdmin()
+        || (isPersonnel()
+            && request.auth.uid in resource.data.assignedPersonnelIds);
 
       allow create: if isAdmin();
 
+      // Personnel start their work and submit it (5.B): pending to in
+      // progress, in progress to for review. Sign-off, send-back and
+      // completion are the administrator's.
       allow update: if isAdmin()
         || (isPersonnel()
             && request.auth.uid in resource.data.assignedPersonnelIds
-            && onlyChanged(['status', 'startedAt', 'completedAt', 'updatedAt']));
+            && onlyChanged(['status', 'startedAt', 'updatedAt'])
+            && ((resource.data.status == 'pending'
+                 && request.resource.data.status == 'inProgress')
+                || (resource.data.status == 'inProgress'
+                    && request.resource.data.status == 'forReview')));
 
       allow delete: if false;
+
+      // Materials recorded as used while the work is under way (5.C),
+      // deducted from stock when the accomplishment report is filed.
+      // Read before the write in a submission, so "open" is the status
+      // the work order had before it.
+      match /materials_used/{itemId} {
+        function isOpenWork() {
+          return workOrderAt(workOrderId).data.status in ['pending', 'inProgress'];
+        }
+
+        allow read: if isAdmin() || isAssignedTo(workOrderId);
+
+        allow create, update: if isAssignedTo(workOrderId)
+          && isOpenWork()
+          && request.resource.data.keys().hasOnly([
+               'itemName', 'quantityUsed', 'unitOfMeasurement', 'recordedBy',
+               'recordedAt'
+             ])
+          && request.resource.data.recordedBy == request.auth.uid
+          && request.resource.data.quantityUsed is number
+          && request.resource.data.quantityUsed > 0
+          && request.resource.data.recordedAt == request.time;
+
+        allow delete: if isAdmin()
+          || (isAssignedTo(workOrderId) && isOpenWork());
+      }
     }
 
     // ---------- tasks ----------
@@ -333,7 +400,9 @@ service cloud.firestore {
     match /tasks/{taskId} {
       allow get: if isAdmin()
         || (isPersonnel() && resource.data.assignedTo == request.auth.uid);
-      allow list: if isAdmin() || isPersonnel();
+      // Personnel list only their own (5.A; was every task).
+      allow list: if isAdmin()
+        || (isPersonnel() && resource.data.assignedTo == request.auth.uid);
 
       allow create: if isAdmin();
 
@@ -353,13 +422,24 @@ service cloud.firestore {
     match /accomplishment_reports/{reportId} {
       allow get: if isAdmin()
         || (isPersonnel() && resource.data.submittedBy == request.auth.uid);
-      allow list: if isAdmin() || isPersonnel();
+      // Personnel list only their own (5.B; was every report).
+      allow list: if isAdmin()
+        || (isPersonnel() && resource.data.submittedBy == request.auth.uid);
 
+      // Filed by the technician assigned to the work, in the same write
+      // that moves it to for review (5.B). `inventoryDeducted` says the
+      // deductions were written in that same transaction, so it must be
+      // true exactly when materials were used. The rules cannot see the
+      // ledger entries themselves (docs/data_dictionary.md, known gap).
       allow create: if isPersonnel()
         && request.resource.data.submittedBy == request.auth.uid
-        // The deduction guard flag is set by the deduction routine, never
-        // by the submitting client.
-        && request.resource.data.inventoryDeducted == false;
+        && isAssignedTo(request.resource.data.workOrderId)
+        && getAfter(/databases/$(database)/documents/work_orders/$(request.resource.data.workOrderId))
+             .data.status == 'forReview'
+        && request.resource.data.inventoryDeducted
+             == (request.resource.data.materialsUsed.size() > 0)
+        && request.resource.data.reviewedBy == null
+        && request.resource.data.reviewedAt == null;
 
       // Only the review fields are mutable after filing, and only by an
       // admin — a completion record that its author can quietly rewrite is
@@ -413,7 +493,9 @@ service cloud.firestore {
     match /tool_loans/{loanId} {
       allow get: if isAdmin()
         || (isPersonnel() && resource.data.borrowedBy == request.auth.uid);
-      allow list: if isAdmin() || isPersonnel();
+      // Personnel list only their own (5.C; was every loan).
+      allow list: if isAdmin()
+        || (isPersonnel() && resource.data.borrowedBy == request.auth.uid);
 
       allow create: if (isAdmin() || isPersonnel())
         && request.resource.data.borrowedBy == request.auth.uid
@@ -541,7 +623,9 @@ service cloud.firestore {
           || (isPersonnel()
               && isToReporter()
               && getAfter(/databases/$(database)/documents/damage_reports/$(request.resource.data.relatedEntityId))
-                   .data.workOrderId != null));
+                   .data.workOrderId != null
+              && isAssignedTo(getAfter(/databases/$(database)/documents/damage_reports/$(request.resource.data.relatedEntityId))
+                   .data.workOrderId)));
 
       // A recipient may only mark their own notification read: nothing
       // else about it changes, and it is not marked unread again.

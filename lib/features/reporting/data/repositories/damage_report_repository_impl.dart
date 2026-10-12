@@ -1,22 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../../core/constants/damage_categories.dart';
 import '../../../../core/constants/firestore_paths.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../../core/enums/audit_action.dart';
 import '../../../../core/enums/priority_level.dart';
 import '../../../../core/enums/report_status.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../models/damage_report.dart';
+import '../models/report_assessment.dart';
 import '../models/report_submission.dart';
 import '../models/status_change.dart';
 import 'damage_report_repository.dart';
 import 'status_history_writes.dart';
 
-/// Firestore-backed [DamageReportRepository]. Persistence only — no
-/// classification or scoring logic, which belongs to Objective 4.
+/// Firestore-backed [DamageReportRepository]. Persistence only: the
+/// classification, scoring and duplicate rules (Objective 4) live in
+/// `features/classification/domain`, and this stores what they decide.
 class DamageReportRepositoryImpl extends FirestoreRepository
     implements DamageReportRepository {
   const DamageReportRepositoryImpl({required super.db, required super.guard});
@@ -131,6 +135,10 @@ class DamageReportRepositoryImpl extends FirestoreRepository
       description: submission.description.trim(),
       requestorPriority: submission.requestorPriority,
       requestorCategory: submission.requestorCategory,
+      // The keyword classifier's match, made on the filing phone (4.A).
+      // Marked automatic: GSU has not confirmed it yet (4.C).
+      category: submission.classifiedCategory,
+      classifiedAutomatically: submission.classifiedCategory != null,
       status: ReportStatus.submitted,
       facilityId: submission.facilityId,
       facilityName: submission.facilityName,
@@ -185,56 +193,109 @@ class DamageReportRepositoryImpl extends FirestoreRepository
   );
 
   @override
-  Future<Result<void>> setCategory({
+  Future<Result<void>> recordAssessment({
     required String reportId,
-    required String categoryId,
-    required bool classifiedAutomatically,
-    required String reviewedBy,
-  }) => updateDoc(
-    path: _path,
-    id: reportId,
-    data: {
-      'category': categoryId,
-      'classifiedAutomatically': classifiedAutomatically,
-      'reviewedBy': reviewedBy,
+    required ReportAssessment assessment,
+    required AuditActor actor,
+  }) => db.runTransaction<void>((transaction) async {
+    final reference = collection(_path).doc(reportId);
+    final snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw FirestoreRepository.notFound('No damage report $reportId');
+    }
+
+    // The stored report, not the caller's copy: a second administrator may
+    // have merged it, or raised its work order, since the page loaded.
+    final report = DamageReport.fromFirestore(snapshot);
+    if (report.isDuplicate) {
+      throw FirestoreRepository.precondition(
+        'This report was merged into another. Assess that report instead.',
+      );
+    }
+    if (!report.canBeAssessed) {
+      throw FirestoreRepository.precondition(
+        'This report is ${report.status.label}. Its damage type and priority '
+        'are set before a work order is raised, and cannot change now.',
+      );
+    }
+
+    transaction.update(reference, {
+      'category': assessment.category.id,
+      'classifiedAutomatically': assessment.classifiedAutomatically,
+      'severityRating': assessment.severityRating,
+      'safetyRiskRating': assessment.safetyRiskRating,
+      'frequencyRating': assessment.frequencyRating,
+      'locationImportanceRating': assessment.locationImportanceRating,
+      'priorityScore': assessment.priorityScore,
+      'recommendedPriority': assessment.recommendedPriority.id,
+      'officialPriority': assessment.officialPriority.id,
+      'reviewedBy': actor.id,
       'reviewedAt': FirestoreRepository.serverNow,
       'updatedAt': FirestoreRepository.serverNow,
-    },
-  );
+    });
+
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: actor,
+      action: AuditAction.updated,
+      entityType: FirestorePaths.damageReports,
+      entityId: reportId,
+      description: describeAssessment(assessment),
+      changes: {
+        'category': {'from': report.category?.id, 'to': assessment.category.id},
+        'classifiedAutomatically': assessment.classifiedAutomatically,
+        'ratings': {
+          'severity': assessment.severityRating,
+          'safetyRisk': assessment.safetyRiskRating,
+          'frequency': assessment.frequencyRating,
+          'locationImportance': assessment.locationImportanceRating,
+        },
+        'priorityScore': assessment.priorityScore,
+        'recommendedPriority': assessment.recommendedPriority.id,
+        'officialPriority': {
+          'from': report.officialPriority?.id,
+          'to': assessment.officialPriority.id,
+        },
+      },
+    );
+  });
+
+  /// The audit trail's line for [assessment]: what was decided, and
+  /// whether the official priority follows the recommendation or departs
+  /// from it — the part an auditor most needs to see.
+  static String describeAssessment(ReportAssessment assessment) {
+    final official = assessment.officialPriority;
+    final recommended = assessment.recommendedPriority;
+    final score = assessment.priorityScore.toStringAsFixed(2);
+    final priority = official == recommended
+        ? 'official priority ${official.label} as recommended (score $score)'
+        : 'official priority ${official.label}, '
+              '${official.index > recommended.index ? 'raised' : 'lowered'} '
+              'from the recommended ${recommended.label} (score $score)';
+    return 'Classified as ${assessment.category.label}; $priority';
+  }
 
   @override
-  Future<Result<void>> setOfficialPriority({
-    required String reportId,
-    required PriorityLevel priority,
-    required String reviewedBy,
-  }) => updateDoc(
-    path: _path,
-    id: reportId,
-    data: {
-      'officialPriority': priority.id,
-      'reviewedBy': reviewedBy,
-      'reviewedAt': FirestoreRepository.serverNow,
-      'updatedAt': FirestoreRepository.serverNow,
-    },
-  );
-
-  @override
-  Future<Result<void>> setRecommendedPriority({
-    required String reportId,
-    required double priorityScore,
-    required PriorityLevel recommendedPriority,
-  }) => updateDoc(
-    path: _path,
-    id: reportId,
-    data: {
-      'priorityScore': priorityScore,
-      'recommendedPriority': recommendedPriority.id,
-      'updatedAt': FirestoreRepository.serverNow,
-      // Deliberately does not touch officialPriority. The computed score
-      // is decision support; only an Administrator sets the official
-      // value (manuscript §1.2).
-    },
-  );
+  Future<Result<int>> countSimilarReports({
+    required String facilityId,
+    required DamageCategory category,
+    required DateTime since,
+  }) => guard.call(() async {
+    // A count, not a read of the reports: the hint needs a number, and
+    // an aggregate costs one read per thousand matches. Served by the
+    // (facilityId, category, submittedAt) index.
+    final snapshot = await collection(_path)
+        .where('facilityId', isEqualTo: facilityId)
+        .where('category', isEqualTo: category.id)
+        .where(
+          'submittedAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(since.toUtc()),
+        )
+        .count()
+        .get();
+    return snapshot.count ?? 0;
+  });
 
   @override
   Future<Result<void>> transitionStatus({
@@ -338,90 +399,150 @@ class DamageReportRepositoryImpl extends FirestoreRepository
   };
 
   @override
-  Future<Result<List<DamageReport>>> findPotentialDuplicates(
-    String reportId,
-  ) async {
-    final source = await getById(reportId);
-
-    return source.fold((report) async {
-      // Candidate set is narrowed server-side by the cheap, indexable
-      // criteria from §3.4 (same facility, same category). Description
-      // similarity — the one criterion Firestore cannot evaluate — is
-      // left to the caller in Objective 4, which owns the matching
-      // algorithm and its threshold.
-      if (report.facilityId == null) {
-        return const Result<List<DamageReport>>.success([]);
-      }
-
-      Query<Map<String, dynamic>> query = collection(_path)
-          .where('facilityId', isEqualTo: report.facilityId)
-          .where('duplicateOf', isNull: true);
-
-      if (report.category != null) {
-        query = query.where('category', isEqualTo: report.category!.id);
-      }
-
-      final candidates = await getMany(
-        query: query.orderBy('submittedAt', descending: true).limit(20),
-        convert: DamageReport.fromFirestore,
-      );
-
-      return candidates.map(
-        (list) => list.where((other) => other.id != reportId).toList(),
-      );
-    }, (failure) async => Result.failure(failure));
-  }
-
-  @override
   Future<Result<void>> mergeDuplicates({
     required String parentReportId,
     required List<String> duplicateReportIds,
-    required String mergedBy,
-  }) => db.runTransaction<void>((transaction) async {
-    // One transaction so a partial merge cannot happen: reports pointing at
-    // a parent that was never marked reviewed would be invisible in both
-    // the active queue and the merged set. A transaction rather than a
-    // batch so each report's history entry and notice commit with its
-    // status, and so each duplicate can be read for who filed it — every
-    // read before any write.
-    final duplicates = <DamageReport>[];
-    for (final id in duplicateReportIds) {
-      final snapshot = await transaction.get(collection(_path).doc(id));
-      if (!snapshot.exists) {
-        throw FirestoreRepository.notFound('No damage report $id');
-      }
-      duplicates.add(DamageReport.fromFirestore(snapshot));
-    }
-
-    for (final duplicate in duplicates) {
-      transaction.update(collection(_path).doc(duplicate.id), {
-        'duplicateOf': parentReportId,
-        'status': ReportStatus.merged.id,
-        'reviewedBy': mergedBy,
-        'reviewedAt': FirestoreRepository.serverNow,
-        'updatedAt': FirestoreRepository.serverNow,
-      });
-      stageReportMove(
-        transaction,
-        db.raw,
-        reportId: duplicate.id,
-        reporterId: duplicate.reporterId,
-        reportTitle: duplicate.title,
-        to: ReportStatus.merged,
-        from: duplicate.status,
-        changedBy: mergedBy,
-        mergedInto: parentReportId,
+    required AuditActor actor,
+  }) async {
+    if (duplicateReportIds.isEmpty) {
+      return const Result.failure(
+        ValidationFailure('Choose the reports to merge.'),
       );
     }
-    transaction.update(collection(_path).doc(parentReportId), {
-      'updatedAt': FirestoreRepository.serverNow,
+    if (duplicateReportIds.contains(parentReportId)) {
+      return const Result.failure(
+        ValidationFailure('A report cannot be merged into itself.'),
+      );
+    }
+
+    return db.runTransaction<void>((transaction) async {
+      // One transaction so a partial merge cannot happen: reports pointing
+      // at a parent that was never checked would be invisible in both the
+      // active queue and the merged set. Every read before any write.
+      final parentReference = collection(_path).doc(parentReportId);
+      final parentSnapshot = await transaction.get(parentReference);
+      if (!parentSnapshot.exists) {
+        throw FirestoreRepository.notFound('No damage report $parentReportId');
+      }
+      final parent = DamageReport.fromFirestore(parentSnapshot);
+      if (parent.isDuplicate || !parent.status.isOpen) {
+        throw FirestoreRepository.precondition(
+          'Report ${DisplayId.report(parent.id)} is '
+          '${parent.isDuplicate ? 'itself merged' : parent.status.label}, so '
+          'no report can be merged into it.',
+        );
+      }
+
+      final duplicates = <DamageReport>[];
+      for (final id in duplicateReportIds.toSet()) {
+        final snapshot = await transaction.get(collection(_path).doc(id));
+        if (!snapshot.exists) {
+          throw FirestoreRepository.notFound('No damage report $id');
+        }
+        final duplicate = DamageReport.fromFirestore(snapshot);
+        // Read from the stored report: the move is legal only from a
+        // report still awaiting review, with no work order behind it.
+        if (duplicate.isDuplicate ||
+            duplicate.workOrderId != null ||
+            !duplicate.status.canTransitionTo(ReportStatus.merged)) {
+          throw FirestoreRepository.precondition(
+            'Report ${DisplayId.report(duplicate.id)} is '
+            '${duplicate.isDuplicate ? 'already merged' : duplicate.status.label}. '
+            'Only a report still awaiting review can be merged.',
+          );
+        }
+        duplicates.add(duplicate);
+      }
+
+      for (final duplicate in duplicates) {
+        transaction.update(collection(_path).doc(duplicate.id), {
+          'duplicateOf': parentReportId,
+          'status': ReportStatus.merged.id,
+          'reviewedBy': actor.id,
+          'reviewedAt': FirestoreRepository.serverNow,
+          'updatedAt': FirestoreRepository.serverNow,
+        });
+        stageReportMove(
+          transaction,
+          db.raw,
+          reportId: duplicate.id,
+          reporterId: duplicate.reporterId,
+          reportTitle: duplicate.title,
+          to: ReportStatus.merged,
+          from: duplicate.status,
+          changedBy: actor.id,
+          mergedInto: parentReportId,
+        );
+        stageAuditEntry(
+          transaction,
+          db.raw,
+          actor: actor,
+          action: AuditAction.merged,
+          entityType: FirestorePaths.damageReports,
+          entityId: duplicate.id,
+          description:
+              'Merged into ${DisplayId.report(parentReportId)} as a duplicate',
+          changes: {
+            'from': duplicate.status.id,
+            'to': ReportStatus.merged.id,
+            'parent': parentReportId,
+          },
+        );
+      }
+      transaction.update(parentReference, {
+        'updatedAt': FirestoreRepository.serverNow,
+      });
     });
-  });
+  }
 
   @override
-  Future<Result<void>> dismissDuplicateFlag(String reportId) => updateDoc(
-    path: _path,
-    id: reportId,
-    data: {'duplicateOf': null, 'updatedAt': FirestoreRepository.serverNow},
-  );
+  Future<Result<void>> keepSeparate({
+    required String reportId,
+    required String otherReportId,
+    required AuditActor actor,
+  }) async {
+    if (reportId == otherReportId) {
+      return const Result.failure(
+        ValidationFailure('A report cannot be compared with itself.'),
+      );
+    }
+
+    return db.runTransaction<void>((transaction) async {
+      final reference = collection(_path).doc(reportId);
+      final otherReference = collection(_path).doc(otherReportId);
+      for (final (id, ref) in [
+        (reportId, reference),
+        (otherReportId, otherReference),
+      ]) {
+        if (!(await transaction.get(ref)).exists) {
+          throw FirestoreRepository.notFound('No damage report $id');
+        }
+      }
+
+      // On both reports, so the pair is never flagged again whichever of
+      // the two an administrator opens next.
+      transaction
+        ..update(reference, {
+          'dismissedDuplicateIds': FieldValue.arrayUnion([otherReportId]),
+          'updatedAt': FirestoreRepository.serverNow,
+        })
+        ..update(otherReference, {
+          'dismissedDuplicateIds': FieldValue.arrayUnion([reportId]),
+          'updatedAt': FirestoreRepository.serverNow,
+        });
+
+      stageAuditEntry(
+        transaction,
+        db.raw,
+        actor: actor,
+        action: AuditAction.updated,
+        entityType: FirestorePaths.damageReports,
+        entityId: reportId,
+        description:
+            'Kept separate from ${DisplayId.report(otherReportId)}: not a '
+            'duplicate',
+        changes: {'notDuplicateOf': otherReportId},
+      );
+    });
+  }
 }

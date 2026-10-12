@@ -27,6 +27,14 @@ abstract final class RoutePaths {
   /// Work-order management and Kanban board — built in 2.B.
   static const String adminWorkOrders = '/admin/work-orders';
 
+  /// One work order: tasks, the note to the technician, materials and
+  /// tools, and the accomplishment report to review (Objective 5).
+  static const String adminWorkOrderDetail = '/admin/work-orders/:workOrderId';
+
+  /// Link to [adminWorkOrderDetail] for one work order.
+  static String adminWorkOrderDetailFor(String workOrderId) =>
+      '/admin/work-orders/$workOrderId';
+
   /// Inventory management — real UI lands in Objective 6.
   static const String adminInventory = '/admin/inventory';
 
@@ -58,7 +66,7 @@ abstract final class RoutePaths {
   /// Notification centre — real UI lands in a later objective.
   static const String adminNotifications = '/admin/notifications';
 
-  /// System settings — real UI lands in a later objective.
+  /// Settings: the classification keywords (Objective 4.A).
   static const String adminSettings = '/admin/settings';
 
   // --- Requestor (Faculty/Staff, mobile) — WBS Objective 3 ---
@@ -106,18 +114,44 @@ abstract final class RoutePaths {
       '/staff/reports/$reportId/rate';
 
   // --- Maintenance Personnel (mobile) — WBS Objective 5 ---
+  //
+  // Personnel sign in on the mobile app's one sign-in page, [staffLogin]
+  // (Chris, 2026-10-12): the account's role decides where it lands.
 
-  static const String personnelLogin = '/personnel/login';
-
-  /// Personnel dashboard, task list, work-order detail — real UI lands in
-  /// 5.A.
+  /// Home: today's to-do and the technician's work orders (5.A,
+  /// Figure 24).
   static const String personnelDashboard = '/personnel/dashboard';
 
-  /// Work-order status updates + accomplishment reporting — real UI lands
-  /// in 5.B.
+  /// The Tasks tab: today's progress and every open task (5.A,
+  /// Figure 24).
+  static const String personnelTasks = '/personnel/tasks';
+
+  /// My Work Orders, as a list or a board (5.A, Figure 25).
   static const String personnelWorkOrders = '/personnel/work-orders';
 
-  /// QR/barcode scanning for material and tool usage — real UI lands in
-  /// 5.C.
+  /// One work order: its status, tasks, materials and tools, and the
+  /// accomplishment report (5.A–5.C, Figure 25).
+  static const String personnelWorkOrderDetail =
+      '/personnel/work-orders/:workOrderId';
+
+  /// Link to [personnelWorkOrderDetail] for one work order.
+  static String personnelWorkOrderFor(String workOrderId) =>
+      '/personnel/work-orders/$workOrderId';
+
+  /// The Materials tab: tools held, materials recorded (5.C).
+  static const String personnelMaterials = '/personnel/materials';
+
+  /// What a scanned code identified (5.C): the gold "+" scans, then
+  /// opens this with the code.
   static const String personnelScanning = '/personnel/scan';
+
+  /// Link to [personnelScanning] for a scanned [code].
+  static String personnelScanFor(String code) =>
+      '/personnel/scan?code=${Uri.encodeQueryComponent(code)}';
+
+  /// Notifications, opened from the header's bell.
+  static const String personnelAlerts = '/personnel/alerts';
+
+  /// The Profile tab.
+  static const String personnelProfile = '/personnel/profile';
 }

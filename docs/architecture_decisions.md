@@ -196,6 +196,9 @@ objective resolves:
 - no stated source for who assigns the 1-4 criterion ratings that feed
   the formula, or when.
 
+Both were resolved by Chris for Objective 4.B (see §18): the formula's
+weights, and the administrator rates in review.
+
 `Env` distinguishes development/production via `dart.vm.product` (set
 automatically by the build tooling) plus an optional
 `--dart-define=IS_PRODUCTION` override.
@@ -298,7 +301,9 @@ facts**:
 
 1. `ReportStatus.underReview` branches to `merged` / `rejected` /
    `archived` — taken from the duplicate-report handling options in
-   manuscript §3.4 ("merge, dismiss, or retain").
+   manuscript §3.4 ("merge, dismiss, or retain"). Since 4.C a
+   `submitted` report may also go straight to `merged`: a duplicate is
+   often spotted the moment it arrives (see §18).
 2. Both `ReportStatus.forReview` and `WorkOrderStatus.forReview` allow a
    transition back to `inProgress` — a rework loop for an incomplete
    accomplishment report. The manuscript never states whether rework is
@@ -725,3 +730,124 @@ photo, as on the detail page. Plain additions: the hint under an
 unrated row, "Rate all three to submit", the error line, the read-only
 view of a rating already given, and a note when the report is not yet
 completed (a stale link).
+
+## 18. Objectives 4.A–4.C: classification, priority scoring, review and duplicates
+
+**Scope and sources.** Chris's development plan: 4.A the keyword
+classification engine, 4.B the weighted priority score, 4.C confirming
+or modifying the official priority level ("before work-order
+assignment", §1.5). Built from manuscript §1.5, §3.4 and Tables 3.2–3.5,
+and four decisions Chris made on 2026-10-12, noted below. No Figma frame
+exists for any of it; the screens are built from the console's existing
+components. The engines are pure Dart in
+`features/classification/domain/`: `KeywordClassifier`,
+`PriorityScorer`, `DuplicateDetector`.
+
+**4.A: classification runs on the filing phone.** There are no Cloud
+Functions on the Spark plan, so the faculty app classifies a report as
+it is filed and stores the damage type with `classifiedAutomatically:
+true`. The rules accept a category from a requestor only when it is a
+known one and marked automatic. When no keyword matches, two types tie,
+or the dictionary cannot be read, the report is filed unclassified and
+an administrator classifies it (§3.4). Matching is **DERIVED**: a
+keyword's words in order, case ignored, punctuation as spaces, each word
+allowed a longer ending, in the title and description both; the type
+with the most keywords found wins. The requestor's own DAMAGE TYPE
+(3.C) stays a suggestion beside it.
+
+**4.A: the keyword editor is on the Settings page (Chris).** The
+console's Settings item, disabled until now, opens a page with the
+classification keywords per damage type: add, remove, discard, save. A
+"Try a description" box classifies typed text with the unsaved list. A
+keyword is 3–60 characters, needs a letter or digit, and belongs to one
+type only, compared the way the classifier compares. Saving writes the
+administrator's uid and the time; the new list classifies reports filed
+afterwards and changes no filed report. With no saved document, the
+manuscript's Table 3.3 list is in use and the page says it is not saved
+yet. The same fallback applies to all three `config/*` documents, so a
+live project works before anyone saves them; any other read failure is
+shown as one.
+
+**4.B: the formula's weights (Chris).** The §3.4 formula (0.40 / 0.30 /
+0.20 / 0.10) over Table 3.2 (3 / 4 / 2 / 3); **Table 3.2 in the
+manuscript needs correcting to match.** Score = Σ weight × rating ÷ Σ
+weight, so another scheme would stay on Table 3.5's 1.00–4.00 scale,
+rounded to two decimals before banding (2.5000000000000004 is 2.50,
+High, as on paper).
+
+**4.B: the administrator rates all four, in review (Chris).** On the
+report page, with the score and recommended level updating as they rate.
+Frequency is pre-filled from how many reports of the same damage type
+were filed at the same facility in the last 30 days, this one included:
+2, 3 and 5 reports suggest Moderate, High and Very High (**DERIVED**,
+held in `config/prioritization`). It counts every report filed, merged
+duplicates and rejected reports included. The count is one aggregate
+query on the existing (facility, category, submitted) index.
+
+**4.C: the official priority is set before assignment.** The review
+panel shows the keywords found, the requestor's suggestion and urgency,
+the four ratings with their weights and §3.4 meanings, the score with
+its formula and bands, and the official level. That level follows the
+recommendation until the administrator picks another; a different level
+is saved as their change, and the audit entry says so ("official
+priority CRITICAL, raised from the recommended HIGH (score 3.10)"). The
+type, ratings, score and both levels are saved in one transaction with
+the audit entry, and may be revised until a work order is raised; after
+that the panel is gone and the summary card remains. Assignment now
+refuses a report without a confirmed official priority, and the work
+order takes the official priority. In the Task Assignment queue, such a
+report's button reads "Review type and priority" and opens its page.
+
+**4.C: duplicate detection (added by Chris).** Two reports are flagged
+when both are open and unmerged, an administrator has not kept them
+separate, they are at the same place (the same facility, or the same
+stated location), they were filed within 72 hours of each other, and
+they share a damage type — or their wording is at least half alike and
+shares at least two key words. This combination of §3.4's five factors
+is **DERIVED**. Wording is the share of the shorter text's key words the
+other uses. Common words, words under three letters and each report's
+own location words are left out, so "Room 101" in two descriptions does
+not make two jobs in that room alike. The flags are computed in the
+console over the reports it already holds, with no extra reads: a mark
+in the reports table, and a Possible duplicates card on the report page.
+**Merge**, confirmed in a dialog, closes the report still awaiting
+review as a duplicate of the other (the later one, when both are); its
+requestor is told, as in 2.B, and the parent's work order carries the
+job. **Keep separate** records the ruling on both reports
+(`dismissedDuplicateIds`), so the pair is not flagged again. A merge is
+refused unless the duplicate is awaiting review with no work order and
+the parent is open and not itself merged.
+
+**`submitted → merged`.** A duplicate is often spotted on arrival, but
+the rules require every timeline entry to match the report's final
+status, so one transaction cannot write "under review" and then
+"merged". The lifecycle allows the direct move instead.
+
+**Accessibility fix found while testing (outside 4.A–4.C).** Each
+page's route draws a modal barrier, and a barrier drops from the
+semantics tree everything painted before it in the same container. In
+the console that was the whole sidebar and top bar; in the faculty app,
+the header and offline banner. Screen readers could not reach them. The
+page area in both shells is now a semantics container of its own; a test
+for each shell covers it.
+
+**Report page layout.** Below 1000 pixels the two-column layout stacked
+its columns while still wrapped in `Expanded`, inside a scrolling page,
+which fails. The columns are no longer wrapped there, and the
+`IntrinsicHeight` around the wide layout, which changed nothing visible,
+is gone.
+
+**Seed.** Reviewed reports carry ratings that produce their official
+priority. Only reports whose text holds a Table 3.3 keyword are marked
+as classified automatically. `rep-0007` (approved before 4.C, no
+official priority) and `rep-0008` (unclassified) wait for review in Task
+Assignment. `rep-ana-0002`, Ana's report of the same fan as `rep-0001`,
+is flagged as its duplicate. `rep-0002` and `rep-0007` (plumbing at the
+same building) are seeded as already kept separate. The duplicate
+threshold is 0.5, and the frequency window and bands are in
+`config/prioritization`.
+
+**Not built.** The weights, bands and duplicate settings have no editor
+(Chris chose the keyword editor only); they are edited in the
+documents. Merging is one pair at a time. A merged duplicate is closed,
+not attached to the parent's work order.

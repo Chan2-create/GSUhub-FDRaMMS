@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/enums/work_order_status.dart';
+import '../../../../core/routing/route_paths.dart';
 import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/initials.dart';
 import '../../../../core/widgets/priority_chip.dart';
@@ -225,13 +227,28 @@ class WorkOrderCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    DisplayId.workOrder(workOrder.id),
-                    style: AppTextStyles.workOrderId.copyWith(
-                      color: isCompleted ? AppColors.textSecondary : null,
-                      decoration: isCompleted
-                          ? TextDecoration.lineThrough
-                          : null,
+                  // The number opens the work order (Objective 5): the
+                  // card itself is dragged between columns.
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Tooltip(
+                      message: 'Open this work order',
+                      child: InkWell(
+                        onTap: () => context.go(
+                          RoutePaths.adminWorkOrderDetailFor(workOrder.id),
+                        ),
+                        child: Text(
+                          DisplayId.workOrder(workOrder.id),
+                          style: AppTextStyles.workOrderId.copyWith(
+                            color: isCompleted
+                                ? AppColors.textSecondary
+                                : AppColors.primary,
+                            decoration: isCompleted
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.underline,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),

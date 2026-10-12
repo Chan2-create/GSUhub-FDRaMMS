@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/accomplishment/data/repositories/accomplishment_report_repository.dart';
 import '../../features/accomplishment/data/repositories/accomplishment_report_repository_impl.dart';
+import '../../features/accomplishment/data/repositories/material_usage_repository.dart';
+import '../../features/accomplishment/data/repositories/material_usage_repository_impl.dart';
 import '../../features/audit/data/repositories/audit_log_repository.dart';
 import '../../features/audit/data/repositories/audit_log_repository_impl.dart';
 import '../../features/classification/data/repositories/config_repository.dart';
@@ -75,6 +77,13 @@ final accomplishmentReportRepositoryProvider =
         guard: ref.watch(firebaseCallGuardProvider),
       ),
     );
+
+final materialUsageRepositoryProvider = Provider<MaterialUsageRepository>(
+  (ref) => MaterialUsageRepositoryImpl(
+    db: ref.watch(firestoreServiceImplProvider),
+    guard: ref.watch(firebaseCallGuardProvider),
+  ),
+);
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(
   (ref) => InventoryRepositoryImpl(

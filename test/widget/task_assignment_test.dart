@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
+import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
@@ -18,6 +20,7 @@ void main() {
     required String id,
     required String title,
     DamageCategory? category = DamageCategory.electrical,
+    PriorityLevel? officialPriority = PriorityLevel.high,
     ReportStatus status = ReportStatus.approved,
     String? workOrderId,
   }) => DamageReport(
@@ -27,6 +30,7 @@ void main() {
     title: title,
     description: 'Seeded for test.',
     category: category,
+    officialPriority: officialPriority,
     facilityName: 'Engineering Building',
     requestorPriority: PriorityLevel.high,
     status: status,
@@ -64,16 +68,32 @@ void main() {
       assignResult: assignResult,
     );
 
+    // The queue sends a report not yet reviewed to its page (4.C); the
+    // stand-in page says which report it was opened for.
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => Scaffold(
+            body: TaskAssignmentScreen(preselectedReportId: preselected),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.adminReportDetail,
+          builder: (context, state) => Scaffold(
+            body: Text('Report page ${state.pathParameters['reportId']}'),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
     await tester.pumpWidget(
       fakeAdminScope(
         reports: Result.success(reports),
         personnel: Result.success(personnel),
         workOrderRepository: workOrders,
-        child: MaterialApp(
-          home: Scaffold(
-            body: TaskAssignmentScreen(preselectedReportId: preselected),
-          ),
-        ),
+        child: MaterialApp.router(routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();
@@ -109,13 +129,14 @@ void main() {
       expect(find.text('1 PENDING'), findsOneWidget);
     });
 
-    testWidgets('cannot assign a report that has no damage category yet', (
+    // The repository raises no work order without a damage type, which
+    // routes the job to a trade, or without a confirmed official priority
+    // (§1.5, Objective 4.C). The queue says so up front, and opens the page
+    // where both are set, rather than let an administrator pick a
+    // technician and then fail.
+    testWidgets('sends a report with no damage type to its page', (
       tester,
     ) async {
-      // The repository refuses to raise a work order without a category,
-      // because it is what routes the job to a trade. The queue has to say
-      // so up front rather than let an administrator pick a technician and
-      // then fail. Classifying is Objective 4.C.
       await pump(
         tester,
         reports: [
@@ -126,15 +147,32 @@ void main() {
 
       // Still listed: an approved report that vanished would be worse.
       expect(find.text('Ceiling Stain'), findsOneWidget);
-      expect(find.text('Needs classification'), findsOneWidget);
+      expect(find.text('Review type and priority'), findsOneWidget);
 
-      final button = tester.widget<FilledButton>(
-        find.ancestor(
-          of: find.text('Needs classification'),
-          matching: find.byType(FilledButton),
-        ),
+      await tester.tap(find.text('Review type and priority'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Report page rep-1'), findsOneWidget);
+    });
+
+    testWidgets('sends a report with no official priority to its page', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        reports: [
+          approved(id: 'rep-2', title: 'Broken Faucet', officialPriority: null),
+        ],
+        personnel: [electrician],
       );
-      expect(button.onPressed, isNull);
+
+      expect(find.text('Broken Faucet'), findsOneWidget);
+      expect(find.text('Review type and priority'), findsOneWidget);
+
+      await tester.tap(find.text('Review type and priority'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Report page rep-2'), findsOneWidget);
     });
     testWidgets('says why the queue is empty', (tester) async {
       await pump(tester, reports: [], personnel: [electrician]);

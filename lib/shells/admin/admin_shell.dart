@@ -59,7 +59,10 @@ class AdminShell extends ConsumerWidget {
                 ),
                 // The gold rule the design runs beneath the top bar.
                 Container(height: 13, color: AppColors.accentGold),
-                Expanded(child: child),
+                // A container of its own, so the page route's modal
+                // barrier hides nothing outside it: without one, screen
+                // readers lost the sidebar and the top bar.
+                Expanded(child: Semantics(container: true, child: child)),
               ],
             ),
           ),

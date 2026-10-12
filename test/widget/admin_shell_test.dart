@@ -43,6 +43,21 @@ void main() {
   String currentPath() => router.routerDelegate.currentConfiguration.uri.path;
 
   group('sidebar', () {
+    testWidgets('reaches screen readers, not only the page beside it', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pumpShell(tester, at: RoutePaths.adminReports);
+
+      // Each page's route draws a modal barrier, which drops from the
+      // semantics tree everything painted before it in the same container.
+      // Without a container of the page area's own, that was the whole
+      // shell: sidebar and top bar went unread (found during 4.C).
+      expect(find.bySemanticsLabel('Settings'), findsOneWidget);
+      expect(find.bySemanticsLabel('GSU Administration'), findsOneWidget);
+      semantics.dispose();
+    });
+
     testWidgets('lists every navigation destination', (tester) async {
       await pumpShell(tester);
 
@@ -85,6 +100,7 @@ void main() {
         'Work Order Management', // 2.B
         'Analytics', // 2.C
         'User Accounts', // 2.C
+        'Settings', // 4.A
       ]);
     });
 
@@ -101,7 +117,7 @@ void main() {
     testWidgets('a disabled destination does not navigate', (tester) async {
       await pumpShell(tester);
 
-      await tester.tap(find.text('Settings').first, warnIfMissed: false);
+      await tester.tap(find.text('Map View').first, warnIfMissed: false);
       await tester.pumpAndSettle();
 
       expect(currentPath(), RoutePaths.adminDashboard);
