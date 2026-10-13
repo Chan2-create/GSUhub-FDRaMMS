@@ -101,6 +101,7 @@ class _ViewToggle extends StatelessWidget {
           ])
             Expanded(
               child: Semantics(
+                container: true,
                 button: true,
                 selected: board == value,
                 child: Material(

@@ -12,6 +12,7 @@ import 'analytics_providers.dart';
 import 'analytics_summary.dart';
 import 'widgets/analytics_kpi_row.dart';
 import 'widgets/building_bars.dart';
+import 'widgets/inventory_section.dart';
 import 'widgets/monthly_volume_chart.dart';
 import 'widgets/resolution_trend_chart.dart';
 import 'widgets/top_issues_table.dart';
@@ -54,6 +55,9 @@ class AnalyticsScreen extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 24),
+          // Objective 6.C: the inventory, on the same period.
+          const InventoryAnalyticsSection(),
         ],
       ),
     );

@@ -342,25 +342,18 @@ here is automated.
       from **User Accounts** in the console, or by signing up in the app
       and being approved there.
 
-4. **Add the facilities and configuration — not the demo data.** Never
-   run `tool\seed_emulator.dart` against production; it only talks to
-   the emulators anyway, and its accounts and reports are for testing.
-   - **Facilities** are needed before anyone can file a report (the form
-     picks a building and room). There is no screen for them yet, so add
-     the campus's real rooms in Firestore → `facilities` → Add document,
-     one per room:
-
-     | Field | Type | Example |
-     |---|---|---|
-     | `name` | string | `Engineering Building` |
-     | `buildingName` | string | `Engineering Building` |
-     | `roomIdentifier` | string | `Room 203` |
-     | `locationDescription` | string or null | `2nd floor, east wing` |
-     | `coordinates` | geopoint or null | |
-     | `qrCode` | string | the value its QR sticker encodes, unique per room, e.g. `FAC-ENG-203` |
-     | `isActive` | boolean | `true` |
-     | `createdAt`, `updatedAt` | timestamp | now |
-
+4. **Add the rooms, materials, tools and configuration — not the demo
+   data.** Never run `toolseed_emulator.dart` against production; it
+   only talks to the emulators anyway, and its accounts and reports are
+   for testing.
+   - **Rooms** are needed before anyone can file a report (the form picks
+     a building and room). Sign in to the console and add the campus's
+     real rooms, and any equipment in them, on **Facilities & Equipment**
+     (Objective 6.C). Each gets a code; **Print all labels** saves the
+     stickers to print and put up.
+   - **Materials and tools** go in on **Inventory Management** (Add
+     Material, Add New Tool), with their opening stock. Print each one's
+     label from its QR icon or details.
    - **Configuration** (`config/prioritization`,
      `config/classification_rules`, `config/duplicate_detection`) needs
      no copying. While a document is missing, the app uses the
@@ -376,7 +369,12 @@ here is automated.
    (`gsuhub-dorsu.firebasestorage.app`) is the newer kind that Firebase
    only provides on Blaze. On Spark, **photo upload fails on live** — and
    the report form requires at least one photo, so **faculty cannot file
-   reports on live until the project is on Blaze.** Do not work around
+   reports on live until the project is on Blaze.** The same goes for
+   the personnel app (Objective 5): proof photos on tasks fail, and the
+   accomplishment report needs at least one photo, so **technicians
+   cannot submit finished work on live until then either.** A material's
+   photo on the Inventory page (6.A) is optional; until then materials
+   show an icon. QR labels need no Storage: they are made in the browser. Do not work around
    this by putting images in Firestore as base64. Blaze is pay-as-you-go
    with a free allowance that covers a capstone's use; set a budget alert
    when you switch.

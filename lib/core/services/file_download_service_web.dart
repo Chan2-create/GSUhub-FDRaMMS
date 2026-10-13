@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:js_interop';
+import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
@@ -20,22 +21,37 @@ class PlatformFileDownloadService implements FileDownloadService {
       // like "Peñaranda" survive the round trip instead of turning to
       // mojibake.
       final bytes = utf8.encode('﻿$contents');
-      final blob = web.Blob(
-        [bytes.toJS].toJS,
-        web.BlobPropertyBag(type: '$mimeType;charset=utf-8'),
-      );
-      final url = web.URL.createObjectURL(blob);
-      final anchor = web.HTMLAnchorElement()
-        ..href = url
-        ..download = fileName;
-      anchor.style.display = 'none';
-      web.document.body!.append(anchor);
-      anchor.click();
-      anchor.remove();
-      web.URL.revokeObjectURL(url);
+      _download(fileName, bytes, '$mimeType;charset=utf-8');
       return const Result.success(null);
     } on Object {
       return Result.failure(UnknownFailure('Could not save $fileName.'));
     }
+  }
+
+  @override
+  Future<Result<void>> saveBytes({
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+  }) async {
+    try {
+      _download(fileName, bytes, mimeType);
+      return const Result.success(null);
+    } on Object {
+      return Result.failure(UnknownFailure('Could not save $fileName.'));
+    }
+  }
+
+  static void _download(String fileName, Uint8List bytes, String type) {
+    final blob = web.Blob([bytes.toJS].toJS, web.BlobPropertyBag(type: type));
+    final url = web.URL.createObjectURL(blob);
+    final anchor = web.HTMLAnchorElement()
+      ..href = url
+      ..download = fileName;
+    anchor.style.display = 'none';
+    web.document.body!.append(anchor);
+    anchor.click();
+    anchor.remove();
+    web.URL.revokeObjectURL(url);
   }
 }

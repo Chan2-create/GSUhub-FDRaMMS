@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart' show IconData, Icons;
+
 import '../../../core/routing/route_paths.dart';
 
 /// One entry in the admin sidebar.
@@ -8,6 +10,7 @@ class AdminNavItem {
     required this.path,
     required this.isEnabled,
     this.disabledReason,
+    this.fallbackIcon,
   });
 
   final String label;
@@ -15,6 +18,9 @@ class AdminNavItem {
   /// Path to the SVG exported from Figma, or null when the design
   /// supplied no glyph.
   final String? iconAsset;
+
+  /// Drawn when [iconAsset] is null.
+  final IconData? fallbackIcon;
 
   final String path;
 
@@ -63,8 +69,7 @@ const List<AdminNavGroup> adminNavGroups = [
         label: 'Inventory Management',
         iconAsset: 'assets/icons/nav_inventory.svg',
         path: RoutePaths.adminInventory,
-        isEnabled: false,
-        disabledReason: 'Inventory management arrives in Objective 6.',
+        isEnabled: true,
       ),
       AdminNavItem(
         label: 'Personnel',
@@ -120,6 +125,15 @@ const List<AdminNavGroup> adminNavGroups = [
         label: 'User Accounts',
         iconAsset: 'assets/icons/nav_users.svg',
         path: RoutePaths.adminUsers,
+        isEnabled: true,
+      ),
+      // Objective 6.C, no design: the rooms and equipment the QR codes
+      // name. Beside User Accounts, the other registry the system keeps.
+      AdminNavItem(
+        label: 'Facilities & Equipment',
+        iconAsset: null,
+        fallbackIcon: Icons.meeting_room_outlined,
+        path: RoutePaths.adminFacilities,
         isEnabled: true,
       ),
       AdminNavItem(

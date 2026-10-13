@@ -9,7 +9,10 @@ import '../../features/auth/presentation/requestor_sign_up_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/dashboard/presentation/personnel_home_screen.dart';
 import '../../features/dashboard/presentation/requestor_home_screen.dart';
+import '../../features/facilities/presentation/facilities_screen.dart';
 import '../../features/feedback/presentation/rate_service_screen.dart';
+import '../../features/inventory/presentation/inventory_screen.dart';
+import '../../features/inventory/presentation/personnel/material_request_screen.dart';
 import '../../features/notifications/presentation/alerts_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_report_detail_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_reports_screen.dart';
@@ -98,6 +101,14 @@ GoRouter buildAppRouter({
               ),
             ),
           ],
+        ),
+        GoRoute(
+          path: RoutePaths.adminInventory,
+          builder: (context, state) => const InventoryScreen(),
+        ),
+        GoRoute(
+          path: RoutePaths.adminFacilities,
+          builder: (context, state) => const FacilitiesScreen(),
         ),
         GoRoute(
           path: RoutePaths.adminPersonnel,
@@ -208,6 +219,14 @@ GoRouter buildAppRouter({
               builder: (context, state) => PersonnelWorkOrderScreen(
                 workOrderId: state.pathParameters['workOrderId']!,
               ),
+              routes: [
+                GoRoute(
+                  path: 'materials',
+                  builder: (context, state) => MaterialRequestScreen(
+                    workOrderId: state.pathParameters['workOrderId']!,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -241,7 +260,6 @@ GoRouter buildAppRouter({
 /// Admin routes whose screens belong to later objectives. Kept as a list
 /// so adding one is a single line rather than a copied `GoRoute` block.
 const List<(String, String)> _adminPlaceholders = [
-  (RoutePaths.adminInventory, 'Inventory Management — Objective 6'),
   (RoutePaths.adminMapView, 'Map View — pending confirmation'),
   (RoutePaths.adminNotifications, 'Notifications — later objective'),
 ];

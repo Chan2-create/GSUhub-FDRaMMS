@@ -70,7 +70,10 @@ class TaskCheck extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final done = status == TaskStatus.completed;
+    // A node of its own: merged into the card, a screen reader could not
+    // tell the tick from the card it sits on, nor tap it.
     return Semantics(
+      container: true,
       button: true,
       checked: done,
       label: done ? 'Mark as not done' : 'Mark as done',
@@ -333,6 +336,7 @@ class ProofThumbnails extends StatelessWidget {
     children: [
       for (final url in urls)
         Semantics(
+          container: true,
           button: true,
           label: 'Open photo',
           child: GestureDetector(

@@ -109,9 +109,16 @@ All use the password `password123`.
   Building and Room selects have real choices. Each carries a QR value
   `FAC-<ID IN CAPITALS>`, e.g. `FAC-FAC-ENGINEERING-203`.
 - **3 assets** — aircon unit, projector, ceiling fan (QR `AST-…`)
-- **5 inventory items** — two deliberately below their minimum threshold,
-  so the low-stock alert path has something to show
-- **4 tools** — one already in repair, one in poor condition
+- **8 materials** — Figure 15's five and Group 43's, with sizes and unit
+  costs (the floor sealant has none, so Total Stock Value has one to
+  leave out); three are below their minimum, so the low-stock alerts have
+  something to show. Their ledger is seeded too: each history job's
+  materials and an opening delivery, ending at today's stock.
+- **5 tools** — one in repair, one in poor condition, the multimeter out
+  with `personnel@` and due back today
+- **4 material requests** — two waiting (Marcus on `wo-0003`, Juan on
+  `wo-0002`), one declined with GSU's note, one approved, its materials
+  pre-assigned to `wo-0013`
 - **3 config documents** — Table 3.3's keywords, both prioritization
   weight schemes with the formula's in use, and the duplicate settings
   (see `docs/data_dictionary.md`)
@@ -129,6 +136,39 @@ All use the password `password123`.
 - **Ratings** — every closed report in the six-month history has one,
   and was closed by it (3.C). `rep-0005`, "Cracked Wall Near Stairwell",
   is completed and not yet rated, to try rating on.
+- **Personnel work (5.A–5.C)** — 9 tasks across the open work orders,
+  4 LED bulbs recorded on `wo-0003`, the multimeter borrowed by
+  `personnel@`, two accomplishment reports (one signed off, one waiting
+  for sign-off) and 6 notices to technicians.
+
+## The personnel app (Objectives 5.A–5.C)
+
+Sign in on the mobile sign-in page (in a browser,
+`http://localhost:<port>/#/staff/login`) as `personnel@dorsu.edu.ph`
+(Marcus Wright, electrical). It lands on the personnel dashboard.
+
+- **Home** shows today's tasks, the counts and the open work orders.
+  "Sparking Wall Outlet" (`wo-0013`) is new and not started; tick its
+  first task, or open it and press **Start work**, and it moves to in
+  progress (the requestor's report and timeline follow).
+- **Finish a job.** Open "Flickering Lights" (`wo-0003`, in progress):
+  it has four tasks, 4 LED bulbs recorded and the multimeter borrowed.
+  Record or change materials, return the multimeter, then add a photo
+  and completion notes and press **Mark Complete**. The confirmation
+  lists what comes off stock. After submitting, the work waits for
+  sign-off and the LED stock has dropped.
+- **Sign off** in the console as `admin@`: Work Orders → the work
+  order's number opens its page. "Loose Ceiling Panel" (`wo-0009`) is
+  waiting already. **Approve and sign off** completes it; **Send back for
+  rework** asks for a note, which the technician sees at the top of the
+  work order. The same page adds tasks; the technician is told.
+- **Scan** with the gold **+**. On a phone, show a code for a seeded
+  value from any QR or barcode generator: `INV-INV-LED-BULB` (a
+  material), `TOOL-TL-0912` (the multimeter) or a room's `FAC-…`. In a
+  browser without a camera, go to
+  `http://localhost:<port>/#/personnel/scan?code=TOOL-TL-0912` instead.
+- **Materials** lists what you have recorded per open work order and the
+  tools you have.
 
 ## Classification, priority and duplicates (Objectives 4.A–4.C)
 
@@ -156,6 +196,32 @@ Sign in to the console as `admin@`.
   from then on, on the phone, as they are submitted: file a report
   whose description says "short circuit" and it arrives classified as
   Electrical.
+
+## Inventory, tools and QR codes (Objectives 6.A–6.C)
+
+Sign in to the console as `admin@` and open **Inventory Management**
+(its red count is the materials low on stock).
+
+- **Materials.** PVC pipe, white paint and insulation tape show LOW STOCK
+  and **ORDER**: press it, record a delivery, and the alert clears. Click
+  a card for its details and stock history (each use links to its work
+  order), a stock count, and its QR label. **Add Material** adds one with
+  its opening stock.
+- **Requests.** Material Requests lists Marcus's and Juan's. **Approve**
+  puts the items on the work order's pre-assigned list and tells the
+  technician; **Decline** asks why. Stock does not move until the
+  technician's report is filed.
+- **Tools.** **Check Out** the Fiber Optic Cleaver to a technician; the
+  multimeter shows **Check In**. Click a tool for its loans, repair and
+  retire, and its label. **Scan QR** uses the computer's camera.
+- **Facilities & Equipment** (sidebar, under System) lists every room and
+  piece of equipment with its code. Add, edit, deactivate; each row's QR
+  icon shows its label, and **Print all labels** saves an A4 sheet to cut.
+- **Analytics** ends with Most Used Materials for the chosen period, and
+  **Export inventory report** (a CSV of stock and movements).
+- On the phone, as `personnel@`: "Sparking Wall Outlet" shows the
+  materials GSU pre-assigned; **Request Materials** opens Group 43's page,
+  with "Flickering Lights"'s request history (one waiting, one declined).
 
 ## The faculty and staff app (Objectives 3.A, 3.B and 3.C)
 
@@ -204,8 +270,9 @@ run overwrites rather than duplicating.
 
 ## Rules tests
 
-**99 tests, all passing.** They start their own emulator, so nothing needs
-to be running first:
+**135 tests, all passing.** They start their own emulator, so nothing needs
+to be running first (stop `firebase emulators:start` first: both want
+port 8080):
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot"
@@ -234,6 +301,19 @@ to be wrong:
 - a requestor cannot pre-set `officialPriority` when submitting
 - personnel cannot read work orders assigned to someone else, reassign one
   to themselves, or read feedback (§1.5)
+- personnel work (5.A–5.C): personnel list only their own work orders,
+  tasks, accomplishment reports and tool loans, and read a report only
+  when it is their work; they may only start and submit work, tick tasks
+  and add proof; materials are recorded by the assigned technician, at
+  server time, only while the work is open; an accomplishment report is
+  filed only in the write that submits the work, says truly whether stock
+  was deducted, and only an administrator reviews it
+- inventory (6.A–6.C): a technician requests materials only for their own
+  open work, pending and unreviewed, and lists only their own requests;
+  only an administrator reviews one, once, with a reason to decline;
+  pre-assigned materials are the administrator's to set and the assigned
+  technician's to read; an administrator checks tools out to technicians
+  only; only an administrator adds materials and rooms
 - a **deactivated** account loses access despite valid credentials
 - self-registration (3.A): a person may create only their own profile,
   only as a `pending` requestor under their own email with server time;

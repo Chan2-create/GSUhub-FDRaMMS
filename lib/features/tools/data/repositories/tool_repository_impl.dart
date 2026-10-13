@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/constants/firestore_paths.dart';
 import '../../../../core/data/firestore_repository.dart';
+import '../../../../core/data/qr_codes.dart';
 import '../../../../core/enums/audit_action.dart';
 import '../../../../core/enums/item_condition.dart';
 import '../../../../core/enums/tool_status.dart';
@@ -11,6 +12,7 @@ import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../models/tool.dart';
+import '../models/tool_draft.dart';
 import '../models/tool_loan.dart';
 import 'tool_repository.dart';
 
@@ -58,20 +60,167 @@ class ToolRepositoryImpl extends FirestoreRepository implements ToolRepository {
   }
 
   @override
-  Future<Result<String>> createTool(Tool tool) =>
-      add(path: _tools, data: tool.toFirestore());
+  Stream<Result<Tool>> watchTool(String id) =>
+      watchOne(path: _tools, id: id, convert: Tool.fromFirestore);
 
   @override
-  Future<Result<void>> updateTool(Tool tool) => updateDoc(
-    path: _tools,
-    id: tool.id,
-    data: {...tool.toFirestore(), 'updatedAt': FirestoreRepository.serverNow},
-  );
+  Future<Result<String>> createTool({
+    required ToolDraft draft,
+    required AuditActor actor,
+  }) async {
+    if (draft.problem case final problem?) {
+      return Result.failure(ValidationFailure(problem));
+    }
+    final clean = draft.normalized();
+    if (await _taken(clean) case final failure?) return Result.failure(failure);
+
+    return db.runTransaction<String>((transaction) async {
+      final toolRef = collection(_tools).doc();
+      transaction.set(toolRef, {
+        ...clean.toFields(),
+        'status': ToolStatus.available.id,
+        'currentHolderId': null,
+        'currentLoanId': null,
+        'createdAt': FirestoreRepository.serverNow,
+        'updatedAt': FirestoreRepository.serverNow,
+      });
+      stageAuditEntry(
+        transaction,
+        db.raw,
+        actor: actor,
+        action: AuditAction.created,
+        entityType: _tools,
+        entityId: toolRef.id,
+        description: 'Added ${clean.name} (${clean.toolCode}) to the tools',
+      );
+      return toolRef.id;
+    });
+  }
+
+  @override
+  Future<Result<void>> updateToolDetails({
+    required String toolId,
+    required ToolDraft draft,
+    required AuditActor actor,
+  }) async {
+    if (draft.problem case final problem?) {
+      return Result.failure(ValidationFailure(problem));
+    }
+    final clean = draft.normalized();
+    if (await _taken(clean, exceptId: toolId) case final failure?) {
+      return Result.failure(failure);
+    }
+
+    return db.runTransaction<void>((transaction) async {
+      final toolRef = collection(_tools).doc(toolId);
+      final snapshot = await transaction.get(toolRef);
+      if (!snapshot.exists) {
+        throw FirestoreRepository.notFound('No tool $toolId');
+      }
+      final tool = Tool.fromFirestore(snapshot);
+      final fields = clean.toFields();
+      // A tool out on loan keeps the condition it left in; its return
+      // records what it comes back in.
+      if (tool.status == ToolStatus.borrowed) {
+        fields['condition'] = tool.condition.id;
+      }
+      final before = snapshot.data() ?? const <String, dynamic>{};
+      final changes = <String, dynamic>{
+        for (final MapEntry(:key, :value) in fields.entries)
+          if (before[key] != value) key: {'from': before[key], 'to': value},
+      };
+      if (changes.isEmpty) return;
+
+      transaction.update(toolRef, {
+        ...fields,
+        'updatedAt': FirestoreRepository.serverNow,
+      });
+      stageAuditEntry(
+        transaction,
+        db.raw,
+        actor: actor,
+        action: AuditAction.updated,
+        entityType: _tools,
+        entityId: toolId,
+        description: 'Updated ${clean.name} (${clean.toolCode})',
+        changes: changes,
+      );
+    });
+  }
+
+  @override
+  Future<Result<void>> setToolStatus({
+    required String toolId,
+    required ToolStatus status,
+    required AuditActor actor,
+  }) => db.runTransaction<void>((transaction) async {
+    final toolRef = collection(_tools).doc(toolId);
+    final snapshot = await transaction.get(toolRef);
+    if (!snapshot.exists) {
+      throw FirestoreRepository.notFound('No tool $toolId');
+    }
+    final tool = Tool.fromFirestore(snapshot);
+    if (tool.status == status) return;
+    if (status == ToolStatus.borrowed) {
+      throw FirestoreRepository.precondition('Check a tool out to lend it.');
+    }
+    if (tool.status == ToolStatus.borrowed) {
+      throw FirestoreRepository.precondition(
+        '${tool.name} is out with a technician; check it in first.',
+      );
+    }
+    if (tool.status == ToolStatus.retired) {
+      throw FirestoreRepository.precondition('${tool.name} is retired.');
+    }
+
+    transaction.update(toolRef, {
+      'status': status.id,
+      'updatedAt': FirestoreRepository.serverNow,
+    });
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: actor,
+      action: AuditAction.statusChanged,
+      entityType: _tools,
+      entityId: toolId,
+      description: switch (status) {
+        ToolStatus.inRepair => 'Sent ${tool.name} to repair',
+        ToolStatus.retired => 'Retired ${tool.name}',
+        _ => 'Brought ${tool.name} back from repair',
+      },
+      changes: {
+        'status': {'from': tool.status.id, 'to': status.id},
+      },
+    );
+  });
+
+  /// A failure saying the draft's tool ID or code is taken, or null.
+  Future<Failure?> _taken(ToolDraft draft, {String? exceptId}) async {
+    final clash = await guard.call(() async {
+      final sameId = await collection(_tools)
+          .where('toolCode', isEqualTo: draft.toolCode)
+          .limit(2)
+          .get();
+      if (sameId.docs.any((doc) => doc.id != exceptId)) {
+        return 'Another tool already has the ID ${draft.toolCode}.';
+      }
+      final owner = await qrCodeOwner(db.raw, draft.qrCode, exceptId: exceptId);
+      return owner == null
+          ? null
+          : 'The code ${draft.qrCode} is already on $owner.';
+    });
+    return clash.fold(
+      (message) => message == null ? null : ValidationFailure(message),
+      (failure) => failure,
+    );
+  }
 
   @override
   Future<Result<ToolLoan>> borrowTool({
     required String toolId,
     required AuditActor borrower,
+    AuditActor? issuedBy,
     String? workOrderId,
     DateTime? expectedReturnAt,
   }) => db.runTransaction<ToolLoan>((transaction) async {
@@ -119,16 +268,19 @@ class ToolRepositoryImpl extends FirestoreRepository implements ToolRepository {
       'currentLoanId': loanRef.id,
       'updatedAt': FirestoreRepository.serverNow,
     });
+    final forWork = workOrderId == null
+        ? ''
+        : ' for ${DisplayId.workOrder(workOrderId)}';
     stageAuditEntry(
       transaction,
       db.raw,
-      actor: borrower,
+      actor: issuedBy ?? borrower,
       action: AuditAction.created,
       entityType: _loans,
       entityId: loanRef.id,
-      description:
-          'Borrowed ${tool.name}'
-          '${workOrderId == null ? '' : ' for ${DisplayId.workOrder(workOrderId)}'}',
+      description: issuedBy == null
+          ? 'Borrowed ${tool.name}$forWork'
+          : 'Checked out ${tool.name} to ${borrower.name}$forWork',
       changes: {
         'toolId': toolId,
         'condition': tool.condition.id,
@@ -244,6 +396,12 @@ class ToolRepositoryImpl extends FirestoreRepository implements ToolRepository {
             .orderBy('borrowedAt', descending: true),
         convert: ToolLoan.fromFirestore,
       );
+
+  @override
+  Stream<Result<List<ToolLoan>>> watchLoanHistory(String toolId) => watchMany(
+    query: collection(_loans).where('toolId', isEqualTo: toolId),
+    convert: ToolLoan.fromFirestore,
+  ).map((result) => result.map(_newestFirst));
 
   @override
   Future<Result<List<ToolLoan>>> getLoanHistory(

@@ -196,6 +196,7 @@ class AccomplishmentReportRepositoryImpl extends FirestoreRepository
             'accomplishmentReportId': reportId,
             'notes': 'Deducted on accomplishment report submission',
             'performedBy': actor.id,
+            'performedByName': actor.name,
             'performedAt': FirestoreRepository.serverNow,
           })
           // The recorded line has done its job once deducted.

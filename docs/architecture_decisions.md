@@ -851,3 +851,255 @@ threshold is 0.5, and the frequency window and bands are in
 (Chris chose the keyword editor only); they are edited in the
 documents. Merging is one pair at a time. A merged duplicate is closed,
 not attached to the parent's work order.
+
+## 19. Objectives 5.A–5.C: the maintenance personnel app
+
+**Scope and sources.** Chris's development plan: 5.A the personnel
+dashboard, task list and work-order detail; 5.B status updates and the
+accomplishment report; 5.C QR and barcode scanning for material and tool
+usage. Built from the Figma export's personnel frames (Group 47
+dashboard and Group 39 Tasks, manuscript Fig 24; Group 41 My Work Orders
+and Group 42 work-order detail, Fig 25; Group 43 materials), manuscript
+§3.4, and four decisions Chris made on 2026-10-12, noted below. The
+older personnel passes in the export (Frame, iPhone 13&14, image 4/5,
+Html→Body) are not used. The scan result page and the console's
+work-order page have no frame; they are built from the existing cards
+and flagged in the code.
+
+**One mobile sign-in (Chris).** Personnel sign in on the same page as
+faculty and staff; the role decides where they land, and a personnel
+account reaching a faculty page (or the reverse) is sent home. The
+separate personnel login route is gone. CREATE ACCOUNT stays, for
+faculty and staff only, with a line under it saying GSU creates
+personnel accounts. The wording on the page no longer says "faculty".
+
+**The shell.** The faculty app's header and bottom bar became shared
+widgets (`shells/mobile/`), which both apps now use. The personnel tabs
+are Home, Tasks, the gold **+**, Materials and Profile; the work-order
+pages count as Home, and the bell opens Alerts. Profile is the faculty
+app's (Sign out only).
+
+**Tasks: the administrator adds them (Chris).** Assigning a report now
+also creates the work order's first task: the report's title, its
+location as the details, due on the scheduled date or at once. The
+technician is told of it. The console gained a page per work order
+(the number on the board and in the table links to it) where the
+administrator adds more tasks, with a due date, or deletes one not yet
+done; the technician is told of each new one. Technicians tick tasks off
+and upload proof photos; they cannot add, rename or reassign one. The
+first task ticked or proof uploaded on pending work starts it, as Start
+work does. `activeTaskCount` still counts open work orders, as in 2.B;
+tasks do not change it.
+
+**Today's to-do (DERIVED).** The open tasks of open work orders that are
+due today, overdue or undated, then the tasks finished today. Coming up
+is the open tasks due after today. Overdue is due before today and not
+done.
+
+**Status moves.** Personnel may start their work (pending → in
+progress) and submit it (in progress → for review), nothing else;
+sign-off and send-back are the administrator's. Every move — from the
+board, a task, the report or the review — goes through one shared step
+(`WorkOrderMove`) that moves the linked reports with it, writes their
+timeline entries, tells the requestor, releases the technicians' counts
+on completion and writes the audit entry, all in the same transaction.
+
+**The accomplishment report.** Completion notes (up to 2000 characters)
+and 1–5 photos of the finished work, filed with Mark Complete after a
+confirmation that lists what comes off stock and any tasks still open.
+One transaction files the report, takes each recorded material off
+stock with a consumption entry in the inventory ledger, clears the
+recorded list and moves the work order to for review. The id is
+reserved before the photos upload and the transaction reads first, so a
+retry after a timeout cannot file twice (as in 3.C). It is refused
+unless the work is in progress and the person filing is assigned to it.
+
+**Review.** The console's work-order page shows the report with **Approve
+and sign off** (the work order and its reports complete, and the
+requestor is asked to rate it, 3.C) and **Send back for rework**. A
+send-back needs a note: the work order returns to in progress and the
+note appears at the top of the technician's page. The technician is
+told either way. A report is reviewed once; the newest is the one acted
+on.
+
+**Materials: usage now, requests later (Chris).** While the work is
+open, the technician records the materials used on it, by scan or from
+the list, in `work_orders/{id}/materials_used/{itemId}`. A quantity
+above what is in stock is refused when recorded; stock changes only
+when the report is filed. "Request Additional Materials" (Group 43)
+waits for Objective 6, inventory.
+
+**Tools.** Borrowed and returned by scan or from the list, against a
+work order or none. A loan stays with the technician until returned. A
+tool returned in poor condition goes to repair. Personnel see their own
+loans only.
+
+**The gold + opens the scanner (Chris).** It reads any code GSUhub
+prints, QR or barcode, and looks it up as a material, then a tool, then
+a room or piece of equipment (3.C's lookup). The result page offers
+what fits: record the material on a work order, borrow or return the
+tool, or the technician's work orders at that place. An unknown code
+says so; a failed read is shown as one, not as "unknown".
+
+**Notifications to technicians.** A new work order, a new task, work sent
+back and work signed off each write a notice to the technician (type
+`workOrderAssigned`, `taskAssigned`, `statusUpdate`,
+`maintenanceCompleted`; related to the work order). Push on the phone
+works as in 3.B, and tapping one opens the work order.
+
+**Rules.** Personnel now list only their own work orders, tasks,
+accomplishment reports and loans, and read a damage report only when it
+belongs to their work. The two status moves above are the only work
+order change they may make. A recorded material is the assigned
+technician's own, stamped at server time, while the work is open. An
+accomplishment report is filed only in the write that submits the work,
+with `inventoryDeducted` true exactly when materials were used; the
+rules cannot see the ledger entries themselves (known gap, as before).
+A technician may ask whether a report id is taken, as a requestor may
+in 3.C.
+
+**Fixes found while testing (outside 5.A–5.C).** A `Semantics(button:
+true)` without `container: true` merges into its parent, so screen
+readers could not reach the task tick and the app's other custom
+buttons; all of them are containers now. On the web, an error thrown
+inside a Firestore transaction reached the app wrapped in a JavaScript
+error and showed as "Something went wrong"; `FirestoreServiceImpl` now
+rethrows the original, which also fixes the console's refusals since
+2.B. The scan result page re-reads a tool after it is borrowed or
+returned.
+
+**Seed.** `personnel@` (Marcus Wright) has "Flickering Lights"
+(`wo-0003`) in progress with four tasks, 4 LED bulbs recorded and the
+multimeter borrowed; "Sparking Wall Outlet" (`wo-0013`, new) not yet
+started with two tasks; and "Cracked Wall Near Stairwell" (`wo-0005`)
+signed off. "Loose Ceiling Panel" (`wo-0009`, `structural@`) waits for
+sign-off in the console.
+
+**Not built.** Requesting materials (Objective 6). The board's columns
+still move a work order to For Review or Completed without an
+accomplishment report or its review. A filed report cannot be edited;
+a send-back asks for a new one.
+
+## 20. Objectives 6.A–6.C: inventory, tools, requests, QR codes and reports
+
+**Scope and sources.** The development plan names Objective 6 only as
+"inventory, tools, QR generation/scanning". Split as: 6.A materials,
+6.B tools and materials requests, 6.C QR generation and inventory
+reports. Built from Figma `200:4032` (manuscript Figure 15, Admin
+Inventory Management, read through the Figma API for its exact styles
+and icons), Figure Group 43 (the technician's materials page), manuscript
+§1.5 and §3.4, and four decisions Chris made on 2026-10-13, noted below.
+The console's Material Requests list, its dialogs, the work-order page's
+pre-assigned card, the Facilities & Equipment page and Analytics'
+inventory section have no frame; they use the console's existing cards,
+tables and dialogs, and are flagged in the code.
+
+**6.A: the Inventory Management page (Figure 15).** Four cards, the
+material cards and the tool table, all read live; none of the mockup's
+numbers appear. The material cards keep the design's photo, badge, name,
+"category • size", quantity, edit and cart buttons. ORDER replaces the
+cart on a low material. The manuscript excludes procurement (§1.5
+limitations), so the cart and ORDER both **record stock received** — a
+`replenishment` ledger entry — rather than placing an order. Not in the
+design but needed: Add Material, a search box that searches, a category
+filter, and each material's details with its stock history (§3.4
+"review material usage history"), Record delivery, Record stock count
+(an `adjustment` entry with a reason, either direction) and its QR
+label. A material's photo is optional; without one the card shows an
+icon. A new material's opening stock arrives as a ledger entry, so even
+the first units are traceable.
+
+**6.A: unit cost (Chris).** Figure 15's first card is Total Stock Value,
+and §3.4's list of material fields has no price, so each material gains
+an optional `unitCost` in pesos. The card sums quantity × cost and says
+how many materials have no cost yet. The mockup's "+2.4% from last
+month" is left out: there is no price history to compare with.
+`specification` (Figure 15's "Bulk", "10ft") and `photoUrl` are also
+new, both optional and DERIVED.
+
+**6.A: low-stock alerts (DERIVED).** §1.5's "automatic low-stock alerts"
+are shown live wherever the console is open, the moment a movement takes
+a material to its minimum: a red count on Inventory Management in the
+sidebar, the Low Stock Alerts card, the LOW STOCK badge and ORDER on the
+card, and LOW STOCK on the technician's pre-assigned list. No
+notification document is written: the console has no notification
+centre yet, and a technician's phone cannot list the administrators to
+address one to (the rules let personnel read only their own account).
+
+**6.B: tools (Figure 15).** The table's Check Out lends a tool to an
+active technician, for one of their open work orders or none, with an
+optional return date (the Active Tool Loans card counts loans due today
+and overdue). Check In closes the loan with the condition it came back
+in; poor sends it to repair. "Locked", as drawn, marks a tool in repair.
+Bringing it back, sending one to repair or retiring one is in the tool's
+details, with its loan history and QR label. Add New Tool registers one;
+its code defaults to `TOOL-<tool ID>`, the form the scanner already
+reads. Scan QR uses the computer's camera and opens the material or
+tool it reads. The rules now let an administrator create a loan for a
+technician. The mockup's "Est. completion: 3 days" under Tools in Repair
+has no data behind it (nothing records a repair's expected end), so the
+card says how many tools there are in all.
+
+**6.B: requests and pre-assigned materials (Chris).** The administrator
+pre-assigns materials to a work order on its console page. A technician
+asks for more from Group 43's page (items, quantities, a note), opened
+from the work order's new Pre-assigned Materials card. The console lists
+waiting requests above the materials; **Approve** (an optional note)
+adds the items to the work order's pre-assigned list, **Decline** needs
+a note, and the technician is told either way. Pre-assigning and
+approving move no stock: §1.5 deducts "after the corresponding
+accomplishment report is submitted", so stock still comes off only by
+what the technician records as used. Approval is refused when the store
+holds less than asked, or the work is no longer open. A request is filed
+under a reserved id, so a retry cannot file it twice. The design's draft
+lines say "Pending" before they are sent; the note box and the list of
+what each request asked for are added, flagged.
+
+**6.C: QR codes (Chris).** Every material, tool, room and piece of
+equipment shows its code as a QR on screen and downloads it as a
+printable A4 label sheet (3 × 5, a 4 cm code with its name and the code
+in text), drawn with the `pdf` and `barcode_widget` packages (pure Dart).
+A code may belong to one thing only, across all four kinds: one scanner
+reads them all. The check runs before the save, since Firestore
+transactions cannot query; two administrators saving the same new code
+in the same second could both pass, acceptable at GSU's scale. New
+codes default to `INV-<NAME>`, `TOOL-<ID>`, `FAC-<ID>` and `AST-<ID>`.
+
+**6.C: Facilities & Equipment (Chris).** A new console page, beside User
+Accounts in the sidebar: rooms (building, room, where it is,
+coordinates, code) and the equipment in them (name, room, type, serial
+number, condition, code), added, edited, deactivated and reactivated,
+each with its label, and Print all labels for every active one. A room
+is never deleted, so old reports keep resolving; an inactive one leaves
+the report form. Until now rooms were added to Firestore by hand.
+
+**6.C: inventory reports (Chris).** Each material's stock history in its
+details. Analytics gains Most Used Materials for the chosen period:
+consumption ranked by how many work orders used each material, then by
+quantity (ranking quantities alone would compare rolls with bulbs). Its
+Export inventory report saves a CSV of every material's stock, then
+every movement in the period.
+
+**Ledger names.** A ledger entry now carries `performedByName`, as it
+already carried the item's name, so the history reads with a name for as
+long as it is kept. Entries from before show the technician's name from
+the personnel list, or "Not recorded".
+
+**Seed.** Eight materials (Figure 15's five, Group 43's socket plates
+and insulation tape, and floor sealant without a cost), three of them
+low; five tools, the multimeter due back today; a ledger behind today's
+stock (each six-month history job's materials, and an opening delivery);
+four requests: two waiting (Marcus on `wo-0003`, Juan on `wo-0002`), one
+declined with GSU's note, and one approved, its materials pre-assigned
+to `wo-0013`.
+
+**Fixes found while testing.** On the desktop web build, compact visual
+density took all 8px of vertical padding from Figure 15's small navy
+buttons, squashing them to their text; the inventory buttons now keep
+standard density. ORDER's tooltip was spoken as the whole card's label;
+the button now says "Order more <material>" itself.
+
+**Not built.** Low-stock notifications as documents, and the console's
+notification centre. Material photos on live need Cloud Storage, so the
+Blaze plan, like every photo. Labels are a PDF to print, not sent to a
+label printer.

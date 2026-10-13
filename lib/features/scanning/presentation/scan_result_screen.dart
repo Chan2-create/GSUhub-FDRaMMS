@@ -118,7 +118,7 @@ class ScanResultScreen extends ConsumerWidget {
               ),
             ],
           ),
-          ToolMatch(:final tool) => _ToolActions(tool: tool),
+          ToolMatch(:final tool) => _ToolActions(tool: tool, code: code),
           PlaceMatch(:final place) => _PlaceWork(place: place),
         },
       ),
@@ -127,9 +127,13 @@ class ScanResultScreen extends ConsumerWidget {
 }
 
 class _ToolActions extends ConsumerWidget {
-  const _ToolActions({required this.tool});
+  const _ToolActions({required this.tool, required this.code});
 
   final Tool tool;
+
+  /// The code that found [tool]: read again once it is borrowed or
+  /// returned, so the page shows where the tool is now.
+  final String code;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -151,7 +155,10 @@ class _ToolActions extends ConsumerWidget {
         const SizedBox(height: 16),
         if (tool.status.isIssuable)
           FilledButton.icon(
-            onPressed: () => showBorrowToolSheet(context, tool: tool),
+            onPressed: () async {
+              await showBorrowToolSheet(context, tool: tool);
+              if (context.mounted) ref.invalidate(scanMatchProvider(code));
+            },
             icon: const Icon(Icons.handyman_outlined),
             label: const Text('Borrow'),
             style: FilledButton.styleFrom(
@@ -161,7 +168,10 @@ class _ToolActions extends ConsumerWidget {
           )
         else if (mine && loan != null)
           FilledButton.icon(
-            onPressed: () => showReturnToolSheet(context, loan),
+            onPressed: () async {
+              await showReturnToolSheet(context, loan);
+              if (context.mounted) ref.invalidate(scanMatchProvider(code));
+            },
             icon: const Icon(Icons.assignment_return_outlined),
             label: const Text('Return'),
             style: FilledButton.styleFrom(

@@ -32,6 +32,15 @@ enum InventoryTransactionType {
   /// The value persisted on `inventory_transactions/{id}.type`.
   String get id => name;
 
+  /// As a material's stock history names it (Objective 6.A).
+  String get label => switch (this) {
+    InventoryTransactionType.issuance => 'Issued',
+    InventoryTransactionType.consumption => 'Used',
+    InventoryTransactionType.returned => 'Returned',
+    InventoryTransactionType.replenishment => 'Delivered',
+    InventoryTransactionType.adjustment => 'Stock count',
+  };
+
   static InventoryTransactionType fromId(String id) =>
       InventoryTransactionType.values.firstWhere(
         (type) => type.id == id,

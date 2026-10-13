@@ -58,6 +58,7 @@ Future<void> main() async {
   await _seedDamageReports();
   await _seedWorkOrders();
   await _seedPersonnelWork();
+  await _seedMaterialRequests();
   await _seedHistory();
   await _seedAuditLogs();
   stdout.writeln(
@@ -396,32 +397,110 @@ Future<void> _seedAssets() async {
 
 // --- inventory & tools -------------------------------------------------
 
-Future<void> _seedInventory() async {
-  final items = [
-    ('inv-led-bulb', 'LED Bulbs (60W Eq)', 'Electrical', 452.0, 'units', 50.0),
-    ('inv-pvc-pipe', 'PVC Pipe (2-inch)', 'Plumbing', 12.0, 'units', 20.0),
-    ('inv-hvac-filter', 'HVAC MERV-13 Filter', 'HVAC', 128.0, 'units', 25.0),
-    ('inv-romex-wire', '12/2 ROMEX Wire', 'Electrical', 34.0, 'rolls', 10.0),
-    ('inv-white-paint', 'Campus White (Flat)', 'Paint', 5.0, 'gallons', 8.0),
-  ];
+/// The store's materials (Figure 15's five, and Group 43's), as they stand
+/// now: id, name, category, size or pack, quantity, unit, minimum, and unit
+/// cost in pesos (Objective 6.A). The floor sealant has no cost yet, so the
+/// Total Stock Value card has a material to say it leaves out.
+const List<(String, String, String, String, double, String, double, double?)>
+_inventory = [
+  (
+    'inv-led-bulb',
+    'LED Bulbs (60W Eq)',
+    'Electrical',
+    'Bulk',
+    452,
+    'units',
+    50,
+    95,
+  ),
+  (
+    'inv-pvc-pipe',
+    'PVC Pipe (2-inch)',
+    'Plumbing',
+    '10ft',
+    12,
+    'units',
+    20,
+    310,
+  ),
+  (
+    'inv-hvac-filter',
+    'HVAC MERV-13 Filter',
+    'HVAC',
+    '20x20x1',
+    128,
+    'units',
+    25,
+    450,
+  ),
+  (
+    'inv-romex-wire',
+    '12/2 ROMEX Wire',
+    'Electrical',
+    '250ft',
+    34,
+    'rolls',
+    10,
+    3850,
+  ),
+  (
+    'inv-white-paint',
+    'Campus White (Flat)',
+    'Paint',
+    '5 Gal',
+    5,
+    'cans',
+    8,
+    1650,
+  ),
+  (
+    'inv-socket-plate',
+    'Wall Socket Plate (Double)',
+    'Electrical',
+    'Double',
+    40,
+    'pcs',
+    10,
+    85,
+  ),
+  (
+    'inv-insulation-tape',
+    'Insulation Tape (Black)',
+    'Electrical',
+    '19mm',
+    2,
+    'rolls',
+    5,
+    45,
+  ),
+  ('inv-floor-sealant', 'Floor Sealant', 'Paint', '1 L', 6, 'cans', 4, null),
+];
 
-  for (final (id, name, category, quantity, unit, threshold) in items) {
+Future<void> _seedInventory() async {
+  for (final (id, name, category, size, quantity, unit, threshold, cost)
+      in _inventory) {
     await _writeDoc('inventory_items', id, {
       'name': _str(name),
       'category': _str(category),
+      'specification': _str(size),
       'quantityAvailable': _double(quantity),
       'unitOfMeasurement': _str(unit),
       'storageLocation': _str('GSU Store Room A'),
       'qrCode': _str('INV-${id.toUpperCase()}'),
       'minimumThreshold': _double(threshold),
+      'unitCost': cost == null ? _null() : _double(cost),
+      'photoUrl': _null(),
+      'condition': _null(),
       'createdAt': _now(),
       'updatedAt': _now(),
     });
   }
 
-  // Two items are deliberately below threshold (PVC pipe, white paint) so
-  // the low-stock alert path has something to show without editing data.
-  stdout.writeln('  inventory_items: ${items.length} (2 below threshold)');
+  // PVC pipe, white paint and insulation tape are below their minimum, so
+  // the low-stock alerts have something to show without editing data.
+  stdout.writeln(
+    '  inventory_items: ${_inventory.length} (3 below their minimum)',
+  );
 }
 
 Future<void> _seedTools() async {
@@ -447,6 +526,13 @@ Future<void> _seedTools() async {
       'Pipe Threading Kit (Rigid)',
       'available',
       'poor',
+    ),
+    (
+      'tool-fiber-cleaver',
+      'TL-0431',
+      'Fiber Optic Cleaver',
+      'available',
+      'excellent',
     ),
   ];
 
@@ -1458,7 +1544,17 @@ Future<void> _seedPersonnelWork() async {
     'borrowedBy': _str(personnelUid),
     'workOrderId': _str('wo-0003'),
     'borrowedAt': _ago(const Duration(hours: 5)),
-    'expectedReturnAt': _null(),
+    // Due back by the end of today: the Active Tool Loans card's "due
+    // today" (Objective 6.B).
+    'expectedReturnAt': _at(
+      DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+        23,
+        59,
+      ),
+    ),
     'returnedAt': _null(),
     'conditionOnBorrow': _str('good'),
     'conditionOnReturn': _null(),
@@ -1639,6 +1735,7 @@ Future<void> _seedHistory() async {
   final now = DateTime.now();
   var seeded = 0;
   var rated = 0;
+  final used = <_Use>[];
   for (var m = 0; m < months.length; m++) {
     final (count, days) = months[m];
     final monthsAgo = months.length - 1 - m;
@@ -1719,6 +1816,19 @@ Future<void> _seedHistory() async {
         'updatedAt': _at(completed),
       });
 
+      // What the job used, deducted when its report was filed (6.C's
+      // Most Used Materials and each material's history).
+      for (final (itemId, quantity)
+          in _usedBy[category] ?? const <(String, double)>[]) {
+        used.add((
+          at: completed.subtract(const Duration(hours: 2)),
+          itemId: itemId,
+          quantity: quantity + seeded % 3,
+          workOrderId: workOrderId,
+          by: assignee,
+        ));
+      }
+
       final steps = [
         ('submitted', submitted, facultyUid),
         ('underReview', submitted.add(const Duration(hours: 1)), adminUid),
@@ -1769,12 +1879,233 @@ Future<void> _seedHistory() async {
     }
   }
 
+  await _seedLedger(used);
+
   stdout
     ..writeln('  history: $seeded resolved reports over six months')
     ..writeln(
       '  feedback: $rated ratings, one per closed report; '
       'rep-0005 is completed and still unrated',
     );
+}
+
+/// A material used on a finished job in the history.
+typedef _Use = ({
+  DateTime at,
+  String itemId,
+  double quantity,
+  String workOrderId,
+  String by,
+});
+
+/// What a finished job of each trade used, per job.
+const Map<String, List<(String, double)>> _usedBy = {
+  'electrical': [('inv-led-bulb', 4), ('inv-insulation-tape', 1)],
+  'plumbing': [('inv-pvc-pipe', 1)],
+  'structural': [('inv-white-paint', 1)],
+  'airConditioning': [('inv-hvac-filter', 2)],
+  'generalMaintenance': [('inv-white-paint', 1)],
+};
+
+/// The ledger behind today's stock (Objective 6.A): a consumption entry for
+/// each history job's materials, and an opening delivery seven months ago,
+/// chained so every entry's balance after is the next one's before and the
+/// last is what the store holds now.
+Future<void> _seedLedger(List<_Use> used) async {
+  final names = {for (final item in _inventory) item.$1: item.$2};
+  final balance = {for (final item in _inventory) item.$1: item.$5};
+  final newestFirst = [...used]..sort((a, b) => b.at.compareTo(a.at));
+
+  var n = 0;
+  for (final use in newestFirst) {
+    final after = balance[use.itemId]!;
+    final before = after + use.quantity;
+    balance[use.itemId] = before;
+    n++;
+    await _writeDoc(
+      'inventory_transactions',
+      'txn-h${n.toString().padLeft(3, '0')}',
+      {
+        'inventoryItemId': _str(use.itemId),
+        'itemName': _str(names[use.itemId]!),
+        'type': _str('consumption'),
+        'quantity': _double(use.quantity),
+        'quantityBefore': _double(before),
+        'quantityAfter': _double(after),
+        'workOrderId': _str(use.workOrderId),
+        'accomplishmentReportId': _null(),
+        'notes': _str('Deducted on accomplishment report submission'),
+        'performedBy': _str(use.by),
+        'performedByName': _str(_personnel[use.by]?.$1 ?? 'Technician'),
+        'performedAt': _at(use.at),
+      },
+    );
+  }
+
+  final opened = DateTime.now().subtract(const Duration(days: 210));
+  for (final (id, name, _, _, _, _, _, _) in _inventory) {
+    await _writeDoc('inventory_transactions', 'txn-open-$id', {
+      'inventoryItemId': _str(id),
+      'itemName': _str(name),
+      'type': _str('replenishment'),
+      'quantity': _double(balance[id]!),
+      'quantityBefore': _double(0),
+      'quantityAfter': _double(balance[id]!),
+      'workOrderId': _null(),
+      'accomplishmentReportId': _null(),
+      'notes': _str('Opening stock'),
+      'performedBy': _str(adminUid),
+      'performedByName': _str('Ramon Dela Cruz'),
+      'performedAt': _at(opened),
+    });
+  }
+
+  stdout.writeln(
+    '  inventory_transactions: ${n + _inventory.length} '
+    '($n used on history jobs, ${_inventory.length} opening deliveries)',
+  );
+}
+
+/// Technicians' requests for materials, and what GSU pre-assigned
+/// (Objective 6.B, Group 43): one waiting from each of two technicians, one
+/// declined and one approved, its materials on wo-0013.
+Future<void> _seedMaterialRequests() async {
+  Map<String, Object?> lines(List<(String, double)> items) => {
+    'arrayValue': {
+      'values': [
+        for (final (id, quantity) in items)
+          _map({
+            'inventoryItemId': _str(id),
+            'itemName': _str(_inventory.firstWhere((i) => i.$1 == id).$2),
+            'quantity': _double(quantity),
+            'unitOfMeasurement': _str(
+              _inventory.firstWhere((i) => i.$1 == id).$6,
+            ),
+          }),
+      ],
+    },
+  };
+
+  final requests = [
+    (
+      'rq-0001',
+      'wo-0003',
+      personnelUid,
+      [('inv-led-bulb', 6.0)],
+      'Two more fixtures in the reading area are failing.',
+      'pending',
+      null,
+      2,
+    ),
+    (
+      'rq-0002',
+      'wo-0003',
+      personnelUid,
+      [('inv-romex-wire', 1.0)],
+      'To rewire the study area fixtures.',
+      'declined',
+      'The fixtures share the existing circuit; no rewiring is approved. '
+          'Replace the ballasts only.',
+      20,
+    ),
+    (
+      'rq-0003',
+      'wo-0013',
+      personnelUid,
+      [('inv-socket-plate', 2.0), ('inv-insulation-tape', 1.0)],
+      'The outlet plate is scorched; a spare in case the box needs one too.',
+      'approved',
+      'Collect them from Store Room A, Shelf B.',
+      4,
+    ),
+    (
+      'rq-0004',
+      'wo-0002',
+      personnelPlumberUid,
+      [('inv-pvc-pipe', 2.0)],
+      'The joint under the sink is cracked; the run needs replacing.',
+      'pending',
+      null,
+      1,
+    ),
+  ];
+
+  for (final (id, workOrderId, by, items, note, status, adminNote, hoursAgo)
+      in requests) {
+    final reviewed = status != 'pending';
+    await _writeDoc('material_requests', id, {
+      'workOrderId': _str(workOrderId),
+      'requestedBy': _str(by),
+      'requestedByName': _str(_personnel[by]!.$1),
+      'items': lines(items),
+      'status': _str(status),
+      'note': _str(note),
+      'adminNote': adminNote == null ? _null() : _str(adminNote),
+      'reviewedBy': reviewed ? _str(adminUid) : _null(),
+      'reviewedAt': reviewed ? _ago(Duration(hours: hoursAgo - 1)) : _null(),
+      'createdAt': _ago(Duration(hours: hoursAgo)),
+      'updatedAt': _ago(Duration(hours: reviewed ? hoursAgo - 1 : hoursAgo)),
+    });
+  }
+
+  // rq-0003's materials, on the job it was approved for.
+  for (final (itemId, quantity) in [
+    ('inv-socket-plate', 2.0),
+    ('inv-insulation-tape', 1.0),
+  ]) {
+    final item = _inventory.firstWhere((i) => i.$1 == itemId);
+    await _writeDoc('work_orders/wo-0013/materials_allocated', itemId, {
+      'itemName': _str(item.$2),
+      'quantity': _double(quantity),
+      'unitOfMeasurement': _str(item.$6),
+      'allocatedBy': _str(adminUid),
+      'allocatedAt': _ago(const Duration(hours: 3)),
+    });
+  }
+
+  // Marcus is told of both answers, in the app's wording.
+  final answers = [
+    (
+      'nt-rq-0002',
+      PersonnelNotice.materialsDeclined(
+        requestNumber: '#RQ-0002',
+        workOrderTitle: 'Flickering Lights',
+        adminNote:
+            'The fixtures share the existing circuit; no rewiring is '
+            'approved. Replace the ballasts only.',
+      ),
+      'wo-0003',
+      19,
+    ),
+    (
+      'nt-rq-0003',
+      PersonnelNotice.materialsApproved(
+        requestNumber: '#RQ-0003',
+        workOrderTitle: 'Sparking Wall Outlet',
+        adminNote: 'Collect them from Store Room A, Shelf B.',
+      ),
+      'wo-0013',
+      3,
+    ),
+  ];
+  for (final (id, notice, workOrderId, hoursAgo) in answers) {
+    await _writeDoc('notifications', id, {
+      'recipientId': _str(personnelUid),
+      'type': _str(notice.type.id),
+      'title': _str(notice.title),
+      'body': _str(notice.body),
+      'relatedEntityType': _str('work_orders'),
+      'relatedEntityId': _str(workOrderId),
+      'isRead': _bool(false),
+      'readAt': _null(),
+      'createdAt': _ago(Duration(hours: hoursAgo)),
+    });
+  }
+
+  stdout.writeln(
+    '  material_requests: ${requests.length} (2 waiting, 1 approved onto '
+    'wo-0013, 1 declined)',
+  );
 }
 
 /// A short audit trail, so the dashboard's Recent Activity panel and the

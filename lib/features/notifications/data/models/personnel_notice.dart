@@ -55,6 +55,33 @@ class PersonnelNotice {
         body: 'GSU signed off "$workOrderTitle" as completed.',
       );
 
+  /// A request for materials granted (Objective 6.B).
+  factory PersonnelNotice.materialsApproved({
+    required String requestNumber,
+    required String workOrderTitle,
+    String? adminNote,
+  }) => PersonnelNotice(
+    type: NotificationType.statusUpdate,
+    title: 'Materials approved',
+    body:
+        'GSU approved request $requestNumber for "$workOrderTitle". The '
+        'materials are on the work order.'
+        '${adminNote == null ? '' : ' GSU: "$adminNote"'}',
+  );
+
+  /// A request for materials refused, with GSU's reason (Objective 6.B).
+  factory PersonnelNotice.materialsDeclined({
+    required String requestNumber,
+    required String workOrderTitle,
+    required String adminNote,
+  }) => PersonnelNotice(
+    type: NotificationType.statusUpdate,
+    title: 'Materials request declined',
+    body:
+        'GSU declined request $requestNumber for "$workOrderTitle": '
+        '"$adminNote"',
+  );
+
   final NotificationType type;
   final String title;
   final String body;

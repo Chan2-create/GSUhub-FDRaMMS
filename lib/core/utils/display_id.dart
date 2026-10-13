@@ -13,6 +13,10 @@ abstract final class DisplayId {
   /// `wo-0001` → `#WO-0001`; an auto id → `#WO-K3MPQ9`.
   static String workOrder(String id) => _format(id, prefix: 'WO');
 
+  /// `rq-0001` → `#RQ-0001`; an auto id → `#RQ-K3MPQ9` (Group 43's
+  /// "Request #RQ-982").
+  static String materialRequest(String id) => _format(id, prefix: 'RQ');
+
   /// A short account number for the "ID: 4821-M" line under a person's
   /// name. Auth uids are 28 characters of noise, so the first six are
   /// shown; a seeded id (`seed-personnel-0002`) shows its number.

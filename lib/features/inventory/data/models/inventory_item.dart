@@ -36,6 +36,9 @@ class InventoryItem {
     required this.createdAt,
     required this.updatedAt,
     this.condition,
+    this.specification,
+    this.unitCost,
+    this.photoUrl,
   }) {
     FirestoreConverters.validateNotBlank(name, 'name');
     FirestoreConverters.validateNotBlank(category, 'category');
@@ -52,6 +55,9 @@ class InventoryItem {
       minimumThreshold,
       'minimumThreshold',
     );
+    if (unitCost case final cost?) {
+      FirestoreConverters.validateNonNegative(cost, 'unitCost');
+    }
   }
 
   factory InventoryItem.fromFirestore(
@@ -84,6 +90,12 @@ class InventoryItem {
         'condition',
         ItemCondition.fromId,
       ),
+      specification: FirestoreConverters.optional<String>(
+        data,
+        'specification',
+      ),
+      unitCost: FirestoreConverters.optional<num>(data, 'unitCost')?.toDouble(),
+      photoUrl: FirestoreConverters.optional<String>(data, 'photoUrl'),
       createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
       updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
     );
@@ -118,11 +130,34 @@ class InventoryItem {
   /// stock that can degrade in storage.
   final ItemCondition? condition;
 
+  /// Size or pack, as Figure 15 prints it after the category: "Bulk",
+  /// "10ft", "5 Gal". DERIVED (Objective 6.A): the design shows it, §3.4
+  /// does not list it.
+  final String? specification;
+
+  /// Price of one [unitOfMeasurement], in pesos, for Figure 15's Total
+  /// Stock Value. Optional and DERIVED (Chris, Objective 6.A): §3.4 lists
+  /// no price, and a material without one is left out of the total.
+  final double? unitCost;
+
+  /// A photo of the material for its card (Figure 15), in Storage. Without
+  /// one the card shows an icon.
+  final String? photoUrl;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
   /// Whether a low-stock alert should be raised (§1.5).
   bool get isLowStock => quantityAvailable <= minimumThreshold;
+
+  /// Nothing left to issue.
+  bool get isOutOfStock => quantityAvailable <= 0;
+
+  /// What the stock on hand is worth, when the material has a [unitCost].
+  double? get stockValue => switch (unitCost) {
+    final cost? => quantityAvailable * cost,
+    null => null,
+  };
 
   Map<String, dynamic> toFirestore() => {
     'name': name,
@@ -133,6 +168,9 @@ class InventoryItem {
     'qrCode': qrCode,
     'minimumThreshold': minimumThreshold,
     'condition': condition?.id,
+    'specification': specification,
+    'unitCost': unitCost,
+    'photoUrl': photoUrl,
     'createdAt': Timestamp.fromDate(createdAt),
     'updatedAt': Timestamp.fromDate(updatedAt),
   };
@@ -147,6 +185,9 @@ class InventoryItem {
     String? qrCode,
     double? minimumThreshold,
     ItemCondition? condition,
+    String? specification,
+    double? unitCost,
+    String? photoUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => InventoryItem(
@@ -159,6 +200,9 @@ class InventoryItem {
     qrCode: qrCode ?? this.qrCode,
     minimumThreshold: minimumThreshold ?? this.minimumThreshold,
     condition: condition ?? this.condition,
+    specification: specification ?? this.specification,
+    unitCost: unitCost ?? this.unitCost,
+    photoUrl: photoUrl ?? this.photoUrl,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -176,6 +220,9 @@ class InventoryItem {
           other.qrCode == qrCode &&
           other.minimumThreshold == minimumThreshold &&
           other.condition == condition &&
+          other.specification == specification &&
+          other.unitCost == unitCost &&
+          other.photoUrl == photoUrl &&
           other.createdAt == createdAt &&
           other.updatedAt == updatedAt;
 
@@ -190,6 +237,9 @@ class InventoryItem {
     qrCode,
     minimumThreshold,
     condition,
+    specification,
+    unitCost,
+    photoUrl,
     createdAt,
     updatedAt,
   );

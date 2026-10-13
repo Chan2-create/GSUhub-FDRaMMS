@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -571,6 +572,19 @@ class FakeFileDownloadService implements FileDownloadService {
     String mimeType = 'text/csv',
   }) async {
     saved.add((fileName: fileName, contents: contents));
+    return const Result.success(null);
+  }
+
+  /// Files offered as bytes: the QR label sheets (Objective 6.C).
+  final savedBytes = <({String fileName, Uint8List bytes, String mimeType})>[];
+
+  @override
+  Future<Result<void>> saveBytes({
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+  }) async {
+    savedBytes.add((fileName: fileName, bytes: bytes, mimeType: mimeType));
     return const Result.success(null);
   }
 }
