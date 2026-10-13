@@ -469,4 +469,51 @@ abstract final class AppColors {
   /// "AVAILABLE" stock chip (Group 43).
   static const Color personnelStockFill = Color(0xFFE3ECF8);
   static const Color personnelStockText = Color(0xFF3E6AA8);
+
+  /// A request's "Pending" pill in Request History (Group 43, sampled).
+  static const Color personnelPendingFill = Color(0xFFEBE1D3);
+
+  // --- Inventory Management (Objective 6, Figma 200:4032 / Figure 15) ---
+
+  /// Card captions, column headings, units.
+  static const Color inventoryLabel = Color(0xFF444652);
+
+  /// Section headings and in-stock quantities.
+  static const Color inventoryHeading = Color(0xFF00236F);
+
+  /// A low quantity's number.
+  static const Color inventoryLowQuantity = Color(0xFF745B00);
+
+  /// "IN STOCK" and "AVAILABLE".
+  static const Color inventoryInStockFill = Color(0xFFDCFCE7);
+  static const Color inventoryInStockText = Color(0xFF166534);
+
+  /// "LOW STOCK", and the gold avatar.
+  static const Color inventoryLowStockFill = Color(0xFFFDCC14);
+  static const Color inventoryLowStockText = Color(0xFF6E5700);
+
+  /// "BORROWED".
+  static const Color inventoryBorrowedFill = Color(0xFFDBEAFE);
+  static const Color inventoryBorrowedText = Color(0xFF1E40AF);
+
+  /// "IN REPAIR", and "OUT OF STOCK" (DERIVED: the design shows no empty
+  /// material; the alert colours stand for it).
+  static const Color inventoryRepairFill = Color(0xFFFFDAD6);
+  static const Color inventoryRepairText = Color(0xFF93000A);
+
+  /// The photo area of a material card.
+  static const Color inventoryPhotoFill = Color(0xFFE5EEFF);
+
+  /// "Add New Tool".
+  static const Color inventoryAddFill = Color(0xFFDCE9FF);
+
+  /// "Search materials..." placeholder.
+  static const Color inventoryPlaceholder = Color(0xFF6B7280);
+
+  /// The navy avatar in Current User.
+  static const Color inventoryAvatarFill = Color(0xFF1A3A8F);
+  static const Color inventoryAvatarText = Color(0xFF91A9FF);
+
+  /// The table's header row and footer.
+  static const Color inventoryTableBand = Color(0xFFEFF4FF);
 }

@@ -3,16 +3,30 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/constants/firestore_paths.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
+import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
+import 'package:gsuhub/core/enums/task_status.dart';
+import 'package:gsuhub/core/enums/tool_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/services/firebase/firebase_call_guard.dart';
 import 'package:gsuhub/core/services/firebase/firestore_service_impl.dart';
+import 'package:gsuhub/features/accomplishment/data/repositories/accomplishment_report_repository_impl.dart';
+import 'package:gsuhub/features/accomplishment/data/repositories/material_usage_repository_impl.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
+import 'package:gsuhub/features/facilities/data/repositories/facility_repository_impl.dart';
 import 'package:gsuhub/features/feedback/data/repositories/feedback_repository_impl.dart';
+import 'package:gsuhub/features/inventory/data/models/inventory_item.dart';
+import 'package:gsuhub/features/inventory/data/repositories/inventory_repository_impl.dart';
+import 'package:gsuhub/features/inventory/data/repositories/material_allocation_repository_impl.dart';
+import 'package:gsuhub/features/inventory/data/repositories/material_request_repository_impl.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_impl.dart';
+import 'package:gsuhub/features/tasks/data/models/maintenance_task.dart';
+import 'package:gsuhub/features/tasks/data/repositories/task_repository_impl.dart';
+import 'package:gsuhub/features/tools/data/models/tool.dart';
+import 'package:gsuhub/features/tools/data/repositories/tool_repository_impl.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository_impl.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
@@ -34,6 +48,14 @@ class FirestoreHarness {
     workOrders = WorkOrderRepositoryImpl(db: db, guard: guard);
     users = UserRepositoryImpl(db: db, guard: guard);
     feedback = FeedbackRepositoryImpl(db: db, guard: guard);
+    tasks = TaskRepositoryImpl(db: db, guard: guard);
+    accomplishments = AccomplishmentReportRepositoryImpl(db: db, guard: guard);
+    materials = MaterialUsageRepositoryImpl(db: db, guard: guard);
+    tools = ToolRepositoryImpl(db: db, guard: guard);
+    inventory = InventoryRepositoryImpl(db: db, guard: guard);
+    requests = MaterialRequestRepositoryImpl(db: db, guard: guard);
+    allocations = MaterialAllocationRepositoryImpl(db: db, guard: guard);
+    facilities = FacilityRepositoryImpl(db: db, guard: guard);
   }
 
   final FakeFirebaseFirestore firestore;
@@ -41,8 +63,97 @@ class FirestoreHarness {
   late final WorkOrderRepositoryImpl workOrders;
   late final UserRepositoryImpl users;
   late final FeedbackRepositoryImpl feedback;
+  late final TaskRepositoryImpl tasks;
+  late final AccomplishmentReportRepositoryImpl accomplishments;
+  late final MaterialUsageRepositoryImpl materials;
+  late final ToolRepositoryImpl tools;
+  late final InventoryRepositoryImpl inventory;
+  late final MaterialRequestRepositoryImpl requests;
+  late final MaterialAllocationRepositoryImpl allocations;
+  late final FacilityRepositoryImpl facilities;
 
   static const admin = AuditActor(id: 'admin-1', name: 'Ramon Dela Cruz');
+
+  /// The technician [addWorkOrder] assigns by default (Objective 5).
+  static const technician = AuditActor(
+    id: 'personnel-1',
+    name: 'Marcus Wright',
+  );
+
+  /// A material in stock (Objective 5.C).
+  Future<void> addInventoryItem(
+    String id, {
+    String name = 'LED Bulbs',
+    double quantity = 10,
+    String unit = 'units',
+    double minimum = 2,
+    double? unitCost,
+  }) => firestore
+      .collection(FirestorePaths.inventoryItems)
+      .doc(id)
+      .set(
+        InventoryItem(
+          id: id,
+          name: name,
+          category: 'Electrical',
+          quantityAvailable: quantity,
+          unitOfMeasurement: unit,
+          storageLocation: 'GSU Store',
+          qrCode: 'INV-${id.toUpperCase()}',
+          minimumThreshold: minimum,
+          unitCost: unitCost,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ).toFirestore(),
+      );
+
+  /// A tool on the shelf, or out (Objective 5.C).
+  Future<void> addTool(
+    String id, {
+    ToolStatus status = ToolStatus.available,
+    ItemCondition condition = ItemCondition.good,
+  }) => firestore
+      .collection(FirestorePaths.tools)
+      .doc(id)
+      .set(
+        Tool(
+          id: id,
+          toolCode: 'TL-0001',
+          name: 'Fluke Multimeter',
+          status: status,
+          condition: condition,
+          qrCode: 'TOOL-TL-0001',
+          currentHolderId: status == ToolStatus.borrowed ? 'personnel-2' : null,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ).toFirestore(),
+      );
+
+  /// A task on a work order (Objective 5.A).
+  Future<void> addTask(
+    String id, {
+    required String workOrderId,
+    TaskStatus status = TaskStatus.pending,
+    String assignedTo = 'personnel-1',
+    DateTime? dueDate,
+  }) => firestore
+      .collection(FirestorePaths.tasks)
+      .doc(id)
+      .set(
+        MaintenanceTask(
+          id: id,
+          workOrderId: workOrderId,
+          title: 'Replace the ballast',
+          assignedTo: assignedTo,
+          status: status,
+          dueDate: dueDate,
+          completedAt: status == TaskStatus.completed
+              ? DateTime.utc(2026, 9, 2)
+              : null,
+          createdAt: DateTime.utc(2026, 9),
+          updatedAt: DateTime.utc(2026, 9),
+        ).toFirestore(),
+      );
 
   Future<void> addReport(
     String id, {

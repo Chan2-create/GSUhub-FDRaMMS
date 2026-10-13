@@ -88,6 +88,15 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    // A material's photo for its card on the Inventory page (Objective
+    // 6.A, Figure 15). Administrators keep the catalogue.
+    match /inventory_items/{itemId}/{fileName} {
+      allow read: if isActive();
+      allow create: if isAdmin() && isImageUnder10Mb();
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
     // Generated QR code images for facilities and assets.
     match /qr_codes/{entityType}/{fileName} {
       allow read: if isActive();

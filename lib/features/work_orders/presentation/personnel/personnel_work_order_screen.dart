@@ -19,6 +19,7 @@ import '../../../accomplishment/data/models/material_usage.dart';
 import '../../../accomplishment/data/models/recorded_material.dart';
 import '../../../accomplishment/data/repositories/accomplishment_report_repository_impl.dart';
 import '../../../accomplishment/presentation/material_sheets.dart';
+import '../../../inventory/data/models/allocated_material.dart';
 import '../../../reporting/data/models/damage_report.dart';
 import '../../../reporting/presentation/report_providers.dart';
 import '../../../tasks/presentation/widgets/task_tiles.dart';
@@ -102,6 +103,10 @@ class _Detail extends ConsumerWidget {
         _PlaceCard(workOrder: workOrder),
         const SizedBox(height: 16),
         _TasksCard(workOrder: workOrder, open: open),
+        if (open) ...[
+          const SizedBox(height: 16),
+          _PreassignedCard(workOrder: workOrder),
+        ],
         const SizedBox(height: 16),
         _MaterialsCard(workOrder: workOrder, open: open, latest: latest),
         const SizedBox(height: 16),
@@ -478,6 +483,47 @@ class _TasksCard extends ConsumerWidget {
 
 /// The materials recorded as used (5.C) — or, once filed, those the
 /// report deducted.
+/// What GSU has set aside for the job, and the way to ask for more
+/// (Objective 6.B; the full list and the requests are Group 43's page).
+class _PreassignedCard extends ConsumerWidget {
+  const _PreassignedCard({required this.workOrder});
+
+  final WorkOrder workOrder;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => _Section(
+    title: 'Pre-assigned Materials',
+    icon: Icons.assignment_outlined,
+    action: _GoldOutlineButton(
+      icon: Icons.playlist_add_rounded,
+      label: 'Request Materials',
+      onPressed: () =>
+          context.push(RoutePaths.personnelWorkOrderMaterialsFor(workOrder.id)),
+    ),
+    child: AsyncValueView<List<AllocatedMaterial>>(
+      value: ref.watch(allocatedMaterialsProvider(workOrder.id)),
+      loadingHeight: 40,
+      onRetry: () => ref.invalidate(allocatedMaterialsProvider(workOrder.id)),
+      isEmpty: (list) => list.isEmpty,
+      emptyIcon: Icons.assignment_outlined,
+      emptyMessage:
+          'Nothing set aside by GSU. Request what the job needs; approved '
+          'materials appear here.',
+      data: (list) => Column(
+        children: [
+          for (final material in list)
+            _MaterialRow(
+              name: material.line.itemName,
+              amount:
+                  '${formatQuantity(material.line.quantity)} '
+                  '${material.line.unitOfMeasurement}',
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _MaterialsCard extends ConsumerWidget {
   const _MaterialsCard({
     required this.workOrder,
@@ -1035,6 +1081,7 @@ class _UploadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
+    container: true,
     button: true,
     label: 'Add a photo',
     excludeSemantics: true,

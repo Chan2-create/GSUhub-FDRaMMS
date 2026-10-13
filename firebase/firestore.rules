@@ -393,6 +393,14 @@ service cloud.firestore {
         allow delete: if isAdmin()
           || (isAssignedTo(workOrderId) && isOpenWork());
       }
+
+      // Materials GSU has pre-assigned to the work (6.B): set by an
+      // administrator, directly or by approving a request; read by the
+      // technicians assigned. Setting them aside moves no stock.
+      match /materials_allocated/{itemId} {
+        allow read: if isAdmin() || isAssignedTo(workOrderId);
+        allow write: if isAdmin();
+      }
     }
 
     // ---------- tasks ----------
@@ -420,8 +428,14 @@ service cloud.firestore {
     // §3.4 personnel: "submit completion notes and upload photo evidence".
 
     match /accomplishment_reports/{reportId} {
+      // `resource == null` lets a technician ask whether a report id is
+      // taken before filing under it — submission reads first, so a retry
+      // after a timeout cannot file twice (5.B), as for damage reports in
+      // 3.C. A missing document discloses nothing: the ids are random.
       allow get: if isAdmin()
-        || (isPersonnel() && resource.data.submittedBy == request.auth.uid);
+        || (isPersonnel()
+            && (resource == null
+                || resource.data.submittedBy == request.auth.uid));
       // Personnel list only their own (5.B; was every report).
       allow list: if isAdmin()
         || (isPersonnel() && resource.data.submittedBy == request.auth.uid);
@@ -477,6 +491,62 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ---------- material_requests ----------
+    // §3.4 personnel: "request and monitor materials assigned to work
+    // orders" (6.B). A technician files one for their own open work;
+    // an administrator approves or declines it once.
+
+    match /material_requests/{requestId} {
+      // `resource == null` lets a technician ask whether a request id is
+      // taken before filing under it — filing reads first, so a retry
+      // after a timeout cannot file twice. The ids are random.
+      allow get: if isAdmin()
+        || (isPersonnel()
+            && (resource == null
+                || resource.data.requestedBy == request.auth.uid));
+      allow list: if isAdmin()
+        || (isPersonnel() && resource.data.requestedBy == request.auth.uid);
+
+      allow create: if isPersonnel()
+        && request.resource.data.keys().hasOnly([
+             'workOrderId', 'requestedBy', 'requestedByName', 'items',
+             'status', 'note', 'adminNote', 'reviewedBy', 'reviewedAt',
+             'createdAt', 'updatedAt'
+           ])
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.requestedByName is string
+        && isAssignedTo(request.resource.data.workOrderId)
+        && workOrderAt(request.resource.data.workOrderId).data.status
+             in ['pending', 'inProgress']
+        && request.resource.data.status == 'pending'
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 20
+        && (request.resource.data.get('note', null) == null
+            || (request.resource.data.note is string
+                && request.resource.data.note.size() <= 300))
+        && request.resource.data.get('adminNote', null) == null
+        && request.resource.data.get('reviewedBy', null) == null
+        && request.resource.data.get('reviewedAt', null) == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // Reviewed once, by an administrator, who must say why they decline.
+      allow update: if isAdmin()
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['approved', 'declined']
+        && onlyChanged([
+             'status', 'adminNote', 'reviewedBy', 'reviewedAt', 'updatedAt'
+           ])
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.reviewedAt == request.time
+        && (request.resource.data.status == 'approved'
+            || (request.resource.data.adminNote is string
+                && request.resource.data.adminNote.size() > 0));
+
+      allow delete: if false;
+    }
+
     // ---------- tools ----------
 
     match /tools/{toolId} {
@@ -497,9 +567,14 @@ service cloud.firestore {
       allow list: if isAdmin()
         || (isPersonnel() && resource.data.borrowedBy == request.auth.uid);
 
-      allow create: if (isAdmin() || isPersonnel())
-        && request.resource.data.borrowedBy == request.auth.uid
-        && request.resource.data.returnedAt == null;
+      // A technician borrows for themselves; an administrator checks a
+      // tool out to a technician from the console (6.B).
+      allow create: if request.resource.data.returnedAt == null
+        && ((isPersonnel()
+             && request.resource.data.borrowedBy == request.auth.uid)
+            || (isAdmin()
+                && get(/databases/$(database)/documents/users/$(request.resource.data.borrowedBy))
+                     .data.role == 'maintenancePersonnel'));
 
       // Closing out a loan sets the return fields only. The borrow record
       // itself is history and stays put.

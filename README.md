@@ -58,8 +58,12 @@ Work proceeds objective by objective against the project WBS.
 | 4.A | Rule-based keyword classification, run as a report is filed; keyword editor in Settings | Complete |
 | 4.B | Weighted priority score (§3.4 formula), administrator's ratings with a Frequency hint | Complete |
 | 4.C | Confirming or changing the official priority before assignment; duplicate detection, merge, keep separate | Complete |
-| 5 | Maintenance personnel mobile app | Not started |
-| 6 | Inventory management | Not started |
+| 5.A | Personnel sign-in (shared with faculty), dashboard, tasks, work orders; admin adds tasks in the console | Complete |
+| 5.B | Starting work, ticking tasks with proof, the accomplishment report; admin signs off or sends back | Complete |
+| 5.C | Scanning QR codes and barcodes; recording materials used, borrowing and returning tools | Complete (requesting more materials came in 6.B) |
+| 6.A | Inventory Management page (Figure 15): materials, unit costs, deliveries, stock counts, stock history, low-stock alerts | Complete (material photos on live need Blaze, like every photo) |
+| 6.B | Tools: check out, check in, repair, retire; technicians' material requests and pre-assigned materials | Complete |
+| 6.C | QR codes and printable labels for materials, tools, rooms and equipment; Facilities & Equipment page; Most Used Materials and the inventory CSV | Complete |
 
 The administrator console has working screens for every 2.x objective:
 the dashboard, damage reports and their detail view, task assignment,
@@ -73,8 +77,18 @@ home screen with the requestor's report overview, My Reports, the damage
 report form (3.C), live tracking with a status timeline and an Alerts
 tab (3.B), and rating a finished job, which closes the report (3.C) —
 see docs/emulator_setup.md. Its Profile tab holds
-only Sign out. The personnel shell routes
-correctly and is guarded by role, but resolves to placeholders.
+only Sign out. Maintenance personnel sign in on the same page and land
+in their own app (5.A–5.C): a dashboard with the day's tasks, their work
+orders with tasks to tick off and proof photos, materials and tools
+recorded by scan or from a list, and the accomplishment report that
+sends the work to GSU for sign-off. Each work order has a page in the
+console, where the administrator adds tasks and signs off or sends back
+the report. Inventory Management (6.A–6.B) keeps the store: materials with
+their stock, cost and history, deliveries and counts, low-stock alerts,
+the tools and who has them, and the technicians' requests for more
+materials. Facilities & Equipment registers the rooms and equipment, and
+every material, tool, room and piece of equipment prints its QR label
+(6.C).
 
 ## Setup
 

@@ -7,17 +7,34 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 /// The design has no frame for this, so it is plain Material and flagged
 /// as such (Objective 3.C): the camera, a torch toggle, one line of
 /// guidance, and a way back. It returns the first code it reads.
+///
+/// The personnel app (Objective 5.C) opens the same screen with its own
+/// wording, reading barcodes as well (§1.5: "QR code or barcode scanning
+/// for identifying and recording materials, tools, and equipment").
 class QrScannerScreen extends StatefulWidget {
-  const QrScannerScreen({super.key});
+  const QrScannerScreen({
+    super.key,
+    this.title = 'Scan facility QR code',
+    this.guidance = 'Point the camera at the QR code on the room or equipment.',
+    this.fallback = 'choose the building and room instead',
+    this.formats = const [BarcodeFormat.qrCode],
+  });
+
+  final String title;
+  final String guidance;
+
+  /// What to do instead when the camera cannot scan, ending the sentence
+  /// "Allow it in your phone's Settings to scan, or …".
+  final String fallback;
+
+  final List<BarcodeFormat> formats;
 
   @override
   State<QrScannerScreen> createState() => _QrScannerScreenState();
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
-  final _controller = MobileScannerController(
-    formats: const [BarcodeFormat.qrCode],
-  );
+  late final _controller = MobileScannerController(formats: widget.formats);
 
   /// The scanner reports the same code many times a second; only the
   /// first may close the screen.
@@ -45,7 +62,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.black,
     appBar: AppBar(
-      title: const Text('Scan facility QR code'),
+      title: Text(widget.title),
       actions: [
         IconButton(
           tooltip: 'Torch',
@@ -60,16 +77,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         MobileScanner(
           controller: _controller,
           onDetect: _onDetect,
-          errorBuilder: (context, error) => _ScannerError(error: error),
+          errorBuilder: (context, error) =>
+              _ScannerError(error: error, fallback: widget.fallback),
         ),
-        const Positioned(
+        Positioned(
           left: 24,
           right: 24,
           bottom: 32,
           child: Text(
-            'Point the camera at the QR code on the room or equipment.',
+            widget.guidance,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontSize: 14),
+            style: const TextStyle(color: Colors.white, fontSize: 14),
           ),
         ),
       ],
@@ -78,9 +96,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 }
 
 class _ScannerError extends StatelessWidget {
-  const _ScannerError({required this.error});
+  const _ScannerError({required this.error, required this.fallback});
 
   final MobileScannerException error;
+  final String fallback;
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -92,13 +111,10 @@ class _ScannerError extends StatelessWidget {
           switch (error.errorCode) {
             MobileScannerErrorCode.permissionDenied =>
               "Camera access is blocked for GSUhub. Allow it in your phone's "
-                  'Settings to scan, or choose the building and room instead.',
+                  'Settings to scan, or $fallback.',
             MobileScannerErrorCode.unsupported =>
-              "This device can't scan QR codes. Choose the building and room "
-                  'instead.',
-            _ =>
-              "The camera couldn't start. Choose the building and room "
-                  'instead.',
+              "This device can't scan codes. ${_sentence(fallback)}.",
+            _ => "The camera couldn't start. ${_sentence(fallback)}.",
           },
           textAlign: TextAlign.center,
           style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -106,6 +122,9 @@ class _ScannerError extends StatelessWidget {
       ),
     ),
   );
+
+  static String _sentence(String phrase) =>
+      phrase.isEmpty ? phrase : phrase[0].toUpperCase() + phrase.substring(1);
 }
 
 /// Opens [QrScannerScreen] and returns what it read, or null when the
@@ -118,6 +137,25 @@ final qrScanLauncherProvider = Provider<QrScanLauncher>(
         MaterialPageRoute(
           fullscreenDialog: true,
           builder: (_) => const QrScannerScreen(),
+        ),
+      ),
+);
+
+/// The personnel app's scanner (Objective 5.C): any code GSUhub prints,
+/// QR or barcode, on a material, a tool, a room or equipment.
+final personnelScanLauncherProvider = Provider<QrScanLauncher>(
+  (ref) =>
+      (context) => Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => const QrScannerScreen(
+            title: 'Scan a code',
+            guidance:
+                'Point the camera at the QR code or barcode on a material, a '
+                'tool, a room or a piece of equipment.',
+            fallback: 'pick the item from its list instead',
+            formats: [BarcodeFormat.all],
+          ),
         ),
       ),
 );

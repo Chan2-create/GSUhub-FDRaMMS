@@ -1750,4 +1750,115 @@ abstract final class AppTextStyles {
     letterSpacing: 0.4,
     height: 16 / 12,
   );
+
+  // --- Inventory Management (Objective 6, Figma 200:4032 / Figure 15) ---
+
+  /// "Total Stock Value", "Tool ID": the captions and column headings.
+  static const TextStyle inventoryCaption = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.inventoryLabel,
+    letterSpacing: 0.6,
+    height: 1,
+  );
+
+  /// A stat card's number.
+  static const TextStyle inventoryStatValue = TextStyle(
+    fontFamily: _ui,
+    fontSize: 32,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+    letterSpacing: -0.32,
+    height: 40 / 32,
+  );
+
+  /// The line under a stat card's number.
+  static const TextStyle inventoryStatNote = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: AppColors.inventoryLabel,
+    height: 16 / 12,
+  );
+
+  /// "Consumable Materials", "Tool Assets & Tracking".
+  static const TextStyle inventorySection = TextStyle(
+    fontFamily: _ui,
+    fontSize: 24,
+    fontWeight: FontWeight.w600,
+    color: AppColors.inventoryHeading,
+    height: 31.2 / 24,
+  );
+
+  /// A material card's name.
+  static const TextStyle inventoryCardName = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+    height: 24 / 16,
+  );
+
+  /// A material card's quantity.
+  static const TextStyle inventoryQuantity = TextStyle(
+    fontFamily: _ui,
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: AppColors.inventoryHeading,
+    height: 31.2 / 24,
+  );
+
+  /// "units", after the quantity.
+  static const TextStyle inventoryUnit = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.inventoryLabel,
+    height: 16 / 12,
+  );
+
+  /// "IN STOCK", "BORROWED", "ORDER".
+  static const TextStyle inventoryBadge = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    height: 15 / 10,
+    letterSpacing: 0.5,
+  );
+
+  /// A table cell.
+  static const TextStyle inventoryCell = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 21 / 14,
+  );
+
+  /// The Tool ID cell, and "Check In".
+  static const TextStyle inventoryCellStrong = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+    height: 21 / 14,
+  );
+
+  /// "Scan QR", "Add New Tool", "Check Out".
+  static const TextStyle inventoryButton = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    height: 1,
+  );
+
+  /// "Search materials...", "Category: All".
+  static const TextStyle inventoryControl = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 21 / 14,
+  );
 }

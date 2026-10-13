@@ -17,6 +17,7 @@ import '../../../core/widgets/status_chip.dart';
 import '../../accomplishment/data/models/accomplishment_report.dart';
 import '../../accomplishment/data/models/recorded_material.dart';
 import '../../accomplishment/presentation/material_sheets.dart';
+import '../../inventory/presentation/widgets/allocated_materials_card.dart';
 import '../../tasks/data/models/maintenance_task.dart';
 import '../../tasks/data/repositories/task_repository_impl.dart';
 import '../../tasks/domain/task_day.dart';
@@ -103,6 +104,8 @@ class _Detail extends ConsumerWidget {
                 _NoteCard(workOrder: workOrder),
                 const SizedBox(height: 16),
                 _UsedCard(workOrder: workOrder, open: open),
+                const SizedBox(height: 16),
+                AllocatedMaterialsCard(workOrder: workOrder, open: open),
               ],
             );
             if (constraints.maxWidth >= 1000) {

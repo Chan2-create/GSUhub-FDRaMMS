@@ -7,12 +7,17 @@ import '../../../../core/enums/work_order_status.dart';
 import '../../../../core/utils/result.dart';
 import '../../../accomplishment/data/models/accomplishment_report.dart';
 import '../../../accomplishment/data/models/recorded_material.dart';
-import '../../../inventory/data/models/inventory_item.dart';
+import '../../../inventory/data/models/material_request.dart';
 import '../../../tasks/data/models/maintenance_task.dart';
 import '../../../tasks/domain/task_day.dart';
 import '../../../tools/data/models/tool.dart';
 import '../../../tools/data/models/tool_loan.dart';
 import '../../data/models/work_order.dart';
+
+// Every inventory item by name, and a work order's pre-assigned materials:
+// one definition each, shared with the console (Objective 6).
+export '../../../inventory/presentation/inventory_providers.dart'
+    show allocatedMaterialsProvider, inventoryItemsProvider;
 
 /// What the personnel app reads (Objective 5). Every list is the signed-in
 /// technician's own — the rules allow nothing else — and live.
@@ -152,11 +157,16 @@ final myToolLoansProvider = StreamProvider.autoDispose<Result<List<ToolLoan>>>((
   return ref.watch(toolRepositoryProvider).watchOpenLoansFor(uid);
 });
 
-/// Every inventory item, by name — for recording materials by hand.
-final inventoryItemsProvider =
-    StreamProvider.autoDispose<Result<List<InventoryItem>>>(
-      (ref) => ref.watch(inventoryRepositoryProvider).watchItems(),
-    );
+/// The technician's requests for materials on one work order, newest
+/// first (Objective 6.B). Only their own: the rules list nothing else.
+final myMaterialRequestsProvider = StreamProvider.autoDispose
+    .family<Result<List<MaterialRequest>>, String>((ref, workOrderId) {
+      final uid = signedInUid(ref);
+      if (uid == null) return Stream.value(const Result.success([]));
+      return ref
+          .watch(materialRequestRepositoryProvider)
+          .watchForWorkOrder(workOrderId, requestedBy: uid);
+    });
 
 /// Tools on the shelf, ready to borrow.
 final availableToolsProvider = StreamProvider.autoDispose<Result<List<Tool>>>(

@@ -35,8 +35,12 @@ abstract final class RoutePaths {
   static String adminWorkOrderDetailFor(String workOrderId) =>
       '/admin/work-orders/$workOrderId';
 
-  /// Inventory management — real UI lands in Objective 6.
+  /// Inventory Management: materials, tools, requests (Objective 6.A–6.B,
+  /// Figure 15).
   static const String adminInventory = '/admin/inventory';
+
+  /// Rooms and equipment, with their QR stickers (Objective 6.C).
+  static const String adminFacilities = '/admin/facilities';
 
   /// Maintenance personnel directory (Objective 2.C).
   static const String adminPersonnel = '/admin/personnel';
@@ -137,6 +141,15 @@ abstract final class RoutePaths {
   /// Link to [personnelWorkOrderDetail] for one work order.
   static String personnelWorkOrderFor(String workOrderId) =>
       '/personnel/work-orders/$workOrderId';
+
+  /// A work order's materials: what GSU pre-assigned, and requests for
+  /// more (Objective 6.B, Figure Group 43).
+  static const String personnelWorkOrderMaterials =
+      '/personnel/work-orders/:workOrderId/materials';
+
+  /// Link to [personnelWorkOrderMaterials] for one work order.
+  static String personnelWorkOrderMaterialsFor(String workOrderId) =>
+      '/personnel/work-orders/$workOrderId/materials';
 
   /// The Materials tab: tools held, materials recorded (5.C).
   static const String personnelMaterials = '/personnel/materials';

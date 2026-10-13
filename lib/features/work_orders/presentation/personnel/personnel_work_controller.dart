@@ -12,6 +12,7 @@ import '../../../../core/utils/result.dart';
 import '../../../accomplishment/data/models/material_usage.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../../../audit/presentation/current_actor_provider.dart';
+import '../../../inventory/data/models/material_line.dart';
 
 /// What a technician does in the personnel app (Objectives 5.A–5.C).
 ///
@@ -107,6 +108,26 @@ class PersonnelWorkController {
           conditionOnReturn: condition,
           actor: actor,
           notes: notes,
+        ),
+  );
+
+  /// Asks GSU for more materials for a work order (6.B, Group 43).
+  /// [requestId] is reserved by the caller and reused on retry, so a
+  /// request that timed out on the way back is not filed twice.
+  Future<Result<void>> submitMaterialRequest({
+    required String requestId,
+    required String workOrderId,
+    required List<MaterialLine> items,
+    String? note,
+  }) => _act(
+    (actor) => _ref
+        .read(materialRequestRepositoryProvider)
+        .submit(
+          requestId: requestId,
+          workOrderId: workOrderId,
+          items: items,
+          actor: actor,
+          note: note,
         ),
   );
 

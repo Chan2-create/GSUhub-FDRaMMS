@@ -22,6 +22,10 @@ abstract final class StoragePaths {
   static String taskProofPhoto(String taskId, String fileName) =>
       'tasks/$taskId/$fileName';
 
+  /// A material's photo for its card on the Inventory page (Objective 6.A).
+  static String inventoryPhoto(String itemId, String fileName) =>
+      'inventory_items/$itemId/$fileName';
+
   /// Generated QR code image for a facility or asset.
   static String qrCode(String entityType, String entityId) =>
       'qr_codes/$entityType/$entityId.png';

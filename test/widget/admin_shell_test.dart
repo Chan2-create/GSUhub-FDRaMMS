@@ -95,11 +95,13 @@ void main() {
       expect(enabled, [
         'Dashboard', // 2.A
         'Damage Reports', // 2.B
+        'Inventory Management', // 6.A
         'Personnel', // 2.C
         'Task Assignment', // 2.B
         'Work Order Management', // 2.B
         'Analytics', // 2.C
         'User Accounts', // 2.C
+        'Facilities & Equipment', // 6.C
         'Settings', // 4.A
       ]);
     });

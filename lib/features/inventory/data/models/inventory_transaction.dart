@@ -39,6 +39,7 @@ class InventoryTransaction {
     this.workOrderId,
     this.accomplishmentReportId,
     this.notes,
+    this.performedByName,
   }) {
     FirestoreConverters.validateNotBlank(inventoryItemId, 'inventoryItemId');
     FirestoreConverters.validateNotBlank(itemName, 'itemName');
@@ -87,6 +88,10 @@ class InventoryTransaction {
       ),
       notes: FirestoreConverters.optional<String>(data, 'notes'),
       performedBy: FirestoreConverters.require<String>(data, 'performedBy'),
+      performedByName: FirestoreConverters.optional<String>(
+        data,
+        'performedByName',
+      ),
       performedAt: FirestoreConverters.requireDate(data, 'performedAt'),
     );
   }
@@ -118,7 +123,18 @@ class InventoryTransaction {
 
   final String? notes;
   final String performedBy;
+
+  /// **Denormalized** from `users.fullName` (Objective 6.A), so the
+  /// history reads with a name for as long as the ledger is kept. Absent
+  /// on entries written before it.
+  final String? performedByName;
+
   final DateTime performedAt;
+
+  /// The quantity with its direction: what this movement did to the
+  /// balance. An adjustment can go either way, so it is read from the
+  /// balances rather than the type.
+  double get change => quantityAfter - quantityBefore;
 
   Map<String, dynamic> toFirestore() => {
     'inventoryItemId': inventoryItemId,
@@ -131,6 +147,7 @@ class InventoryTransaction {
     'accomplishmentReportId': accomplishmentReportId,
     'notes': notes,
     'performedBy': performedBy,
+    'performedByName': performedByName,
     'performedAt': Timestamp.fromDate(performedAt),
   };
 
@@ -152,6 +169,7 @@ class InventoryTransaction {
           other.accomplishmentReportId == accomplishmentReportId &&
           other.notes == notes &&
           other.performedBy == performedBy &&
+          other.performedByName == performedByName &&
           other.performedAt == performedAt;
 
   @override
@@ -167,6 +185,7 @@ class InventoryTransaction {
     accomplishmentReportId,
     notes,
     performedBy,
+    performedByName,
     performedAt,
   );
 

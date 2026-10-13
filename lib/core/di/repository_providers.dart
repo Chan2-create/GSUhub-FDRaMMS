@@ -14,6 +14,10 @@ import '../../features/feedback/data/repositories/feedback_repository.dart';
 import '../../features/feedback/data/repositories/feedback_repository_impl.dart';
 import '../../features/inventory/data/repositories/inventory_repository.dart';
 import '../../features/inventory/data/repositories/inventory_repository_impl.dart';
+import '../../features/inventory/data/repositories/material_allocation_repository.dart';
+import '../../features/inventory/data/repositories/material_allocation_repository_impl.dart';
+import '../../features/inventory/data/repositories/material_request_repository.dart';
+import '../../features/inventory/data/repositories/material_request_repository_impl.dart';
 import '../../features/notifications/data/repositories/notification_repository.dart';
 import '../../features/notifications/data/repositories/notification_repository_impl.dart';
 import '../../features/reporting/data/repositories/damage_report_repository.dart';
@@ -91,6 +95,21 @@ final inventoryRepositoryProvider = Provider<InventoryRepository>(
     guard: ref.watch(firebaseCallGuardProvider),
   ),
 );
+
+final materialRequestRepositoryProvider = Provider<MaterialRequestRepository>(
+  (ref) => MaterialRequestRepositoryImpl(
+    db: ref.watch(firestoreServiceImplProvider),
+    guard: ref.watch(firebaseCallGuardProvider),
+  ),
+);
+
+final materialAllocationRepositoryProvider =
+    Provider<MaterialAllocationRepository>(
+      (ref) => MaterialAllocationRepositoryImpl(
+        db: ref.watch(firestoreServiceImplProvider),
+        guard: ref.watch(firebaseCallGuardProvider),
+      ),
+    );
 
 final toolRepositoryProvider = Provider<ToolRepository>(
   (ref) => ToolRepositoryImpl(

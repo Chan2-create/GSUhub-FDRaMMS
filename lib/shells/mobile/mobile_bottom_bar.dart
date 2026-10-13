@@ -113,6 +113,7 @@ class MobileBottomBar extends StatelessWidget {
     );
     return Expanded(
       child: Semantics(
+        container: true,
         button: true,
         selected: isSelected,
         label: tab.badge > 0 ? '${tab.label}, ${tab.badge} unread' : tab.label,

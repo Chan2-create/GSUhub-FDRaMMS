@@ -1503,6 +1503,662 @@ describe('rating the service (3.C)', () => {
   });
 });
 
+describe('personnel work (5.A–5.C)', () => {
+  // Each test seeds the work orders it touches, so none depends on
+  // another's moves.
+  const seed = (path, data) =>
+    testEnv.withSecurityRulesDisabled((context) =>
+      context.firestore().doc(path).set(data),
+    );
+
+  const seedWorkOrder = (id, data = {}) =>
+    seed(`work_orders/${id}`, {
+      reportIds: ['rep-faculty'],
+      title: 'Repair ceiling fan',
+      description: 'Replace bearing.',
+      category: 'electrical',
+      priority: 'high',
+      status: 'inProgress',
+      assignedPersonnelIds: [PERSONNEL_UID],
+      adminNotes: null,
+      createdBy: ADMIN_UID,
+      ...data,
+    });
+
+  const seedTask = (id, data = {}) =>
+    seed(`tasks/${id}`, {
+      workOrderId: 'wo-assigned',
+      title: 'Replace the bearing',
+      description: null,
+      assignedTo: PERSONNEL_UID,
+      status: 'pending',
+      proofPhotoUrls: [],
+      completedAt: null,
+      ...data,
+    });
+
+  /// A recorded material as the repository writes it.
+  const material = (overrides = {}) => ({
+    itemName: 'LED Bulbs',
+    quantityUsed: 2,
+    unitOfMeasurement: 'units',
+    recordedBy: PERSONNEL_UID,
+    recordedAt: serverNow(),
+    ...overrides,
+  });
+
+  /// An accomplishment report as the repository files it.
+  const accomplishment = (workOrderId, overrides = {}) => ({
+    workOrderId,
+    submittedBy: PERSONNEL_UID,
+    completionNotes: 'Replaced the bearing and tested the fan.',
+    photoUrls: ['https://example.test/after.jpg'],
+    materialsUsed: [],
+    inventoryDeducted: false,
+    reviewedBy: null,
+    reviewedAt: null,
+    submittedAt: serverNow(),
+    ...overrides,
+  });
+
+  /// Files [report] in the same batch that moves [workOrderId] to for
+  /// review, as [db].
+  const submit = (db, reportId, workOrderId, report, { moveTo = 'forReview' } = {}) => {
+    const batch = db.batch();
+    batch.update(db.doc(`work_orders/${workOrderId}`), {
+      status: moveTo,
+      updatedAt: serverNow(),
+    });
+    batch.set(db.doc(`accomplishment_reports/${reportId}`), report);
+    return batch.commit();
+  };
+
+  describe('work orders', () => {
+    it('personnel list their own work orders, not everyone’s', async () => {
+      await assertSucceeds(
+        asPersonnel()
+          .collection('work_orders')
+          .where('assignedPersonnelIds', 'array-contains', PERSONNEL_UID)
+          .get(),
+      );
+      await assertFails(asPersonnel().collection('work_orders').get());
+    });
+
+    it('personnel start pending work and submit work in progress', async () => {
+      await seedWorkOrder('pw-start', { status: 'pending' });
+      await assertSucceeds(
+        asPersonnel().doc('work_orders/pw-start').update({
+          status: 'inProgress',
+          startedAt: serverNow(),
+          updatedAt: serverNow(),
+        }),
+      );
+      await assertSucceeds(
+        asPersonnel().doc('work_orders/pw-start').update({
+          status: 'forReview',
+          updatedAt: serverNow(),
+        }),
+      );
+    });
+
+    it('sign-off, send-back and skipping ahead are the administrator’s', async () => {
+      await seedWorkOrder('pw-review', { status: 'forReview' });
+      await assertFails(
+        asPersonnel().doc('work_orders/pw-review').update({ status: 'completed' }),
+      );
+      await assertFails(
+        asPersonnel().doc('work_orders/pw-review').update({ status: 'inProgress' }),
+      );
+      await seedWorkOrder('pw-skip', { status: 'pending' });
+      await assertFails(
+        asPersonnel().doc('work_orders/pw-skip').update({ status: 'completed' }),
+      );
+      await assertFails(
+        asPersonnel().doc('work_orders/pw-skip').update({ status: 'forReview' }),
+      );
+      await assertSucceeds(
+        asAdmin().doc('work_orders/pw-review').update({ status: 'completed' }),
+      );
+    });
+
+    it('personnel cannot rewrite the work order while moving it', async () => {
+      await seedWorkOrder('pw-rewrite', { status: 'pending' });
+      await assertFails(
+        asPersonnel().doc('work_orders/pw-rewrite').update({
+          status: 'inProgress',
+          adminNotes: 'Done, trust me.',
+        }),
+      );
+    });
+
+    it('personnel read a report only when it is their work', async () => {
+      await seed('damage_reports/pw-mine', {
+        reporterId: FACULTY_UID,
+        title: 'Flickering lights',
+        status: 'assigned',
+        workOrderId: 'wo-assigned',
+      });
+      await seed('damage_reports/pw-theirs', {
+        reporterId: OTHER_FACULTY_UID,
+        title: 'Leaking pipe',
+        status: 'assigned',
+        workOrderId: 'wo-unassigned',
+      });
+      await assertSucceeds(asPersonnel().doc('damage_reports/pw-mine').get());
+      await assertFails(asPersonnel().doc('damage_reports/pw-theirs').get());
+      await assertFails(asPersonnel().doc('damage_reports/rep-faculty').get());
+    });
+  });
+
+  describe('tasks', () => {
+    it('personnel list their own tasks, not everyone’s', async () => {
+      await assertSucceeds(
+        asPersonnel()
+          .collection('tasks')
+          .where('assignedTo', '==', PERSONNEL_UID)
+          .get(),
+      );
+      await assertFails(asPersonnel().collection('tasks').get());
+    });
+
+    it('personnel tick their task and add proof, nothing else', async () => {
+      await seedTask('pt-own');
+      await assertSucceeds(
+        asPersonnel().doc('tasks/pt-own').update({
+          status: 'completed',
+          completedAt: serverNow(),
+          proofPhotoUrls: ['https://example.test/proof.jpg'],
+          updatedAt: serverNow(),
+        }),
+      );
+      await assertFails(
+        asPersonnel().doc('tasks/pt-own').update({ title: 'Something easier' }),
+      );
+      await assertFails(
+        asPersonnel().doc('tasks/pt-own').update({ assignedTo: ADMIN_UID }),
+      );
+    });
+
+    it('personnel cannot touch, add or delete someone else’s task', async () => {
+      await seedTask('pt-other', { assignedTo: 'someone-else' });
+      await assertFails(asPersonnel().doc('tasks/pt-other').get());
+      await assertFails(
+        asPersonnel().doc('tasks/pt-other').update({ status: 'completed' }),
+      );
+      await assertFails(asPersonnel().doc('tasks/pt-own-new').set({
+        workOrderId: 'wo-assigned',
+        title: 'Self-assigned',
+        assignedTo: PERSONNEL_UID,
+        status: 'pending',
+      }));
+      await seedTask('pt-delete');
+      await assertFails(asPersonnel().doc('tasks/pt-delete').delete());
+      await assertSucceeds(asAdmin().doc('tasks/pt-delete').delete());
+    });
+  });
+
+  describe('materials used', () => {
+    const used = (db, workOrderId, itemId = 'inv-led') =>
+      db.doc(`work_orders/${workOrderId}/materials_used/${itemId}`);
+
+    it('the technician records materials on their open work', async () => {
+      await seedWorkOrder('pm-pending', { status: 'pending' });
+      await seedWorkOrder('pm-open');
+      await assertSucceeds(used(asPersonnel(), 'pm-pending').set(material()));
+      await assertSucceeds(used(asPersonnel(), 'pm-open').set(material()));
+      await assertSucceeds(
+        used(asPersonnel(), 'pm-open').set(material({ quantityUsed: 3 })),
+      );
+      await assertSucceeds(used(asPersonnel(), 'pm-open').get());
+      await assertSucceeds(used(asAdmin(), 'pm-open').get());
+      await assertSucceeds(used(asPersonnel(), 'pm-open').delete());
+    });
+
+    it('not once the work is submitted or closed', async () => {
+      for (const status of ['forReview', 'completed', 'cancelled']) {
+        const id = `pm-${status}`;
+        await seedWorkOrder(id, { status });
+        await seed(`work_orders/${id}/materials_used/inv-led`, {
+          ...material(),
+          recordedAt: firebase.firestore.Timestamp.now(),
+        });
+        await assertFails(used(asPersonnel(), id, 'inv-other').set(material()));
+        await assertFails(
+          used(asPersonnel(), id).set(material({ quantityUsed: 9 })),
+        );
+        await assertFails(used(asPersonnel(), id).delete());
+      }
+    });
+
+    it('not on work assigned to someone else', async () => {
+      await assertFails(used(asPersonnel(), 'wo-unassigned').set(material()));
+      await assertFails(used(asPersonnel(), 'wo-unassigned').get());
+      await assertFails(used(asFaculty(), 'wo-assigned').get());
+    });
+
+    it('a record is the technician’s own, stamped now, for a real amount', async () => {
+      await seedWorkOrder('pm-shape');
+      const doc = used(asPersonnel(), 'pm-shape');
+      await assertFails(doc.set(material({ recordedBy: ADMIN_UID })));
+      await assertFails(
+        doc.set(
+          material({
+            recordedAt: firebase.firestore.Timestamp.fromDate(new Date(2020, 0, 1)),
+          }),
+        ),
+      );
+      await assertFails(doc.set(material({ quantityUsed: 0 })));
+      await assertFails(doc.set(material({ quantityUsed: '2' })));
+      await assertFails(doc.set(material({ unitCost: 120 })));
+    });
+  });
+
+  describe('accomplishment reports', () => {
+    it('a technician may ask whether a report id is taken', async () => {
+      await assertSucceeds(
+        asPersonnel().doc('accomplishment_reports/pa-not-yet').get(),
+      );
+    });
+
+    it('is filed in the same write that submits the work', async () => {
+      await seedWorkOrder('pa-file');
+      await seed('work_orders/pa-file/materials_used/inv-led', {
+        ...material(),
+        recordedAt: firebase.firestore.Timestamp.now(),
+      });
+      const db = asPersonnel();
+      const batch = db.batch();
+      batch.update(db.doc('work_orders/pa-file'), {
+        status: 'forReview',
+        updatedAt: serverNow(),
+      });
+      batch.delete(db.doc('work_orders/pa-file/materials_used/inv-led'));
+      batch.set(
+        db.doc('accomplishment_reports/pa-file'),
+        accomplishment('pa-file', {
+          materialsUsed: [
+            { inventoryItemId: 'inv-led', itemName: 'LED Bulbs', quantityUsed: 2 },
+          ],
+          inventoryDeducted: true,
+        }),
+      );
+      await assertSucceeds(batch.commit());
+      await assertSucceeds(
+        asPersonnel().doc('accomplishment_reports/pa-file').get(),
+      );
+    });
+
+    it('not without submitting the work, nor for someone else’s', async () => {
+      await seedWorkOrder('pa-alone');
+      await assertFails(
+        asPersonnel()
+          .doc('accomplishment_reports/pa-alone')
+          .set(accomplishment('pa-alone')),
+      );
+      await seedWorkOrder('pa-theirs', { assignedPersonnelIds: ['someone-else'] });
+      await assertFails(
+        submit(asPersonnel(), 'pa-theirs', 'pa-theirs', accomplishment('pa-theirs')),
+      );
+      await seedWorkOrder('pa-as-other');
+      await assertFails(
+        submit(
+          asPersonnel(),
+          'pa-as-other',
+          'pa-as-other',
+          accomplishment('pa-as-other', { submittedBy: 'someone-else' }),
+        ),
+      );
+    });
+
+    it('says whether stock was deducted, and is unreviewed', async () => {
+      await seedWorkOrder('pa-deducted');
+      await assertFails(
+        submit(
+          asPersonnel(),
+          'pa-deducted',
+          'pa-deducted',
+          accomplishment('pa-deducted', {
+            materialsUsed: [
+              { inventoryItemId: 'inv-led', itemName: 'LED Bulbs', quantityUsed: 2 },
+            ],
+            inventoryDeducted: false,
+          }),
+        ),
+      );
+      await assertFails(
+        submit(
+          asPersonnel(),
+          'pa-deducted',
+          'pa-deducted',
+          accomplishment('pa-deducted', { inventoryDeducted: true }),
+        ),
+      );
+      await assertFails(
+        submit(
+          asPersonnel(),
+          'pa-deducted',
+          'pa-deducted',
+          accomplishment('pa-deducted', {
+            reviewedBy: ADMIN_UID,
+            reviewedAt: serverNow(),
+          }),
+        ),
+      );
+    });
+
+    it('only the administrator reviews it, and nobody deletes it', async () => {
+      await seedWorkOrder('pa-review', { status: 'forReview' });
+      await seed('accomplishment_reports/pa-review', {
+        ...accomplishment('pa-review'),
+        submittedAt: firebase.firestore.Timestamp.now(),
+      });
+      const path = 'accomplishment_reports/pa-review';
+      await assertFails(
+        asPersonnel().doc(path).update({
+          reviewedBy: PERSONNEL_UID,
+          reviewedAt: serverNow(),
+        }),
+      );
+      await assertFails(
+        asPersonnel().doc(path).update({ completionNotes: 'Rewritten.' }),
+      );
+      await assertSucceeds(
+        asAdmin().doc(path).update({
+          reviewedBy: ADMIN_UID,
+          reviewedAt: serverNow(),
+        }),
+      );
+      await assertFails(asAdmin().doc(path).delete());
+    });
+
+    it('personnel list their own reports, not everyone’s', async () => {
+      await assertSucceeds(
+        asPersonnel()
+          .collection('accomplishment_reports')
+          .where('workOrderId', '==', 'wo-assigned')
+          .where('submittedBy', '==', PERSONNEL_UID)
+          .get(),
+      );
+      await assertFails(
+        asPersonnel()
+          .collection('accomplishment_reports')
+          .where('workOrderId', '==', 'wo-assigned')
+          .get(),
+      );
+    });
+  });
+
+  describe('tool loans', () => {
+    it('personnel list their own loans, not everyone’s', async () => {
+      await assertSucceeds(
+        asPersonnel()
+          .collection('tool_loans')
+          .where('borrowedBy', '==', PERSONNEL_UID)
+          .where('returnedAt', '==', null)
+          .get(),
+      );
+      await assertFails(asPersonnel().collection('tool_loans').get());
+    });
+  });
+});
+
+describe('inventory management (6.A–6.C)', () => {
+  const seed = (path, data) =>
+    testEnv.withSecurityRulesDisabled((context) =>
+      context.firestore().doc(path).set(data),
+    );
+
+  const seedWorkOrder = (id, data = {}) =>
+    seed(`work_orders/${id}`, {
+      reportIds: ['rep-faculty'],
+      title: 'Repair ceiling fan',
+      description: 'Replace bearing.',
+      category: 'electrical',
+      priority: 'high',
+      status: 'inProgress',
+      assignedPersonnelIds: [PERSONNEL_UID],
+      createdBy: ADMIN_UID,
+      ...data,
+    });
+
+  /// A request as the repository files it.
+  const materialRequest = (workOrderId, overrides = {}) => ({
+    workOrderId,
+    requestedBy: PERSONNEL_UID,
+    requestedByName: 'Marcus Wright',
+    items: [
+      {
+        inventoryItemId: 'inv-led',
+        itemName: 'LED Bulbs',
+        quantity: 4,
+        unitOfMeasurement: 'units',
+      },
+    ],
+    status: 'pending',
+    note: 'Two more fixtures are out.',
+    adminNote: null,
+    reviewedBy: null,
+    reviewedAt: null,
+    createdAt: serverNow(),
+    updatedAt: serverNow(),
+    ...overrides,
+  });
+
+  const seedRequest = async (id, workOrderId, data = {}) =>
+    seed(`material_requests/${id}`, {
+      ...materialRequest(workOrderId),
+      createdAt: firebase.firestore.Timestamp.now(),
+      updatedAt: firebase.firestore.Timestamp.now(),
+      ...data,
+    });
+
+  /// The review fields an approval or decline writes.
+  const review = (status, overrides = {}) => ({
+    status,
+    adminNote: null,
+    reviewedBy: ADMIN_UID,
+    reviewedAt: serverNow(),
+    updatedAt: serverNow(),
+    ...overrides,
+  });
+
+  describe('material requests', () => {
+    it('a technician requests materials for their own open work', async () => {
+      await seedWorkOrder('mr-open');
+      await assertSucceeds(
+        asPersonnel()
+          .doc('material_requests/mr-ok')
+          .set(materialRequest('mr-open')),
+      );
+      await assertSucceeds(
+        asPersonnel().doc('material_requests/mr-not-yet').get(),
+      );
+    });
+
+    it('not for someone else’s work, closed work, or as someone else', async () => {
+      await seedWorkOrder('mr-theirs', { assignedPersonnelIds: ['someone-else'] });
+      await seedWorkOrder('mr-closed', { status: 'forReview' });
+      await seedWorkOrder('mr-mine');
+      const db = asPersonnel();
+      await assertFails(
+        db.doc('material_requests/mr-1').set(materialRequest('mr-theirs')),
+      );
+      await assertFails(
+        db.doc('material_requests/mr-2').set(materialRequest('mr-closed')),
+      );
+      await assertFails(
+        db
+          .doc('material_requests/mr-3')
+          .set(materialRequest('mr-mine', { requestedBy: 'someone-else' })),
+      );
+      await assertFails(
+        asFaculty()
+          .doc('material_requests/mr-4')
+          .set(materialRequest('mr-mine', { requestedBy: FACULTY_UID })),
+      );
+    });
+
+    it('arrives pending and unreviewed, stamped now, with materials', async () => {
+      await seedWorkOrder('mr-shape');
+      const db = asPersonnel();
+      await assertFails(
+        db
+          .doc('material_requests/mr-5')
+          .set(materialRequest('mr-shape', { status: 'approved' })),
+      );
+      await assertFails(
+        db
+          .doc('material_requests/mr-6')
+          .set(materialRequest('mr-shape', { adminNote: 'Approved by me.' })),
+      );
+      await assertFails(
+        db.doc('material_requests/mr-7').set(
+          materialRequest('mr-shape', {
+            createdAt: firebase.firestore.Timestamp.fromDate(new Date(2020, 0, 1)),
+          }),
+        ),
+      );
+      await assertFails(
+        db.doc('material_requests/mr-8').set(materialRequest('mr-shape', { items: [] })),
+      );
+      await assertFails(
+        db
+          .doc('material_requests/mr-9')
+          .set(materialRequest('mr-shape', { priority: 'urgent' })),
+      );
+    });
+
+    it('a technician lists their own requests only', async () => {
+      await assertSucceeds(
+        asPersonnel()
+          .collection('material_requests')
+          .where('workOrderId', '==', 'wo-assigned')
+          .where('requestedBy', '==', PERSONNEL_UID)
+          .get(),
+      );
+      await assertFails(
+        asPersonnel()
+          .collection('material_requests')
+          .where('workOrderId', '==', 'wo-assigned')
+          .get(),
+      );
+      await assertSucceeds(
+        asAdmin().collection('material_requests').orderBy('createdAt', 'desc').get(),
+      );
+    });
+
+    it('only an administrator reviews one, once; declining needs a reason', async () => {
+      await seedWorkOrder('mr-review');
+      await seedRequest('mr-approve', 'mr-review');
+      await seedRequest('mr-decline', 'mr-review');
+      const path = 'material_requests/mr-approve';
+
+      await assertFails(asPersonnel().doc(path).update(review('approved')));
+      await assertFails(
+        asAdmin()
+          .doc('material_requests/mr-decline')
+          .update(review('declined')),
+      );
+      await assertSucceeds(
+        asAdmin()
+          .doc('material_requests/mr-decline')
+          .update(review('declined', { adminNote: 'Use what is on the job.' })),
+      );
+      await assertFails(
+        asAdmin().doc(path).update({ ...review('approved'), items: [] }),
+      );
+      await assertSucceeds(asAdmin().doc(path).update(review('approved')));
+      await assertFails(asAdmin().doc(path).update(review('declined', {
+        adminNote: 'Changed my mind.',
+      })));
+      await assertFails(asAdmin().doc(path).delete());
+    });
+  });
+
+  describe('pre-assigned materials', () => {
+    const allocation = {
+      itemName: 'LED Bulbs',
+      quantity: 4,
+      unitOfMeasurement: 'units',
+      allocatedBy: ADMIN_UID,
+      allocatedAt: serverNow(),
+    };
+
+    it('an administrator sets them; the assigned technician reads them', async () => {
+      await seedWorkOrder('pa-mine');
+      await seedWorkOrder('pa-theirs', { assignedPersonnelIds: ['someone-else'] });
+      const mine = 'work_orders/pa-mine/materials_allocated/inv-led';
+      await assertSucceeds(asAdmin().doc(mine).set(allocation));
+      await assertSucceeds(asPersonnel().doc(mine).get());
+      await assertFails(asPersonnel().doc(mine).set({ ...allocation, quantity: 40 }));
+      await assertFails(asPersonnel().doc(mine).delete());
+
+      const theirs = 'work_orders/pa-theirs/materials_allocated/inv-led';
+      await assertSucceeds(asAdmin().doc(theirs).set(allocation));
+      await assertFails(asPersonnel().doc(theirs).get());
+      await assertFails(asFaculty().doc(mine).get());
+    });
+  });
+
+  describe('tools from the console', () => {
+    const loan = (borrowedBy) => ({
+      toolId: 'tool-console',
+      toolName: 'Fluke Multimeter 179',
+      borrowedBy,
+      workOrderId: null,
+      borrowedAt: firebase.firestore.Timestamp.now(),
+      expectedReturnAt: null,
+      returnedAt: null,
+      conditionOnBorrow: 'good',
+      conditionOnReturn: null,
+      notes: null,
+    });
+
+    it('an administrator checks a tool out to a technician, not to anyone', async () => {
+      await assertSucceeds(
+        asAdmin().collection('tool_loans').add(loan(PERSONNEL_UID)),
+      );
+      await assertFails(asAdmin().collection('tool_loans').add(loan(FACULTY_UID)));
+      await assertFails(asPersonnel().collection('tool_loans').add(loan(ADMIN_UID)));
+      await assertSucceeds(
+        asPersonnel().collection('tool_loans').add(loan(PERSONNEL_UID)),
+      );
+    });
+  });
+
+  describe('materials, rooms and equipment', () => {
+    it('only an administrator adds or edits them', async () => {
+      const item = {
+        name: 'Wall Socket Plate',
+        category: 'Electrical',
+        quantityAvailable: 0,
+        unitOfMeasurement: 'pcs',
+        storageLocation: 'Store B',
+        qrCode: 'INV-PLATE',
+        minimumThreshold: 5,
+        unitCost: 85,
+      };
+      await assertSucceeds(asAdmin().doc('inventory_items/inv-plate').set(item));
+      await assertFails(asPersonnel().doc('inventory_items/inv-plate-2').set(item));
+      await assertFails(
+        asPersonnel().doc('inventory_items/inv-plate').update({ unitCost: 1 }),
+      );
+
+      const room = {
+        name: 'Annex',
+        buildingName: 'Annex',
+        qrCode: 'FAC-ANNEX',
+        isActive: true,
+      };
+      await assertSucceeds(asAdmin().doc('facilities/fac-annex').set(room));
+      await assertFails(asPersonnel().doc('facilities/fac-annex-2').set(room));
+      await assertFails(
+        asFaculty().doc('facilities/fac-annex').update({ isActive: false }),
+      );
+    });
+  });
+});
+
 describe('unknown collections', () => {
   it('are denied by the catch-all rule', async () => {
     await assertFails(asAdmin().doc('not_a_real_collection/doc').get());

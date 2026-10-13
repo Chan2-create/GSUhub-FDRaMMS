@@ -178,6 +178,7 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
+    container: true,
     button: true,
     label: '$label: $value',
     excludeSemantics: true,

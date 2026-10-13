@@ -8,6 +8,7 @@ import '../../core/routing/route_paths.dart';
 import '../../features/analytics/presentation/widgets/analytics_range_select.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/dashboard/presentation/dashboard_providers.dart';
+import '../../features/inventory/presentation/inventory_providers.dart';
 import 'widgets/admin_nav_items.dart';
 import 'widgets/admin_sidebar.dart';
 import 'widgets/admin_top_bar.dart';
@@ -42,6 +43,9 @@ class AdminShell extends ConsumerWidget {
           AdminSidebar(
             currentLocation: location,
             user: user,
+            badges: {
+              RoutePaths.adminInventory: ref.watch(lowStockCountProvider),
+            },
             onSignOut: () async {
               await ref.read(authControllerProvider.notifier).signOut();
               if (context.mounted) context.go(RoutePaths.adminLogin);

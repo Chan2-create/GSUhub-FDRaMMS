@@ -16,10 +16,15 @@ class AdminSidebar extends StatelessWidget {
     required this.currentLocation,
     required this.user,
     required this.onSignOut,
+    this.badges = const {},
     super.key,
   });
 
   static const double width = 305;
+
+  /// Counts drawn on items, by path: the low-stock alerts on Inventory
+  /// Management (Objective 6.A, §1.5).
+  final Map<String, int> badges;
 
   final String currentLocation;
   final AuthUser? user;
@@ -58,6 +63,7 @@ class AdminSidebar extends StatelessWidget {
                       _NavTile(
                         item: item,
                         isActive: currentLocation.startsWith(item.path),
+                        badge: badges[item.path] ?? 0,
                       ),
                     const SizedBox(height: 10),
                   ],
@@ -73,10 +79,13 @@ class AdminSidebar extends StatelessWidget {
 }
 
 class _NavTile extends StatelessWidget {
-  const _NavTile({required this.item, required this.isActive});
+  const _NavTile({required this.item, required this.isActive, this.badge = 0});
 
   final AdminNavItem item;
   final bool isActive;
+
+  /// Above zero, a red count after the label.
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +95,7 @@ class _NavTile extends StatelessWidget {
       selected: isActive,
       button: true,
       enabled: item.isEnabled,
+      label: badge > 0 ? '${item.label}, $badge low on stock' : null,
       child: InkWell(
         onTap: item.isEnabled && !isActive ? () => context.go(item.path) : null,
         child: Container(
@@ -118,6 +128,25 @@ class _NavTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (badge > 0)
+                ExcludeSemantics(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.notificationBadge,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      badge > 99 ? '99+' : '$badge',
+                      style: AppTextStyles.badgeText.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
               const SizedBox(width: 12),
             ],
           ),
@@ -136,8 +165,13 @@ class _NavTile extends StatelessWidget {
   Widget _icon(Color color) {
     final asset = item.iconAsset;
     if (asset == null) {
-      // Only Map View lands here — its Figma node has no glyph.
-      return Icon(Icons.location_on_outlined, size: 22, color: color);
+      // Map View's Figma node has no glyph; Facilities & Equipment has no
+      // design at all.
+      return Icon(
+        item.fallbackIcon ?? Icons.location_on_outlined,
+        size: 22,
+        color: color,
+      );
     }
     return SvgPicture.asset(
       asset,

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../utils/result.dart';
+import '../../utils/result.dart' hide Error;
 import '../firestore_service.dart';
 import 'firebase_call_guard.dart';
 
@@ -163,7 +163,32 @@ class FirestoreServiceImpl implements FirestoreService {
   /// silently overwrites the other.
   Future<Result<T>> runTransaction<T>(
     Future<T> Function(Transaction transaction) handler,
-  ) => _guard.call(() => _firestore.runTransaction<T>(handler));
+  ) => _guard.call(() async {
+    // On the web, an error thrown inside [handler] — a repository's refusal,
+    // or a read the rules denied — comes back from the SDK boxed in a
+    // JavaScript error ("Dart exception thrown from converted Future"), and
+    // its message is lost. The one thrown here is kept, and reported in its
+    // place. On Android it is the same error either way.
+    Object? thrown;
+    StackTrace? thrownAt;
+    try {
+      return await _firestore.runTransaction<T>((transaction) async {
+        try {
+          return await handler(transaction);
+        } catch (error, stackTrace) {
+          thrown = error;
+          thrownAt = stackTrace;
+          rethrow;
+        }
+      });
+    } catch (_) {
+      final original = thrown;
+      if (original != null) {
+        Error.throwWithStackTrace(original, thrownAt!);
+      }
+      rethrow;
+    }
+  });
 
   /// Applies several writes atomically, for operations that need
   /// all-or-nothing semantics but no reads.

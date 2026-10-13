@@ -106,7 +106,7 @@ Firestore id = Firebase Auth uid. Model: `AppUser`
 | `contactNumber` | String | — | Phone contact | **DERIVED** (Fig 17 shows a CONTACT INFO column, populated with email only) |
 | `specialization` | enum `DamageCategory` | — | Personnel trade; drives assignment suggestions | Fig 17 |
 | `availability` | enum `PersonnelAvailability` | — | `available` / `busy` / `onLeave` | Fig 17 |
-| `activeTaskCount` | int ≥ 0 | ✔ (default 0) | **Denormalized** count of open tasks | Fig 17 |
+| `activeTaskCount` | int ≥ 0 | ✔ (default 0) | **Denormalized** count of the person's open work orders (2.B; tasks do not change it — Objective 5) | Fig 17 |
 | `fcmToken` | String | — | Push delivery token | **DERIVED** (implied by §1.5 push requirement) |
 | `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | | **DERIVED** |
 
@@ -308,6 +308,54 @@ Model: `WorkOrder`.
 | `createdBy` | String → `users` | ✔ | The Administrator | **DERIVED** |
 | `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | | **DERIVED** |
 
+**Who moves it (Objective 5.B).** The assigned technician starts it
+(`pending → inProgress`, setting `startedAt`) and submits it with the
+accomplishment report (`inProgress → forReview`). The administrator signs
+it off (`forReview → completed`, setting `completedAt`) or sends it back
+(`forReview → inProgress`, the note in `adminNotes`). Every move runs
+through `WorkOrderMove`, which moves the linked reports, writes their
+timeline entries and the requestor's notice, and on completion releases
+`activeTaskCount`, in one transaction.
+
+### materials_used (subcollection, Objective 5.C)
+
+`work_orders/{id}/materials_used/{inventoryItemId}` — what the technician
+has recorded as used while the work is open. Model: `RecordedMaterial`.
+One document per item; recording it again replaces the quantity.
+
+| Field | Type | Required | Description | Source |
+|---|---|---|---|---|
+| `itemName` | String | ✔ | **Denormalized** | Group 43 |
+| `quantityUsed` | double > 0 | ✔ | At most the stock when recorded | Group 43 |
+| `unitOfMeasurement` | String | ✔ | **Denormalized** | Group 43 |
+| `recordedBy` | String → `users` | ✔ | The technician | **DERIVED** |
+| `recordedAt` | DateTime (UTC) | ✔ | Server time | **DERIVED** |
+
+Nothing comes off stock here. Filing the accomplishment report copies the
+list into `materialsUsed`, deducts it and deletes these documents, in the
+same transaction. The rules allow writes only by an assigned technician
+while the work order is pending or in progress.
+
+### materials_allocated (subcollection, Objective 6.B)
+
+`work_orders/{id}/materials_allocated/{inventoryItemId}` — what GSU has
+set aside for the job (Group 43's "Pre-assigned Materials"). Model:
+`AllocatedMaterial`. One document per item.
+
+| Field | Type | Required | Description | Source |
+|---|---|---|---|---|
+| `itemName` | String | ✔ | **Denormalized** | Group 43 |
+| `quantity` | double > 0 | ✔ | At most the stock when set | Group 43 |
+| `unitOfMeasurement` | String | ✔ | **Denormalized** | Group 43 |
+| `allocatedBy` | String → `users` | ✔ | The administrator | **DERIVED** |
+| `allocatedAt` | DateTime (UTC) | ✔ | Server time | **DERIVED** |
+
+Set by an administrator on the console's work-order page, or added to
+by approving a request; read by the technicians assigned. **Moves no
+stock** (Chris, 2026-10-13): §1.5 deducts "after the corresponding
+accomplishment report is submitted", so only what the technician records
+as used comes off. Refused once the work order is no longer open.
+
 ## tasks
 
 Model: `MaintenanceTask` (named to avoid colliding with `dart:async`
@@ -324,6 +372,20 @@ vocabulary). **Largely DERIVED** from Fig 24's checklist.
 | `proofPhotoUrls` | List\<String\> | ✔ (default `[]`) | "Upload Proof" | Fig 24 |
 | `completedAt` | DateTime (UTC) | — | | **DERIVED** |
 | `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | | **DERIVED** |
+
+**Who writes them (Objective 5, decided by Chris).** The administrator:
+assigning a report creates the first task (the report's title, its
+location as the description, due on `scheduledFor` or at once), and the
+console's work-order page adds more (title up to 120 characters,
+description up to 500) or deletes one not yet done. Each new task writes
+a `taskAssigned` notice to the technician. The technician changes only
+`status`, `completedAt` and `proofPhotoUrls`. The first task touched on a
+pending work order starts it.
+
+**The day's tasks (DERIVED).** *Today*: the open tasks of open work
+orders due today, overdue or undated, then those completed today.
+*Coming up*: open tasks due after today. *Overdue*: due before today and
+not completed.
 
 ## accomplishment_reports
 
@@ -349,6 +411,23 @@ metres), `unitOfMeasurement` (denormalized).
 deduction but not its failure modes. Without a guard, a retried submission
 deducts the same stock twice.
 
+**How one is filed (Objective 5.B).** Notes up to 2000 characters and
+1–5 photos. The id is reserved before the photos upload, under
+`accomplishment_reports/{id}/`. One transaction reads first (an existing
+report with that id means a retry, and nothing more is written), then
+files the report with the recorded `materials_used`, writes a
+`consumption` ledger entry per material (with `workOrderId` and
+`accomplishmentReportId`) and its new balance, deletes the recorded
+list, and moves the work order to for review. `inventoryDeducted` is
+true exactly when materials were used; the rules check that, and that
+the work order moves to for review in the same write. Refused unless the
+work is in progress and the person filing is assigned to it.
+
+**Review.** The administrator sets `reviewedBy` and `reviewedAt` once,
+approving (the work order completes) or sending it back (it returns to
+in progress, the note in `adminNotes`). A send-back asks for a new
+report; a filed one is never edited.
+
 ## inventory_items
 
 Model: `InventoryItem`. **The one entity the manuscript specifies field by
@@ -364,7 +443,25 @@ field** — §3.4 lists the first seven verbatim.
 | `qrCode` | String | ✔ | QR / barcode | §3.4 |
 | `condition` | enum `ItemCondition` | — | §3.4 says "status and condition" | §3.4 |
 | `minimumThreshold` | double ≥ 0 | ✔ | Low-stock trigger | §1.5 |
+| `specification` | String | — | Size or pack: "Bulk", "10ft", "5 Gal" | Fig 15 (**DERIVED** field) |
+| `unitCost` | double ≥ 0 | — | Pesos per unit; Total Stock Value sums quantity × this | Fig 15, Chris 2026-10-13 (**DERIVED** field) |
+| `photoUrl` | String | — | The card's photo, in Storage under `inventory_items/{id}/` | Fig 15 (**DERIVED** field) |
 | `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | | **DERIVED** |
+
+**How stock changes (Objective 6.A).** Only through the ledger, in the
+same transaction as the balance: a new material's opening stock and a
+delivery (Figure 15's cart and ORDER) are `replenishment` entries, a
+physical count that differs is an `adjustment` with its reason, and an
+accomplishment report's materials are `consumption` entries (5.B).
+Editing a material never touches its stock. **Low stock** is
+`quantityAvailable <= minimumThreshold`, read live by the console
+(sidebar count, card, badges); no notification document is written
+(docs/architecture_decisions.md §20).
+
+**One code, one thing.** A `qrCode` is unique across materials, tools,
+rooms and equipment together, because one scanner reads them all; the
+console checks before saving. New codes default to `INV-<NAME>`,
+`TOOL-<tool ID>`, `FAC-<ID>` and `AST-<ID>`.
 
 ## inventory_transactions — append-only
 
@@ -381,7 +478,11 @@ Model: `InventoryTransaction`.
 | `accomplishmentReportId` | String | — | Idempotency key for auto-deduction | **DERIVED** |
 | `notes` | String | — | | **DERIVED** |
 | `performedBy` | String → `users` | ✔ | | §3.4 |
+| `performedByName` | String | — | **Denormalized**, so the history keeps a name (6.A; absent on older entries) | **DERIVED** |
 | `performedAt` | DateTime (UTC) | ✔ | | §3.4 |
+
+An `adjustment` can go either way: its `quantity` is the size of the
+correction, and `quantityBefore`/`quantityAfter` give its direction.
 
 **How append-only is enforced** (three layers, because one is not enough):
 
@@ -421,6 +522,46 @@ consumables.
 *Invariants:* `returnedAt` cannot precede `borrowedAt`; a returned loan
 must record `conditionOnReturn`. Recording condition at both ends is what
 makes damage attributable to a custodian (§1.5, §3.4).
+
+**In the personnel app (Objective 5.C).** A technician borrows an
+available tool by scan or from the list, against one of their work
+orders or none, and returns it with its condition and an optional note.
+A tool returned in `poor` condition goes to `inRepair`; otherwise it is
+`available` again. Each borrow and return writes an audit entry.
+Personnel list their own loans only.
+
+**From the console (Objective 6.B, Figure 15).** Check Out writes the
+loan with `borrowedBy` the technician and the administrator as the audit
+entry's actor; the rules allow an administrator to create a loan only
+for a maintenance-personnel account. Check In closes it as a return
+does. An administrator sends an available tool to repair, brings one
+back, or retires one; never a tool that is out, and a retired tool stays
+retired. A tool out on loan keeps the condition it left in until it is
+checked in.
+
+## material_requests
+
+Model: `MaterialRequest` (Objective 6.B, Group 43; §3.4 personnel
+"request and monitor materials assigned to work orders").
+
+| Field | Type | Required | Description | Source |
+|---|---|---|---|---|
+| `workOrderId` | String → `work_orders` | ✔ | | Group 43 |
+| `requestedBy` | String → `users` | ✔ | The technician | Group 43 |
+| `requestedByName` | String | ✔ | **Denormalized**, for the console's list | **DERIVED** |
+| `items` | List of {`inventoryItemId`, `itemName`, `quantity`, `unitOfMeasurement`} | ✔ (1–20) | Names and units read from the inventory when filed | Group 43 |
+| `status` | `pending` / `approved` / `declined` | ✔ | | Group 43 ("Pending"); outcomes **DERIVED** |
+| `note` | String ≤ 300 | — | The technician's words | Group 43 |
+| `adminNote` | String ≤ 300 | — | GSU's answer; required to decline | Group 43 ("Admin Note") |
+| `reviewedBy`, `reviewedAt` | String / DateTime | — | Set once | **DERIVED** |
+| `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | Server time | **DERIVED** |
+
+Filed by a technician assigned to the work order while it is open, under
+an id reserved before sending (a retry files nothing twice). Approving
+adds its items to the work order's `materials_allocated` and is refused
+when the store holds less than asked; declining needs a note. Either way
+the technician gets a `statusUpdate` notice about the work order. Never
+deleted. Shown as `#RQ-…`.
 
 ## feedback
 
@@ -600,10 +741,13 @@ row in a list view.
 | `damage_reports.reporterName` | `users.fullName` | Report creation | User renamed → stale. Acceptable: the report records who filed it *at the time*. Refresh on rename if it matters. |
 | `damage_reports.facilityName` | `facilities.name` | Report creation | Facility renamed → stale. Same reasoning. |
 | `work_orders.facilityName` | `facilities.name` | Work-order creation | As above. |
-| `users.activeTaskCount` | count of open `tasks` | `TaskRepository.setStatus` and task assignment, via `UserRepository.adjustActiveTaskCount` | **Highest risk.** Must be an atomic increment, never read-modify-write, or concurrent assignments will lose counts. Drift corrupts the Admin personnel view; a periodic reconciliation job is worth considering in 1.C. |
+| `users.activeTaskCount` | count of the person's open work orders | +1 in the assignment transaction; −1 when the work order completes (`WorkOrderMove`), both atomic increments | **Highest risk.** Must be an atomic increment, never read-modify-write, or concurrent assignments will lose counts. Drift corrupts the Admin personnel view; a periodic reconciliation job is worth considering in 1.C. |
 | `accomplishment_reports.materialsUsed[].itemName` / `.unitOfMeasurement` | `inventory_items` | Report submission | Intentionally frozen — a historical record should read as it did when filed. |
 | `inventory_transactions.itemName` | `inventory_items.name` | Transaction creation | Intentionally frozen (ledger). |
 | `tool_loans.toolName` | `tools.name` | Loan creation | Intentionally frozen (history). |
+| `inventory_transactions.performedByName` | `users.fullName` | Every stock movement (6.A) | Intentionally frozen (ledger). |
+| `material_requests.requestedByName`, `.items[].itemName` / `.unitOfMeasurement` | `users`, `inventory_items` | Filing (6.B) | Intentionally frozen: the request reads as it was made. |
+| `work_orders/*/materials_allocated.itemName` / `.unitOfMeasurement` | `inventory_items` | Pre-assigning, approving (6.B) | Refreshed each time the quantity is set. |
 | `tools.currentLoanId` | open `tool_loans` doc | Borrow / return | Must be cleared on return; a stale pointer offers a Check In action for a loan already closed. |
 | `audit_logs.actorName` | `users.fullName` | Entry creation | Intentionally frozen. |
 
@@ -643,16 +787,19 @@ unavailable. Shape:
 |---|---|---|---|
 | `users` | own record; create own as a pending requestor (3.A) | own record | all |
 | `facilities`, `assets` | read | read | full |
-| `damage_reports` | create + read own; close own completed report by rating it (3.C) | read assigned, advance status | full |
-| `work_orders` | — | read/update **assigned only** | full |
-| `tasks` | — | read/update own | full |
-| `accomplishment_reports` | — | create own | read all, review |
+| `damage_reports` | create + read own; close own completed report by rating it (3.C) | read and advance status on reports of **their own** work (5.B) | full |
+| `work_orders` | — | read/list **assigned only**; start (pending → in progress) and submit (in progress → for review) only (5.B) | full |
+| `work_orders/*/materials_used` | — | the assigned technician records and removes, while the work is open (5.C) | read, delete |
+| `work_orders/*/materials_allocated` | — | read, on their own work (6.B) | full |
+| `material_requests` | — | file own, for their own open work, pending and unreviewed; read/list own (6.B) | read all; approve or decline a pending one once, a note required to decline |
+| `tasks` | — | read/list own; tick off and add proof (5.A) | full |
+| `accomplishment_reports` | — | file own, in the write that submits the work; read/list own (5.B) | read all, review |
 | `inventory_items` | read | read + balance via transaction | full |
 | `inventory_transactions` | — | create only | create only |
-| `tools`, `tool_loans` | read tools | borrow/return own | full |
+| `tools`, `tool_loans` | read tools | borrow/return own; list own loans (5.C) | full; a loan only to a maintenance-personnel account (6.B) |
 | `feedback` | rate own completed report, which closes it (3.C); read own | **no access** (§1.5) | read all |
-| `notifications` | read own, mark own read; create own "received" while filing (3.B) | read own, mark own read; create for a report with a work order | read own; create for any report's reporter (3.B) |
-| `damage_reports/*/status_history` | read own reports'; create the first `submitted` entry while filing | create on a report with a work order | read + create; nobody updates or deletes |
+| `notifications` | read own, mark own read; create own "received" while filing (3.B) | read own, mark own read; create for the reporter of a report of their own work | read own; create for any report's reporter (3.B) or any technician (5.A) |
+| `damage_reports/*/status_history` | read own reports'; create the first `submitted` entry while filing | read + create on reports of their own work | read + create; nobody updates or deletes |
 | `audit_logs` | — | create only | read + create |
 | `config/*` | read | read | full |
 

@@ -41,6 +41,11 @@ abstract final class FirestorePaths {
   /// report is submitted (§3.4), and cleared then.
   static const String materialsUsed = 'materials_used';
 
+  /// Subcollection of each [workOrders] document: the materials GSU has
+  /// pre-assigned to the work, one entry per inventory item (Objective
+  /// 6.B). An approved [materialRequests] entry adds to them.
+  static const String materialsAllocated = 'materials_allocated';
+
   /// Individual tasks under a work order, for personnel daily task
   /// management (manuscript §1.2 objectives, mobile personnel app).
   static const String tasks = 'tasks';
@@ -56,6 +61,11 @@ abstract final class FirestorePaths {
 
   /// Issuance/consumption/replenishment ledger for [inventoryItems].
   static const String inventoryTransactions = 'inventory_transactions';
+
+  /// Technicians' requests for more materials on a work order, approved
+  /// or declined by an administrator (Objective 6.B, §3.4 "request and
+  /// monitor materials assigned to work orders").
+  static const String materialRequests = 'material_requests';
 
   /// Reusable maintenance tools and equipment, distinct from consumable
   /// [inventoryItems].

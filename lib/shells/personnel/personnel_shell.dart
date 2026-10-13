@@ -76,7 +76,7 @@ class PersonnelShell extends ConsumerWidget {
 
   /// Scans a code and opens what it identifies (5.C).
   static Future<void> scan(BuildContext context, WidgetRef ref) async {
-    final code = await ref.read(qrScanLauncherProvider)(context);
+    final code = await ref.read(personnelScanLauncherProvider)(context);
     if (code == null || code.trim().isEmpty || !context.mounted) return;
     await context.push(RoutePaths.personnelScanFor(code.trim()));
   }

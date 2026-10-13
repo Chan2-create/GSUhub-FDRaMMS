@@ -1,14 +1,14 @@
 import '../../../../core/utils/result.dart';
+import '../../../audit/data/models/audit_actor.dart';
 import '../models/asset.dart';
 import '../models/facility.dart';
+import '../models/facility_draft.dart';
 
 /// Abstract contract for the `facilities` and `assets` collections — the
 /// registry behind QR-code identification (manuscript §1.7).
 ///
 /// Both live here because they answer the same question ("what is this QR
 /// code pointing at?") and are almost always read together.
-///
-/// **Interface only** — implementation is 1.C.
 abstract interface class FacilityRepository {
   Future<Result<Facility>> getFacilityById(String id);
 
@@ -21,13 +21,32 @@ abstract interface class FacilityRepository {
 
   Future<Result<List<Facility>>> getFacilities({bool activeOnly = true});
 
-  Future<Result<String>> createFacility(Facility facility);
+  /// Every room, inactive ones included, by building then room: the
+  /// console's Facilities & Equipment page (Objective 6.C).
+  Stream<Result<List<Facility>>> watchFacilities();
 
-  Future<Result<void>> updateFacility(Facility facility);
+  /// Registers a room. Its code, when [FacilityDraft.qrCode] is empty, is
+  /// made from its new id. Refused when another material, tool, room or
+  /// piece of equipment carries the code.
+  Future<Result<String>> createFacility({
+    required FacilityDraft draft,
+    required AuditActor actor,
+  });
 
-  /// Soft-delete. Facilities are deactivated rather than removed so
-  /// historical reports keep resolving against a real document.
-  Future<Result<void>> deactivateFacility(String id);
+  Future<Result<void>> updateFacility({
+    required String facilityId,
+    required FacilityDraft draft,
+    required AuditActor actor,
+  });
+
+  /// Deactivates or reactivates a room. Facilities are never deleted, so
+  /// old reports keep resolving; an inactive one is left out of the
+  /// report form.
+  Future<Result<void>> setFacilityActive({
+    required String facilityId,
+    required bool active,
+    required AuditActor actor,
+  });
 
   Future<Result<Asset>> getAssetById(String id);
 
@@ -39,9 +58,23 @@ abstract interface class FacilityRepository {
     bool activeOnly = true,
   });
 
-  Future<Result<String>> createAsset(Asset asset);
+  /// Every piece of equipment, inactive included, by name.
+  Stream<Result<List<Asset>>> watchAssets();
 
-  Future<Result<void>> updateAsset(Asset asset);
+  Future<Result<String>> createAsset({
+    required AssetDraft draft,
+    required AuditActor actor,
+  });
 
-  Future<Result<void>> deactivateAsset(String id);
+  Future<Result<void>> updateAsset({
+    required String assetId,
+    required AssetDraft draft,
+    required AuditActor actor,
+  });
+
+  Future<Result<void>> setAssetActive({
+    required String assetId,
+    required bool active,
+    required AuditActor actor,
+  });
 }
