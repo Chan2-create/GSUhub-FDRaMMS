@@ -12,7 +12,7 @@ import '../../../../core/utils/display_id.dart';
 /// archiving appear on the timeline only. The wording is DERIVED; the
 /// sources give none.
 ///
-/// Free of Flutter imports on purpose: tool/seed_emulator.dart runs on
+/// Free of Flutter imports on purpose: tool/seed.dart runs on
 /// plain Dart and seeds its notifications with this same wording.
 class ReportNotice {
   const ReportNotice({
