@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../firebase_options.dart';
 import 'app_config.dart';
+import 'web_auth_emulator.dart';
 
 /// Outcome of application startup.
 ///
@@ -48,6 +49,7 @@ final class FirebaseStartupFailure extends FirebaseStartupResult {
     required this.detail,
     this.isEmulatorFailure = false,
     this.isConfigurationFailure = false,
+    this.advice,
   });
 
   /// Short, user-facing explanation.
@@ -63,6 +65,10 @@ final class FirebaseStartupFailure extends FirebaseStartupResult {
   /// True when the build itself was configured wrongly. Retrying cannot
   /// help: `--dart-define` values are fixed at compile time.
   final bool isConfigurationFailure;
+
+  /// What to do about it, when the failure has a specific fix the
+  /// standard wording would get wrong.
+  final String? advice;
 }
 
 /// Initializes Firebase and, in emulator mode, repoints every SDK at the
@@ -74,6 +80,14 @@ abstract final class FirebaseInitializer {
   /// so startup can render an error screen instead of dying.
   static Future<FirebaseStartupResult> initialize(AppConfig config) async {
     try {
+      if (config.useEmulator) {
+        // Before Firebase starts: on the web, starting restores a saved
+        // session, and restoring talks to whichever Auth is attached then.
+        await prepareAuthEmulatorBeforeStart(
+          'http://${config.emulatorHost}:${config.authEmulatorPort}',
+        );
+      }
+
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
@@ -90,6 +104,18 @@ abstract final class FirebaseInitializer {
           firestore: firestore,
           storage: storage,
         );
+        if (authEmulatorAttached() == false) {
+          return const FirebaseStartupFailure(
+            summary: 'Sign-in is not connected to the Auth emulator.',
+            detail:
+                'Firebase Auth reached the live project before the emulator '
+                'could be attached, so this tab would sign in to real '
+                'accounts. GSUhub stopped instead.',
+            advice:
+                'Close this tab and open the app in a new one. If it keeps '
+                'happening, clear the site data for this page in the browser.',
+          );
+        }
       } else if (kDebugMode) {
         // Reachable only through USE_LIVE_FIREBASE=true, but a debug build
         // pointed at the demo project deserves to be impossible to miss.

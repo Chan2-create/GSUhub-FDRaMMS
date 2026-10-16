@@ -12,6 +12,8 @@ AppConfig testAppConfig({
   String fcmVapidKey = '',
   Duration requestTimeout = const Duration(seconds: 5),
   int maxRetryAttempts = 0,
+  String supabaseUrl = 'http://localhost:54321',
+  String supabaseAnonKey = 'test-anon-key',
 }) => AppConfig(
   appName: 'GSUhub',
   environment: Environment.development,
@@ -23,4 +25,6 @@ AppConfig testAppConfig({
   fcmVapidKey: fcmVapidKey,
   requestTimeout: requestTimeout,
   maxRetryAttempts: maxRetryAttempts,
+  supabaseUrl: supabaseUrl,
+  supabaseAnonKey: supabaseAnonKey,
 );

@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../config/app_config.dart';
+import '../../config/web_auth_emulator.dart';
 import '../../errors/firebase_error_mapper.dart';
 import '../../utils/result.dart';
 import '../account_provisioning_service.dart';
@@ -97,6 +98,13 @@ class FirebaseAccountProvisioningService implements AccountProvisioningService {
         _config.emulatorHost,
         _config.authEmulatorPort,
       );
+      // The account would otherwise be made in the live project.
+      if (authEmulatorAttached(appName: _appName) == false) {
+        throw StateError(
+          'The account helper is not connected to the Auth emulator; '
+          'reload the page and try again.',
+        );
+      }
     }
     return auth;
   }

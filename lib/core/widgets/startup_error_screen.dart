@@ -36,7 +36,9 @@ class StartupErrorScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
-                if (failure.isConfigurationFailure)
+                if (failure.advice case final advice?)
+                  Text(advice)
+                else if (failure.isConfigurationFailure)
                   const Text(
                     'This build was started with an invalid configuration. '
                     'Rebuild it with corrected --dart-define flags.',

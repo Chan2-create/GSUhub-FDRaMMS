@@ -40,6 +40,19 @@ Future<void> _startApp() async {
   }
 
   final config = AppConfig.fromEnvironment();
+  if (config.supabaseConfigProblem case final problem?) {
+    runApp(
+      StartupErrorScreen(
+        failure: FirebaseStartupFailure(
+          summary: 'The database connection is not configured.',
+          detail: problem,
+          isConfigurationFailure: true,
+        ),
+      ),
+    );
+    return;
+  }
+
   final startup = await FirebaseInitializer.initialize(config);
 
   switch (startup) {

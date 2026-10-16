@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'env.dart';
 
 /// Default weighted-prioritization criteria (manuscript §3.4, Table 3.2:
@@ -48,6 +50,8 @@ class AppConfig {
     required this.firestoreEmulatorPort,
     required this.storageEmulatorPort,
     required this.fcmVapidKey,
+    required this.supabaseUrl,
+    required this.supabaseAnonKey,
     this.prioritizationWeights = const PrioritizationWeights(),
     this.requestTimeout = const Duration(seconds: 20),
     this.maxRetryAttempts = 2,
@@ -62,6 +66,8 @@ class AppConfig {
     firestoreEmulatorPort: Env.firestoreEmulatorPort,
     storageEmulatorPort: Env.storageEmulatorPort,
     fcmVapidKey: Env.fcmVapidKey,
+    supabaseUrl: Env.supabaseUrl,
+    supabaseAnonKey: Env.supabaseAnonKey,
   );
 
   final String appName;
@@ -82,6 +88,12 @@ class AppConfig {
   /// committed. See [Env.fcmVapidKey].
   final String fcmVapidKey;
 
+  /// Where GSUhub's data and photos live. See [Env.supabaseUrl].
+  final String supabaseUrl;
+
+  /// The Supabase anon or publishable key. See [Env.supabaseAnonKey].
+  final String supabaseAnonKey;
+
   /// How long a single Firebase call may run before it is abandoned.
   ///
   /// Firestore's own offline queue will happily wait indefinitely for
@@ -100,4 +112,58 @@ class AppConfig {
   final PrioritizationWeights prioritizationWeights;
 
   bool get hasVapidKey => fcmVapidKey.isNotEmpty;
+
+  /// Why this build cannot reach its database, or `null` when it can.
+  ///
+  /// All of it is fixed at build time, so startup checks it before
+  /// anything else and shows the answer instead of failing later on the
+  /// first query.
+  String? get supabaseConfigProblem {
+    if (supabaseUrl.isEmpty) {
+      return 'SUPABASE_URL is not set. Pass '
+          '--dart-define=SUPABASE_URL=https://<project-ref>.supabase.co.';
+    }
+    final url = Uri.tryParse(supabaseUrl);
+    if (url == null || !url.hasScheme || url.host.isEmpty) {
+      return 'SUPABASE_URL is not a URL: $supabaseUrl';
+    }
+    if (supabaseAnonKey.isEmpty) {
+      return 'SUPABASE_ANON_KEY is not set. For the local stack it is the '
+          'ANON_KEY that `npx supabase status` prints; for the hosted '
+          'project, its anon or publishable key.';
+    }
+    if (_isPrivilegedKey(supabaseAnonKey)) {
+      return 'SUPABASE_ANON_KEY is a service-role or secret key. It skips '
+          'every access rule and must never ship in the app. Use the anon '
+          'or publishable key.';
+    }
+    if (useEmulator && !_isLocal(url.host)) {
+      return 'This build signs in with the Firebase Auth emulator, whose '
+          'tokens only the local Supabase stack accepts, but SUPABASE_URL '
+          'points at $supabaseUrl. Leave SUPABASE_URL out to use the local '
+          'stack, or build with USE_LIVE_FIREBASE=true.';
+    }
+    return null;
+  }
+
+  bool _isLocal(String host) =>
+      host == 'localhost' ||
+      host == '127.0.0.1' ||
+      host == '10.0.2.2' ||
+      host == emulatorHost;
+
+  /// A secret key, or a legacy key whose JWT says `service_role`.
+  static bool _isPrivilegedKey(String key) {
+    if (key.startsWith('sb_secret_')) return true;
+    final parts = key.split('.');
+    if (parts.length != 3) return false;
+    try {
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      return payload is Map && payload['role'] == 'service_role';
+    } on FormatException {
+      return false;
+    }
+  }
 }

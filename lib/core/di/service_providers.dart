@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase/supabase.dart' show SupabaseClient;
 
 import '../config/app_config.dart';
 import '../config/firebase_initializer.dart';
@@ -20,6 +23,8 @@ import '../services/location_service.dart';
 import '../services/notification_service.dart';
 import '../services/photo_picker_service.dart';
 import '../services/storage_service.dart';
+import '../services/supabase/supabase_call_guard.dart';
+import '../services/supabase/supabase_session.dart';
 
 /// The app-wide [AppConfig]. Overridden in `main.dart`.
 final appConfigProvider = Provider<AppConfig>(
@@ -38,6 +43,48 @@ final firebaseStartupProvider = Provider<FirebaseStartupSuccess>(
 
 final firebaseCallGuardProvider = Provider<FirebaseCallGuard>(
   (ref) => FirebaseCallGuard(ref.watch(appConfigProvider)),
+);
+
+/// Supabase access tokens for the signed-in Firebase user, traded at the
+/// `firebase-token-exchange` function (Objective 1).
+final supabaseSessionProvider = Provider<SupabaseSession>((ref) {
+  final config = ref.watch(appConfigProvider);
+  final session = SupabaseSession.forFirebase(
+    auth: ref.watch(firebaseStartupProvider).auth,
+    supabaseUrl: config.supabaseUrl,
+    apiKey: config.supabaseAnonKey,
+  );
+  ref.onDispose(session.dispose);
+  return session;
+});
+
+/// The Supabase client: data, photos and live updates. Who is calling
+/// comes from [supabaseSessionProvider]; Supabase's own sign-in is unused.
+///
+/// Repositories take this through their providers, never directly from a
+/// screen — Shared Backend Contract, rule 1.
+final supabaseClientProvider = Provider<SupabaseClient>((ref) {
+  final config = ref.watch(appConfigProvider);
+  final session = ref.watch(supabaseSessionProvider);
+  final client = SupabaseClient(
+    config.supabaseUrl,
+    config.supabaseAnonKey,
+    accessToken: session.accessToken,
+  );
+  // Realtime keeps the token it joined with until handed a new one, and
+  // the server closes a channel whose token has expired.
+  session.onTokenChanged = (token) => unawaited(
+    token == null ? client.removeAllChannels() : client.realtime.setAuth(token),
+  );
+  ref.onDispose(() {
+    session.onTokenChanged = null;
+    unawaited(client.dispose());
+  });
+  return client;
+});
+
+final supabaseCallGuardProvider = Provider<SupabaseCallGuard>(
+  (ref) => SupabaseCallGuard(ref.watch(appConfigProvider)),
 );
 
 /// Authentication. Features depend on the [AuthService] abstraction, never
