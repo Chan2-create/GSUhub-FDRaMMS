@@ -18,9 +18,56 @@ which needs no global install.
 | `migrations/*_realtime.sql` | The tables the app watches live. |
 | `seed.sql` | Demo data. **Generated, don't edit it**: see below. |
 | `tests/*.test.sql` | pgTAP tests: the permission matrix, the stock ledger and the storage policies. |
+| `functions/firebase-token-exchange/` | Trades a Firebase ID token for a Supabase access token. See below. |
+| `functions/tests/` | Its tests, in Deno. |
 
 The `app` schema is not exposed through the API. Its functions run with
 the owner's rights, so each one checks the caller itself.
+
+## How Supabase knows who is calling
+
+People sign in with Firebase. The app then trades the Firebase ID token
+for a Supabase one, at the `firebase-token-exchange` Edge Function
+(`lib/core/services/supabase/supabase_session.dart`). The Supabase token's
+`sub` is the Firebase uid. The database reads the role and account status
+from the `users` row with that id on every request, so a deactivated
+account is locked out at once, whatever token it holds.
+
+The function needs three secrets:
+
+| Secret | Local | Hosted |
+|---|---|---|
+| `FIREBASE_PROJECT_ID` | `gsuhub-dorsu` | `gsuhub-dorsu` |
+| `TOKEN_SIGNING_KEY` | the local stack's JWT secret, as a JSON Web Key | an ES256 key from `npx supabase gen signing-key --algorithm ES256`, imported as the project's signing key ([signing keys](https://supabase.com/docs/guides/auth/signing-keys)) |
+| `ALLOW_EMULATOR_TOKENS` | `true`: accepts the Auth emulator's unsigned tokens | **never set**. The function refuses to run if it is set on a hosted project. |
+
+Locally, `node tool/supabase_function_env.mjs` writes them to
+`supabase/functions/.env`, which git ignores. Run it after
+`npx supabase start`, then restart the stack so the function reads them.
+On the hosted project, use `npx supabase secrets set`.
+
+## Running the app against the local stack
+
+Development builds use the Firebase Auth emulator and the local Supabase
+stack together. `SUPABASE_URL` defaults to `http://localhost:54321`. The
+key is passed in rather than written into the code:
+
+```
+firebase emulators:start --only auth
+dart run tool/seed.dart auth
+npx supabase start
+flutter run -d chrome --dart-define=SUPABASE_ANON_KEY=<ANON_KEY from npx supabase status>
+```
+
+The app refuses to start on a bad combination, and says why:
+
+- no key;
+- the service-role or secret key, which skips every access rule;
+- the Auth emulator with a hosted database.
+
+Release builds (`scripts/deploy_web.ps1`, `scripts/build_apk.ps1` and the
+web deploy workflow) take `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the
+environment, or from the repository secrets of the same names.
 
 ## Running the tests
 
@@ -53,6 +100,12 @@ node run.mjs --seed     # with supabase/seed.sql loaded
 
 `supabase_stub.sql` stands in for the parts of Supabase that PGlite doesn't
 have: the `auth.jwt()` function, the storage tables and the API roles.
+
+**The token exchange**, in Deno, offline:
+
+```
+npx deno@2.1.4 test --no-lock --config supabase/functions/firebase-token-exchange/deno.json supabase/functions/tests/
+```
 
 ## Demo data
 

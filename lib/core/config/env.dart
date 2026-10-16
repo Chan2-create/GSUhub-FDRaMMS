@@ -74,6 +74,42 @@ abstract final class Env {
     defaultValue: 9199,
   );
 
+  /// The Supabase API URL, where GSUhub's data and photos live.
+  ///
+  /// Development builds default to the local stack (`npx supabase start`)
+  /// on [emulatorHost], so a debug build pairs the Auth emulator with the
+  /// local database, and never with the hosted one: the hosted token
+  /// exchange refuses emulator tokens. Every other build must name it.
+  ///
+  /// `flutter run --dart-define=SUPABASE_URL=https://<ref>.supabase.co`
+  static const String _supabaseUrlDefine = String.fromEnvironment(
+    'SUPABASE_URL',
+  );
+
+  /// The local stack's API port. Must match `[api] port` in
+  /// supabase/config.toml.
+  static const int supabasePort = int.fromEnvironment(
+    'SUPABASE_PORT',
+    defaultValue: 54321,
+  );
+
+  static const String supabaseUrl = _supabaseUrlDefine != ''
+      ? _supabaseUrlDefine
+      : useEmulator
+      ? 'http://$emulatorHost:$supabasePort'
+      : '';
+
+  /// The project's anon (or publishable) key. Public by design, like the
+  /// Firebase web config, but supplied at build time so nothing
+  /// project-specific is committed. For the local stack it is the
+  /// `ANON_KEY` that `npx supabase status` prints. Never the service-role
+  /// or secret key: startup refuses those (see `AppConfig`).
+  ///
+  /// `flutter run --dart-define=SUPABASE_ANON_KEY=<key>`
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+  );
+
   /// Web Push (VAPID) public key from Firebase Console → Project settings
   /// → Cloud Messaging → Web Push certificates.
   ///

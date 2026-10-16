@@ -8,6 +8,9 @@
   (one APK per CPU type by default) -> release check (no emulator
   references) -> prints each APK's path, size and signing certificate.
 
+  Needs SUPABASE_URL and SUPABASE_ANON_KEY in the environment: the hosted
+  Supabase project the app reads its data from.
+
   Needs android\key.properties and the keystore it names (see
   docs\manual_deploy.md, "Release signing"). Refuses to build without
   them: a debug-signed install cannot later be updated by a release one.
@@ -55,6 +58,15 @@ foreach ($required in 'lib\firebase_options.dart', 'android\app\google-services.
   }
 }
 
+# The database (Objective 1): the hosted Supabase project's URL and anon
+# key, read from the environment so neither is committed. Never the
+# service-role key; the app refuses to start with it.
+foreach ($name in 'SUPABASE_URL', 'SUPABASE_ANON_KEY') {
+  if (-not [Environment]::GetEnvironmentVariable($name)) {
+    Stop-Build "$name is not set. Set it in this window first: `$env:$name = '...' (see docs\manual_deploy.md)."
+  }
+}
+
 $keyProperties = Join-Path $root 'android\key.properties'
 if (-not (Test-Path $keyProperties)) {
   Stop-Build ('android\key.properties is missing, so the APK would be signed with the debug key. ' +
@@ -76,11 +88,11 @@ Invoke-Step 'flutter pub get' { flutter pub get }
 # A release build uses live Firebase; IS_PRODUCTION makes that explicit.
 if ($Universal) {
   Invoke-Step 'flutter build apk --release' {
-    flutter build apk --release --dart-define=IS_PRODUCTION=true
+    flutter build apk --release --dart-define=IS_PRODUCTION=true "--dart-define=SUPABASE_URL=$env:SUPABASE_URL" "--dart-define=SUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY"
   }
 } else {
   Invoke-Step 'flutter build apk --release --split-per-abi' {
-    flutter build apk --release --split-per-abi --dart-define=IS_PRODUCTION=true
+    flutter build apk --release --split-per-abi --dart-define=IS_PRODUCTION=true "--dart-define=SUPABASE_URL=$env:SUPABASE_URL" "--dart-define=SUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY"
   }
 }
 

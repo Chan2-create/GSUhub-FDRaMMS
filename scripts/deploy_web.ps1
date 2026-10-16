@@ -12,6 +12,9 @@
   -> copy deploy\vercel.json in -> release check (no emulator references)
   -> vercel deploy. Stops at the first step that fails.
 
+  Needs SUPABASE_URL and SUPABASE_ANON_KEY in the environment: the hosted
+  Supabase project the console reads its data from.
+
   The first deploy asks Vercel's link questions (see docs\manual_deploy.md).
   The link is then kept in .vercel\ at the repo root (gitignored) and
   copied into build\web before each deploy, so a rebuild or flutter clean
@@ -61,6 +64,15 @@ function Invoke-Step([string]$name, [scriptblock]$command) {
 if (-not (Test-Path (Join-Path $root 'lib\firebase_options.dart'))) {
   Stop-Deploy 'lib\firebase_options.dart is missing. It is gitignored; see docs\firebase_setup.md.'
 }
+
+# The database (Objective 1): the hosted Supabase project's URL and anon
+# key, read from the environment so neither is committed. Never the
+# service-role key; the app refuses to start with it.
+foreach ($name in 'SUPABASE_URL', 'SUPABASE_ANON_KEY') {
+  if (-not [Environment]::GetEnvironmentVariable($name)) {
+    Stop-Deploy "$name is not set. Set it in this window first: `$env:$name = '...' (see docs\manual_deploy.md)."
+  }
+}
 if (-not $SkipDeploy) {
   if (-not (Get-Command vercel -ErrorAction SilentlyContinue)) {
     Stop-Deploy 'The Vercel CLI is not installed. Run: npm install --global vercel@latest'
@@ -80,7 +92,7 @@ if ($Clean) { Invoke-Step 'flutter clean' { flutter clean } }
 Invoke-Step 'flutter pub get' { flutter pub get }
 # A release build uses live Firebase; IS_PRODUCTION makes that explicit.
 Invoke-Step 'flutter build web --release' {
-  flutter build web --release --dart-define=IS_PRODUCTION=true
+  flutter build web --release --dart-define=IS_PRODUCTION=true "--dart-define=SUPABASE_URL=$env:SUPABASE_URL" "--dart-define=SUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY"
 }
 
 Write-Host "`n==> copy deploy\vercel.json into build\web" -ForegroundColor Cyan

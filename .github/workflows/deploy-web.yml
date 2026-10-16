@@ -44,8 +44,10 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          $names = 'FIREBASE_OPTIONS_DART', 'VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'
+          $names = 'FIREBASE_OPTIONS_DART', 'VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID', 'SUPABASE_URL', 'SUPABASE_ANON_KEY'
           $missing = $names | Where-Object { -not [Environment]::GetEnvironmentVariable($_) }
           if ($missing) {
             Write-Host "::error::Missing repository secrets: $($missing -join ', '). See docs/manual_deploy.md, 'Automatic web deploys'."
@@ -70,8 +72,13 @@ jobs:
       - run: flutter pub get
 
       # A release build uses live Firebase; IS_PRODUCTION makes that explicit.
+      # Its data lives in the hosted Supabase project (Objective 1); the
+      # anon key is public by design but kept out of the repository.
       - name: Build for live Firebase
-        run: flutter build web --release --dart-define=IS_PRODUCTION=true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: flutter build web --release --dart-define=IS_PRODUCTION=true "--dart-define=SUPABASE_URL=$env:SUPABASE_URL" "--dart-define=SUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY"
 
       - name: Add Vercel's settings to the build
         run: Copy-Item deploy/vercel.json build/web/vercel.json

@@ -67,6 +67,14 @@ dependencies:
   # for printing. Pure Dart, no platform code.
   pdf: ^3.13.1
   barcode_widget: ^2.0.4
+  # Application data, photos and live updates (Objective 1): Postgres,
+  # Storage and Realtime on Supabase. Sign-in stays with Firebase Auth. The
+  # pure Dart client, not supabase_flutter: Supabase's own sign-in is unused,
+  # so its session storage and deep-link plugins would be dead weight.
+  supabase: ^2.16.5
+  # Calls the token exchange directly; the Supabase client cannot be used
+  # to fetch its own access token.
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
