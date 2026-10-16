@@ -1,0 +1,13 @@
+{
+  "name": "gsuhub-sql-tests",
+  "private": true,
+  "description": "Runs supabase/tests (pgTAP) in PGlite, without Docker. See run.mjs.",
+  "type": "module",
+  "scripts": {
+    "test": "node run.mjs",
+    "test:seed": "node run.mjs --seed"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.10"
+  }
+}

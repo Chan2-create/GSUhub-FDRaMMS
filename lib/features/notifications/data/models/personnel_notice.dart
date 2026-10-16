@@ -7,7 +7,7 @@ import '../../../../core/enums/notification_type.dart';
 /// work orders and tasks". The wording is DERIVED; the sources give none.
 ///
 /// Free of Flutter imports on purpose, like `ReportNotice`:
-/// tool/seed_emulator.dart seeds notifications with this same wording.
+/// tool/seed.dart seeds notifications with this same wording.
 class PersonnelNotice {
   const PersonnelNotice({
     required this.type,

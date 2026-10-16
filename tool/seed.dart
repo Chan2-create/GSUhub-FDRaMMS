@@ -1,18 +1,18 @@
-// Seeds the Firebase Emulator Suite with realistic GSUhub test data.
+// GSUhub's demo data (Objective 1: Supabase).
 //
-// Run with the emulators already started:
+//     dart run tool/seed.dart sql    writes supabase/seed.sql
+//     dart run tool/seed.dart auth   creates the sign-in accounts in the
+//                                    Firebase Auth emulator
 //
-//     firebase emulators:start
-//     dart run tool/seed_emulator.dart
+// The data lives in Postgres now, and `supabase db reset` loads
+// supabase/seed.sql after the migrations. This script is where that data is
+// written down: edit it here and regenerate, so the file and the sign-in
+// accounts keep the same uids. Sign-in stays with Firebase, so its accounts
+// go to the Auth emulator.
 //
-// REFUSES TO RUN AGAINST A LIVE PROJECT. It talks to the emulator REST
-// endpoints on localhost only — there is no code path here that can reach
-// production, which is the point: a seed script that could be pointed at
-// the real database by a stray environment variable is an accident
-// waiting to happen.
-//
-// Safe to re-run: every document uses a fixed id, so a second run
-// overwrites rather than duplicating.
+// LOCAL ONLY. `sql` writes a file and touches no database; `auth` talks to
+// the Auth emulator on localhost and refuses to run if it is not there. No
+// code path reaches a live project.
 
 import 'dart:convert';
 import 'dart:io';
@@ -23,31 +23,27 @@ import 'package:gsuhub/features/notifications/data/models/report_notice.dart';
 
 const String projectId = 'gsuhub-dorsu';
 
-/// Emulator endpoints, overridable through the standard Firebase emulator
-/// environment variables.
-///
-/// Hardcoding them means the script cannot follow the suite onto a
-/// different port — and Windows reserves shifting TCP ranges at boot
-/// (`netsh interface ipv4 show excludedportrange protocol=tcp`), which
-/// periodically makes 9099 unbindable on a developer machine.
-final String firestoreHost =
-    Platform.environment['FIRESTORE_EMULATOR_HOST'] ?? 'localhost:8080';
+/// The Auth emulator, overridable through the standard Firebase variable.
+/// Windows reserves shifting TCP ranges at boot (`netsh interface ipv4 show
+/// excludedportrange protocol=tcp`), which can make 9099 unbindable.
 final String authHost =
     Platform.environment['FIREBASE_AUTH_EMULATOR_HOST'] ?? 'localhost:9099';
 
-const String _documentsRoot =
-    '/v1/projects/$projectId/databases/(default)/documents';
-
-Future<void> main() async {
-  stdout.writeln('Seeding GSUhub emulator data...');
-
-  if (!await _emulatorReachable()) {
+Future<void> main(List<String> args) async {
+  final mode = args.isEmpty ? 'sql' : args.first;
+  if (mode != 'sql' && mode != 'auth') {
+    stderr.writeln('Usage: dart run tool/seed.dart [sql|auth]');
+    exitCode = 64;
+    return;
+  }
+  if (mode == 'auth' && !await _authEmulatorReachable()) {
     stderr
-      ..writeln('Could not reach the Firestore emulator at $firestoreHost.')
-      ..writeln('Start it first:  firebase emulators:start');
+      ..writeln('Could not reach the Firebase Auth emulator at $authHost.')
+      ..writeln('Start it first:  firebase emulators:start --only auth');
     exitCode = 1;
     return;
   }
+  stdout.writeln('GSUhub demo data ($mode)...');
 
   await _seedUsers();
   await _seedFacilities();
@@ -66,11 +62,19 @@ Future<void> main() async {
     'older than two days already read)',
   );
 
+  if (mode == 'sql') {
+    final file = File('supabase/seed.sql');
+    file.writeAsStringSync(_renderSql());
+    stdout.writeln('\nWrote ${file.path} (${_docs.length} rows).');
+    return;
+  }
+
+  await _createAuthAccounts();
   if (_failures > 0) {
     stderr
       ..writeln()
       ..writeln(
-        '$_failures write(s) FAILED — the emulator is not fully '
+        '$_failures account(s) FAILED — the Auth emulator is not fully '
         'seeded. See the errors above.',
       );
     exitCode = 1;
@@ -87,7 +91,7 @@ Future<void> main() async {
     ..writeln('  liza.tan@dorsu.edu.ph   / password123  is a faculty sign-up')
     ..writeln('  still awaiting approval: approve it from User Accounts.')
     ..writeln()
-    ..writeln('Emulator UI: http://localhost:4000');
+    ..writeln('Data: supabase db reset (loads supabase/seed.sql).');
 }
 
 // --- users -------------------------------------------------------------
@@ -2180,7 +2184,13 @@ Future<void> _seedAuditLogs() async {
   stdout.writeln('  audit_logs: ${entries.length}');
 }
 
-// --- emulator REST helpers --------------------------------------------
+// --- where the seed goes ------------------------------------------------
+//
+// The data above is written through two sinks: [_writeDoc] collects each
+// document (as the Firestore REST shape it was first written in), and
+// [_createAuthUser] each sign-in account. `sql` renders the documents into
+// supabase/seed.sql; `auth` creates the accounts in the Firebase Auth
+// emulator.
 
 final HttpClient _client = HttpClient();
 
@@ -2189,16 +2199,43 @@ final HttpClient _client = HttpClient();
 int _failures = 0;
 
 /// The Firebase emulators accept this bearer token as full administrative
-/// access, bypassing security rules. That is exactly what seeding needs:
-/// the rules correctly deny unauthenticated writes, and seeding is not a
-/// client operation. No real credential is involved, and this only works
-/// against an emulator — a live project rejects it outright.
+/// access. No real credential is involved, and it only works against an
+/// emulator: a live project rejects it outright.
 const Map<String, String> _adminHeaders = {'Authorization': 'Bearer owner'};
 
-Future<bool> _emulatorReachable() async {
+/// The moment the seed is generated. Every time in it is written as an
+/// offset from now() at that moment, so a database reset next month still
+/// shows "2 hours ago" where the seed meant 2 hours ago.
+final DateTime _anchor = DateTime.now().toUtc();
+
+/// Every document, by path; a later write of the same path replaces it, as
+/// a Firestore PATCH without a mask did.
+final Map<String, ({String collection, String id, Map<String, Object?> fields})>
+_docs = {};
+
+/// The sign-in accounts: uid, email, password.
+final List<({String uid, String email, String password})> _accounts = [];
+
+Future<void> _writeDoc(
+  String collection,
+  String id,
+  Map<String, Object?> fields,
+) async {
+  _docs['$collection/$id'] = (collection: collection, id: id, fields: fields);
+}
+
+Future<void> _createAuthUser({
+  required String uid,
+  required String email,
+  required String password,
+}) async {
+  _accounts.add((uid: uid, email: email, password: password));
+}
+
+Future<bool> _authEmulatorReachable() async {
   try {
     final request = await _client
-        .getUrl(Uri.parse('http://$firestoreHost/'))
+        .getUrl(Uri.parse('http://$authHost/'))
         .timeout(const Duration(seconds: 3));
     final response = await request.close().timeout(const Duration(seconds: 3));
     await response.drain<void>();
@@ -2208,68 +2245,306 @@ Future<bool> _emulatorReachable() async {
   }
 }
 
-/// Writes a document with a fixed id, replacing any existing one.
-Future<void> _writeDoc(
-  String collection,
-  String id,
-  Map<String, Object?> fields,
-) async {
-  final uri = Uri.parse('http://$firestoreHost$_documentsRoot/$collection/$id');
-
-  final request = await _client.patchUrl(uri);
-  request.headers.contentType = ContentType.json;
-  _adminHeaders.forEach(request.headers.set);
-  request.write(jsonEncode({'fields': fields}));
-
-  final response = await request.close();
-  final body = await response.transform(utf8.decoder).join();
-
-  if (response.statusCode >= 300) {
-    _failures++;
-    stderr.writeln('  ! $collection/$id -> ${response.statusCode} $body');
+/// Creates each account in the Auth emulator with its fixed uid.
+///
+/// Uses the Admin-SDK-shaped endpoint rather than `accounts:signUp`: the
+/// public sign-up endpoint assigns its own uid and rejects `localId`, but
+/// the seeded `users` rows have to line up with real Auth uids or every
+/// sign-in resolves to a missing profile. "Already exists" is fine: the
+/// script stays re-runnable.
+Future<void> _createAuthAccounts() async {
+  for (final account in _accounts) {
+    final uri = Uri.parse(
+      'http://$authHost/identitytoolkit.googleapis.com/v1/'
+      'projects/$projectId/accounts',
+    );
+    final request = await _client.postUrl(uri);
+    request.headers.contentType = ContentType.json;
+    _adminHeaders.forEach(request.headers.set);
+    request.write(
+      jsonEncode({
+        'localId': account.uid,
+        'email': account.email,
+        'password': account.password,
+        'emailVerified': true,
+      }),
+    );
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    final alreadyExists =
+        body.contains('EMAIL_EXISTS') || body.contains('DUPLICATE_LOCAL_ID');
+    if (response.statusCode >= 300 && !alreadyExists) {
+      _failures++;
+      stderr.writeln(
+        '  ! auth ${account.email} -> ${response.statusCode} $body',
+      );
+    }
   }
 }
 
-/// Creates an Auth emulator account with a fixed uid.
-///
-/// Uses the Admin-SDK-shaped endpoint rather than `accounts:signUp`: the
-/// public sign-up endpoint assigns its own uid and rejects `localId`,
-/// but the seeded Firestore `users/{uid}` documents have to line up with
-/// real Auth uids or every sign-in resolves to a missing profile.
-///
-/// Ignores "already exists" so the script stays re-runnable.
-Future<void> _createAuthUser({
-  required String uid,
-  required String email,
-  required String password,
-}) async {
-  final uri = Uri.parse(
-    'http://$authHost/identitytoolkit.googleapis.com/v1/'
-    'projects/$projectId/accounts',
-  );
+// --- rendering the documents as SQL ---------------------------------------
 
-  final request = await _client.postUrl(uri);
-  request.headers.contentType = ContentType.json;
-  _adminHeaders.forEach(request.headers.set);
-  request.write(
-    jsonEncode({
-      'localId': uid,
-      'email': email,
-      'password': password,
-      'emailVerified': true,
-    }),
-  );
+/// Tables in the order their rows must go in: each after what it points
+/// at. The ledger goes last, oldest entry first, because each entry moves
+/// the stock (supabase/migrations/*_stock_ledger.sql).
+const List<String> _tableOrder = [
+  'users',
+  'facilities',
+  'assets',
+  'app_config',
+  'inventory_items',
+  'tools',
+  'work_orders',
+  'damage_reports',
+  'report_status_history',
+  'tasks',
+  'accomplishment_reports',
+  'work_order_materials_used',
+  'work_order_materials_allocated',
+  'tool_loans',
+  'material_requests',
+  'feedback',
+  'notifications',
+  'audit_logs',
+  'inventory_transactions',
+];
 
-  final response = await request.close();
-  final body = await response.transform(utf8.decoder).join();
+/// Columns holding JSON: an array or map there is JSON, not a text array.
+const Set<String> _jsonColumns = {'materials_used', 'items', 'changes', 'data'};
 
-  final alreadyExists =
-      body.contains('EMAIL_EXISTS') || body.contains('DUPLICATE_LOCAL_ID');
+String _table(String collection) => switch (collection) {
+  'config' => 'app_config',
+  _ when collection.endsWith('/status_history') => 'report_status_history',
+  _ when collection.endsWith('/materials_used') => 'work_order_materials_used',
+  _ when collection.endsWith('/materials_allocated') =>
+    'work_order_materials_allocated',
+  _ => collection,
+};
 
-  if (response.statusCode >= 300 && !alreadyExists) {
-    _failures++;
-    stderr.writeln('  ! auth $email -> ${response.statusCode} $body');
+String _snake(String name) => name.replaceAllMapped(
+  RegExp('[A-Z]'),
+  (match) => '_${match[0]!.toLowerCase()}',
+);
+
+String _quote(String value) => "'${value.replaceAll("'", "''")}'";
+
+/// A Firestore REST value as plain JSON, for jsonb columns.
+Object? _plain(Map<String, Object?> value) {
+  if (value.containsKey('stringValue')) return value['stringValue'];
+  if (value.containsKey('integerValue')) {
+    return int.parse(value['integerValue']! as String);
   }
+  if (value.containsKey('doubleValue')) return value['doubleValue'];
+  if (value.containsKey('booleanValue')) return value['booleanValue'];
+  if (value.containsKey('nullValue')) return null;
+  if (value.containsKey('timestampValue')) return value['timestampValue'];
+  if (value['arrayValue'] case final Map<String, Object?> array) {
+    final values = (array['values'] as List<Object?>?) ?? const [];
+    return [for (final item in values) _plain(item! as Map<String, Object?>)];
+  }
+  if (value['mapValue'] case final Map<String, Object?> map) {
+    final fields = (map['fields'] as Map<String, Object?>?) ?? const {};
+    return {
+      for (final MapEntry(:key, value: item) in fields.entries)
+        key: _plain(item! as Map<String, Object?>),
+    };
+  }
+  throw ArgumentError('Unknown value $value');
+}
+
+/// A time, as an offset from now() at reset.
+String _time(String iso) {
+  final offset = _anchor.difference(DateTime.parse(iso).toUtc());
+  final ms = offset.inMilliseconds;
+  return ms >= 0
+      ? "now() - interval '$ms milliseconds'"
+      : "now() + interval '${-ms} milliseconds'";
+}
+
+/// A Firestore REST value as a SQL literal for [column].
+String _literal(String column, Map<String, Object?> value) {
+  if (_jsonColumns.contains(column)) {
+    return '${_quote(jsonEncode(_plain(value)))}::jsonb';
+  }
+  if (value.containsKey('stringValue')) {
+    return _quote(value['stringValue']! as String);
+  }
+  if (value.containsKey('integerValue')) {
+    return value['integerValue']! as String;
+  }
+  if (value.containsKey('doubleValue')) return '${value['doubleValue']}';
+  if (value.containsKey('booleanValue')) return '${value['booleanValue']}';
+  if (value.containsKey('nullValue')) return 'null';
+  if (value.containsKey('timestampValue')) {
+    return _time(value['timestampValue']! as String);
+  }
+  if (value['arrayValue'] case final Map<String, Object?> array) {
+    final values = (array['values'] as List<Object?>?) ?? const [];
+    if (values.isEmpty) return "'{}'::text[]";
+    return 'array[${values.map((v) => _literal(column, v! as Map<String, Object?>)).join(', ')}]::text[]';
+  }
+  throw ArgumentError('No SQL for $column = $value');
+}
+
+/// One document's row: column → SQL literal.
+Map<String, String> _row(
+  String table,
+  String collection,
+  String id,
+  Map<String, Object?> fields,
+) {
+  final row = <String, String>{};
+  final parent = collection.contains('/') ? collection.split('/')[1] : null;
+  switch (table) {
+    case 'report_status_history':
+      // Firestore ids were per report (h1, h2…); here they are global.
+      row['id'] = _quote('$parent-$id');
+      row['report_id'] = _quote(parent!);
+    case 'work_order_materials_used' || 'work_order_materials_allocated':
+      row['work_order_id'] = _quote(parent!);
+      row['inventory_item_id'] = _quote(id);
+    case 'app_config':
+      row['id'] = _quote(id);
+      final data = {
+        for (final MapEntry(:key, :value) in fields.entries)
+          if (key != 'updatedAt' && key != 'updatedBy')
+            key: _plain(value! as Map<String, Object?>),
+      };
+      row['data'] = '${_quote(jsonEncode(data))}::jsonb';
+      row['updated_by'] = _literal(
+        'updated_by',
+        fields['updatedBy']! as Map<String, Object?>,
+      );
+      row['updated_at'] = _literal(
+        'updated_at',
+        fields['updatedAt']! as Map<String, Object?>,
+      );
+      return row;
+    default:
+      row['id'] = _quote(id);
+  }
+
+  for (final MapEntry(:key, :value) in fields.entries) {
+    final typed = value! as Map<String, Object?>;
+    if (key == 'coordinates') {
+      // A Firestore GeoPoint becomes two plain columns (no PostGIS).
+      final point = typed['geoPointValue'] as Map<String, Object?>?;
+      row['latitude'] = point == null ? 'null' : '${point['latitude']}';
+      row['longitude'] = point == null ? 'null' : '${point['longitude']}';
+      continue;
+    }
+    final column = _snake(key);
+    row[column] = _literal(column, typed);
+  }
+
+  if (table == 'inventory_items') {
+    // A material starts at zero; the ledger below brings it to its stock.
+    row['quantity_available'] = '0';
+  }
+  return row;
+}
+
+String _renderSql() {
+  final rows = <String, List<(String, Map<String, String>)>>{};
+  for (final doc in _docs.values) {
+    final table = _table(doc.collection);
+    (rows[table] ??= []).add((
+      doc.id,
+      _row(table, doc.collection, doc.id, doc.fields),
+    ));
+  }
+  for (final table in rows.keys) {
+    if (!_tableOrder.contains(table)) {
+      throw StateError('No place in the seed order for table $table');
+    }
+  }
+
+  // A merged report points at the report it was merged into: parents first.
+  rows['damage_reports']?.sort(
+    (a, b) => (a.$2['duplicate_of'] == 'null' ? 0 : 1).compareTo(
+      b.$2['duplicate_of'] == 'null' ? 0 : 1,
+    ),
+  );
+  // The ledger, oldest first: each entry moves the stock from the last.
+  int ageOf(Map<String, String> row) {
+    final match = RegExp(r"([+-]) interval '(\d+) milliseconds'")
+        .firstMatch(row['performed_at']!);
+    if (match == null) return 0;
+    final ms = int.parse(match[2]!);
+    return match[1] == '-' ? ms : -ms;
+  }
+
+  rows['inventory_transactions']?.sort(
+    (a, b) => ageOf(b.$2).compareTo(ageOf(a.$2)),
+  );
+
+  final out = StringBuffer()
+    ..writeln('-- GSUhub demo data for the local Supabase stack.')
+    ..writeln('--')
+    ..writeln('-- GENERATED by `dart run tool/seed.dart sql`: edit the data in')
+    ..writeln(
+      '-- tool/seed.dart and regenerate, not this file. `supabase db reset`',
+    )
+    ..writeln(
+      '-- applies it after the migrations. Times are offsets from now(), so',
+    )
+    ..writeln(
+      '-- the demo always reads as recent. Never run against production.',
+    )
+    ..writeln('--')
+    ..writeln(
+      '-- Sign-in accounts are Firebase Auth emulator accounts with these',
+    )
+    ..writeln('-- same uids: `dart run tool/seed.dart auth`.')
+    ..writeln()
+    ..writeln('begin;')
+    ..writeln();
+  for (final table in _tableOrder) {
+    final list = rows[table];
+    if (list == null || list.isEmpty) continue;
+    out.writeln('-- $table: ${list.length}');
+    for (final (_, row) in list) {
+      final columns = row.keys.map((c) => '"$c"').join(', ');
+      final values = row.values.join(', ');
+      out.writeln('insert into public.$table ($columns) values ($values);');
+    }
+    out.writeln();
+  }
+
+  // The materials went in at zero and the ledger moved them; this stops the
+  // reset if the entries no longer add up to the stock the demo shows.
+  final designed = [
+    for (final doc in _docs.values)
+      if (doc.collection == 'inventory_items')
+        "(${_quote(doc.id)}, ${_literal('quantity', doc.fields['quantityAvailable']! as Map<String, Object?>)})",
+  ];
+  if (designed.isNotEmpty) {
+    out
+      ..writeln('-- Every material at the stock the demo was written with.')
+      ..writeln(r'do $$')
+      ..writeln('declare')
+      ..writeln('  wrong text;')
+      ..writeln('begin')
+      ..writeln(
+        "  select string_agg(format('%s has %s, expected %s', "
+        "i.id, i.quantity_available, d.quantity), '; ')",
+      )
+      ..writeln('    into wrong')
+      ..writeln('    from (values')
+      ..writeln('      ${designed.join(',\n      ')}')
+      ..writeln('    ) d (id, quantity)')
+      ..writeln('    left join public.inventory_items i using (id)')
+      ..writeln('   where i.quantity_available is distinct from d.quantity;')
+      ..writeln('  if wrong is not null then')
+      ..writeln(
+        "    raise exception 'The seed ledger does not add up: %', wrong;",
+      )
+      ..writeln('  end if;')
+      ..writeln(r'end $$;')
+      ..writeln();
+  }
+  out.writeln('commit;');
+  return out.toString();
 }
 
 // Firestore REST value wrappers.

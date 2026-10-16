@@ -1,0 +1,12 @@
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
+
+# Secrets: the JWT signing key and Edge Function secrets stay local.
+signing_keys.json
+functions/.env
