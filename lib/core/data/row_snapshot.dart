@@ -24,6 +24,14 @@ class RowSnapshot implements DocumentSnapshot<Map<String, dynamic>> {
   factory RowSnapshot.fromRow(Map<String, dynamic> row) =>
       RowSnapshot(row['id'] as String, documentFields(row));
 
+  /// The document a row was in a subcollection keyed by another column:
+  /// a work order's materials were documents named by their inventory
+  /// item, and are rows keyed by (work order, item).
+  factory RowSnapshot.fromKeyedRow(
+    Map<String, dynamic> row, {
+    required String idColumn,
+  }) => RowSnapshot(row[idColumn] as String, documentFields(row));
+
   /// An `app_config` row: its `data` is the settings document, beside who
   /// saved it and when.
   factory RowSnapshot.fromConfigRow(Map<String, dynamic> row) =>
@@ -78,6 +86,17 @@ class RowSnapshot implements DocumentSnapshot<Map<String, dynamic>> {
   @override
   DocumentReference<Map<String, dynamic>> get reference =>
       throw UnsupportedError('A row has no Firestore document reference.');
+
+  /// The column a document field became: `unitOfMeasurement` is
+  /// `unit_of_measurement`.
+  static String columnFor(String field) {
+    final column = StringBuffer();
+    for (final char in field.split('')) {
+      final lower = char.toLowerCase();
+      column.write(char != lower ? '_$lower' : char);
+    }
+    return column.toString();
+  }
 
   static bool _isTime(String column) =>
       column.endsWith('_at') ||

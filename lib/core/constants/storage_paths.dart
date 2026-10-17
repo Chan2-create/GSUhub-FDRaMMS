@@ -1,14 +1,15 @@
-/// Canonical Cloud Storage paths.
+/// Canonical photo paths, in the `photos` bucket (Objective 1).
 ///
 /// Centralized for the same reason collection names are: a path typed by
 /// hand in two places eventually diverges, and here a divergence means
-/// uploads land somewhere the security rules do not cover. These mirror
-/// the `match` blocks in `firebase/storage.rules` exactly — change one and
-/// you must change the other.
+/// uploads land somewhere the bucket's policies do not cover. These match
+/// the folders in supabase/migrations/*_storage_policies.sql — change one
+/// and you must change the other. The storage service files damage report,
+/// accomplishment and task photos under the uploader's uid, which the
+/// policies require, so the paths here do not carry it.
 ///
-/// Lives beside `FirestorePaths` rather than inside the Firebase storage
-/// service so a screen can name where its upload goes without importing a
-/// file that imports Firebase.
+/// Lives beside `FirestorePaths` rather than inside the storage service so
+/// a screen can name where its upload goes without importing a backend.
 abstract final class StoragePaths {
   /// Photo evidence attached to a damage report (manuscript §1.5).
   static String damageReportPhoto(String reportId, String fileName) =>
