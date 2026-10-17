@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import '../utils/result.dart';
 
 /// Abstract file-storage contract (report photo evidence, accomplishment
-/// photos, QR assets). Every shell depends on this interface, never on
-/// `firebase_storage` directly — see the "Shared Backend Contract" in
+/// photos, QR assets). Every shell depends on this interface, never on a
+/// storage backend's client directly — see the "Shared Backend Contract" in
 /// docs/architecture_decisions.md, rule 1.
 ///
 /// Takes raw bytes rather than a platform-specific file-picker type

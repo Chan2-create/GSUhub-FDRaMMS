@@ -1,0 +1,5 @@
+node_modules/
+# Never commit a Firebase service account key or an export of live data.
+*.json
+!package.json
+!package-lock.json

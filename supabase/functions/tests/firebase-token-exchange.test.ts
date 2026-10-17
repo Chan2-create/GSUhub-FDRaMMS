@@ -330,6 +330,32 @@ Deno.test("an ES256 key without a kid is refused: Supabase could not find its pu
   assertStringIncludes(config.configError, "kid");
 });
 
+Deno.test("takes the key as `supabase gen signing-key` prints it, or as a keys file lists it", async () => {
+  const signing = await generateKeyPair("ES256", { extractable: true });
+  // The CLI's fields, use, key_ops and ext included.
+  const printed = {
+    ...(await exportJWK(signing.privateKey)),
+    kid: "cli-key",
+    use: "sig",
+    key_ops: ["sign", "verify"],
+    alg: "ES256",
+    ext: true,
+  };
+  for (const raw of [JSON.stringify(printed), JSON.stringify([printed])]) {
+    const config = await setup({ TOKEN_SIGNING_KEY: raw });
+    const { status, body } = await exchange(config, {
+      idToken: await firebaseToken(),
+    });
+    assertEquals(status, 200);
+    const { protectedHeader } = await jwtVerify(
+      body.access_token,
+      signing.publicKey,
+      { currentDate: new Date(now * 1000) },
+    );
+    assertEquals(protectedHeader.kid, "cli-key");
+  }
+});
+
 Deno.test("asks for a token when none is sent", async () => {
   const config = await setup();
   for (const body of [{}, { idToken: "" }, { idToken: 42 }, "not json"]) {

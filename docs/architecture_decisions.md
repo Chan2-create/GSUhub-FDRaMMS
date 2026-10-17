@@ -205,9 +205,13 @@ automatically by the build tooling) plus an optional
 
 ## 6b. Firebase wiring (Objective 1.C)
 
+> Since Objective 1 the data is in Supabase (§21). The start-up result,
+> the emulator default and the call guard below still hold, for Auth;
+> the transactions moved into database functions.
+
 The Firebase project `gsuhub-dorsu` is live (Spark plan, `asia-southeast1`).
 Details and the console checklist are in `docs/firebase_setup.md`; the
-local workflow is in `docs/emulator_setup.md`. Decisions worth recording:
+local workflow is in `docs/local_setup.md`. Decisions worth recording:
 
 **Startup is a sealed result, not an exception.**
 `FirebaseInitializer.initialize` never throws; it returns success (with
@@ -273,6 +277,9 @@ to ignore red suites. They run deliberately against a seeded emulator.
 
 ## 7. Firebase: package set (updated in 1.C)
 
+> Since Objective 1, `firebase_storage` is gone (photos are in
+> Supabase Storage) and `cloud_firestore` stays for its types only (§21).
+
 All five Firebase packages are now dependencies: `firebase_core` (1.A),
 `cloud_firestore` (1.B, for `DocumentSnapshot`/`GeoPoint`/`Timestamp`
 types), and `firebase_auth`, `firebase_storage`, `firebase_messaging`
@@ -313,6 +320,9 @@ facts**:
 Table 3.5.
 
 ## 9. Firestore collections and indexes (carried forward)
+
+> Since Objective 1 these are Postgres tables (§21,
+> docs/data_dictionary.md).
 
 The fifteen collection names in `firestore_paths.dart` (`users`,
 `facilities`, `assets`, `damage_reports`, `work_orders`, `tasks`,
@@ -1103,3 +1113,199 @@ the button now says "Order more <material>" itself.
 notification centre. Material photos on live need Cloud Storage, so the
 Blaze plan, like every photo. Labels are a PDF to print, not sent to a
 label printer.
+
+## 21. Objective 1: data on Supabase, sign-in on Firebase
+
+**Scope and sources.** Chris's brief of 2026-10-16: keep Firebase for
+signing in only, and move every record and photo to Supabase, with no
+server of our own. Firebase keeps email-and-password sign-in, password
+reset emails, the administrator's "create a maintenance account" (the
+second app instance, §13), and the phone's FCM token. Supabase holds the
+19 tables (Postgres), the photos (Storage), the live updates (Realtime)
+and one Edge Function. The repository interfaces, models, `Result` and
+providers did not change: only the `*_impl.dart` files and the
+`core/services` data pieces did, so no screen changed. Chris confirmed
+four decisions (2026-10-16), noted below. This replaces §6b's Firestore
+transactions, §7's `firebase_storage` and §9's collections; their other
+points stand.
+
+**19 tables (Chris).** One per collection, a table for each of the three
+subcollections, and `app_config` for the settings documents
+(docs/data_dictionary.md, "Since Objective 1"). Ids stay text: Firebase
+uids are not UUIDs, and old links keep working. A geo-tag is two
+`double precision` columns, not PostGIS: nothing searches by distance.
+Notifications are included: the brief predates 3.B, which built them.
+
+**Signing in: an Edge Function trades the token (Chris).** Postgres must
+know who is asking. Supabase's Third-Party Auth could trust Firebase
+tokens directly, but only with a `role: authenticated` custom claim set
+through the Admin SDK, which in practice means Cloud Functions and the
+Blaze plan, and it cannot read the Auth emulator's unsigned tokens.
+Instead `supabase/functions/firebase-token-exchange` checks the Firebase
+ID token against Google's keys (RS256, this project's issuer and
+audience) and returns a Supabase token: `sub` is the uid, `role` and
+`aud` are `authenticated`, the sign-in email is passed on, and it expires
+with the Firebase token or within the hour, whichever is sooner. The
+function grants nothing; it only proves who is calling. The emulator's
+unsigned tokens are accepted only when `ALLOW_EMULATOR_TOKENS=true`, and
+the function refuses to start with that flag on a `*.supabase.co`
+project. Hosted, it signs with an ES256 key imported as the project's
+signing key (same `kid`); locally, with the stack's JWT secret
+(`tool/supabase_function_env.mjs` writes either).
+
+In the app, `SupabaseSession` is the client's `accessToken` callback: it
+caches the token, shares one exchange among concurrent calls, renews it a
+minute early, and hands each new token to Realtime (`realtime.setAuth`),
+which otherwise keeps sending the first one until it expires.
+
+**Who may do what lives in the database.** Row level security reads the
+caller's role and account status from their `users` row on every request
+(`app.uid()` reads `auth.jwt()->>'sub'`), so a deactivated account is shut
+out at once, without waiting for its token to expire. App accounts may
+read tables and write none. Every change is a database function: a
+`public.*` wrapper (security invoker, the API) calls an `app.*` function
+(security definer, `search_path = ''`, not exposed) that checks the
+caller, re-reads the stored state, applies the lifecycle tables (copied
+from the Dart enums), and writes the change, its status history, the
+reporter's notice and the audit entry in one transaction. 45 functions
+replace roughly 40 Firestore transactions. Refusals carry a `PTxxx` code
+(PT403 permission, PT404 not found, PT409 and PT422 a rule) and a message
+written for the screen; `SupabaseErrorMapper` turns them back into the
+app's `Failure` types. The matrix is in docs/data_dictionary.md, "Who may
+read and change what", **derived from §3.4: verify against Development
+Plan §4 when available.**
+
+Rules that moved from the phone to the database became stricter in a few
+places, each deliberate:
+
+- A technician moves a work order in one way only: starting it
+  (`set_work_order_status`, pending to in progress). Submitting work goes
+  through the accomplishment report, as 5.B intended.
+- Deliveries and stock counts are an administrator's.
+- A report filed is the reporter's own, and only that requestor rates it,
+  once, after completion.
+- A material or tool code is unique across all four kinds of thing
+  inside one function call. Two codes within one kind are also stopped
+  by a unique index; across kinds, two administrators saving the same
+  new code in the same second could still both pass (§20).
+- The audit log names its actor from their account, never from the
+  caller's say-so.
+- `tasks.title` allows 200 characters, not 120: an assigned report's
+  title becomes its first task's, and reports allow 200.
+
+**Stock moves only through the ledger (item 1).** `inventory_transactions`
+is insert-only, for the database owner too. A trigger before each insert
+works out the balance from the stored quantity, refuses one below zero,
+writes both balances onto the entry and moves the stock. A direct change
+to `quantity_available` is refused, so no function, script or console
+query can change stock without an entry. A new material starts at zero
+and its opening stock arrives as an entry. `audit_logs` and
+`report_status_history` are insert-only the same way.
+`supabase/tests/stock_ledger.test.sql` proves each refusal.
+
+**Photos: a private bucket and ten-year links (Chris).** One private
+bucket, `photos`, holding images only, up to 10 MB each. Every path
+starts with its kind and, for anything a person files, their uid
+(`damage_reports/{uid}/{report}/…`), so the storage policies decide
+uploads from the path alone. Reads follow who may read the record; only
+an administrator deletes, and nothing is overwritten (item 2,
+`supabase/tests/storage_policies.test.sql`). `SupabaseStorageService`
+puts the uid into the path itself, so `StoragePaths` and the screens are
+unchanged, and it stores a signed link valid for ten years, which behaves
+like the Firebase download links the models already hold. Photos no
+longer need the Blaze plan.
+
+**Reading rows as documents.** `RowSnapshot` presents a row as a
+`DocumentSnapshot`: `snake_case` columns as the app's field names,
+timestamps as `Timestamp`, latitude and longitude as a `GeoPoint`. The
+models' `fromFirestore` constructors read it unchanged. `cloud_firestore`
+stays as a dependency for those types and for the test harnesses;
+nothing in the app talks to Firestore.
+
+**Live lists filter only on what never changes.** Realtime tells a
+listener about a row that changes inside its filter, never about one
+that leaves it. A list filtered by status would keep showing a report
+after it moved on. Streams therefore filter the server side only on
+columns fixed at creation (`reporter_id`, `recipient_id`, `work_order_id`)
+and apply status and other filters in the app.
+
+**Local development needs Docker (item 3).** `npx supabase start` runs
+the stack (Postgres, the API, Storage, Realtime and the function) next to
+the Firebase Auth emulator. The Firestore and Storage emulators are no
+longer used. Debug builds use both local services, as §6b's emulator
+default did; docs/local_setup.md walks through it. On a laptop with 8 GB,
+start the stack without Studio and the logging services. The web reload
+fix: before Firebase starts, a debug build on `localhost` records that
+it uses the emulator, and anything else clears saved emulator sign-ins
+from the browser. Start-up then refuses unless Auth really is attached to
+the emulator, so a reload can no longer sign a local account in to the
+live project. The account-provisioning helper app is checked the same
+way.
+
+**Moving the data.** `tool/migrate` reads Firestore (live, an export, or
+the emulator), turns each document into a row, and loads the tables in
+dependency order. A dry run reports every problem, row by row, and
+commits nothing. A real run commits only when there are none and needs
+`--yes`, and both refuse a database that already holds data. Stock and
+ledger rows arrive exactly as they are; the run then checks that each
+quantity matches its last ledger entry. `--copy-photos` moves the photos
+into the new bucket and rewrites their links. docs/manual_deploy.md,
+"Going live", gives the order.
+
+**Tests.** 642 pgTAP tests in `supabase/tests`, on an empty and on a
+seeded database: every policy, for each role, active and not; every
+function, allowed and refused; the ledger; storage. `function_privileges`
+reads the catalog, so a new function without its grants fails.
+`test/unit/repositories/supabase_contract_test.dart` checks each
+repository call against the migrations' function signatures (47 calls,
+all 45 functions). 25 Deno tests cover the token exchange.
+`test/e2e/supabase_flows_test.dart` runs three flows against a running
+local stack (`SUPABASE_E2E=1`): a report with photos and a geo-tag; its
+review and approval; assignment, work, materials, sign-off and rating,
+checking the audit trail, the ledger and `activeTaskCount` at each step.
+The old Firestore implementations moved to `test/support/firestore_backend`,
+where they back the widget tests through `fake_cloud_firestore`.
+
+**Unused repository methods (item 4).** `WorkOrderRepository.assignPersonnel`
+is deleted. Nothing in the app calls the methods below; they are kept
+for Chris to decide on. The general-purpose writes have no function
+behind them and refuse ("changes like this go through the operation that
+makes them"), since one would open a way around the rules:
+`AuditLogRepository.record`, `DamageReportRepository.create` and
+`update`, `InventoryRepository.recordTransaction`,
+`NotificationRepository.create`, `UserRepository.create`, `update`,
+`setAvailability` and `adjustActiveTaskCount`, and
+`WorkOrderRepository.create` and `update`. These reads work but nothing
+uses them: `AccomplishmentReportRepository.getById`,
+`AuditLogRepository.getForActor`, `ConfigRepository.getPrioritization`,
+`updatePrioritization`, `getDuplicateDetection` and
+`updateDuplicateDetection`, `FacilityRepository.getAssetById` and
+`getAssetsForFacility`, `FeedbackRepository.getById`, `getByWorkOrder`,
+`getByRequestor` and `getInRange`, `InventoryRepository.watchLowStockItems`,
+`getTransactionsForItem` and `getTransactionsForWorkOrder`,
+`DamageReportRepository.getById`, `TaskRepository.getById`,
+`ToolRepository.getToolById`, `getOpenLoansForPersonnel` and
+`getLoanHistory`, `UserRepository.watchById`, `getAll` and
+`getPersonnel`, and `WorkOrderRepository.getById`.
+
+**Flagged.**
+
+- The brief said the category screen did not exist; 4.A and 4.C's review
+  panel sets it, and it moved with the rest.
+- FCM keeps only each phone's token. A push to a closed app still needs
+  a server to send it; notices appear in the app as before.
+- The console's Kanban columns can still move a work order to For Review
+  or Completed without an accomplishment report (an administrator may
+  make any move the lifecycle allows); unchanged, on the still-to-do
+  list.
+- A free Supabase project pauses after a week without use, and must be
+  resumed from the dashboard before a demo.
+- **Nothing has run against a real Supabase stack yet.** This machine has
+  no Docker. The SQL tests ran on PGlite (Postgres 18 in Node, where
+  Supabase runs 17, with a stub of Supabase's `auth` and `storage`
+  schemas, `tool/sql_tests`) and the function on Deno. `npx supabase test db`, `tool/storage_api_test.mjs`
+  and the e2e flows wait for Docker. Importing the hosted signing key, and
+  Supabase accepting the function's tokens with it, wait for the hosted
+  project.
+- Firestore and Storage keep their old data and rules until the move is
+  done; locking them afterwards is Chris's decision (docs/manual_deploy.md).

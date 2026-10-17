@@ -107,8 +107,8 @@ class GsuhubApp extends ConsumerWidget {
   }
 }
 
-/// Marks the UI unmistakably when the app is talking to the local
-/// Emulator Suite.
+/// Marks the UI unmistakably when the app is talking to the local Auth
+/// emulator and Supabase stack.
 ///
 /// Without this, emulator and live builds are visually identical, and the
 /// two failure modes that follow are both bad: trusting seeded test data

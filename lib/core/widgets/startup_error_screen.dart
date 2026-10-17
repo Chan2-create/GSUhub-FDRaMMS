@@ -46,11 +46,11 @@ class StartupErrorScreen extends StatelessWidget {
                 else if (failure.isEmulatorFailure) ...[
                   const Text(
                     'The app is running in emulator mode but could not '
-                    'reach the Firebase Emulator Suite.',
+                    'reach the Firebase Auth emulator.',
                   ),
                   const SizedBox(height: 8),
                   const SelectableText(
-                    'Start it with:\n    firebase emulators:start',
+                    'Start it with:\n    firebase emulators:start --only auth',
                     style: TextStyle(fontFamily: 'monospace'),
                   ),
                 ] else

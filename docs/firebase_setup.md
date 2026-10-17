@@ -7,6 +7,14 @@ machine before GSUhub can talk to a real backend.
 document is both the record of what was done and the instructions for
 rebuilding it (or standing up a second project later).
 
+> **Since Objective 1, Firebase signs people in and nothing else**: Auth
+> (sign-in, password reset emails, the administrator's new maintenance
+> accounts) and each phone's messaging token. Records and photos are in
+> Supabase (`supabase/README.md`). Going live there, moving the old data
+> and the first administrator are in `docs/manual_deploy.md`, "Going
+> live". Console steps 2 and 3 below set up Firestore and Storage for the
+> data from before; they matter only until it is moved.
+
 ---
 
 ## Part 1 — Console steps (done)
@@ -80,71 +88,22 @@ else breaks.
 
 ## Part 3 — Still to do in the Console
 
-Nothing is required for development against the emulators. Before the
-system is demonstrated against the live project:
+Nothing in Firebase is needed for development: sign-in uses the Auth
+emulator. For the live project, `docs/manual_deploy.md`, "Going live",
+lists the Firebase steps beside the Supabase ones, in order:
 
-### 3.1 Deploy the rules and indexes
+1. Authentication → Settings → **Authorized domains**: add the domain
+   the console is served from (`gsuhub-dorsu.vercel.app`).
+2. The **first administrator** is a Firebase Auth user (Authentication →
+   Users → Add user) with a `users` row in Supabase, added once in its
+   SQL Editor. Only an administrator can give an account a role, so the
+   first one is made by hand.
+3. Once the old data is moved, **lock Firestore and Storage** so nothing
+   reads or writes them again. That is Chris's decision, after checking
+   the moved data on live.
 
-Written in 1.B, wired to `firebase.json` in 1.C, **not yet deployed**.
-
-```powershell
-cd "D:\Capstone System"
-
-# Review what will be applied first — these replace whatever is live.
-firebase deploy --only firestore:rules
-firebase deploy --only firestore:indexes
-firebase deploy --only storage:rules
-```
-
-Composite indexes take a few minutes to build; the Console shows progress
-under Firestore → Indexes. Queries that need an index fail until it is
-"Enabled".
-
-> **Before deploying rules**, read the caveat at the top of
-> `firebase/firestore.rules`: the permission matrix was derived from
-> manuscript §3.4 because the development plan's §4 was unavailable.
-> Confirm it matches the intended policy — after deployment it is what
-> actually protects the data.
-
-### 3.2 Create the first administrator
-
-Security rules only allow an administrator to create user documents, which
-is a chicken-and-egg problem for the very first account. Break it once, by
-hand:
-
-1. Authentication → Users → **Add user**. Use the real GSU administrator's
-   email and a temporary password. Copy the generated **UID**.
-2. Firestore → Start collection `users` → document id = that **UID**:
-
-   | Field | Type | Value |
-   |---|---|---|
-   | `fullName` | string | the administrator's name |
-   | `email` | string | same as the Auth account |
-   | `role` | string | `admin` |
-   | `accountStatus` | string | `active` |
-   | `activeTaskCount` | number | `0` |
-   | `createdAt` | timestamp | now |
-   | `updatedAt` | timestamp | now |
-
-   `role` and `accountStatus` must match these strings exactly — they are
-   parsed as enums, and an unrecognized value is treated as "no access"
-   (see `FirebaseAuthService`).
-
-3. After that, accounts are made from the app (Objective 2.C):
-   maintenance personnel from **Personnel → Add Personnel** or **User
-   Accounts → Create Maintenance Account**, which emails them a link to set
-   their own password; a second administrator by editing an existing
-   account's role in **User Accounts**. Faculty and staff register from
-   the mobile app (Objective 3).
-
-### 3.3 Seed the config documents
-
-The rule engine reads `config/prioritization`,
-`config/classification_rules` and `config/duplicate_detection`. The
-emulator seed script creates them; for the live project, either create
-them by hand from `tool/seed_emulator.dart`'s values, or point the seed
-script at production **only once and deliberately** (it is written to
-refuse — it talks to localhost only).
+The rules in `firebase/firestore.rules` and `firebase/storage.rules` guard only
+the old data. Never deploy open (test-mode) rules over them.
 
 ---
 
@@ -152,13 +111,16 @@ refuse — it talks to localhost only).
 
 | Target | Command |
 |---|---|
-| Web, emulators (debug default) | `flutter run -d chrome` |
-| Web, live Firebase from a debug build | `flutter run -d chrome --dart-define=USE_LIVE_FIREBASE=true --dart-define=FCM_VAPID_KEY=<key>` |
-| Android emulator, against Firebase emulators | `flutter run -d <device> --dart-define=EMULATOR_HOST=10.0.2.2` |
-| Android, live | `flutter run -d <device> --dart-define=USE_LIVE_FIREBASE=true` |
-| Release bundle against emulators | `flutter build web --dart-define=USE_EMULATOR=true` |
+| Web, local (debug default) | `flutter run -d chrome --dart-define=SUPABASE_ANON_KEY=<local anon key>` |
+| Web, live from a debug build | `flutter run -d chrome --dart-define=USE_LIVE_FIREBASE=true --dart-define=SUPABASE_URL=<project URL> --dart-define=SUPABASE_ANON_KEY=<anon key> --dart-define=FCM_VAPID_KEY=<key>` |
+| Android emulator, local | `flutter run -d <device> --dart-define=EMULATOR_HOST=10.0.2.2 --dart-define=SUPABASE_ANON_KEY=<local anon key>` |
+| Android, live | `flutter run -d <device> --dart-define=USE_LIVE_FIREBASE=true --dart-define=SUPABASE_URL=<project URL> --dart-define=SUPABASE_ANON_KEY=<anon key>` |
+| Release bundle, local | `flutter build web --dart-define=USE_EMULATOR=true --dart-define=SUPABASE_ANON_KEY=<local anon key>` |
 
-Development builds use the emulators unless `USE_LIVE_FIREBASE=true` is
+"Local" is the Firebase Auth emulator and the local Supabase stack;
+`npx supabase status` prints the local anon key.
+
+Development builds use the local services unless `USE_LIVE_FIREBASE=true` is
 passed; release builds use the live project unless `USE_EMULATOR=true` is
 passed. Passing both refuses to start.
 
@@ -169,24 +131,21 @@ phone needs the development machine's LAN IP instead.
 When emulator mode is active an orange **EMULATOR** banner is shown. If it
 is missing, the app is talking to the live project.
 
-See `docs/emulator_setup.md` for the emulator workflow.
+See `docs/local_setup.md` for the local workflow.
 
 ---
 
 ## Troubleshooting
 
 **"Could not connect to the GSUhub backend" on startup** — the app shows
-this instead of a white screen. In emulator mode it means the emulators
-are not running; otherwise check connectivity. The technical detail is on
-the same screen.
+this instead of a white screen. In emulator mode it means the Auth
+emulator or the local Supabase stack is not running; otherwise check
+connectivity. The technical detail is on the same screen.
 
 **Web push does nothing** — check `FCM_VAPID_KEY` was passed, and that the
 browser granted notification permission. Topic subscription is a no-op on
 web by design (FCM web delivers to tokens only).
 
-**`permission-denied` everywhere after deploying rules** — the signed-in
-user has no `users/{uid}` document, or its `accountStatus` is not
-`active`. Rules read that document for every check.
-
-**Queries fail with "requires an index"** — the composite indexes have not
-finished building, or were never deployed. See 3.1.
+**"You do not have permission" everywhere** — the signed-in user has no
+row in Supabase's `users` table, or its `account_status` is not
+`active`. Row level security reads that row for every request.

@@ -20,8 +20,6 @@ AppConfig testAppConfig({
   useEmulator: useEmulator,
   emulatorHost: 'localhost',
   authEmulatorPort: 9099,
-  firestoreEmulatorPort: 8080,
-  storageEmulatorPort: 9199,
   fcmVapidKey: fcmVapidKey,
   requestTimeout: requestTimeout,
   maxRetryAttempts: maxRetryAttempts,
