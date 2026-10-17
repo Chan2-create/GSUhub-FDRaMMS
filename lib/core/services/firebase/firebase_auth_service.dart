@@ -1,7 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 
-import '../../constants/firestore_paths.dart';
 import '../../enums/account_status.dart';
 import '../../enums/user_role.dart';
 import '../../errors/failures.dart';
@@ -9,22 +7,30 @@ import '../../utils/result.dart';
 import '../auth_service.dart';
 import 'firebase_call_guard.dart';
 
+/// The profile behind a sign-in: the account's `email`, `role` and
+/// `accountStatus`, or null when it has none. The provider reads it from the
+/// `users` table (Objective 1); the widget-test harnesses from their own
+/// store.
+typedef ProfileLookup = Future<Result<Map<String, Object?>?>> Function(
+  String uid,
+);
+
 /// Firebase Authentication implementation of [AuthService].
 ///
-/// ## Why this reads Firestore as well as Auth
+/// ## Why this reads the database as well as Auth
 ///
 /// Firebase Auth knows a user's uid and email but nothing about their
 /// role, and GSUhub's entire access model turns on role (manuscript §1.5).
-/// The role lives on the `users/{uid}` document, so resolving an
-/// [AuthUser] means reading both. That is why [currentUser] is backed by a
+/// The role lives on the user's `users` row, read through [ProfileLookup],
+/// so resolving an [AuthUser] means reading both. That is why [currentUser] is backed by a
 /// cache refreshed by [authStateChanges] rather than being a simple
-/// property read — a synchronous getter cannot await a Firestore lookup,
+/// property read — a synchronous getter cannot await a database lookup,
 /// and route guards need it synchronously.
 ///
 /// ## Deactivated accounts
 ///
 /// §1.5 requires accounts to be deactivatable. Firebase Auth has its own
-/// "disabled" flag, but the Administrator manages users through Firestore,
+/// "disabled" flag, but the Administrator manages users in the database,
 /// so `accountStatus` is authoritative here: a user whose document says
 /// `inactive` is treated as signed out even if their Auth session is
 /// technically valid, and [signInWithEmailAndPassword] refuses them.
@@ -35,12 +41,12 @@ import 'firebase_call_guard.dart';
 class FirebaseAuthService implements AuthService {
   FirebaseAuthService({
     required this._auth,
-    required this._firestore,
+    required this._lookupProfile,
     required this._guard,
   });
 
   final fb.FirebaseAuth _auth;
-  final FirebaseFirestore _firestore;
+  final ProfileLookup _lookupProfile;
   final FirebaseCallGuard _guard;
 
   AuthUser? _cachedUser;
@@ -195,22 +201,19 @@ class FirebaseAuthService implements AuthService {
     return Result.success(user);
   }
 
-  /// Reads `users/{uid}` and builds an [AuthUser], or a null `user` when
-  /// the document is missing, unreadable, malformed, deactivated or still
+  /// Reads the account's profile and builds an [AuthUser], or a null `user`
+  /// when it is missing, unreadable, malformed, deactivated or still
   /// awaiting approval. `status` carries the stored account status when it
   /// could be read, so a refusal can say why.
   Future<({AuthUser? user, AccountStatus? status})> _loadProfile(
     String uid,
   ) async {
-    final snapshot = await _guard.call(
-      () => _firestore.collection(FirestorePaths.users).doc(uid).get(),
-    );
+    final profile = await _lookupProfile(uid);
 
     const refused = (user: null, status: null);
 
-    return snapshot.fold((doc) {
-      final data = doc.data();
-      if (!doc.exists || data == null) return refused;
+    return profile.fold((data) {
+      if (data == null) return refused;
 
       final rawRole = data['role'];
       final rawStatus = data['accountStatus'];

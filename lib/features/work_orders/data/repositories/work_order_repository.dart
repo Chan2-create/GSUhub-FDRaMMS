@@ -75,11 +75,4 @@ abstract interface class WorkOrderRepository {
     required String? notes,
     required AuditActor actor,
   });
-
-  /// Assigns personnel (Figure 18). Replaces the existing assignment set.
-  Future<Result<void>> assignPersonnel({
-    required String workOrderId,
-    required List<String> personnelIds,
-    required String assignedBy,
-  });
 }

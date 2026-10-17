@@ -1,33 +1,33 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../../../core/constants/firestore_paths.dart';
-import '../../../../core/data/firestore_repository.dart';
-import '../../../../core/data/qr_codes.dart';
-import '../../../../core/enums/audit_action.dart';
+import '../../../../core/data/row_snapshot.dart';
+import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
-import '../../../audit/data/repositories/audit_writes.dart';
 import '../models/asset.dart';
 import '../models/facility.dart';
 import '../models/facility_draft.dart';
 import 'facility_repository.dart';
 
-/// Firestore-backed [FacilityRepository].
-class FacilityRepositoryImpl extends FirestoreRepository
+/// Supabase-backed [FacilityRepository] (Objective 1).
+///
+/// The app checks a draft's shape before asking (FacilityDraft.problem);
+/// the facility functions check what only the database can see — the code
+/// is free across rooms, equipment, materials and tools, and the room
+/// exists — and audit the change under the caller's own name.
+class FacilityRepositoryImpl extends SupabaseRepository
     implements FacilityRepository {
-  const FacilityRepositoryImpl({required super.db, required super.guard});
+  const FacilityRepositoryImpl({required super.client, required super.guard});
 
-  static const String _facilities = FirestorePaths.facilities;
-  static const String _assets = FirestorePaths.assets;
+  static const String _facilities = 'facilities';
+  static const String _assets = 'assets';
 
   @override
   Future<Result<Facility>> getFacilityById(String id) =>
-      getOne(path: _facilities, id: id, convert: Facility.fromFirestore);
+      getOne(table: _facilities, id: id, convert: Facility.fromFirestore);
 
   @override
-  Future<Result<Facility>> getFacilityByQrCode(String qrCode) => _firstByQrCode(
-    path: _facilities,
+  Future<Result<Facility>> getFacilityByQrCode(String qrCode) => _byQrCode(
+    table: _facilities,
     qrCode: qrCode,
     convert: Facility.fromFirestore,
     label: 'facility',
@@ -35,17 +35,17 @@ class FacilityRepositoryImpl extends FirestoreRepository
 
   @override
   Future<Result<List<Facility>>> getFacilities({bool activeOnly = true}) {
-    Query<Map<String, dynamic>> query = collection(_facilities);
-    if (activeOnly) {
-      query = query.where('isActive', isEqualTo: true);
-    }
-    return getMany(query: query, convert: Facility.fromFirestore);
+    final query = client.from(_facilities).select();
+    return getMany(
+      query: activeOnly ? query.eq('is_active', true) : query,
+      convert: Facility.fromFirestore,
+    );
   }
 
   @override
   Stream<Result<List<Facility>>> watchFacilities() =>
       watchMany(
-        query: collection(_facilities),
+        stream: client.from(_facilities).stream(primaryKey: const ['id']),
         convert: Facility.fromFirestore,
       ).map(
         (result) => result.map(
@@ -71,29 +71,15 @@ class FacilityRepositoryImpl extends FirestoreRepository
       return Result.failure(ValidationFailure(problem));
     }
     final clean = draft.normalized();
-    final reference = collection(_facilities).doc();
-    final code = clean.qrCode ?? FacilityDraft.defaultQrCode(reference.id);
-    if (await _codeTaken(code) case final failure?) {
-      return Result.failure(failure);
-    }
-
-    return db.runTransaction<String>((transaction) async {
-      transaction.set(reference, {
-        ..._facilityFields(clean, code),
-        'isActive': true,
-        'createdAt': FirestoreRepository.serverNow,
-        'updatedAt': FirestoreRepository.serverNow,
-      });
-      stageAuditEntry(
-        transaction,
-        db.raw,
-        actor: actor,
-        action: AuditAction.created,
-        entityType: _facilities,
-        entityId: reference.id,
-        description: 'Added ${_placeName(clean)}',
-      );
-      return reference.id;
+    final id = SupabaseRepository.newId();
+    return rpcOnce<String>('create_facility', {
+      'id': id,
+      'building_name': clean.buildingName,
+      'room_identifier': clean.roomIdentifier,
+      'location_description': clean.locationDescription,
+      'latitude': clean.latitude,
+      'longitude': clean.longitude,
+      'qr_code': clean.qrCode ?? FacilityDraft.defaultQrCode(id),
     });
   }
 
@@ -107,38 +93,15 @@ class FacilityRepositoryImpl extends FirestoreRepository
       return Result.failure(ValidationFailure(problem));
     }
     final clean = draft.normalized();
-    if (clean.qrCode case final code?) {
-      if (await _codeTaken(code, exceptId: facilityId) case final failure?) {
-        return Result.failure(failure);
-      }
-    }
-
-    return db.runTransaction<void>((transaction) async {
-      final reference = collection(_facilities).doc(facilityId);
-      final snapshot = await transaction.get(reference);
-      if (!snapshot.exists) {
-        throw FirestoreRepository.notFound('No room $facilityId');
-      }
-      final before = snapshot.data() ?? const <String, dynamic>{};
-      final code = clean.qrCode ?? before['qrCode'] as String;
-      final fields = _facilityFields(clean, code);
-      final changes = _changes(before, fields);
-      if (changes.isEmpty) return;
-
-      transaction.update(reference, {
-        ...fields,
-        'updatedAt': FirestoreRepository.serverNow,
-      });
-      stageAuditEntry(
-        transaction,
-        db.raw,
-        actor: actor,
-        action: AuditAction.updated,
-        entityType: _facilities,
-        entityId: facilityId,
-        description: 'Updated ${_placeName(clean)}',
-        changes: changes,
-      );
+    return rpc('update_facility', {
+      'id': facilityId,
+      'building_name': clean.buildingName,
+      'room_identifier': clean.roomIdentifier,
+      'location_description': clean.locationDescription,
+      'latitude': clean.latitude,
+      'longitude': clean.longitude,
+      // Null keeps the room's code.
+      'qr_code': clean.qrCode,
     });
   }
 
@@ -147,22 +110,15 @@ class FacilityRepositoryImpl extends FirestoreRepository
     required String facilityId,
     required bool active,
     required AuditActor actor,
-  }) => _setActive(
-    path: _facilities,
-    id: facilityId,
-    active: active,
-    actor: actor,
-    nameOf: (data) =>
-        [data['buildingName'], ?data['roomIdentifier']].join(', '),
-  );
+  }) => rpc('set_facility_active', {'id': facilityId, 'active': active});
 
   @override
   Future<Result<Asset>> getAssetById(String id) =>
-      getOne(path: _assets, id: id, convert: Asset.fromFirestore);
+      getOne(table: _assets, id: id, convert: Asset.fromFirestore);
 
   @override
-  Future<Result<Asset>> getAssetByQrCode(String qrCode) => _firstByQrCode(
-    path: _assets,
+  Future<Result<Asset>> getAssetByQrCode(String qrCode) => _byQrCode(
+    table: _assets,
     qrCode: qrCode,
     convert: Asset.fromFirestore,
     label: 'asset',
@@ -173,17 +129,19 @@ class FacilityRepositoryImpl extends FirestoreRepository
     String facilityId, {
     bool activeOnly = true,
   }) {
-    Query<Map<String, dynamic>> query = collection(_assets)
-        .where('facilityId', isEqualTo: facilityId);
-    if (activeOnly) {
-      query = query.where('isActive', isEqualTo: true);
-    }
-    return getMany(query: query, convert: Asset.fromFirestore);
+    final query = client.from(_assets).select().eq('facility_id', facilityId);
+    return getMany(
+      query: activeOnly ? query.eq('is_active', true) : query,
+      convert: Asset.fromFirestore,
+    );
   }
 
   @override
   Stream<Result<List<Asset>>> watchAssets() =>
-      watchMany(query: collection(_assets), convert: Asset.fromFirestore).map(
+      watchMany(
+        stream: client.from(_assets).stream(primaryKey: const ['id']),
+        convert: Asset.fromFirestore,
+      ).map(
         (result) => result.map(
           (assets) => [...assets]
             ..sort(
@@ -201,31 +159,15 @@ class FacilityRepositoryImpl extends FirestoreRepository
       return Result.failure(ValidationFailure(problem));
     }
     final clean = draft.normalized();
-    final reference = collection(_assets).doc();
-    final code = clean.qrCode ?? AssetDraft.defaultQrCode(reference.id);
-    if (await _codeTaken(code) case final failure?) {
-      return Result.failure(failure);
-    }
-
-    return db.runTransaction<String>((transaction) async {
-      await _requireFacility(transaction, clean.facilityId);
-      transaction.set(reference, {
-        ..._assetFields(clean, code),
-        'acquiredAt': null,
-        'isActive': true,
-        'createdAt': FirestoreRepository.serverNow,
-        'updatedAt': FirestoreRepository.serverNow,
-      });
-      stageAuditEntry(
-        transaction,
-        db.raw,
-        actor: actor,
-        action: AuditAction.created,
-        entityType: _assets,
-        entityId: reference.id,
-        description: 'Added ${clean.name}',
-      );
-      return reference.id;
+    final id = SupabaseRepository.newId();
+    return rpcOnce<String>('create_asset', {
+      'id': id,
+      'name': clean.name,
+      'facility_id': clean.facilityId,
+      'condition': clean.condition.id,
+      'category': clean.category,
+      'serial_number': clean.serialNumber,
+      'qr_code': clean.qrCode ?? AssetDraft.defaultQrCode(id),
     });
   }
 
@@ -239,39 +181,14 @@ class FacilityRepositoryImpl extends FirestoreRepository
       return Result.failure(ValidationFailure(problem));
     }
     final clean = draft.normalized();
-    if (clean.qrCode case final code?) {
-      if (await _codeTaken(code, exceptId: assetId) case final failure?) {
-        return Result.failure(failure);
-      }
-    }
-
-    return db.runTransaction<void>((transaction) async {
-      final reference = collection(_assets).doc(assetId);
-      final snapshot = await transaction.get(reference);
-      if (!snapshot.exists) {
-        throw FirestoreRepository.notFound('No equipment $assetId');
-      }
-      await _requireFacility(transaction, clean.facilityId);
-      final before = snapshot.data() ?? const <String, dynamic>{};
-      final code = clean.qrCode ?? before['qrCode'] as String;
-      final fields = _assetFields(clean, code);
-      final changes = _changes(before, fields);
-      if (changes.isEmpty) return;
-
-      transaction.update(reference, {
-        ...fields,
-        'updatedAt': FirestoreRepository.serverNow,
-      });
-      stageAuditEntry(
-        transaction,
-        db.raw,
-        actor: actor,
-        action: AuditAction.updated,
-        entityType: _assets,
-        entityId: assetId,
-        description: 'Updated ${clean.name}',
-        changes: changes,
-      );
+    return rpc('update_asset', {
+      'id': assetId,
+      'name': clean.name,
+      'facility_id': clean.facilityId,
+      'condition': clean.condition.id,
+      'category': clean.category,
+      'serial_number': clean.serialNumber,
+      'qr_code': clean.qrCode,
     });
   }
 
@@ -280,135 +197,21 @@ class FacilityRepositoryImpl extends FirestoreRepository
     required String assetId,
     required bool active,
     required AuditActor actor,
-  }) => _setActive(
-    path: _assets,
-    id: assetId,
-    active: active,
-    actor: actor,
-    nameOf: (data) => data['name'] as String? ?? assetId,
-  );
+  }) => rpc('set_asset_active', {'id': assetId, 'active': active});
 
-  Future<Result<void>> _setActive({
-    required String path,
-    required String id,
-    required bool active,
-    required AuditActor actor,
-    required String Function(Map<String, dynamic>) nameOf,
-  }) => db.runTransaction<void>((transaction) async {
-    final reference = collection(path).doc(id);
-    final snapshot = await transaction.get(reference);
-    if (!snapshot.exists) throw FirestoreRepository.notFound('No $path $id');
-    final data = snapshot.data() ?? const <String, dynamic>{};
-    if (data['isActive'] == active) return;
-
-    transaction.update(reference, {
-      'isActive': active,
-      'updatedAt': FirestoreRepository.serverNow,
-    });
-    stageAuditEntry(
-      transaction,
-      db.raw,
-      actor: actor,
-      action: AuditAction.statusChanged,
-      entityType: path,
-      entityId: id,
-      description: '${active ? 'Reactivated' : 'Deactivated'} ${nameOf(data)}',
-      changes: {
-        'isActive': {'from': !active, 'to': active},
-      },
-    );
-  });
-
-  Future<void> _requireFacility(
-    Transaction transaction,
-    String facilityId,
-  ) async {
-    final snapshot = await transaction.get(
-      collection(_facilities).doc(facilityId),
-    );
-    if (!snapshot.exists) {
-      throw FirestoreRepository.precondition('That room is not registered.');
-    }
-  }
-
-  static Map<String, dynamic> _facilityFields(
-    FacilityDraft draft,
-    String code,
-  ) => {
-    // The building is what the report form and the reports show as the
-    // facility's name, as the seed and 3.C have it.
-    'name': draft.buildingName,
-    'buildingName': draft.buildingName,
-    'roomIdentifier': draft.roomIdentifier,
-    'locationDescription':
-        draft.locationDescription ??
-        (draft.roomIdentifier == null
-            ? null
-            : '${draft.buildingName}, ${draft.roomIdentifier}'),
-    'coordinates': switch ((draft.latitude, draft.longitude)) {
-      (final latitude?, final longitude?) => GeoPoint(latitude, longitude),
-      _ => null,
-    },
-    'qrCode': code,
-  };
-
-  static Map<String, dynamic> _assetFields(AssetDraft draft, String code) => {
-    'name': draft.name,
-    'facilityId': draft.facilityId,
-    'condition': draft.condition.id,
-    'category': draft.category,
-    'serialNumber': draft.serialNumber,
-    'qrCode': code,
-  };
-
-  static Map<String, dynamic> _changes(
-    Map<String, dynamic> before,
-    Map<String, dynamic> after,
-  ) => {
-    for (final MapEntry(:key, :value) in after.entries)
-      if (before[key] != value)
-        key: {'from': _plain(before[key]), 'to': _plain(value)},
-  };
-
-  /// A value an audit entry can hold: a GeoPoint as "lat, lng".
-  static Object? _plain(Object? value) => switch (value) {
-    final GeoPoint point => '${point.latitude}, ${point.longitude}',
-    _ => value,
-  };
-
-  static String _placeName(FacilityDraft draft) =>
-      [draft.buildingName, ?draft.roomIdentifier].join(', ');
-
-  /// A failure saying [code] is taken, or null when it is free.
-  Future<Failure?> _codeTaken(String code, {String? exceptId}) async {
-    final owner = await guard.call(
-      () => qrCodeOwner(db.raw, code, exceptId: exceptId),
-    );
-    return owner.fold(
-      (owner) => owner == null
-          ? null
-          : ValidationFailure('The code $code is already on $owner.'),
-      (failure) => failure,
-    );
-  }
-
-  /// QR lookup, shared by facilities and assets.
-  ///
-  /// Returns [NotFoundFailure] for an unregistered code rather than
-  /// throwing: manuscript §1.5 limits QR identification to registered
-  /// items, so scanning an unknown sticker is an expected outcome the UI
-  /// must handle gracefully, not an exceptional one.
-  Future<Result<T>> _firstByQrCode<T>({
-    required String path,
+  /// QR lookup, shared by rooms and equipment. An unregistered code is
+  /// [NotFoundFailure], not an error: §1.5 limits QR identification to
+  /// registered items, so scanning an unknown sticker is expected.
+  Future<Result<T>> _byQrCode<T>({
+    required String table,
     required String qrCode,
-    required T Function(DocumentSnapshot<Map<String, dynamic>>) convert,
+    required T Function(RowSnapshot) convert,
     required String label,
   }) async {
     final matches = await getMany(
-      query: collection(path).where('qrCode', isEqualTo: qrCode).limit(1),
+      query: client.from(table).select().eq('qr_code', qrCode).limit(1),
       convert: convert,
     );
-
     return matches.fold(
       (list) => list.isEmpty
           ? Result.failure(

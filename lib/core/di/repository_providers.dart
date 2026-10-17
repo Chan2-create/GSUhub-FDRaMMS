@@ -37,33 +37,35 @@ import 'service_providers.dart';
 /// Every provider is typed as the **interface**, never the
 /// implementation, so features built in Objectives 2–6 depend on the
 /// contract and can be tested against a fake without Firebase. Swapping
-/// the backend would mean changing this file and nothing else.
+/// the backend means changing this file and nothing else, which is how
+/// Objective 1 moves the data to Supabase a few repositories at a time;
+/// the ones still reading Firestore follow in the next step.
 
 final userRepositoryProvider = Provider<UserRepository>(
   (ref) => UserRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final facilityRepositoryProvider = Provider<FacilityRepository>(
   (ref) => FacilityRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final damageReportRepositoryProvider = Provider<DamageReportRepository>(
   (ref) => DamageReportRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final workOrderRepositoryProvider = Provider<WorkOrderRepository>(
   (ref) => WorkOrderRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
@@ -120,28 +122,28 @@ final toolRepositoryProvider = Provider<ToolRepository>(
 
 final feedbackRepositoryProvider = Provider<FeedbackRepository>(
   (ref) => FeedbackRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final notificationRepositoryProvider = Provider<NotificationRepository>(
   (ref) => NotificationRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final auditLogRepositoryProvider = Provider<AuditLogRepository>(
   (ref) => AuditLogRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final configRepositoryProvider = Provider<ConfigRepository>(
   (ref) => ConfigRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );

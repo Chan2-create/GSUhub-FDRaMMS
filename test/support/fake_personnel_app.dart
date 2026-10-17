@@ -12,7 +12,9 @@ import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/firebase/firebase_call_guard.dart';
 import 'package:gsuhub/core/services/firebase/firestore_service_impl.dart';
+import 'package:gsuhub/features/audit/data/repositories/audit_log_repository_firestore.dart';
 import 'package:gsuhub/features/inventory/presentation/inventory_screen.dart';
+import 'package:gsuhub/features/notifications/data/repositories/notification_repository_firestore.dart';
 import 'package:gsuhub/features/reporting/presentation/submission/qr_scanner_screen.dart';
 import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_tag_map.dart';
 
@@ -105,6 +107,7 @@ class PersonnelHarness {
     addTearDown(push.dispose);
 
     final guard = FirebaseCallGuard(testAppConfig());
+    final db = FirestoreServiceImpl(firestore: data.firestore, guard: guard);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -112,8 +115,19 @@ class PersonnelHarness {
           startLocationProvider.overrideWithValue(start),
           authServiceProvider.overrideWithValue(auth),
           firebaseCallGuardProvider.overrideWithValue(guard),
-          firestoreServiceProvider.overrideWithValue(
-            FirestoreServiceImpl(firestore: data.firestore, guard: guard),
+          firestoreServiceProvider.overrideWithValue(db),
+          // The app reads these from Supabase now (Objective 1); the
+          // harness keeps them in the same in-memory Firestore as the rest.
+          userRepositoryProvider.overrideWithValue(data.users),
+          facilityRepositoryProvider.overrideWithValue(data.facilities),
+          damageReportRepositoryProvider.overrideWithValue(data.reports),
+          workOrderRepositoryProvider.overrideWithValue(data.workOrders),
+          feedbackRepositoryProvider.overrideWithValue(data.feedback),
+          notificationRepositoryProvider.overrideWithValue(
+            FirestoreNotificationRepository(db: db, guard: guard),
+          ),
+          auditLogRepositoryProvider.overrideWithValue(
+            FirestoreAuditLogRepository(db: db, guard: guard),
           ),
           configRepositoryProvider.overrideWithValue(config),
           photoPickerServiceProvider.overrideWithValue(picker),

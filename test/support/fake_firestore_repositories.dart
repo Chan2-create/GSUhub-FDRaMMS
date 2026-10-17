@@ -15,22 +15,22 @@ import 'package:gsuhub/core/services/firebase/firestore_service_impl.dart';
 import 'package:gsuhub/features/accomplishment/data/repositories/accomplishment_report_repository_impl.dart';
 import 'package:gsuhub/features/accomplishment/data/repositories/material_usage_repository_impl.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
-import 'package:gsuhub/features/facilities/data/repositories/facility_repository_impl.dart';
-import 'package:gsuhub/features/feedback/data/repositories/feedback_repository_impl.dart';
+import 'package:gsuhub/features/facilities/data/repositories/facility_repository_firestore.dart';
+import 'package:gsuhub/features/feedback/data/repositories/feedback_repository_firestore.dart';
 import 'package:gsuhub/features/inventory/data/models/inventory_item.dart';
 import 'package:gsuhub/features/inventory/data/repositories/inventory_repository_impl.dart';
 import 'package:gsuhub/features/inventory/data/repositories/material_allocation_repository_impl.dart';
 import 'package:gsuhub/features/inventory/data/repositories/material_request_repository_impl.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
-import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_impl.dart';
+import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_firestore.dart';
 import 'package:gsuhub/features/tasks/data/models/maintenance_task.dart';
 import 'package:gsuhub/features/tasks/data/repositories/task_repository_impl.dart';
 import 'package:gsuhub/features/tools/data/models/tool.dart';
 import 'package:gsuhub/features/tools/data/repositories/tool_repository_impl.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
-import 'package:gsuhub/features/user_management/data/repositories/user_repository_impl.dart';
+import 'package:gsuhub/features/user_management/data/repositories/user_repository_firestore.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
-import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository_impl.dart';
+import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository_firestore.dart';
 
 import 'test_app_config.dart';
 
@@ -44,10 +44,10 @@ class FirestoreHarness {
   FirestoreHarness() : firestore = FakeFirebaseFirestore() {
     final guard = FirebaseCallGuard(testAppConfig());
     final db = FirestoreServiceImpl(firestore: firestore, guard: guard);
-    reports = DamageReportRepositoryImpl(db: db, guard: guard);
-    workOrders = WorkOrderRepositoryImpl(db: db, guard: guard);
-    users = UserRepositoryImpl(db: db, guard: guard);
-    feedback = FeedbackRepositoryImpl(db: db, guard: guard);
+    reports = FirestoreDamageReportRepository(db: db, guard: guard);
+    workOrders = FirestoreWorkOrderRepository(db: db, guard: guard);
+    users = FirestoreUserRepository(db: db, guard: guard);
+    feedback = FirestoreFeedbackRepository(db: db, guard: guard);
     tasks = TaskRepositoryImpl(db: db, guard: guard);
     accomplishments = AccomplishmentReportRepositoryImpl(db: db, guard: guard);
     materials = MaterialUsageRepositoryImpl(db: db, guard: guard);
@@ -55,14 +55,14 @@ class FirestoreHarness {
     inventory = InventoryRepositoryImpl(db: db, guard: guard);
     requests = MaterialRequestRepositoryImpl(db: db, guard: guard);
     allocations = MaterialAllocationRepositoryImpl(db: db, guard: guard);
-    facilities = FacilityRepositoryImpl(db: db, guard: guard);
+    facilities = FirestoreFacilityRepository(db: db, guard: guard);
   }
 
   final FakeFirebaseFirestore firestore;
-  late final DamageReportRepositoryImpl reports;
-  late final WorkOrderRepositoryImpl workOrders;
-  late final UserRepositoryImpl users;
-  late final FeedbackRepositoryImpl feedback;
+  late final FirestoreDamageReportRepository reports;
+  late final FirestoreWorkOrderRepository workOrders;
+  late final FirestoreUserRepository users;
+  late final FirestoreFeedbackRepository feedback;
   late final TaskRepositoryImpl tasks;
   late final AccomplishmentReportRepositoryImpl accomplishments;
   late final MaterialUsageRepositoryImpl materials;
@@ -70,7 +70,7 @@ class FirestoreHarness {
   late final InventoryRepositoryImpl inventory;
   late final MaterialRequestRepositoryImpl requests;
   late final MaterialAllocationRepositoryImpl allocations;
-  late final FacilityRepositoryImpl facilities;
+  late final FirestoreFacilityRepository facilities;
 
   static const admin = AuditActor(id: 'admin-1', name: 'Ramon Dela Cruz');
 

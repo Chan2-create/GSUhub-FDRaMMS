@@ -5,7 +5,7 @@ import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/reporting/data/models/report_assessment.dart';
-import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_impl.dart';
+import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_firestore.dart';
 
 import '../../support/fake_firestore_repositories.dart';
 
@@ -114,12 +114,12 @@ void main() {
 
     test('describes a confirmed recommendation as confirmed', () {
       expect(
-        DamageReportRepositoryImpl.describeAssessment(assessment()),
+        FirestoreDamageReportRepository.describeAssessment(assessment()),
         'Classified as Plumbing; official priority CRITICAL as recommended '
         '(score 3.50)',
       );
       expect(
-        DamageReportRepositoryImpl.describeAssessment(
+        FirestoreDamageReportRepository.describeAssessment(
           ReportAssessment(
             category: DamageCategory.electrical,
             classifiedAutomatically: true,

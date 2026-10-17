@@ -89,13 +89,31 @@ final supabaseCallGuardProvider = Provider<SupabaseCallGuard>(
 
 /// Authentication. Features depend on the [AuthService] abstraction, never
 /// on this concrete type — Shared Backend Contract, rule 1.
-final authServiceProvider = Provider<AuthService>(
-  (ref) => FirebaseAuthService(
+///
+/// Sign-in is Firebase's; who the person is in GSUhub — role and account
+/// status — is their `users` row (Objective 1).
+final authServiceProvider = Provider<AuthService>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  final guard = ref.watch(supabaseCallGuardProvider);
+  return FirebaseAuthService(
     auth: ref.watch(firebaseStartupProvider).auth,
-    firestore: ref.watch(firebaseStartupProvider).firestore,
+    lookupProfile: (uid) => guard.call(() async {
+      final row = await client
+          .from('users')
+          .select('email, role, account_status')
+          .eq('id', uid)
+          .maybeSingle();
+      return row == null
+          ? null
+          : {
+              'email': row['email'],
+              'role': row['role'],
+              'accountStatus': row['account_status'],
+            };
+    }),
     guard: ref.watch(firebaseCallGuardProvider),
-  ),
-);
+  );
+});
 
 /// Concrete auth service, for the few callers that need the extras beyond
 /// the interface (token refresh).
