@@ -16,6 +16,8 @@ which needs no global install.
 | `migrations/*_stock_ledger.sql` | Stock moves only through `inventory_transactions`. The ledger, the audit log and report timelines are insert-only. |
 | `migrations/*_storage_policies.sql` | The private `photos` bucket (10 MB, images only) and who may upload or read each folder. |
 | `migrations/*_realtime.sql` | The tables the app watches live. |
+| `migrations/*_server_helpers.sql` | What every write shares: the status rules and labels (mirroring the Dart enums), the audit entry, the notification wording, the report's timeline entry, a work order's move. |
+| `migrations/*_account_functions.sql` … `*_feedback_notification_config_functions.sql` | The writes: signing up, accounts, rooms and equipment, reports, work orders, ratings, notifications, settings. |
 | `seed.sql` | Demo data. **Generated, don't edit it**: see below. |
 | `tests/*.test.sql` | pgTAP tests: the permission matrix, the stock ledger and the storage policies. |
 | `functions/firebase-token-exchange/` | Trades a Firebase ID token for a Supabase access token. See below. |
@@ -23,6 +25,28 @@ which needs no global install.
 
 The `app` schema is not exposed through the API. Its functions run with
 the owner's rights, so each one checks the caller itself.
+
+### How a write works
+
+App users can read tables (row level security decides which rows) and
+write nothing. Every change is a function:
+
+- `public.submit_report(...)` is what the API exposes. It runs as the
+  caller and only hands over to `app.submit_report(...)`.
+- `app.submit_report(...)` checks who is calling and the stored state,
+  makes the change, writes the timeline entry, the notification and the
+  audit entry, all in one transaction.
+- A refusal raises SQLSTATE `PTxxx`. The API answers HTTP `xxx`, and the
+  app shows the message as written:
+  - `PT403`: not allowed;
+  - `PT404`: not there;
+  - `PT409` or `PT422`: the data says no.
+
+`tests/function_privileges.test.sql` holds every function to these rules,
+read from the catalog, so a function added later is checked without being
+listed. `test/unit/repositories/supabase_contract_test.dart` checks the
+other side: every function the app calls exists, with the parameters the
+app sends.
 
 ## How Supabase knows who is calling
 

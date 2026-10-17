@@ -1,25 +1,27 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../../../core/constants/firestore_paths.dart';
-import '../../../../core/data/firestore_repository.dart';
+import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/enums/audit_action.dart';
 import '../../../../core/utils/result.dart';
 import '../models/audit_log_entry.dart';
 import 'audit_log_repository.dart';
 
-/// Firestore-backed [AuditLogRepository].
+/// Supabase-backed [AuditLogRepository] (Objective 1).
 ///
-/// Append-only: this class offers no update or delete path, matching the
-/// contract and the security rules. The absence is the enforcement.
-class AuditLogRepositoryImpl extends FirestoreRepository
+/// Read-only here. Every entry is written by the database function that
+/// makes the change it records, in the same transaction, under the
+/// caller's own name; nobody can update or delete one (the table refuses
+/// it, owner included). Administrators read them under row level security.
+class AuditLogRepositoryImpl extends SupabaseRepository
     implements AuditLogRepository {
-  const AuditLogRepositoryImpl({required super.db, required super.guard});
+  const AuditLogRepositoryImpl({required super.client, required super.guard});
 
-  static const String _path = FirestorePaths.auditLogs;
+  static const String _table = 'audit_logs';
 
+  /// Entries are not written on their own: one that recorded no change, or
+  /// a change made some other way, would make the trail say something
+  /// that did not happen.
   @override
   Future<Result<String>> record(AuditLogEntry entry) =>
-      add(path: _path, data: entry.toFirestore());
+      SupabaseRepository.unsupported('AuditLogRepository.record');
 
   @override
   Future<Result<List<AuditLogEntry>>> getForEntity({
@@ -27,10 +29,12 @@ class AuditLogRepositoryImpl extends FirestoreRepository
     required String entityId,
     int limit = 50,
   }) => getMany(
-    query: collection(_path)
-        .where('entityType', isEqualTo: entityType)
-        .where('entityId', isEqualTo: entityId)
-        .orderBy('timestamp', descending: true)
+    query: client
+        .from(_table)
+        .select()
+        .eq('entity_type', entityType)
+        .eq('entity_id', entityId)
+        .order('timestamp')
         .limit(limit),
     convert: AuditLogEntry.fromFirestore,
   );
@@ -40,9 +44,11 @@ class AuditLogRepositoryImpl extends FirestoreRepository
     String actorId, {
     int limit = 50,
   }) => getMany(
-    query: collection(_path)
-        .where('actorId', isEqualTo: actorId)
-        .orderBy('timestamp', descending: true)
+    query: client
+        .from(_table)
+        .select()
+        .eq('actor_id', actorId)
+        .order('timestamp')
         .limit(limit),
     convert: AuditLogEntry.fromFirestore,
   );
@@ -55,27 +61,17 @@ class AuditLogRepositoryImpl extends FirestoreRepository
     DateTime? to,
     int limit = 100,
   }) {
-    Query<Map<String, dynamic>> built = collection(_path);
-
-    if (action != null) built = built.where('action', isEqualTo: action.id);
-    if (entityType != null) {
-      built = built.where('entityType', isEqualTo: entityType);
-    }
+    var built = client.from(_table).select();
+    if (action != null) built = built.eq('action', action.id);
+    if (entityType != null) built = built.eq('entity_type', entityType);
     if (from != null) {
-      built = built.where(
-        'timestamp',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(from.toUtc()),
-      );
+      built = built.gte('timestamp', SupabaseRepository.time(from)!);
     }
     if (to != null) {
-      built = built.where(
-        'timestamp',
-        isLessThanOrEqualTo: Timestamp.fromDate(to.toUtc()),
-      );
+      built = built.lte('timestamp', SupabaseRepository.time(to)!);
     }
-
     return getMany(
-      query: built.orderBy('timestamp', descending: true).limit(limit),
+      query: built.order('timestamp').limit(limit),
       convert: AuditLogEntry.fromFirestore,
     );
   }

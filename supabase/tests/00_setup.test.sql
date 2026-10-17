@@ -223,6 +223,25 @@ exception when others then
 end;
 $$;
 
+-- Like attempt(), with the token's claims given whole: for a claim the
+-- others do not set, such as the email signing up needs.
+create or replace function tests.attempt_with_claims(claims text, statement text)
+returns text
+language plpgsql
+set search_path = ''
+as $$
+begin
+  perform set_config('request.jwt.claims', claims, true);
+  perform set_config('role', 'authenticated', true);
+  execute statement;
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '', true);
+  return 'ok';
+exception when others then
+  return sqlstate;
+end;
+$$;
+
 grant execute on all functions in schema tests to anon, authenticated, service_role;
 
 select ok(true, 'test helpers ready');

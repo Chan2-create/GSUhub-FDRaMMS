@@ -288,7 +288,16 @@ export function createHandler(
 
     const now = config.now();
     const expiresAt = Math.min(firebase.exp, now + maxLifetime);
-    const accessToken = await new SignJWT({ role: "authenticated" })
+    // The email Firebase verified the person signed in with: signing up
+    // files the profile under it (public.register_self), so nobody can
+    // claim another's address.
+    const email = typeof firebase.email === "string"
+      ? firebase.email
+      : undefined;
+    const accessToken = await new SignJWT({
+      role: "authenticated",
+      ...(email ? { email } : {}),
+    })
       .setProtectedHeader({
         alg: config.signingAlgorithm,
         typ: "JWT",

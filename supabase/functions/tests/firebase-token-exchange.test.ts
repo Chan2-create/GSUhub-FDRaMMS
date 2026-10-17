@@ -55,6 +55,7 @@ function claims(overrides: JWTPayload = {}): JWTPayload {
     iss: `https://securetoken.google.com/${project}`,
     aud: project,
     sub: "seed-faculty-0001",
+    email: "faculty@dorsu.edu.ph",
     iat: now - 60,
     auth_time: now - 600,
     exp: now + 3000,
@@ -135,7 +136,19 @@ Deno.test("a valid Firebase token is traded for a Supabase token for the same ui
   assertEquals(protectedHeader.alg, "HS256");
   assertEquals(payload.sub, "seed-faculty-0001");
   assertEquals(payload.role, "authenticated");
+  assertEquals(payload.email, "faculty@dorsu.edu.ph");
   assertEquals(payload.iat, now);
+});
+
+Deno.test("a Firebase token with no email gives a token with none", async () => {
+  const { status, body } = await exchange(await setup(), {
+    idToken: await firebaseToken({ email: undefined }),
+  });
+  assertEquals(status, 200);
+  const { payload } = await jwtVerify(body.access_token, secretKey, {
+    currentDate: new Date(now * 1000),
+  });
+  assertEquals("email" in payload, false);
 });
 
 Deno.test("the Supabase token never outlives the Firebase token", async () => {
