@@ -1,45 +1,47 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../../../core/constants/firestore_paths.dart';
-import '../../../../core/data/firestore_repository.dart';
-import '../../../../core/enums/work_order_status.dart';
-import '../../../../core/errors/failures.dart';
+import '../../../../core/data/row_snapshot.dart';
+import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
-import '../../../inventory/data/models/inventory_item.dart';
-import '../../../work_orders/data/models/work_order.dart';
-import '../models/material_usage.dart';
 import '../models/recorded_material.dart';
 import 'material_usage_repository.dart';
 
-/// Firestore-backed [MaterialUsageRepository], over each work order's
-/// `materials_used` subcollection.
-class MaterialUsageRepositoryImpl extends FirestoreRepository
+/// Supabase-backed [MaterialUsageRepository] (Objective 1): what a
+/// technician records as used on their work, deducted from stock when the
+/// accomplishment report is filed.
+class MaterialUsageRepositoryImpl extends SupabaseRepository
     implements MaterialUsageRepository {
-  const MaterialUsageRepositoryImpl({required super.db, required super.guard});
+  const MaterialUsageRepositoryImpl({
+    required super.client,
+    required super.guard,
+  });
 
-  CollectionReference<Map<String, dynamic>> _recorded(String workOrderId) =>
-      collection(FirestorePaths.workOrders)
-          .doc(workOrderId)
-          .collection(FirestorePaths.materialsUsed);
+  static const String _table = 'work_order_materials_used';
 
   @override
   Stream<Result<List<RecordedMaterial>>> watchForWorkOrder(
     String workOrderId,
-  ) =>
-      watchMany(
-        query: _recorded(workOrderId),
-        convert: RecordedMaterial.fromFirestore,
-      ).map(
-        (result) => result.map(
-          (materials) => [...materials]
-            ..sort(
-              (a, b) => a.usage.itemName.toLowerCase().compareTo(
-                b.usage.itemName.toLowerCase(),
+  ) => guard.stream(
+    client
+        .from(_table)
+        .stream(primaryKey: const ['work_order_id', 'inventory_item_id'])
+        .eq('work_order_id', workOrderId)
+        .map(
+          (rows) =>
+              [
+                for (final row in rows)
+                  RecordedMaterial.fromFirestore(
+                    RowSnapshot.fromKeyedRow(
+                      row,
+                      idColumn: 'inventory_item_id',
+                    ),
+                  ),
+              ]..sort(
+                (a, b) => a.usage.itemName.toLowerCase().compareTo(
+                  b.usage.itemName.toLowerCase(),
+                ),
               ),
-            ),
         ),
-      );
+  );
 
   @override
   Future<Result<void>> record({
@@ -47,73 +49,20 @@ class MaterialUsageRepositoryImpl extends FirestoreRepository
     required String inventoryItemId,
     required double quantity,
     required AuditActor actor,
-  }) async {
-    if (quantity <= 0) {
-      return const Result.failure(
-        ValidationFailure('Enter how much was used.'),
-      );
-    }
-
-    return db.runTransaction<void>((transaction) async {
-      final workOrderSnapshot = await transaction.get(
-        collection(FirestorePaths.workOrders).doc(workOrderId),
-      );
-      if (!workOrderSnapshot.exists) {
-        throw FirestoreRepository.notFound('No work order $workOrderId');
-      }
-      final workOrder = WorkOrder.fromFirestore(workOrderSnapshot);
-      if (!workOrder.assignedPersonnelIds.contains(actor.id)) {
-        throw FirestoreRepository.precondition(
-          'This work order is not assigned to you.',
-        );
-      }
-      if (workOrder.status != WorkOrderStatus.pending &&
-          workOrder.status != WorkOrderStatus.inProgress) {
-        throw FirestoreRepository.precondition(
-          'This work order is ${workOrder.status.title}; materials can no '
-          'longer be recorded on it.',
-        );
-      }
-
-      final itemSnapshot = await transaction.get(
-        collection(FirestorePaths.inventoryItems).doc(inventoryItemId),
-      );
-      if (!itemSnapshot.exists) {
-        throw FirestoreRepository.notFound(
-          'This item is no longer in the inventory.',
-        );
-      }
-      final item = InventoryItem.fromFirestore(itemSnapshot);
-      if (quantity > item.quantityAvailable) {
-        throw FirestoreRepository.precondition(
-          'Only ${_amount(item.quantityAvailable)} ${item.unitOfMeasurement} '
-          'of ${item.name} in stock.',
-        );
-      }
-
-      transaction.set(
-        _recorded(workOrderId).doc(inventoryItemId),
-        RecordedMaterial(
-          usage: MaterialUsage(
-            inventoryItemId: inventoryItemId,
-            itemName: item.name,
-            quantityUsed: quantity,
-            unitOfMeasurement: item.unitOfMeasurement,
-          ),
-          recordedBy: actor.id,
-          recordedAt: DateTime.now().toUtc(),
-        ).toFirestore()..['recordedAt'] = FirestoreRepository.serverNow,
-      );
-    });
-  }
+  }) =>
+      // Safe to retry: it sets the amount, it does not add to it.
+      rpc('record_material_use', {
+        'work_order_id': workOrderId,
+        'inventory_item_id': inventoryItemId,
+        'quantity': quantity,
+      });
 
   @override
   Future<Result<void>> remove({
     required String workOrderId,
     required String inventoryItemId,
-  }) => guard.call(() => _recorded(workOrderId).doc(inventoryItemId).delete());
-
-  static String _amount(double value) => value == value.roundToDouble()
-      ? value.toStringAsFixed(0)
-      : value.toString();
+  }) => rpc('remove_material_use', {
+    'work_order_id': workOrderId,
+    'inventory_item_id': inventoryItemId,
+  });
 }

@@ -15,8 +15,6 @@ import '../services/firebase/fcm_notification_service.dart';
 import '../services/firebase/firebase_account_provisioning_service.dart';
 import '../services/firebase/firebase_auth_service.dart';
 import '../services/firebase/firebase_call_guard.dart';
-import '../services/firebase/firebase_connectivity_service.dart';
-import '../services/firebase/firebase_storage_service.dart';
 import '../services/firebase/firestore_service_impl.dart';
 import '../services/firestore_service.dart';
 import '../services/location_service.dart';
@@ -24,7 +22,9 @@ import '../services/notification_service.dart';
 import '../services/photo_picker_service.dart';
 import '../services/storage_service.dart';
 import '../services/supabase/supabase_call_guard.dart';
+import '../services/supabase/supabase_connectivity_service.dart';
 import '../services/supabase/supabase_session.dart';
+import '../services/supabase/supabase_storage_service.dart';
 
 /// The app-wide [AppConfig]. Overridden in `main.dart`.
 final appConfigProvider = Provider<AppConfig>(
@@ -156,16 +156,17 @@ final firestoreServiceImplProvider = Provider<FirestoreServiceImpl>(
   (ref) => ref.watch(firestoreServiceProvider) as FirestoreServiceImpl,
 );
 
-final storageServiceProvider = Provider<StorageService>(
-  (ref) => FirebaseStorageService(
-    storage: ref.watch(firebaseStartupProvider).storage,
-    guard: ref.watch(firebaseCallGuardProvider),
-  ),
-);
-
-final firebaseStorageServiceProvider = Provider<FirebaseStorageService>(
-  (ref) => ref.watch(storageServiceProvider) as FirebaseStorageService,
-);
+/// Photos, in the private `photos` bucket on Supabase Storage (Objective
+/// 1), filed under the signed-in user's uid where the bucket's policies
+/// want it.
+final storageServiceProvider = Provider<StorageService>((ref) {
+  final auth = ref.watch(firebaseStartupProvider).auth;
+  return SupabaseStorageService(
+    client: ref.watch(supabaseClientProvider),
+    currentUid: () => auth.currentUser?.uid,
+    guard: ref.watch(supabaseCallGuardProvider),
+  );
+});
 
 /// Device GPS, for the geo-tag on a damage report (Objective 3.C).
 final locationServiceProvider = Provider<LocationService>(
@@ -186,9 +187,9 @@ final notificationServiceProvider = Provider<NotificationService>(
 );
 
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
-  final service = FirebaseConnectivityService(
-    firestore: ref.watch(firebaseStartupProvider).firestore,
-    guard: ref.watch(firebaseCallGuardProvider),
+  final service = SupabaseConnectivityService(
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   );
   ref.onDispose(service.dispose);
   return service;

@@ -123,6 +123,17 @@ class PersonnelHarness {
           damageReportRepositoryProvider.overrideWithValue(data.reports),
           workOrderRepositoryProvider.overrideWithValue(data.workOrders),
           feedbackRepositoryProvider.overrideWithValue(data.feedback),
+          taskRepositoryProvider.overrideWithValue(data.tasks),
+          accomplishmentReportRepositoryProvider.overrideWithValue(
+            data.accomplishments,
+          ),
+          materialUsageRepositoryProvider.overrideWithValue(data.materials),
+          inventoryRepositoryProvider.overrideWithValue(data.inventory),
+          materialRequestRepositoryProvider.overrideWithValue(data.requests),
+          materialAllocationRepositoryProvider.overrideWithValue(
+            data.allocations,
+          ),
+          toolRepositoryProvider.overrideWithValue(data.tools),
           notificationRepositoryProvider.overrideWithValue(
             FirestoreNotificationRepository(db: db, guard: guard),
           ),

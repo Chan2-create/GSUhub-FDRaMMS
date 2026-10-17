@@ -22,7 +22,7 @@ create temporary view app_functions as
   where n.nspname = 'app';
 
 select cmp_ok(
-  (select count(*)::int from api_functions), '>=', 23,
+  (select count(*)::int from api_functions), '>=', 45,
   'the API has its functions'
 );
 select is(

@@ -91,6 +91,25 @@ abstract class SupabaseRepository {
   Future<Result<R>> rpcOnce<R>(String function, Map<String, Object?> params) =>
       guard.callOnce(() async => await client.rpc<R>(function, params: params));
 
+  /// A database function that answers with the row it wrote — a ledger
+  /// entry, a loan — read as a model. [once] for one not safe to repeat.
+  Future<Result<T>> rpcRow<T>(
+    String function,
+    Map<String, Object?> params, {
+    required T Function(RowSnapshot) convert,
+    bool once = false,
+  }) {
+    Future<T> run() async {
+      final row = await client.rpc<Map<String, dynamic>>(
+        function,
+        params: params,
+      );
+      return convert(RowSnapshot.fromRow(row));
+    }
+
+    return once ? guard.callOnce(run) : guard.call(run);
+  }
+
   /// A database function's answer.
   Future<Result<R>> rpcFor<R>(String function, Map<String, Object?> params) =>
       guard.call(() async => await client.rpc<R>(function, params: params));

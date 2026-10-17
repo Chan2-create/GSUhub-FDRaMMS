@@ -8,12 +8,17 @@ import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/personnel_availability.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
+import 'package:gsuhub/core/enums/task_status.dart';
+import 'package:gsuhub/core/enums/tool_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/services/location_service.dart';
 import 'package:gsuhub/core/services/supabase/supabase_call_guard.dart';
 import 'package:gsuhub/core/utils/result.dart';
+import 'package:gsuhub/features/accomplishment/data/models/material_usage.dart';
+import 'package:gsuhub/features/accomplishment/data/repositories/accomplishment_report_repository_impl.dart';
+import 'package:gsuhub/features/accomplishment/data/repositories/material_usage_repository_impl.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/classification/data/models/classification_rules_config.dart';
 import 'package:gsuhub/features/classification/data/models/duplicate_detection_config.dart';
@@ -22,10 +27,18 @@ import 'package:gsuhub/features/classification/data/repositories/config_reposito
 import 'package:gsuhub/features/facilities/data/models/facility_draft.dart';
 import 'package:gsuhub/features/facilities/data/repositories/facility_repository_impl.dart';
 import 'package:gsuhub/features/feedback/data/repositories/feedback_repository_impl.dart';
+import 'package:gsuhub/features/inventory/data/models/inventory_item_draft.dart';
+import 'package:gsuhub/features/inventory/data/models/material_line.dart';
+import 'package:gsuhub/features/inventory/data/repositories/inventory_repository_impl.dart';
+import 'package:gsuhub/features/inventory/data/repositories/material_allocation_repository_impl.dart';
+import 'package:gsuhub/features/inventory/data/repositories/material_request_repository_impl.dart';
 import 'package:gsuhub/features/notifications/data/repositories/notification_repository_impl.dart';
 import 'package:gsuhub/features/reporting/data/models/report_assessment.dart';
 import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
 import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_impl.dart';
+import 'package:gsuhub/features/tasks/data/repositories/task_repository_impl.dart';
+import 'package:gsuhub/features/tools/data/models/tool_draft.dart';
+import 'package:gsuhub/features/tools/data/repositories/tool_repository_impl.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository_impl.dart';
 import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository_impl.dart';
@@ -92,7 +105,8 @@ void main() {
           calls.add((function, body));
           final returnsId =
               function.startsWith('create_') && function != 'create_account' ||
-              function == 'assign_work_order';
+              function == 'assign_work_order' ||
+              function == 'add_task';
           return http.Response(
             returnsId ? '"new-id"' : 'null',
             200,
@@ -260,16 +274,161 @@ void main() {
     await config.updateDuplicateDetection(
       DuplicateDetectionConfig.defaults(updatedAt: now, updatedBy: 'u-admin'),
     );
+
+    // Objective 1, M4.
+    final tasks = TaskRepositoryImpl(client: client, guard: guard);
+    await tasks.addTask(
+      workOrderId: 'w-1',
+      title: 'Check the valves',
+      actor: actor,
+      description: 'Under the sink',
+      dueDate: now,
+    );
+    await tasks.deleteTask(taskId: 't-1', actor: actor);
+    await tasks.setStatus(
+      taskId: 't-1',
+      status: TaskStatus.completed,
+      actor: actor,
+    );
+    await tasks.addProofPhotos(
+      taskId: 't-1',
+      photoUrls: ['tasks/u-1/t-1/proof.jpg'],
+      actor: actor,
+    );
+
+    final accomplishments = AccomplishmentReportRepositoryImpl(
+      client: client,
+      guard: guard,
+    );
+    await accomplishments.submit(
+      reportId: accomplishments.newReportId(),
+      workOrderId: 'w-1',
+      completionNotes: 'Replaced the ballast.',
+      photoUrls: ['accomplishment_reports/u-1/ac-1/after.jpg'],
+      materialsUsed: [
+        MaterialUsage(
+          inventoryItemId: 'i-1',
+          itemName: 'LED Bulbs',
+          quantityUsed: 2,
+          unitOfMeasurement: 'units',
+        ),
+      ],
+      actor: actor,
+    );
+    await accomplishments.review(
+      reportId: 'ac-1',
+      approve: false,
+      actor: actor,
+      note: 'The cover still moves.',
+    );
+
+    final used = MaterialUsageRepositoryImpl(client: client, guard: guard);
+    await used.record(
+      workOrderId: 'w-1',
+      inventoryItemId: 'i-1',
+      quantity: 2,
+      actor: actor,
+    );
+    await used.remove(workOrderId: 'w-1', inventoryItemId: 'i-1');
+
+    final allocations = MaterialAllocationRepositoryImpl(
+      client: client,
+      guard: guard,
+    );
+    await allocations.allocate(
+      workOrderId: 'w-1',
+      inventoryItemId: 'i-1',
+      quantity: 4,
+      actor: actor,
+    );
+    await allocations.remove(
+      workOrderId: 'w-1',
+      inventoryItemId: 'i-1',
+      actor: actor,
+    );
+
+    final requests = MaterialRequestRepositoryImpl(
+      client: client,
+      guard: guard,
+    );
+    await requests.submit(
+      requestId: requests.newRequestId(),
+      workOrderId: 'w-1',
+      items: [
+        MaterialLine(
+          inventoryItemId: 'i-1',
+          itemName: 'LED Bulbs',
+          quantity: 2,
+          unitOfMeasurement: 'units',
+        ),
+      ],
+      actor: actor,
+      note: 'For the hallway',
+    );
+    await requests.approve(requestId: 'm-1', actor: actor, note: 'At noon');
+    await requests.decline(requestId: 'm-2', actor: actor, note: 'No budget');
+
+    final inventory = InventoryRepositoryImpl(client: client, guard: guard);
+    const material = InventoryItemDraft(
+      name: 'Wire',
+      category: 'Electrical',
+      unitOfMeasurement: 'rolls',
+      storageLocation: 'Store A',
+      qrCode: 'INV-WIRE',
+      minimumThreshold: 2,
+      unitCost: 3850,
+    );
+    await inventory.createItem(draft: material, openingStock: 34, actor: actor);
+    await inventory.updateItemDetails(
+      itemId: 'i-1',
+      draft: material,
+      actor: actor,
+    );
+    await inventory.recordDelivery(itemId: 'i-1', quantity: 5, actor: actor);
+    await inventory.recordStockCount(
+      itemId: 'i-1',
+      countedQuantity: 22,
+      actor: actor,
+      reason: 'Three broken',
+    );
+
+    final tools = ToolRepositoryImpl(client: client, guard: guard);
+    const tool = ToolDraft(
+      toolCode: 'TL-0100',
+      name: 'Cordless Drill',
+      condition: ItemCondition.good,
+      qrCode: 'TOOL-TL-0100',
+    );
+    await tools.createTool(draft: tool, actor: actor);
+    await tools.updateToolDetails(toolId: 'tl-1', draft: tool, actor: actor);
+    await tools.setToolStatus(
+      toolId: 'tl-1',
+      status: ToolStatus.inRepair,
+      actor: actor,
+    );
+    await tools.borrowTool(
+      toolId: 'tl-1',
+      borrower: const AuditActor(id: 'u-1', name: 'Marcus Wright'),
+      issuedBy: actor,
+      workOrderId: 'w-1',
+      expectedReturnAt: now,
+    );
+    await tools.returnTool(
+      loanId: 'lo-1',
+      conditionOnReturn: ItemCondition.poor,
+      actor: actor,
+      notes: 'A rung is cracked',
+    );
   }
 
   test('the migrations declare the API functions', () {
-    expect(signatures.length, greaterThanOrEqualTo(23));
+    expect(signatures.length, greaterThanOrEqualTo(45));
   });
 
   test('every write calls a database function that exists, with the '
       'parameters it takes', () async {
     await exerciseEveryWrite();
-    expect(calls, hasLength(25));
+    expect(calls, hasLength(47));
     for (final (function, params) in calls) {
       final signature = signatures[function];
       expect(

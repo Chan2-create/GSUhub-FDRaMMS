@@ -38,8 +38,7 @@ import 'service_providers.dart';
 /// implementation, so features built in Objectives 2–6 depend on the
 /// contract and can be tested against a fake without Firebase. Swapping
 /// the backend means changing this file and nothing else, which is how
-/// Objective 1 moves the data to Supabase a few repositories at a time;
-/// the ones still reading Firestore follow in the next step.
+/// Objective 1 moved the data to Supabase.
 
 final userRepositoryProvider = Provider<UserRepository>(
   (ref) => UserRepositoryImpl(
@@ -71,52 +70,52 @@ final workOrderRepositoryProvider = Provider<WorkOrderRepository>(
 
 final taskRepositoryProvider = Provider<TaskRepository>(
   (ref) => TaskRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final accomplishmentReportRepositoryProvider =
     Provider<AccomplishmentReportRepository>(
       (ref) => AccomplishmentReportRepositoryImpl(
-        db: ref.watch(firestoreServiceImplProvider),
-        guard: ref.watch(firebaseCallGuardProvider),
+        client: ref.watch(supabaseClientProvider),
+        guard: ref.watch(supabaseCallGuardProvider),
       ),
     );
 
 final materialUsageRepositoryProvider = Provider<MaterialUsageRepository>(
   (ref) => MaterialUsageRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(
   (ref) => InventoryRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final materialRequestRepositoryProvider = Provider<MaterialRequestRepository>(
   (ref) => MaterialRequestRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
 final materialAllocationRepositoryProvider =
     Provider<MaterialAllocationRepository>(
       (ref) => MaterialAllocationRepositoryImpl(
-        db: ref.watch(firestoreServiceImplProvider),
-        guard: ref.watch(firebaseCallGuardProvider),
+        client: ref.watch(supabaseClientProvider),
+        guard: ref.watch(supabaseCallGuardProvider),
       ),
     );
 
 final toolRepositoryProvider = Provider<ToolRepository>(
   (ref) => ToolRepositoryImpl(
-    db: ref.watch(firestoreServiceImplProvider),
-    guard: ref.watch(firebaseCallGuardProvider),
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
   ),
 );
 
