@@ -320,16 +320,25 @@ for you by anyone else: you sign in to each service yourself.
    Singapore). Keep the database password somewhere safe: it is not
    shown again. Note the project's **reference** (the
    `https://<ref>.supabase.co` in Project Settings → API).
+
+   Then check that the **Data API** is on and exposes the `public`
+   schema: `https://supabase.com/dashboard/project/<ref>/integrations/data_api/settings`.
+   The app reads and writes only through it. "Automatically expose new
+   tables" can stay off: the migrations grant exactly what the app needs.
 2. **Apply the schema** from your terminal, signed in to the Supabase CLI
    yourself:
 
    ```powershell
    npx supabase login
-   npx supabase link --project-ref <ref>
-   npx supabase db push        # the migrations; never the demo data
+   npx supabase link --project-ref <ref>     # asks for the database password
+   npx supabase db push --dry-run            # lists the 17 migrations it would apply
+   npx supabase db push                      # the migrations; never the demo data
    ```
 
-   `db push` applies `supabase/migrations` only. **Never run
+   `link` connects through Supabase's connection pooler, which works on
+   IPv4; the free plan's direct database address is IPv6 only.
+   `db push` applies `supabase/migrations` only. Never add
+   `--include-seed`. **Never run
    `supabase db reset` or the seed against the hosted project**: the
    demo data's accounts and reports are for testing.
 3. **Turn off Supabase's own sign-up.** Authentication → Providers →
@@ -344,19 +353,34 @@ for you by anyone else: you sign in to each service yourself.
 
    It prints a private JSON Web Key with a `kid`; this saves it to
    `supabase/signing_keys.json`, which git ignores. Never commit it.
-   Import it in Project Settings → JWT Keys and make it the key in use,
-   following
-   [Supabase's signing keys guide](https://supabase.com/docs/guides/auth/signing-keys).
+   Keep a copy somewhere safe outside the repository: Supabase never
+   shows it again.
+
+   Then, in Project Settings → **JWT Keys** → JWT Signing Keys
+   ([Supabase's signing keys guide](https://supabase.com/docs/guides/auth/signing-keys)):
+
+   1. If the page offers **Migrate JWT secret**, do that first.
+   2. **Create standby key** → import a private key → paste the whole
+      JSON object from `supabase/signing_keys.json` (the `{ … }`, with
+      its `kid`).
+   3. **Rotate keys**, so the imported key is the one in use. A standby
+      key is not trusted yet: until the rotation, every request the app
+      makes is refused. Changing a key's state is throttled for about
+      five minutes, so the button may wait.
+   4. **Never revoke** the imported key, nor the legacy JWT secret now
+      under "Previously used": tokens and links already signed with it
+      would stop working.
 5. **Set the function's secrets and deploy it:**
 
    ```powershell
    node tool/supabase_function_env.mjs --hosted supabase\signing_keys.json
    npx supabase secrets set --env-file supabase\functions\.env.hosted
    Remove-Item supabase\functions\.env.hosted
-   npx supabase functions deploy firebase-token-exchange --no-verify-jwt
+   npx supabase functions deploy firebase-token-exchange --no-verify-jwt --use-api
    ```
 
-   The helper writes the two secrets (`FIREBASE_PROJECT_ID`,
+   `--use-api` bundles the function on Supabase's servers, so Docker is
+   not needed. The helper writes the two secrets (`FIREBASE_PROJECT_ID`,
    `TOKEN_SIGNING_KEY`) to a git-ignored file for `secrets set` to send:
    Windows PowerShell strips the quotes out of JSON typed on the command
    line.
@@ -366,9 +390,11 @@ for you by anyone else: you sign in to each service yourself.
    are unsigned, and would let anyone in.
 6. **Add the GitHub secrets the builds read** (see "The secrets to add"):
    `SUPABASE_URL` (`https://<ref>.supabase.co`) and `SUPABASE_ANON_KEY`
-   (Project Settings → API: the publishable key, or the legacy anon
-   key). **Never the service-role or secret key**: it skips every access
-   rule, and the app refuses to start with it.
+   (Project Settings → API Keys: the **publishable** key,
+   `sb_publishable_…`). The legacy `anon` key works too, but Supabase
+   retires the legacy keys at the end of 2026. **Never the service-role
+   or secret key**: it skips every access rule, and the app refuses to
+   start with it.
 
 ### 3. Move the existing data
 
@@ -386,12 +412,15 @@ Everything already in Firestore moves once, with
    cd tool\migrate
    npm install
    $env:GOOGLE_APPLICATION_CREDENTIALS = "C:\path\to\the-key.json"
-   $env:SUPABASE_DB_URL = "<Project Settings → Database → connection string>"
+   $env:SUPABASE_DB_URL = "<Connect → Session pooler connection string, with the password filled in>"
    node migrate.mjs --dry-run --db $env:SUPABASE_DB_URL --ca C:\path\to\prod-ca-2021.crt
    ```
 
-   The certificate is Project Settings → Database → SSL Configuration →
-   Download certificate. The connection is verified against it; it is
+   Use the **Session pooler** string (port 5432, host
+   `aws-…pooler.supabase.com`, user `postgres.<ref>`): the direct
+   connection is IPv6 only on the free plan, and most home and campus
+   networks are IPv4. The certificate is Project Settings → Database →
+   SSL Configuration → Download certificate. The connection is verified against it; it is
    never accepted blind, because it carries the database password.
 
    Lines starting `!` must be fixed in Firestore first. Lines starting
@@ -401,7 +430,7 @@ Everything already in Firestore moves once, with
 
    ```powershell
    $env:SUPABASE_URL = "https://<ref>.supabase.co"
-   $env:SUPABASE_SERVICE_ROLE_KEY = "<Project Settings → API → service_role>"   # this terminal only
+   $env:SUPABASE_SERVICE_ROLE_KEY = "<Project Settings → API Keys → a secret key, sb_secret_…>"   # this terminal only
    node migrate.mjs --db $env:SUPABASE_DB_URL --ca C:\path\to\prod-ca-2021.crt --copy-photos --yes
    ```
 

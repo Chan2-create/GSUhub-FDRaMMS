@@ -219,6 +219,42 @@ test('photos are copied under the paths the bucket expects, and the rows point a
   assert.ok(calls.some(([method, url]) => method === 'POST' && url.endsWith('/object/photos/inventory_items/i-1/photo.jpg')));
 });
 
+test('a secret key is sent as the apikey only, a legacy key as the bearer token too, and neither to Firebase', async () => {
+  const sent = async (serviceRoleKey) => {
+    const { tables } = transform(firestore());
+    const headers = [];
+    await copyPhotos(tables, {
+      supabaseUrl: 'http://localhost:54321',
+      serviceRoleKey,
+      log: () => {},
+      fetchImpl: async (url, init = {}) => {
+        headers.push([url, init.headers ?? {}]);
+        if (url.includes('/object/sign/')) {
+          return new Response(JSON.stringify({ signedURL: '/object/sign/photos/x?token=t' }), { status: 200 });
+        }
+        return new Response(new Uint8Array([1]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
+      },
+    });
+    return headers;
+  };
+
+  for (const [url, h] of await sent('sb_secret_abc')) {
+    if (url.startsWith('https://firebasestorage')) {
+      assert.equal(h.apikey, undefined);
+      continue;
+    }
+    assert.equal(h.apikey, 'sb_secret_abc');
+    assert.equal(h.Authorization, undefined);
+  }
+  for (const [url, h] of await sent('eyJ.legacy.key')) {
+    if (url.startsWith('https://firebasestorage')) {
+      assert.equal(h.Authorization, undefined);
+      continue;
+    }
+    assert.equal(h.Authorization, 'Bearer eyJ.legacy.key');
+  }
+});
+
 test('a photo that cannot be read keeps its old URL, and is reported', async () => {
   const { tables } = transform(firestore());
   const failures = await copyPhotos(tables, {

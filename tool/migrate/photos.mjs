@@ -32,7 +32,12 @@ export function photosToCopy(tables) {
 /// [serviceRoleKey] are the hosted (or local) project's; the key never
 /// leaves this machine. Returns the failures, as messages.
 export async function copyPhotos(tables, { supabaseUrl, serviceRoleKey, log = console.log, fetchImpl = fetch }) {
-  const headers = { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` };
+  // A secret key (sb_secret_...) goes in `apikey` only: the gateway turns it
+  // into a service-role token itself, and refuses it as a bearer token. A
+  // legacy service_role key is a JWT and goes in both.
+  const headers = serviceRoleKey.startsWith('sb_secret_')
+    ? { apikey: serviceRoleKey }
+    : { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` };
   const failures = [];
   const replaced = new Map();
   const photos = photosToCopy(tables);
