@@ -7,7 +7,8 @@ GSUhub replaces the GSU's paper-and-walk-in maintenance workflow with a
 single system for reporting facility damage, classifying and prioritising
 it, assigning work to maintenance personnel, and tracking the job through
 to completion. One Flutter codebase serves three role-specific clients
-against one shared Firebase backend:
+against one shared backend — sign-in on Firebase, data and photos on
+Supabase:
 
 | Role | Platform | Shell |
 |---|---|---|
@@ -31,13 +32,16 @@ University.
 | Framework | Flutter 3.47 / Dart 3.13 |
 | State & DI | Riverpod |
 | Routing | go_router — one path-prefixed router for all three shells |
-| Database | Cloud Firestore |
-| Auth | Firebase Authentication (email/password) |
-| Files | Firebase Storage |
+| Database | Supabase Postgres — row level security, every write a database function |
+| Auth | Firebase Authentication (email/password); a Supabase Edge Function trades its token for a database token |
+| Files | Supabase Storage (a private bucket, signed links) |
+| Live updates | Supabase Realtime |
 | Push | Firebase Cloud Messaging |
-| Testing | flutter_test, fake_cloud_firestore, `@firebase/rules-unit-testing` |
+| Testing | flutter_test, pgTAP (in PGlite without Docker), Deno, fake_cloud_firestore for the widget harnesses |
 
-Firebase project `gsuhub-dorsu`, region `asia-southeast1`, Spark plan.
+Firebase project `gsuhub-dorsu` (sign-in and push), Spark plan; a
+Supabase project for the data (Objective 1, docs/architecture_decisions.md
+§21).
 
 ## Progress
 
@@ -48,6 +52,7 @@ Work proceeds objective by objective against the project WBS.
 | 1.A | Project scaffold, three shells, routing, config, service interfaces | Complete |
 | 1.B | Data models, repository contracts, security rules, indexes | Complete |
 | 1.C | Firebase wiring, repository implementations, emulator suite | Complete |
+| 1 (backend split) | Data, photos and live updates on Supabase; Firebase for sign-in and push only | Complete; not yet run against a real Supabase stack (needs Docker) |
 | 2.A | Admin authentication, dashboard, main layout | Complete |
 | 2.B | Damage report management, task assignment, work-order Kanban | Complete |
 | 2.C | Analytics, personnel and user account management | Complete |
@@ -61,7 +66,7 @@ Work proceeds objective by objective against the project WBS.
 | 5.A | Personnel sign-in (shared with faculty), dashboard, tasks, work orders; admin adds tasks in the console | Complete |
 | 5.B | Starting work, ticking tasks with proof, the accomplishment report; admin signs off or sends back | Complete |
 | 5.C | Scanning QR codes and barcodes; recording materials used, borrowing and returning tools | Complete (requesting more materials came in 6.B) |
-| 6.A | Inventory Management page (Figure 15): materials, unit costs, deliveries, stock counts, stock history, low-stock alerts | Complete (material photos on live need Blaze, like every photo) |
+| 6.A | Inventory Management page (Figure 15): materials, unit costs, deliveries, stock counts, stock history, low-stock alerts | Complete |
 | 6.B | Tools: check out, check in, repair, retire; technicians' material requests and pre-assigned materials | Complete |
 | 6.C | QR codes and printable labels for materials, tools, rooms and equipment; Facilities & Equipment page; Most Used Materials and the inventory CSV | Complete |
 
@@ -76,7 +81,7 @@ classification keywords. The faculty and staff app has its own sign-in and sign-
 home screen with the requestor's report overview, My Reports, the damage
 report form (3.C), live tracking with a status timeline and an Alerts
 tab (3.B), and rating a finished job, which closes the report (3.C) —
-see docs/emulator_setup.md. Its Profile tab holds
+see docs/local_setup.md. Its Profile tab holds
 only Sign out. Maintenance personnel sign in on the same page and land
 in their own app (5.A–5.C): a dashboard with the day's tasks, their work
 orders with tasks to tick off and proof photos, materials and tools
@@ -111,44 +116,49 @@ file. Ask a team member for access to the Firebase project.
 
 ## Running locally
 
-### Against the emulator suite (recommended for development)
+### Against the local services (recommended for development)
 
-Debug builds use the emulators **by default** — `gsuhub-dorsu` is the
-project the team demos from, so reaching it from a debug build takes an
-explicit `--dart-define=USE_LIVE_FIREBASE=true`. Start the emulators
-first; without them, sign-in fails with a connection error.
+Debug builds sign in with the Firebase **Auth emulator** and read data
+from the **local Supabase stack** by default. `gsuhub-dorsu` is the
+project the team demos from, so reaching the live projects from a debug
+build takes explicit flags. Docker Desktop must be running for the local
+stack. The full walkthrough is [`docs/local_setup.md`](docs/local_setup.md).
 
 ```bash
-firebase emulators:start              # auth 9099, firestore 8080, storage 9199
-dart run tool/seed_emulator.dart      # realistic test data
+npx supabase start                    # the database, photos, realtime, the token exchange
+node tool/supabase_function_env.mjs   # first time: the token exchange's secrets
+npx supabase db reset                 # the demo data
 
-flutter run -d edge
+firebase emulators:start --only auth  # sign-in, on port 9099
+dart run tool/seed.dart auth          # the sign-in accounts
+
+flutter run -d edge --dart-define=SUPABASE_ANON_KEY=<ANON_KEY from npx supabase status>
 ```
 
 Seeded accounts all use the password `password123`:
 
 | Email | Role |
 |---|---|
-| `admin@dorsu.edu.ph` | Administrator — the only role with screens |
+| `admin@dorsu.edu.ph` | Administrator |
 | `faculty@dorsu.edu.ph` | Requestor |
 | `personnel@dorsu.edu.ph` | Maintenance personnel |
 
 An orange **EMULATOR** ribbon marks the UI whenever the app is pointed at
-the local suite, so seeded data is never mistaken for the live project.
-The emulator database is in-memory — re-run the seed script after every
-restart.
+the local services, so seeded data is never mistaken for the live project.
 
 On Windows, `firebase emulators:start` can fail with *"port taken"* even
 when nothing is listening. Windows reserves shifting TCP ranges at boot;
 check with `netsh interface ipv4 show excludedportrange protocol=tcp`. An
 elevated `net stop winnat` / `net start winnat` frees them.
 
-### Against the live project
+### Against the live projects
 
 ```bash
-flutter run -d edge --dart-define=USE_LIVE_FIREBASE=true   # debug build
-flutter build web                                          # release: live by default
+flutter run -d edge --dart-define=USE_LIVE_FIREBASE=true --dart-define=SUPABASE_URL=https://<ref>.supabase.co --dart-define=SUPABASE_ANON_KEY=<key>
+flutter build web --dart-define=SUPABASE_URL=… --dart-define=SUPABASE_ANON_KEY=…   # release: live by default
 ```
+
+The app refuses to start without the key, or with the service-role key.
 
 ### Tests
 
@@ -157,28 +167,32 @@ flutter analyze
 flutter test                          # Dart unit and widget tests
 dart format --set-exit-if-changed .
 
-npm install && npm test               # Firestore security rules
+npx supabase test db                  # the database's pgTAP tests (local stack)
+cd tool/sql_tests && npm install && node run.mjs   # the same, without Docker
 ```
 
-The rules tests run under Node rather than `flutter test`: the Firebase
-plugins need a platform channel the Dart test VM does not provide.
+`test/e2e` drives the three main flows against the local stack; it runs
+with `SUPABASE_E2E=1` set. See [`supabase/README.md`](supabase/README.md).
 
 ## First administrator account
 
-Security rules allow creating a `users` document only to an existing
-administrator, which is deliberate — it stops any account promoting
-itself. That means the **first** administrator cannot be created through
-the app, and on the Spark plan there is no Cloud Function to do it.
+Only an administrator can create accounts with a role, which is
+deliberate — it stops any account promoting itself. That means the
+**first** administrator cannot be created through the app.
 
-Create it once by hand in the Firebase Console:
+Create it once by hand:
 
-1. **Authentication → Add user** — institutional email and a temporary
-   password. Copy the generated UID.
-2. **Firestore → `users` → Add document** with the document ID set to
-   exactly that UID.
-3. Fields: `role: "admin"`, `isActive: true`, plus `email`, `fullName`,
-   `createdAt`.
-4. Sign in and change the password immediately.
+1. **Firebase Console → Authentication → Add user** — institutional email
+   and a temporary password. Copy the generated UID.
+2. **Supabase dashboard → SQL Editor**, run (it runs as the database
+   owner, past row level security):
+
+   ```sql
+   insert into public.users (id, full_name, email, role, account_status)
+   values ('<the UID>', '<full name>', '<the email>', 'admin', 'active');
+   ```
+
+3. Sign in and change the password immediately.
 
 Every account after that is provisioned by an administrator through the
 app, so the audit log records who created whom.
@@ -189,14 +203,18 @@ app, so the audit log records who created whom.
 lib/
   core/          config, constants, enums, error types, Result,
                  abstract service interfaces, routing, shared widgets.
-                 No shell-specific or Firebase-specific code.
-  core/services/ the only place Firebase SDKs are imported, alongside
-  data/          repositories. UI talks to repositories, never Firebase.
+                 No shell-specific or backend-specific code.
+  core/services/ the only place the Firebase and Supabase SDKs are
+  data/          imported, alongside the repositories. UI talks to
+                 repositories, never a backend.
   shells/        one router outlet per role, presentation only.
   features/      feature modules, built per WBS objective.
-firebase/        Firestore security rules and composite indexes.
-test/            unit, widget and rules tests.
-tool/            developer scripts, including the emulator seeder.
+supabase/        the database: migrations, pgTAP tests, the demo data,
+                 the token exchange Edge Function.
+firebase/        the old Firestore rules (until its data is moved).
+test/            unit, widget, contract and end-to-end tests.
+tool/            developer scripts: the seed generator, the SQL test
+                 runner, the Firestore → Supabase migration.
 scripts/         release builds: web deploy to Vercel, the Android APK.
 deploy/          Vercel's settings for the deployed console.
 docs/            architecture decisions, data dictionary, setup guides.
@@ -213,10 +231,11 @@ the reason a backend swap would touch the DI files and nothing else.
 | Document | Contents |
 |---|---|
 | [`docs/architecture_decisions.md`](docs/architecture_decisions.md) | What was built, what was deferred, and why |
-| [`docs/data_dictionary.md`](docs/data_dictionary.md) | Every collection, field, type and constraint |
+| [`docs/data_dictionary.md`](docs/data_dictionary.md) | Every table, field, type and constraint, and who may read and change what |
 | [`docs/firebase_setup.md`](docs/firebase_setup.md) | Console configuration |
-| [`docs/emulator_setup.md`](docs/emulator_setup.md) | Local emulator suite |
-| [`docs/manual_deploy.md`](docs/manual_deploy.md) | Automatic web deploys to Vercel and their secrets, building the release APK, debugging on live |
+| [`docs/local_setup.md`](docs/local_setup.md) | The Auth emulator and the local Supabase stack |
+| [`supabase/README.md`](supabase/README.md) | The database: how a write works, the tests, the demo data |
+| [`docs/manual_deploy.md`](docs/manual_deploy.md) | Setting up the hosted Supabase project and moving the data, automatic web deploys to Vercel and their secrets, building the release APK |
 | [`docs/git_workflow.md`](docs/git_workflow.md) | Branches, commit conventions, PR process |
 
 ## Contributing

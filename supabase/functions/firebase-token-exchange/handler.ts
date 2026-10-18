@@ -101,7 +101,10 @@ export async function configFromEnv(
   if (!rawKey) return { configError: "TOKEN_SIGNING_KEY is not set." };
   let jwk: JWK;
   try {
-    jwk = JSON.parse(rawKey);
+    const parsed = JSON.parse(rawKey);
+    // A keys file (signing_keys.json) holds a list; the key is its first.
+    jwk = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (!jwk || typeof jwk !== "object") throw new Error();
   } catch {
     return { configError: "TOKEN_SIGNING_KEY is not a JSON Web Key." };
   }
@@ -117,7 +120,11 @@ export async function configFromEnv(
 
   let signingKey: CryptoKey | Uint8Array;
   try {
-    signingKey = await importJWK(jwk, algorithm);
+    // Only the key itself: `supabase gen signing-key` also prints usage
+    // hints (key_ops ["sign", "verify"]), and Web Crypto refuses "verify"
+    // on a private key. This key only ever signs.
+    const { key_ops: _ops, use: _use, ext: _ext, ...material } = jwk;
+    signingKey = await importJWK(material, algorithm);
   } catch (error) {
     return { configError: `TOKEN_SIGNING_KEY could not be read: ${error}` };
   }

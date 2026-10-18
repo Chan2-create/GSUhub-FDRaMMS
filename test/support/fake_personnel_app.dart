@@ -11,10 +11,7 @@ import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/firebase/firebase_call_guard.dart';
-import 'package:gsuhub/core/services/firebase/firestore_service_impl.dart';
-import 'package:gsuhub/features/audit/data/repositories/audit_log_repository_firestore.dart';
 import 'package:gsuhub/features/inventory/presentation/inventory_screen.dart';
-import 'package:gsuhub/features/notifications/data/repositories/notification_repository_firestore.dart';
 import 'package:gsuhub/features/reporting/presentation/submission/qr_scanner_screen.dart';
 import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_tag_map.dart';
 
@@ -24,6 +21,9 @@ import 'fake_firestore_repositories.dart';
 import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
 import 'fake_requestor_app.dart';
+import 'firestore_backend/core/services/firebase/firestore_service_impl.dart';
+import 'firestore_backend/features/audit/data/repositories/audit_log_repository_firestore.dart';
+import 'firestore_backend/features/notifications/data/repositories/notification_repository_firestore.dart';
 import 'test_app_config.dart';
 
 /// Stands up the personnel app (Objective 5) without Firebase: the real
@@ -115,7 +115,6 @@ class PersonnelHarness {
           startLocationProvider.overrideWithValue(start),
           authServiceProvider.overrideWithValue(auth),
           firebaseCallGuardProvider.overrideWithValue(guard),
-          firestoreServiceProvider.overrideWithValue(db),
           // The app reads these from Supabase now (Objective 1); the
           // harness keeps them in the same in-memory Firestore as the rest.
           userRepositoryProvider.overrideWithValue(data.users),

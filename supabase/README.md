@@ -68,7 +68,10 @@ The function needs three secrets:
 Locally, `node tool/supabase_function_env.mjs` writes them to
 `supabase/functions/.env`, which git ignores. Run it after
 `npx supabase start`, then restart the stack so the function reads them.
-On the hosted project, use `npx supabase secrets set`.
+For the hosted project, `node tool/supabase_function_env.mjs --hosted
+supabase/signing_keys.json` writes them to `supabase/functions/.env.hosted`
+(also ignored) for `npx supabase secrets set --env-file`; delete it once
+sent. docs/manual_deploy.md, "Going live", has the steps in order.
 
 ## Running the app against the local stack
 
@@ -113,7 +116,8 @@ npx supabase start -x studio,imgproxy,vector,logflare,supavisor,mailpit
 Storage service enforces: a PDF and an 11 MB image are both refused.
 
 **Without Docker** (a fast first check): run the same SQL tests in PGlite,
-which is Postgres compiled to WebAssembly.
+which is Postgres compiled to WebAssembly. It is Postgres 18 where the
+stack runs 17, so a pass here does not replace `npx supabase test db`.
 
 ```
 cd tool/sql_tests

@@ -1,8 +1,10 @@
 # Deployment and debugging
 
 How the admin console reaches Vercel and the Android APK is built, both
-against the **live** Firebase project (`gsuhub-dorsu`), and how to find
-and fix bugs found there. This is deployment tooling, not a WBS
+against the **live** projects — Firebase `gsuhub-dorsu` for sign-in and
+push, Supabase for the data and photos (Objective 1) — how the hosted
+Supabase project is set up and the data moved to it ("Going live"), and
+how to find and fix bugs found there. This is deployment tooling, not a WBS
 objective.
 
 - **Web: automatic.** Every push to `main` builds the console and
@@ -12,9 +14,11 @@ objective.
   `scripts\build_apk.ps1`, after raising the version
   (see "Before each APK build").
 
-Debug builds still default to the emulators (see
-`docs/emulator_setup.md`). Only release builds — the workflow's and the
-two scripts' — talk to live Firebase.
+Debug builds still default to the Auth emulator and the local Supabase
+stack (see `docs/local_setup.md`). Only release builds — the workflow's
+and the two scripts' — talk to the live projects. They read
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` from the environment, or from the
+repository secrets of the same names, and stop if either is missing.
 
 All commands run in PowerShell from the repo root, `D:\Capstone System`.
 
@@ -98,11 +102,17 @@ hides them in logs.
    copy it: `Get-Content lib\firebase_options.dart -Raw | Set-Clipboard`.
    If you ever re-run `flutterfire configure`, update this secret too.
 
-Once all four exist, push to `main` (or use **Run workflow**) and watch
+5. **`SUPABASE_URL`** — the hosted Supabase project, `https://<ref>.supabase.co`
+   (Project Settings → API).
+6. **`SUPABASE_ANON_KEY`** — its publishable key (or the legacy anon key)
+   from the same page. Public by design, but kept out of the repo. **Never
+   the service-role or secret key.**
+
+Once all six exist, push to `main` (or use **Run workflow**) and watch
 the run in the **Actions** tab. A missing secret stops the first step
 with a message naming it.
 
-The Firebase checklist below still applies: in particular, the Vercel
+The "Going live" checklist below still applies: in particular, the Vercel
 domain must be an authorised domain, or sign-in on the site fails.
 
 ---
@@ -290,97 +300,178 @@ shows whatever `main` has.
 
 ---
 
-## Live Firebase checklist
+## Going live
 
-Do these in order, in the Firebase Console and your own terminal. Nothing
-here is automated.
+Do these in order, in the Firebase and Supabase dashboards and your own
+terminal. Nothing here is automated, and nothing here should be done
+for you by anyone else: you sign in to each service yourself.
+
+### 1. Firebase: sign-in
 
 1. **Authorise the Vercel domain.** Authentication → Settings →
    Authorized domains → Add domain → `gsuhub-dorsu.vercel.app`. Without
    it, sign-in on the deployed console fails.
+2. **Enable Email/Password** in Authentication → Sign-in method.
 
-2. **Deploy the security rules and indexes.** Never use the console's
-   "test mode" rules: they let anyone read and write everything.
-   1. Run the rules tests against the emulator first (they need Java 21):
-      ```powershell
-      $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot"
-      npm run test:rules
-      ```
-   2. Sign in to the Firebase CLI yourself: `firebase login`.
-   3. Deploy Firestore's rules and indexes:
-      ```powershell
-      firebase deploy --only firestore:rules,firestore:indexes
-      ```
-      Use `npm run deploy:all-rules` (which also deploys Storage's rules)
-      only once Storage is enabled — on the Spark plan there is no bucket
-      to deploy them to, and the command fails.
+### 2. Supabase: the data (Objective 1)
 
-3. **Create the first administrator.** Once, by hand; no password lives
-   in the repo.
-   1. Authentication → Sign-in method → enable **Email/Password**.
-   2. Authentication → Users → **Add user** with the administrator's
-      email and a strong password. Copy the new **User UID**.
-   3. Firestore Database → `users` → **Add document**, Document ID = that
-      UID, with these fields:
+1. **Create the project** at https://supabase.com/dashboard → New
+   project. Pick the region nearest the campus (Southeast Asia,
+   Singapore). Keep the database password somewhere safe: it is not
+   shown again. Note the project's **reference** (the
+   `https://<ref>.supabase.co` in Project Settings → API).
 
-      | Field | Type | Value |
-      |---|---|---|
-      | `fullName` | string | the administrator's name |
-      | `email` | string | the same email, lower-case |
-      | `role` | string | `admin` |
-      | `accountStatus` | string | `active` |
-      | `department` | string | `General Services Unit` |
-      | `contactNumber` | null | |
-      | `specialization` | null | |
-      | `availability` | null | |
-      | `activeTaskCount` | number | `0` |
-      | `fcmToken` | null | |
-      | `createdAt` | timestamp | now |
-      | `updatedAt` | timestamp | now |
+   Then check that the **Data API** is on and exposes the `public`
+   schema: `https://supabase.com/dashboard/project/<ref>/integrations/data_api/settings`.
+   The app reads and writes only through it. "Automatically expose new
+   tables" can stay off: the migrations grant exactly what the app needs.
+2. **Apply the schema** from your terminal, signed in to the Supabase CLI
+   yourself:
 
-   4. Sign in to the console with it. Every other account is created
-      from **User Accounts** in the console, or by signing up in the app
-      and being approved there.
+   ```powershell
+   npx supabase login
+   npx supabase link --project-ref <ref>     # asks for the database password
+   npx supabase db push --dry-run            # lists the 17 migrations it would apply
+   npx supabase db push                      # the migrations; never the demo data
+   ```
 
-4. **Add the rooms, materials, tools and configuration — not the demo
-   data.** Never run `toolseed_emulator.dart` against production; it
-   only talks to the emulators anyway, and its accounts and reports are
-   for testing.
-   - **Rooms** are needed before anyone can file a report (the form picks
-     a building and room). Sign in to the console and add the campus's
-     real rooms, and any equipment in them, on **Facilities & Equipment**
-     (Objective 6.C). Each gets a code; **Print all labels** saves the
-     stickers to print and put up.
-   - **Materials and tools** go in on **Inventory Management** (Add
-     Material, Add New Tool), with their opening stock. Print each one's
-     label from its QR icon or details.
-   - **Configuration** (`config/prioritization`,
-     `config/classification_rules`, `config/duplicate_detection`) needs
-     no copying. While a document is missing, the app uses the
-     manuscript's values: Table 3.3's keywords, the formula's weights
-     (0.40/0.30/0.20/0.10), Table 3.5's bands, and the duplicate defaults
-     (72 hours, 0.5). To save the keyword list, sign in to the console,
-     open **Settings** and press **Save keywords**; it says "Not saved
-     yet" until then. The weights and duplicate settings have no screen:
-     to change them, add the document by hand with the fields
-     `tool\seed_emulator.dart` (`_seedConfig`) writes.
+   `link` connects through Supabase's connection pooler, which works on
+   IPv4; the free plan's direct database address is IPv6 only.
+   `db push` applies `supabase/migrations` only. Never add
+   `--include-seed`. **Never run
+   `supabase db reset` or the seed against the hosted project**: the
+   demo data's accounts and reports are for testing.
+3. **Turn off Supabase's own sign-up.** Authentication → Providers →
+   Email → disable "Allow new users to sign up". People sign in with
+   Firebase; nobody should get a Supabase account.
+4. **Give the token exchange its signing key.** The Edge Function signs
+   the tokens the database trusts, so the project must trust its key:
 
-5. **Cloud Storage needs the Blaze plan.** The project's bucket
-   (`gsuhub-dorsu.firebasestorage.app`) is the newer kind that Firebase
-   only provides on Blaze. On Spark, **photo upload fails on live** — and
-   the report form requires at least one photo, so **faculty cannot file
-   reports on live until the project is on Blaze.** The same goes for
-   the personnel app (Objective 5): proof photos on tasks fail, and the
-   accomplishment report needs at least one photo, so **technicians
-   cannot submit finished work on live until then either.** A material's
-   photo on the Inventory page (6.A) is optional; until then materials
-   show an icon. QR labels need no Storage: they are made in the browser. Do not work around
-   this by putting images in Firestore as base64. Blaze is pay-as-you-go
-   with a free allowance that covers a capstone's use; set a budget alert
-   when you switch.
+   ```powershell
+   npx supabase gen signing-key --algorithm ES256 | Out-File -Encoding utf8 supabase\signing_keys.json
+   ```
 
-6. **Push to a closed app needs Cloud Functions, also Blaze-only.** On
-   Spark, the Alerts tab and its badge update live, and the app shows a
-   notification itself while it is open or recently in the background.
-   A phone with GSUhub fully closed hears nothing until a Cloud Function
-   sends the push (docs/architecture_decisions.md §16).
+   It prints a private JSON Web Key with a `kid`; this saves it to
+   `supabase/signing_keys.json`, which git ignores. Never commit it.
+   Keep a copy somewhere safe outside the repository: Supabase never
+   shows it again.
+
+   Then, in Project Settings → **JWT Keys** → JWT Signing Keys
+   ([Supabase's signing keys guide](https://supabase.com/docs/guides/auth/signing-keys)):
+
+   1. If the page offers **Migrate JWT secret**, do that first.
+   2. **Create standby key** → import a private key → paste the whole
+      JSON object from `supabase/signing_keys.json` (the `{ … }`, with
+      its `kid`).
+   3. **Rotate keys**, so the imported key is the one in use. A standby
+      key is not trusted yet: until the rotation, every request the app
+      makes is refused. Changing a key's state is throttled for about
+      five minutes, so the button may wait.
+   4. **Never revoke** the imported key, nor the legacy JWT secret now
+      under "Previously used": tokens and links already signed with it
+      would stop working.
+5. **Set the function's secrets and deploy it:**
+
+   ```powershell
+   node tool/supabase_function_env.mjs --hosted supabase\signing_keys.json
+   npx supabase secrets set --env-file supabase\functions\.env.hosted
+   Remove-Item supabase\functions\.env.hosted
+   npx supabase functions deploy firebase-token-exchange --no-verify-jwt --use-api
+   ```
+
+   `--use-api` bundles the function on Supabase's servers, so Docker is
+   not needed. The helper writes the two secrets (`FIREBASE_PROJECT_ID`,
+   `TOKEN_SIGNING_KEY`) to a git-ignored file for `secrets set` to send:
+   Windows PowerShell strips the quotes out of JSON typed on the command
+   line.
+
+   **Never set `ALLOW_EMULATOR_TOKENS` on the hosted project.** The
+   function refuses to run if it is set there: the emulator's tokens
+   are unsigned, and would let anyone in.
+6. **Add the GitHub secrets the builds read** (see "The secrets to add"):
+   `SUPABASE_URL` (`https://<ref>.supabase.co`) and `SUPABASE_ANON_KEY`
+   (Project Settings → API Keys: the **publishable** key,
+   `sb_publishable_…`). The legacy `anon` key works too, but Supabase
+   retires the legacy keys at the end of 2026. **Never the service-role
+   or secret key**: it skips every access rule, and the app refuses to
+   start with it.
+
+### 3. Move the existing data
+
+Everything already in Firestore moves once, with
+`tool/migrate/migrate.mjs`, into the empty database.
+
+1. In the Firebase Console → Project settings → Service accounts,
+   **Generate new private key**. Save it outside the repo. It reads all
+   of Firestore: delete it from the console when the move is done.
+2. Look first. A dry run reads Firestore, loads everything into the
+   database inside a transaction, lists every row that would fail, and
+   rolls it all back:
+
+   ```powershell
+   cd tool\migrate
+   npm install
+   $env:GOOGLE_APPLICATION_CREDENTIALS = "C:\path\to\the-key.json"
+   $env:SUPABASE_DB_URL = "<Connect → Session pooler connection string, with the password filled in>"
+   node migrate.mjs --dry-run --db $env:SUPABASE_DB_URL --ca C:\path\to\prod-ca-2021.crt
+   ```
+
+   Use the **Session pooler** string (port 5432, host
+   `aws-…pooler.supabase.com`, user `postgres.<ref>`): the direct
+   connection is IPv6 only on the free plan, and most home and campus
+   networks are IPv4. The certificate is Project Settings → Database →
+   SSL Configuration → Download certificate. The connection is verified against it; it is
+   never accepted blind, because it carries the database password.
+
+   Lines starting `!` must be fixed in Firestore first. Lines starting
+   `?` are stock balances Firestore's own history disagrees with: they
+   are copied as they are, and listed so you can count those materials.
+3. Move it, with the photos:
+
+   ```powershell
+   $env:SUPABASE_URL = "https://<ref>.supabase.co"
+   $env:SUPABASE_SERVICE_ROLE_KEY = "<Project Settings → API Keys → a secret key, sb_secret_…>"   # this terminal only
+   node migrate.mjs --db $env:SUPABASE_DB_URL --ca C:\path\to\prod-ca-2021.crt --copy-photos --yes
+   ```
+
+   It writes nothing unless every row goes in. Close the terminal
+   afterwards: the service-role key must not linger.
+4. If Firestore was empty, **create the first administrator** instead:
+   Authentication → Users → **Add user** in Firebase, copy the UID, then
+   in Supabase's SQL Editor:
+
+   ```sql
+   insert into public.users (id, full_name, email, role, account_status, department)
+   values ('<the UID>', '<full name>', '<the email, lower-case>', 'admin', 'active',
+           'General Services Unit');
+   ```
+
+   Every other account is created from **User Accounts** in the console,
+   or by signing up in the app and being approved there.
+5. **Add the rooms, materials, tools** (if they did not come across) in
+   the console: **Facilities & Equipment** first (the report form needs
+   a building and room), then **Inventory Management**. Print the labels
+   from each one's QR icon.
+6. **Settings** need no copying: while a settings document is missing,
+   the app uses the manuscript's values. Press **Save keywords** in
+   Settings once to store the keyword list.
+
+### 4. Afterwards
+
+- **Lock Firestore and Storage.** Once the data is moved and the app on
+  live shows it, nothing should read or write Firestore again. Deploy
+  rules that deny everything, so the old data cannot be read through
+  the old project. That is a deliberate step for you to take; until
+  then, the rules in `firebase/` stay as they are. Never deploy the
+  console's "test mode" rules: they let anyone read and write
+  everything.
+- **Photos no longer need Blaze.** They are in Supabase Storage (1 GB on
+  the free plan), not Firebase Storage.
+- **Push to a closed app still needs a server.** The Alerts tab and its
+  badge update live, and the app shows a notification itself while it
+  is open or recently in the background. A phone with GSUhub fully
+  closed hears nothing until something sends the push
+  (docs/architecture_decisions.md §16).
+- **A free Supabase project pauses after a week without use.** Before a
+  demo or the defense, open the dashboard and restore it if it is
+  paused, then sign in once to check.

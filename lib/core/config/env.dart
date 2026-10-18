@@ -31,8 +31,8 @@ abstract final class Env {
   /// `flutter build web --dart-define=USE_EMULATOR=true`
   static const bool _forceEmulator = bool.fromEnvironment('USE_EMULATOR');
 
-  /// Whether to route Firebase traffic at the local Emulator Suite instead
-  /// of the live `gsuhub-dorsu` project.
+  /// Whether to sign in with the local Auth emulator, and read data from
+  /// the local Supabase stack, instead of the live `gsuhub-dorsu` project.
   ///
   /// **On by default in development builds.** `gsuhub-dorsu` is the only
   /// project the team demos from, so the dangerous mistake is the one a
@@ -62,16 +62,6 @@ abstract final class Env {
   static const int authEmulatorPort = int.fromEnvironment(
     'AUTH_EMULATOR_PORT',
     defaultValue: 9099,
-  );
-
-  static const int firestoreEmulatorPort = int.fromEnvironment(
-    'FIRESTORE_EMULATOR_PORT',
-    defaultValue: 8080,
-  );
-
-  static const int storageEmulatorPort = int.fromEnvironment(
-    'STORAGE_EMULATOR_PORT',
-    defaultValue: 9199,
   );
 
   /// The Supabase API URL, where GSUhub's data and photos live.

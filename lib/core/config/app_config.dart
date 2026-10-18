@@ -47,8 +47,6 @@ class AppConfig {
     required this.useEmulator,
     required this.emulatorHost,
     required this.authEmulatorPort,
-    required this.firestoreEmulatorPort,
-    required this.storageEmulatorPort,
     required this.fcmVapidKey,
     required this.supabaseUrl,
     required this.supabaseAnonKey,
@@ -63,8 +61,6 @@ class AppConfig {
     useEmulator: Env.useEmulator,
     emulatorHost: Env.emulatorHost,
     authEmulatorPort: Env.authEmulatorPort,
-    firestoreEmulatorPort: Env.firestoreEmulatorPort,
-    storageEmulatorPort: Env.storageEmulatorPort,
     fcmVapidKey: Env.fcmVapidKey,
     supabaseUrl: Env.supabaseUrl,
     supabaseAnonKey: Env.supabaseAnonKey,
@@ -73,15 +69,13 @@ class AppConfig {
   final String appName;
   final Environment environment;
 
-  /// Whether Firebase traffic is routed at the local Emulator Suite
-  /// instead of the live project. The default in development builds — see
-  /// [Env.useEmulator].
+  /// Whether sign-in goes to the local Auth emulator, and the data to the
+  /// local Supabase stack, instead of the live projects. The default in
+  /// development builds — see [Env.useEmulator].
   final bool useEmulator;
 
   final String emulatorHost;
   final int authEmulatorPort;
-  final int firestoreEmulatorPort;
-  final int storageEmulatorPort;
 
   /// Web Push public key; empty disables web push registration. Public by
   /// design, but supplied at build time so no project-specific value is

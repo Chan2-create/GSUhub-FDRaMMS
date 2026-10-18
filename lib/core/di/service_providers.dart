@@ -15,8 +15,6 @@ import '../services/firebase/fcm_notification_service.dart';
 import '../services/firebase/firebase_account_provisioning_service.dart';
 import '../services/firebase/firebase_auth_service.dart';
 import '../services/firebase/firebase_call_guard.dart';
-import '../services/firebase/firestore_service_impl.dart';
-import '../services/firestore_service.dart';
 import '../services/location_service.dart';
 import '../services/notification_service.dart';
 import '../services/photo_picker_service.dart';
@@ -140,20 +138,6 @@ final accountProvisioningServiceProvider = Provider<AccountProvisioningService>(
 /// Browser file downloads — the Analytics CSV export.
 final fileDownloadServiceProvider = Provider<FileDownloadService>(
   (ref) => FileDownloadService(),
-);
-
-final firestoreServiceProvider = Provider<FirestoreService>(
-  (ref) => FirestoreServiceImpl(
-    firestore: ref.watch(firebaseStartupProvider).firestore,
-    guard: ref.watch(firebaseCallGuardProvider),
-  ),
-);
-
-/// Concrete Firestore service. Repositories take this rather than the
-/// interface because they need the query, transaction and batch
-/// primitives the generic interface does not expose.
-final firestoreServiceImplProvider = Provider<FirestoreServiceImpl>(
-  (ref) => ref.watch(firestoreServiceProvider) as FirestoreServiceImpl,
 );
 
 /// Photos, in the private `photos` bucket on Supabase Storage (Objective

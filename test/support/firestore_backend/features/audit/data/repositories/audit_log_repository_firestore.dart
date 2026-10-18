@@ -1,0 +1,85 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/enums/audit_action.dart';
+import 'package:gsuhub/core/utils/result.dart';
+import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
+import 'package:gsuhub/features/audit/data/repositories/audit_log_repository.dart';
+
+import '../../../../core/data/firestore_repository.dart';
+
+/// Firestore-backed [AuditLogRepository].
+///
+/// Append-only: this class offers no update or delete path, matching the
+/// contract and the security rules. The absence is the enforcement.
+/// Objective 1 moved this data to Supabase; the app uses [AuditLogRepositoryImpl]. This
+/// Firestore version stays only as the backend of the widget-test harnesses
+/// (test/support) until they are converted, and is not wired into the app.
+class FirestoreAuditLogRepository extends FirestoreRepository
+    implements AuditLogRepository {
+  const FirestoreAuditLogRepository({required super.db, required super.guard});
+
+  static const String _path = FirestorePaths.auditLogs;
+
+  @override
+  Future<Result<String>> record(AuditLogEntry entry) =>
+      add(path: _path, data: entry.toFirestore());
+
+  @override
+  Future<Result<List<AuditLogEntry>>> getForEntity({
+    required String entityType,
+    required String entityId,
+    int limit = 50,
+  }) => getMany(
+    query: collection(_path)
+        .where('entityType', isEqualTo: entityType)
+        .where('entityId', isEqualTo: entityId)
+        .orderBy('timestamp', descending: true)
+        .limit(limit),
+    convert: AuditLogEntry.fromFirestore,
+  );
+
+  @override
+  Future<Result<List<AuditLogEntry>>> getForActor(
+    String actorId, {
+    int limit = 50,
+  }) => getMany(
+    query: collection(_path)
+        .where('actorId', isEqualTo: actorId)
+        .orderBy('timestamp', descending: true)
+        .limit(limit),
+    convert: AuditLogEntry.fromFirestore,
+  );
+
+  @override
+  Future<Result<List<AuditLogEntry>>> query({
+    AuditAction? action,
+    String? entityType,
+    DateTime? from,
+    DateTime? to,
+    int limit = 100,
+  }) {
+    Query<Map<String, dynamic>> built = collection(_path);
+
+    if (action != null) built = built.where('action', isEqualTo: action.id);
+    if (entityType != null) {
+      built = built.where('entityType', isEqualTo: entityType);
+    }
+    if (from != null) {
+      built = built.where(
+        'timestamp',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(from.toUtc()),
+      );
+    }
+    if (to != null) {
+      built = built.where(
+        'timestamp',
+        isLessThanOrEqualTo: Timestamp.fromDate(to.toUtc()),
+      );
+    }
+
+    return getMany(
+      query: built.orderBy('timestamp', descending: true).limit(limit),
+      convert: AuditLogEntry.fromFirestore,
+    );
+  }
+}

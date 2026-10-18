@@ -17,8 +17,9 @@ import 'row_snapshot.dart';
 /// every model keeps its one converter.
 ///
 /// Live views are Realtime streams. Realtime takes one filter per
-/// subscription, so a view that needs more filters on the one the server
-/// applies and the rest in [watchMany]'s callers.
+/// subscription, and never reports a row that leaves it, so the server
+/// filters on a column that never changes and [watchMany]'s callers
+/// apply the rest.
 abstract class SupabaseRepository {
   const SupabaseRepository({required this.client, required this.guard});
 

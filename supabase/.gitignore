@@ -10,3 +10,6 @@
 # Secrets: the JWT signing key and Edge Function secrets stay local.
 signing_keys.json
 functions/.env
+
+# The hosted project's secrets, written for `supabase secrets set --env-file`.
+functions/.env.*
