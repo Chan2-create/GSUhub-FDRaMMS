@@ -11,7 +11,10 @@
 // with the local stack's JWT secret, as firebase-token-exchange would, and
 // refuses to run against anything but localhost.
 
+// A cold stack (first token exchange, Realtime's first subscription) can take
+// longer than the default 30 seconds on a small machine.
 @Tags(['e2e'])
+@Timeout(Duration(minutes: 3))
 library;
 
 import 'dart:convert';

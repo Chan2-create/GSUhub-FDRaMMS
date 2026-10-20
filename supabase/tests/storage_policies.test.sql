@@ -9,7 +9,7 @@
 
 begin;
 select tests.create_fixtures();
-select plan(22);
+select plan(23);
 
 create temporary table uploads (who text, uid text, path text, expected text, why text);
 insert into uploads values
@@ -37,7 +37,11 @@ order by path, who;
 
 -- Reading: a report's photos are its reporter's, its technicians', and
 -- the administrators'. (The uploads above are cleared first.)
+-- Hosted Storage refuses direct deletes (storage.protect_delete); the test
+-- clears its own rows with triggers off.
+set local session_replication_role = replica;
 delete from storage.objects;
+set local session_replication_role = origin;
 insert into storage.objects (bucket_id, name) values
   ('photos', 'damage_reports/u-req/r-1/photo-1.jpg'),
   ('photos', 'damage_reports/u-req/r-3/photo-1.jpg'),
@@ -70,10 +74,18 @@ select is(
 );
 
 -- Only an administrator removes a photo; nobody overwrites one.
+-- Hosted Storage grants no DELETE to signed-in roles (42501); a plain
+-- database matches no rows ('ok' from attempt, nothing removed). Either
+-- way the photo stays.
 select is(
-  tests.query_as('u-req', $$with gone as (delete from storage.objects where name = 'damage_reports/u-req/r-1/photo-1.jpg' returning 1) select count(*)::text from gone$$),
-  '0',
-  'a requestor cannot delete even their own photo'
+  (select tests.attempt('u-req', $$delete from storage.objects where name = 'damage_reports/u-req/r-1/photo-1.jpg'$$)) in ('ok', '42501'),
+  true,
+  'a requestor cannot delete even their own photo: the call is refused or removes nothing'
+);
+select is(
+  (select count(*)::int from storage.objects where name = 'damage_reports/u-req/r-1/photo-1.jpg'),
+  1,
+  'and the photo is still there'
 );
 select is(
   tests.attempt('u-req', $$update storage.objects set name = 'damage_reports/u-req/r-1/other.jpg' where name = 'damage_reports/u-req/r-1/photo-1.jpg'$$),

@@ -66,16 +66,24 @@ needs is **ANON_KEY**.
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot"
-firebase emulators:start --only auth
-dart run tool/seed.dart auth          # the sign-in accounts (every restart)
+firebase emulators:start --only auth   # keeps this terminal; leave it open
 ```
 
-**Terminal 2 — the app:**
+**Terminal 2 — the accounts and the app**, once Terminal 1 says the
+emulator is ready:
 
 ```powershell
-npx supabase start                    # if it is not running already
-flutter run -d chrome --dart-define=SUPABASE_ANON_KEY=<ANON_KEY>
+cd "D:\Capstone System"
+dart run tool/seed.dart auth          # the sign-in accounts (after every emulator start)
+npx supabase start -x studio,imgproxy,vector,logflare,supavisor,mailpit   # if it is not running already
+$anon = (npx supabase status -o env | Select-String '^ANON_KEY=').Line -replace '^ANON_KEY="?([^"]*)"?$','$1'
+flutter run -d edge --dart-define=SUPABASE_ANON_KEY=$anon
 ```
+
+The `$anon` line reads the local stack's anon key, so it need not be
+copied by hand. Edge comes with Windows; `-d chrome` works where Chrome
+is installed. Flutter does not detect Brave unless `CHROME_EXECUTABLE`
+points at it.
 
 Debug builds sign in with the Auth emulator and read from the local stack
 (`http://localhost:54321`) by default; no other flag is needed. An orange
