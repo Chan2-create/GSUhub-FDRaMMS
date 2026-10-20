@@ -74,7 +74,7 @@ The Web Push public key is passed at build time rather than stored in
 source:
 
 ```powershell
-flutter run -d chrome --dart-define=FCM_VAPID_KEY=<key from console step 7>
+flutter run -d edge --dart-define=FCM_VAPID_KEY=<key from console step 7>
 ```
 
 This key is genuinely public — it ships inside the web bundle and
@@ -111,8 +111,8 @@ the old data. Never deploy open (test-mode) rules over them.
 
 | Target | Command |
 |---|---|
-| Web, local (debug default) | `flutter run -d chrome --dart-define=SUPABASE_ANON_KEY=<local anon key>` |
-| Web, live from a debug build | `flutter run -d chrome --dart-define=USE_LIVE_FIREBASE=true --dart-define=SUPABASE_URL=<project URL> --dart-define=SUPABASE_ANON_KEY=<anon key> --dart-define=FCM_VAPID_KEY=<key>` |
+| Web, local (debug default) | `flutter run -d edge --dart-define=SUPABASE_ANON_KEY=<local anon key>` |
+| Web, live from a debug build | `flutter run -d edge --dart-define=USE_LIVE_FIREBASE=true --dart-define=SUPABASE_URL=<project URL> --dart-define=SUPABASE_ANON_KEY=<anon key> --dart-define=FCM_VAPID_KEY=<key>` |
 | Android emulator, local | `flutter run -d <device> --dart-define=EMULATOR_HOST=10.0.2.2 --dart-define=SUPABASE_ANON_KEY=<local anon key>` |
 | Android, live | `flutter run -d <device> --dart-define=USE_LIVE_FIREBASE=true --dart-define=SUPABASE_URL=<project URL> --dart-define=SUPABASE_ANON_KEY=<anon key>` |
 | Release bundle, local | `flutter build web --dart-define=USE_EMULATOR=true --dart-define=SUPABASE_ANON_KEY=<local anon key>` |

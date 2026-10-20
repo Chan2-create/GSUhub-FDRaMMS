@@ -129,8 +129,8 @@ npx supabase start                    # the database, photos, realtime, the toke
 node tool/supabase_function_env.mjs   # first time: the token exchange's secrets
 npx supabase db reset                 # the demo data
 
-firebase emulators:start --only auth  # sign-in, on port 9099
-dart run tool/seed.dart auth          # the sign-in accounts
+firebase emulators:start --only auth  # sign-in, on port 9099; keeps its terminal
+dart run tool/seed.dart auth          # in a second terminal: the sign-in accounts
 
 flutter run -d edge --dart-define=SUPABASE_ANON_KEY=<ANON_KEY from npx supabase status>
 ```

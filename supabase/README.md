@@ -80,10 +80,10 @@ stack together. `SUPABASE_URL` defaults to `http://localhost:54321`. The
 key is passed in rather than written into the code:
 
 ```
-firebase emulators:start --only auth
+firebase emulators:start --only auth     # keeps its terminal; the rest in a second one
 dart run tool/seed.dart auth
 npx supabase start
-flutter run -d chrome --dart-define=SUPABASE_ANON_KEY=<ANON_KEY from npx supabase status>
+flutter run -d edge --dart-define=SUPABASE_ANON_KEY=<ANON_KEY from npx supabase status>
 ```
 
 The app refuses to start on a bad combination, and says why:

@@ -1252,7 +1252,7 @@ quantity matches its last ledger entry. `--copy-photos` moves the photos
 into the new bucket and rewrites their links. docs/manual_deploy.md,
 "Going live", gives the order.
 
-**Tests.** 642 pgTAP tests in `supabase/tests`, on an empty and on a
+**Tests.** 643 pgTAP tests in `supabase/tests`, on an empty and on a
 seeded database: every policy, for each role, active and not; every
 function, allowed and refused; the ledger; storage. `function_privileges`
 reads the catalog, so a new function without its grants fails.
