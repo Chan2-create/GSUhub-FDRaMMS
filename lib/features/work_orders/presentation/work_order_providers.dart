@@ -48,7 +48,15 @@ class WorkOrderFilters {
   bool matches(WorkOrder workOrder, {required Map<String, String> assignees}) {
     if (status != null && workOrder.status != status) return false;
     if (priority != null && workOrder.priority != priority) return false;
-    if (!dateRange.includes(workOrder.createdAt, DateTime.now().toUtc())) {
+    // The period narrows finished work, by when it finished. Open work
+    // stays on the board however old it is: filtered by when it was raised,
+    // a job open longer than the period, overdue ones first, dropped out
+    // of the default "Last 30 Days" view (Objective 7.B, found testing).
+    if (workOrder.status == WorkOrderStatus.completed &&
+        !dateRange.includes(
+          workOrder.completedAt ?? workOrder.createdAt,
+          DateTime.now().toUtc(),
+        )) {
       return false;
     }
 

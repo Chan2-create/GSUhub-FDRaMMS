@@ -5,6 +5,7 @@ import 'package:gsuhub/features/notifications/data/models/app_notification.dart'
 import 'package:gsuhub/features/notifications/data/models/personnel_notice.dart';
 import 'package:gsuhub/features/notifications/data/models/report_notice.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 
 /// Stages a requestor's notification about their report inside the
@@ -77,7 +78,7 @@ void stageNotification(
   );
 
   transaction.set(firestore.collection(FirestorePaths.notifications).doc(), {
-    ...notification.toFirestore(),
+    ...notification.toFields().forFirestore,
     'createdAt': FirestoreRepository.serverNow,
   });
 }

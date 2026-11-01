@@ -13,6 +13,7 @@ import '../../features/facilities/presentation/facilities_screen.dart';
 import '../../features/feedback/presentation/rate_service_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/inventory/presentation/personnel/material_request_screen.dart';
+import '../../features/notifications/presentation/admin_notifications_screen.dart';
 import '../../features/notifications/presentation/alerts_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_report_detail_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_reports_screen.dart';
@@ -126,8 +127,11 @@ GoRouter buildAppRouter({
           path: RoutePaths.adminSettings,
           builder: (context, state) => const SettingsScreen(),
         ),
-        // Reachable by URL but not from the sidebar, which disables them.
-        // Each names the objective that will build it.
+        GoRoute(
+          path: RoutePaths.adminNotifications,
+          builder: (context, state) => const AdminNotificationsScreen(),
+        ),
+        // Reachable by URL but not from the sidebar, which disables it.
         for (final placeholder in _adminPlaceholders)
           GoRoute(
             path: placeholder.$1,
@@ -257,9 +261,10 @@ GoRouter buildAppRouter({
   ],
 );
 
-/// Admin routes whose screens belong to later objectives. Kept as a list
-/// so adding one is a single line rather than a copied `GoRoute` block.
+/// Admin routes with no screen. Map View is drawn in the Figma file but is
+/// not in the manuscript's feature list, so it waits for the adviser's
+/// word (Chris's decision). Kept as a list so adding one is a single line
+/// rather than a copied `GoRoute` block.
 const List<(String, String)> _adminPlaceholders = [
   (RoutePaths.adminMapView, 'Map View — pending confirmation'),
-  (RoutePaths.adminNotifications, 'Notifications — later objective'),
 ];

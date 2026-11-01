@@ -1,8 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../../../core/constants/damage_categories.dart';
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/report_status.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// One step of a report's progress: an entry of
 /// `damage_reports/{reportId}/status_history` (Objective 3.B).
@@ -24,28 +23,19 @@ class StatusChange {
     this.personnelName,
     this.personnelSpecialization,
   }) {
-    FirestoreConverters.validateNotBlank(changedBy, 'changedBy');
+    RecordConverters.validateNotBlank(changedBy, 'changedBy');
   }
 
-  factory StatusChange.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory StatusChange.fromRecord(DataRecord record) {
+    final data = record.fields;
     return StatusChange(
-      id: doc.id,
-      status: FirestoreConverters.requireEnum(
-        data,
-        'status',
-        ReportStatus.fromId,
-      ),
-      changedAt: FirestoreConverters.requireDate(data, 'changedAt'),
-      changedBy: FirestoreConverters.require<String>(data, 'changedBy'),
-      note: FirestoreConverters.optional<String>(data, 'note'),
-      personnelName: FirestoreConverters.optional<String>(
-        data,
-        'personnelName',
-      ),
-      personnelSpecialization: FirestoreConverters.optionalEnum(
+      id: record.id,
+      status: RecordConverters.requireEnum(data, 'status', ReportStatus.fromId),
+      changedAt: RecordConverters.requireDate(data, 'changedAt'),
+      changedBy: RecordConverters.require<String>(data, 'changedBy'),
+      note: RecordConverters.optional<String>(data, 'note'),
+      personnelName: RecordConverters.optional<String>(data, 'personnelName'),
+      personnelSpecialization: RecordConverters.optionalEnum(
         data,
         'personnelSpecialization',
         DamageCategory.fromId,
@@ -77,9 +67,9 @@ class StatusChange {
   /// That person's trade, on an `assigned` entry.
   final DamageCategory? personnelSpecialization;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'status': status.id,
-    'changedAt': Timestamp.fromDate(changedAt),
+    'changedAt': changedAt,
     'changedBy': changedBy,
     'note': note,
     'personnelName': personnelName,

@@ -13,6 +13,7 @@ import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/notifications/data/models/personnel_notice.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../../../notifications/data/repositories/notification_writes.dart';
@@ -49,8 +50,11 @@ class FirestoreAccomplishmentReportRepository extends FirestoreRepository
   String newReportId() => collection(_path).doc().id;
 
   @override
-  Future<Result<AccomplishmentReport>> getById(String id) =>
-      getOne(path: _path, id: id, convert: AccomplishmentReport.fromFirestore);
+  Future<Result<AccomplishmentReport>> getById(String id) => getOne(
+    path: _path,
+    id: id,
+    convert: fromDoc(AccomplishmentReport.fromRecord),
+  );
 
   @override
   Stream<Result<List<AccomplishmentReport>>> watchByWorkOrder(
@@ -63,7 +67,7 @@ class FirestoreAccomplishmentReportRepository extends FirestoreRepository
     }
     return watchMany(
       query: query,
-      convert: AccomplishmentReport.fromFirestore,
+      convert: fromDoc(AccomplishmentReport.fromRecord),
     ).map(
       (result) => result.map(
         (reports) =>
@@ -177,7 +181,7 @@ class FirestoreAccomplishmentReportRepository extends FirestoreRepository
           // below were written", and only this transaction can say so.
           inventoryDeducted: materialsUsed.isNotEmpty,
           submittedAt: DateTime.now().toUtc(),
-        ).toFirestore(),
+        ).toFields().forFirestore,
         'submittedAt': FirestoreRepository.serverNow,
       });
 
@@ -244,7 +248,7 @@ class FirestoreAccomplishmentReportRepository extends FirestoreRepository
     if (!reportSnapshot.exists) {
       throw FirestoreRepository.notFound('No accomplishment report $reportId');
     }
-    final report = AccomplishmentReport.fromFirestore(reportSnapshot);
+    final report = fromDoc(AccomplishmentReport.fromRecord)(reportSnapshot);
     if (report.reviewedAt != null) {
       throw FirestoreRepository.precondition(
         'This accomplishment report was reviewed already.',
@@ -326,7 +330,7 @@ class FirestoreAccomplishmentReportRepository extends FirestoreRepository
     if (!snapshot.exists) {
       throw FirestoreRepository.notFound('No work order $id');
     }
-    return WorkOrder.fromFirestore(snapshot);
+    return fromDoc(WorkOrder.fromRecord)(snapshot);
   }
 
   /// 2, not 2.0; 1.5 as it is.

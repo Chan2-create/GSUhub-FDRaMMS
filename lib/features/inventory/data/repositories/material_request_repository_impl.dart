@@ -37,7 +37,7 @@ class MaterialRequestRepositoryImpl extends SupabaseRepository
             .from(_table)
             .stream(primaryKey: const ['id'])
             .eq('work_order_id', workOrderId),
-        convert: MaterialRequest.fromFirestore,
+        convert: MaterialRequest.fromRecord,
       ).map(
         (result) => result.map(
           (requests) => [
@@ -56,7 +56,7 @@ class MaterialRequestRepositoryImpl extends SupabaseRepository
             .stream(primaryKey: const ['id'])
             .order('created_at')
             .limit(limit),
-        convert: MaterialRequest.fromFirestore,
+        convert: MaterialRequest.fromRecord,
       );
 
   @override

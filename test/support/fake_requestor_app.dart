@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart' show GeoPoint;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gsuhub/app.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
+import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/di/repository_providers.dart';
 import 'package:gsuhub/core/di/service_providers.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
@@ -278,7 +278,10 @@ class FakeRequestorReportRepository extends FakeSubmittingReportRepository {
           locationDescription: submission.locationDescription,
           coordinates: coordinates == null
               ? null
-              : GeoPoint(coordinates.latitude, coordinates.longitude),
+              : GeoCoordinates(
+                  latitude: coordinates.latitude,
+                  longitude: coordinates.longitude,
+                ),
           photoUrls: submission.photoUrls,
           submittedAt: DateTime.now(),
           updatedAt: DateTime.now(),

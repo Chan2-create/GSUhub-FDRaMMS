@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase/supabase.dart' show SupabaseClient;
 
 import '../config/app_config.dart';
-import '../config/firebase_initializer.dart';
 import '../services/account_provisioning_service.dart';
 import '../services/auth_service.dart';
 import '../services/connectivity_service.dart';
@@ -15,6 +14,7 @@ import '../services/firebase/fcm_notification_service.dart';
 import '../services/firebase/firebase_account_provisioning_service.dart';
 import '../services/firebase/firebase_auth_service.dart';
 import '../services/firebase/firebase_call_guard.dart';
+import '../services/firebase/firebase_initializer.dart';
 import '../services/location_service.dart';
 import '../services/notification_service.dart';
 import '../services/photo_picker_service.dart';

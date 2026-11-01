@@ -44,11 +44,13 @@ class AdminNavGroup {
 /// The sidebar structure, read from Figma node `196:534` in the order and
 /// grouping the design specifies.
 ///
-/// Items resolve to a real screen as their objective lands: Dashboard in
-/// 2.A, then Damage Reports, Task Assignment and Work Order Management in
-/// 2.B, then Personnel, Analytics and User Accounts in 2.C. The rest stay disabled with a tooltip naming the objective that
-/// builds them, because a tile that goes nowhere reads as broken while a
-/// tile that says why reads as unfinished.
+/// Items resolve to a real screen as their objective landed: Dashboard in
+/// 2.A; Damage Reports, Task Assignment and Work Order Management in 2.B;
+/// Personnel, Analytics and User Accounts in 2.C; Inventory Management and
+/// Facilities & Equipment in 6; Notifications in 7.A. Map View alone stays
+/// disabled, with a tooltip saying why: it is drawn but not in the
+/// manuscript's feature list. A tile that goes nowhere reads as broken; a
+/// tile that says why reads as a decision.
 const List<AdminNavGroup> adminNavGroups = [
   AdminNavGroup(
     label: 'Overview',
@@ -136,12 +138,12 @@ const List<AdminNavGroup> adminNavGroups = [
         path: RoutePaths.adminFacilities,
         isEnabled: true,
       ),
+      // The notification centre (Objective 7.A, Figma 202:5608).
       AdminNavItem(
         label: 'Notifications',
         iconAsset: 'assets/icons/nav_notifications.svg',
         path: RoutePaths.adminNotifications,
-        isEnabled: false,
-        disabledReason: 'The notification centre arrives in a later objective.',
+        isEnabled: true,
       ),
       AdminNavItem(
         label: 'Settings',

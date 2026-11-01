@@ -1,4 +1,4 @@
-import '../../../../core/data/row_snapshot.dart';
+import '../../../../core/data/row_record.dart';
 import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/enums/inventory_transaction_type.dart';
 import '../../../../core/errors/failures.dart';
@@ -28,13 +28,13 @@ class InventoryRepositoryImpl extends SupabaseRepository
 
   @override
   Future<Result<InventoryItem>> getItemById(String id) =>
-      getOne(table: _items, id: id, convert: InventoryItem.fromFirestore);
+      getOne(table: _items, id: id, convert: InventoryItem.fromRecord);
 
   @override
   Future<Result<InventoryItem>> getItemByQrCode(String qrCode) async {
     final matches = await getMany(
       query: client.from(_items).select().eq('qr_code', qrCode).limit(1),
-      convert: InventoryItem.fromFirestore,
+      convert: InventoryItem.fromRecord,
     );
     return matches.fold(
       (list) => list.isEmpty
@@ -54,7 +54,7 @@ class InventoryRepositoryImpl extends SupabaseRepository
             .from(_items)
             .stream(primaryKey: const ['id'])
             .order('name', ascending: true),
-        convert: InventoryItem.fromFirestore,
+        convert: InventoryItem.fromRecord,
       ).map(
         (result) => result.map(
           (items) => [
@@ -66,7 +66,7 @@ class InventoryRepositoryImpl extends SupabaseRepository
 
   @override
   Stream<Result<InventoryItem>> watchItem(String id) =>
-      watchOne(table: _items, id: id, convert: InventoryItem.fromFirestore);
+      watchOne(table: _items, id: id, convert: InventoryItem.fromRecord);
 
   @override
   Stream<Result<List<InventoryItem>>> watchLowStockItems() => watchItems().map(
@@ -111,7 +111,7 @@ class InventoryRepositoryImpl extends SupabaseRepository
   }) => rpcRow(
     'record_delivery',
     {'item_id': itemId, 'quantity': quantity, 'notes': notes},
-    convert: InventoryTransaction.fromFirestore,
+    convert: InventoryTransaction.fromRecord,
     // A retry after a delivery that landed would receive it twice.
     once: true,
   );
@@ -125,7 +125,7 @@ class InventoryRepositoryImpl extends SupabaseRepository
   }) => rpcRow(
     'record_stock_count',
     {'item_id': itemId, 'counted_quantity': countedQuantity, 'reason': reason},
-    convert: InventoryTransaction.fromFirestore,
+    convert: InventoryTransaction.fromRecord,
     once: true,
   );
 
@@ -154,7 +154,7 @@ class InventoryRepositoryImpl extends SupabaseRepository
         .eq('inventory_item_id', inventoryItemId)
         .order('performed_at')
         .limit(limit),
-    convert: InventoryTransaction.fromFirestore,
+    convert: InventoryTransaction.fromRecord,
   );
 
   /// The ledger never changes an entry, so a stream filtered on its time
@@ -168,7 +168,7 @@ class InventoryRepositoryImpl extends SupabaseRepository
         .stream(primaryKey: const ['id'])
         .gte('performed_at', SupabaseRepository.time(since)!)
         .order('performed_at'),
-    convert: InventoryTransaction.fromFirestore,
+    convert: InventoryTransaction.fromRecord,
   );
 
   @override
@@ -182,7 +182,7 @@ class InventoryRepositoryImpl extends SupabaseRepository
         .eq('inventory_item_id', inventoryItemId)
         .order('performed_at')
         .limit(limit),
-    convert: InventoryTransaction.fromFirestore,
+    convert: InventoryTransaction.fromRecord,
   );
 
   @override
@@ -194,7 +194,7 @@ class InventoryRepositoryImpl extends SupabaseRepository
         .select()
         .eq('work_order_id', workOrderId)
         .order('performed_at'),
-    convert: InventoryTransaction.fromFirestore,
+    convert: InventoryTransaction.fromRecord,
   );
 
   /// The draft as the database functions take it.
@@ -202,7 +202,7 @@ class InventoryRepositoryImpl extends SupabaseRepository
     final fields = draft.toFields();
     return {
       for (final MapEntry(:key, :value) in fields.entries)
-        RowSnapshot.columnFor(key): value,
+        RowRecord.columnFor(key): value,
     };
   }
 }

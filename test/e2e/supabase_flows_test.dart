@@ -21,11 +21,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart' show GeoPoint;
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/constants/storage_paths.dart';
+import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
@@ -211,7 +211,10 @@ void main() {
       final report = _value(await reports.getById(reportId));
       expect(report.status, ReportStatus.submitted);
       expect(report.reporterName, requestor.name);
-      expect(report.coordinates, const GeoPoint(7.0731, 126.2147));
+      expect(
+        report.coordinates,
+        const GeoCoordinates(latitude: 7.0731, longitude: 126.2147),
+      );
       expect(report.photoUrls, urls);
       expect(report.category, DamageCategory.electrical);
 

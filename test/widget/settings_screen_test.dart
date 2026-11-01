@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/errors/failures.dart';
+import 'package:gsuhub/features/classification/data/models/prioritization_config.dart';
+import 'package:gsuhub/features/classification/presentation/keyword_settings_section.dart';
+import 'package:gsuhub/features/classification/presentation/scoring_settings_section.dart';
 import 'package:gsuhub/features/settings/presentation/settings_screen.dart';
 
 import '../support/fake_admin_backend.dart';
 import '../support/fake_config_repository.dart';
 
 /// Settings: the classification keywords (Objective 4.A).
+/// [finder], within the keyword section: the page's other sections
+/// (Objective 7.A) say "Last saved" and "All changes saved." too.
+Finder inKeywords(Finder finder) =>
+    find.descendant(of: find.byType(KeywordSettingsSection), matching: finder);
+
 void main() {
   Future<FakeConfigRepository> pump(
     WidgetTester tester, {
@@ -90,8 +98,8 @@ void main() {
     }
     expect(find.widgetWithText(InputChip, 'exposed wire'), findsOneWidget);
     expect(find.widgetWithText(InputChip, 'flooding'), findsOneWidget);
-    expect(find.textContaining('Last saved'), findsOneWidget);
-    expect(find.text('All changes saved.'), findsOneWidget);
+    expect(inKeywords(find.textContaining('Last saved')), findsOneWidget);
+    expect(inKeywords(find.text('All changes saved.')), findsOneWidget);
 
     final save = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Save keywords'),
@@ -107,7 +115,7 @@ void main() {
     await add(tester, DamageCategory.plumbing, '  Burst   PIPE ');
 
     expect(find.widgetWithText(InputChip, 'burst pipe'), findsOneWidget);
-    expect(find.textContaining('Unsaved changes'), findsOneWidget);
+    expect(inKeywords(find.textContaining('Unsaved changes')), findsOneWidget);
 
     await tapVisible(
       tester,
@@ -126,7 +134,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('All changes saved.'), findsOneWidget);
+    expect(inKeywords(find.text('All changes saved.')), findsOneWidget);
   });
 
   testWidgets("refuses another damage type's keyword, and says whose", (
@@ -144,7 +152,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.widgetWithText(InputChip, 'exposed wire'), findsOneWidget);
-    expect(find.text('All changes saved.'), findsOneWidget);
+    expect(inKeywords(find.text('All changes saved.')), findsOneWidget);
   });
 
   testWidgets('removes a keyword, and discarding brings it back', (
@@ -155,11 +163,11 @@ void main() {
     await tapVisible(tester, find.byTooltip('Remove "flooding"'));
 
     expect(find.widgetWithText(InputChip, 'flooding'), findsNothing);
-    expect(find.textContaining('Unsaved changes'), findsOneWidget);
+    expect(inKeywords(find.textContaining('Unsaved changes')), findsOneWidget);
 
     await tapVisible(
       tester,
-      find.widgetWithText(OutlinedButton, 'Discard changes'),
+      inKeywords(find.widgetWithText(OutlinedButton, 'Discard changes')),
     );
 
     expect(find.widgetWithText(InputChip, 'flooding'), findsOneWidget);
@@ -176,7 +184,7 @@ void main() {
       config: FakeConfigRepository(savedKeywords: false),
     );
 
-    expect(find.text('Not saved yet'), findsOneWidget);
+    expect(inKeywords(find.text('Not saved yet')), findsOneWidget);
     expect(
       find.textContaining("These are the manuscript's keywords"),
       findsOneWidget,
@@ -190,8 +198,8 @@ void main() {
     );
 
     expect(config.savedKeywordLists, hasLength(1));
-    expect(find.text('Not saved yet'), findsNothing);
-    expect(find.textContaining('Last saved'), findsOneWidget);
+    expect(inKeywords(find.text('Not saved yet')), findsNothing);
+    expect(inKeywords(find.textContaining('Last saved')), findsOneWidget);
   });
 
   testWidgets('a refused save is reported, and the edits are kept', (
@@ -214,7 +222,7 @@ void main() {
 
     expect(find.text('You do not have permission to do that.'), findsOneWidget);
     expect(find.widgetWithText(InputChip, 'burst pipe'), findsOneWidget);
-    expect(find.textContaining('Unsaved changes'), findsOneWidget);
+    expect(inKeywords(find.textContaining('Unsaved changes')), findsOneWidget);
   });
 
   testWidgets('tries a description against the keywords being edited', (
@@ -242,5 +250,97 @@ void main() {
 
     expect(find.text('Classified as Plumbing.'), findsOneWidget);
     expect(find.text('Plumbing: "burst pipe"'), findsOneWidget);
+  });
+
+  // ------------------------------------------------- scoring (Objective 7.A)
+
+  Finder inPriority(Finder finder) => find.descendant(
+    of: find.byType(PrioritySettingsSection),
+    matching: finder,
+  );
+  Finder inDuplicates(Finder finder) => find.descendant(
+    of: find.byType(DuplicateSettingsSection),
+    matching: finder,
+  );
+
+  testWidgets("priority scoring flags the manuscript's two sets of weights", (
+    tester,
+  ) async {
+    await pump(tester);
+
+    expect(
+      inPriority(find.textContaining('two sets of weights that disagree')),
+      findsOneWidget,
+    );
+    expect(inPriority(find.text("The §3.4 formula's weights")), findsOneWidget);
+    expect(inPriority(find.text("Table 3.2's weights")), findsOneWidget);
+    // The sample score reads with the saved settings.
+    expect(inPriority(find.textContaining('would score 2.70')), findsOneWidget);
+  });
+
+  testWidgets('score bands out of order are refused before saving', (
+    tester,
+  ) async {
+    final config = await pump(tester);
+
+    await tester.enterText(
+      inPriority(find.widgetWithText(TextField, 'CRITICAL')),
+      '2',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      inPriority(find.text('The score bands must fall from Critical to Low.')),
+      findsOneWidget,
+    );
+    final save = inPriority(
+      find.widgetWithText(FilledButton, 'Save priority scoring'),
+    );
+    expect(tester.widget<FilledButton>(save).onPressed, isNull);
+    expect(config.savedPrioritizations, isEmpty);
+  });
+
+  testWidgets("choosing Table 3.2's weights and saving keeps them", (
+    tester,
+  ) async {
+    final config = await pump(tester);
+
+    await tester.ensureVisible(inPriority(find.text("Table 3.2's weights")));
+    await tester.tap(inPriority(find.text("Table 3.2's weights")));
+    await tester.pumpAndSettle();
+    final save = inPriority(
+      find.widgetWithText(FilledButton, 'Save priority scoring'),
+    );
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(config.savedPrioritizations, hasLength(1));
+    expect(
+      config.savedPrioritizations.single.activeScheme,
+      PrioritizationScheme.integerWeights,
+    );
+    expect(config.savedPrioritizations.single.updatedBy, fakeAdminUser.uid);
+  });
+
+  testWidgets('the duplicate rules save, with the window in hours', (
+    tester,
+  ) async {
+    final config = await pump(tester);
+
+    final hours = inDuplicates(
+      find.widgetWithText(TextField, 'Window, in hours'),
+    );
+    await tester.ensureVisible(hours);
+    await tester.enterText(hours, '48');
+    await tester.pumpAndSettle();
+    final save = inDuplicates(
+      find.widgetWithText(FilledButton, 'Save duplicate detection'),
+    );
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(config.savedDuplicateSettings.single.timeWindowHours, 48);
   });
 }

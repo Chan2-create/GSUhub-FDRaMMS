@@ -19,11 +19,11 @@ class WorkOrderRepositoryImpl extends SupabaseRepository
 
   @override
   Future<Result<WorkOrder>> getById(String id) =>
-      getOne(table: _table, id: id, convert: WorkOrder.fromFirestore);
+      getOne(table: _table, id: id, convert: WorkOrder.fromRecord);
 
   @override
   Stream<Result<WorkOrder>> watchById(String id) =>
-      watchOne(table: _table, id: id, convert: WorkOrder.fromFirestore);
+      watchOne(table: _table, id: id, convert: WorkOrder.fromRecord);
 
   @override
   Stream<Result<List<WorkOrder>>> watchAll({
@@ -62,7 +62,7 @@ class WorkOrderRepositoryImpl extends SupabaseRepository
         .from(_table)
         .stream(primaryKey: const ['id'])
         .order('created_at'),
-    convert: WorkOrder.fromFirestore,
+    convert: WorkOrder.fromRecord,
   );
 
   @override
@@ -99,6 +99,19 @@ class WorkOrderRepositoryImpl extends SupabaseRepository
         'work_order_id': workOrderId,
         'to_status': status.id,
       });
+
+  @override
+  Future<Result<void>> reassign({
+    required String workOrderId,
+    required String personnelId,
+    required AuditActor actor,
+  }) async =>
+      // Once: a retry after a first attempt landed would name the
+      // technician who already holds the work, and be refused as such.
+      (await rpcOnce<dynamic>('reassign_work_order', {
+        'work_order_id': workOrderId,
+        'personnel_id': personnelId,
+      })).map((_) {});
 
   @override
   Future<Result<void>> updateAdminNotes({

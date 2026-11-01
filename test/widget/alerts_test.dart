@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/enums/notification_type.dart';
@@ -10,30 +11,33 @@ import '../support/fake_requestor_app.dart';
 
 /// The Alerts tab (Figma `169:1459`, Objective 3.B), inside the real app.
 void main() {
-  final now = DateTime.now();
-
-  RequestorHarness withNotices() => RequestorHarness(
-    reports: [fakeMyReport('r-newest')],
-    notices: [
-      fakeNotice(
-        'n-approved',
-        createdAt: now.subtract(const Duration(minutes: 2)),
-      ),
-      fakeNotice(
-        'n-assigned',
-        type: NotificationType.workOrderAssigned,
-        body: 'Juan Luna was assigned to your report "Broken ceiling fan".',
-        createdAt: now.subtract(const Duration(minutes: 45)),
-      ),
-      fakeNotice(
-        'n-received',
-        type: NotificationType.reportAcknowledged,
-        body: 'The General Services Unit received your report.',
-        isRead: true,
-        createdAt: now.subtract(const Duration(days: 2)),
-      ),
-    ],
-  );
+  /// Notices from 2 minutes, 45 minutes and two days before [at] (now by
+  /// default).
+  RequestorHarness withNotices({DateTime? at}) {
+    final now = at ?? DateTime.now();
+    return RequestorHarness(
+      reports: [fakeMyReport('r-newest')],
+      notices: [
+        fakeNotice(
+          'n-approved',
+          createdAt: now.subtract(const Duration(minutes: 2)),
+        ),
+        fakeNotice(
+          'n-assigned',
+          type: NotificationType.workOrderAssigned,
+          body: 'Juan Luna was assigned to your report "Broken ceiling fan".',
+          createdAt: now.subtract(const Duration(minutes: 45)),
+        ),
+        fakeNotice(
+          'n-received',
+          type: NotificationType.reportAcknowledged,
+          body: 'The General Services Unit received your report.',
+          isRead: true,
+          createdAt: now.subtract(const Duration(days: 2)),
+        ),
+      ],
+    );
+  }
 
   /// The badge on the Alerts tab, or null when there is none.
   String? badgeText(WidgetTester tester) {
@@ -44,27 +48,33 @@ void main() {
   }
 
   testWidgets('groups them Today and Earlier, newest first', (tester) async {
-    await withNotices().pump(tester, start: RoutePaths.staffAlerts);
+    // A fixed noon: run between midnight and 00:45, "45 minutes ago" would
+    // be yesterday, and the test would fail for the clock, not the app
+    // (Objective 7.B; still-to-do 9).
+    final noon = DateTime(2026, 10, 20, 12);
+    await withClock(Clock.fixed(noon), () async {
+      await withNotices(at: noon).pump(tester, start: RoutePaths.staffAlerts);
 
-    expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('Today'), findsOneWidget);
-    expect(find.text('Earlier'), findsOneWidget);
-    expect(find.text('2 minutes ago'), findsOneWidget);
-    expect(find.text('45 minutes ago'), findsOneWidget);
+      expect(find.text('Notifications'), findsOneWidget);
+      expect(find.text('Today'), findsOneWidget);
+      expect(find.text('Earlier'), findsOneWidget);
+      expect(find.text('2 minutes ago'), findsOneWidget);
+      expect(find.text('45 minutes ago'), findsOneWidget);
 
-    final order = [
-      find.text('Today'),
-      find.textContaining('was approved'),
-      find.textContaining('Juan Luna'),
-      find.text('Earlier'),
-      find.textContaining('received your report'),
-    ];
-    for (var i = 1; i < order.length; i++) {
-      expect(
-        tester.getTopLeft(order[i - 1]).dy,
-        lessThan(tester.getTopLeft(order[i]).dy),
-      );
-    }
+      final order = [
+        find.text('Today'),
+        find.textContaining('was approved'),
+        find.textContaining('Juan Luna'),
+        find.text('Earlier'),
+        find.textContaining('received your report'),
+      ];
+      for (var i = 1; i < order.length; i++) {
+        expect(
+          tester.getTopLeft(order[i - 1]).dy,
+          lessThan(tester.getTopLeft(order[i]).dy),
+        );
+      }
+    });
   });
 
   testWidgets('unread are bold, read are not', (tester) async {

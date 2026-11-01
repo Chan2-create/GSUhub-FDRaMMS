@@ -171,6 +171,35 @@ void main() {
       expect(find.text('Window Gasket'), findsOneWidget);
     });
 
+    testWidgets('open work stays on the board however old; finished work '
+        'leaves it with the period', (tester) async {
+      final longAgo = DateTime.now().toUtc().subtract(const Duration(days: 90));
+      await pump(tester, [
+        WorkOrder(
+          id: 'w-old',
+          reportIds: const ['rep-old'],
+          title: 'Overdue Gutter Repair',
+          description: 'Raised long ago.',
+          category: DamageCategory.structural,
+          priority: PriorityLevel.high,
+          status: WorkOrderStatus.inProgress,
+          assignedPersonnelIds: const ['p1'],
+          createdBy: 'admin-1',
+          createdAt: longAgo,
+          updatedAt: longAgo,
+        ),
+        order(
+          id: 'w-done',
+          title: 'Finished Long Ago',
+          status: WorkOrderStatus.completed,
+          completedAt: longAgo,
+        ),
+      ]);
+
+      expect(find.text('Overdue Gutter Repair'), findsOneWidget);
+      expect(find.text('Finished Long Ago'), findsNothing);
+    });
+
     testWidgets('a completed order offers no moves at all', (tester) async {
       await pump(tester, [
         order(

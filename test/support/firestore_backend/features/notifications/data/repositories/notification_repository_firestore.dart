@@ -4,6 +4,7 @@ import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
 import 'package:gsuhub/features/notifications/data/repositories/notification_repository.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 
 /// Firestore-backed [NotificationRepository] — the persisted history
@@ -24,6 +25,7 @@ class FirestoreNotificationRepository extends FirestoreRepository
   Stream<Result<List<AppNotification>>> watchForUser(
     String userId, {
     bool unreadOnly = false,
+    int limit = 100,
   }) {
     Query<Map<String, dynamic>> query = collection(_path)
         .where('recipientId', isEqualTo: userId);
@@ -31,8 +33,8 @@ class FirestoreNotificationRepository extends FirestoreRepository
     if (unreadOnly) query = query.where('isRead', isEqualTo: false);
 
     return watchMany(
-      query: query.orderBy('createdAt', descending: true).limit(100),
-      convert: AppNotification.fromFirestore,
+      query: query.orderBy('createdAt', descending: true).limit(limit),
+      convert: fromDoc(AppNotification.fromRecord),
     );
   }
 
@@ -52,7 +54,7 @@ class FirestoreNotificationRepository extends FirestoreRepository
 
   @override
   Future<Result<String>> create(AppNotification notification) =>
-      add(path: _path, data: notification.toFirestore());
+      add(path: _path, data: notification.toFields().forFirestore);
 
   @override
   Future<Result<void>> markAsRead(String notificationId) => updateDoc(
@@ -70,7 +72,7 @@ class FirestoreNotificationRepository extends FirestoreRepository
           // Firestore batches cap at 500 writes; 400 leaves headroom and
           // is far beyond any realistic unread backlog for one user.
           .limit(400),
-      convert: AppNotification.fromFirestore,
+      convert: fromDoc(AppNotification.fromRecord),
     );
 
     return unread.fold((notifications) async {

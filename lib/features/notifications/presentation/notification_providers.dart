@@ -27,6 +27,20 @@ final myNotificationsProvider =
       return ref.watch(notificationRepositoryProvider).watchForUser(uid);
     });
 
+/// The signed-in administrator's notifications, the [limit] newest, live:
+/// the console's notification centre (Objective 7.A, Figma `202:5608`).
+/// "View Older Notifications" asks again with a higher limit.
+final adminNotificationsProvider = StreamProvider.autoDispose
+    .family<Result<List<AppNotification>>, int>((ref, limit) {
+      final uid = _signedInUid(ref);
+      if (uid == null) {
+        return Stream.value(const Result.success(<AppNotification>[]));
+      }
+      return ref
+          .watch(notificationRepositoryProvider)
+          .watchForUser(uid, limit: limit);
+    });
+
 /// How many of them are unread, live — the badge on the Alerts tab. Kept
 /// apart from the list so the badge does not hold the whole list open on
 /// every tab.

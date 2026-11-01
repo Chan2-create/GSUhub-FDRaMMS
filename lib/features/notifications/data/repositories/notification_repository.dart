@@ -10,10 +10,12 @@ import '../models/app_notification.dart';
 ///
 /// **Interface only** — implementation is 1.C.
 abstract interface class NotificationRepository {
-  /// One user's notifications, newest first.
+  /// One user's notifications, newest first: the [limit] newest. The
+  /// console's "View Older Notifications" asks for more (Objective 7.A).
   Stream<Result<List<AppNotification>>> watchForUser(
     String userId, {
     bool unreadOnly = false,
+    int limit = 100,
   });
 
   /// Unread count for a badge, without transferring the notifications

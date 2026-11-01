@@ -45,6 +45,7 @@ class AdminShell extends ConsumerWidget {
             user: user,
             badges: {
               RoutePaths.adminInventory: ref.watch(lowStockCountProvider),
+              RoutePaths.adminNotifications: unread,
             },
             onSignOut: () async {
               await ref.read(authControllerProvider.notifier).signOut();

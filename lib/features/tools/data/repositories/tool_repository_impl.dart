@@ -1,4 +1,4 @@
-import '../../../../core/data/row_snapshot.dart';
+import '../../../../core/data/row_record.dart';
 import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/enums/item_condition.dart';
 import '../../../../core/enums/tool_status.dart';
@@ -23,13 +23,13 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
 
   @override
   Future<Result<Tool>> getToolById(String id) =>
-      getOne(table: _tools, id: id, convert: Tool.fromFirestore);
+      getOne(table: _tools, id: id, convert: Tool.fromRecord);
 
   @override
   Future<Result<Tool>> getToolByQrCode(String qrCode) async {
     final matches = await getMany(
       query: client.from(_tools).select().eq('qr_code', qrCode).limit(1),
-      convert: Tool.fromFirestore,
+      convert: Tool.fromRecord,
     );
     return matches.fold(
       (list) => list.isEmpty
@@ -49,7 +49,7 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
             .from(_tools)
             .stream(primaryKey: const ['id'])
             .order('tool_code', ascending: true),
-        convert: Tool.fromFirestore,
+        convert: Tool.fromRecord,
       ).map(
         (result) => result.map(
           (tools) => [
@@ -61,7 +61,7 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
 
   @override
   Stream<Result<Tool>> watchTool(String id) =>
-      watchOne(table: _tools, id: id, convert: Tool.fromFirestore);
+      watchOne(table: _tools, id: id, convert: Tool.fromRecord);
 
   @override
   Future<Result<String>> createTool({
@@ -108,7 +108,7 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
       'work_order_id': workOrderId,
       'expected_return_at': SupabaseRepository.time(expectedReturnAt),
     },
-    convert: ToolLoan.fromFirestore,
+    convert: ToolLoan.fromRecord,
     // Once: a retry after a loan that landed is refused ("borrowed") and
     // would hide that it worked.
     once: true,
@@ -162,7 +162,7 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
             .eq('borrowed_by', personnelId)
             .isFilter('returned_at', null)
             .order('borrowed_at'),
-        convert: ToolLoan.fromFirestore,
+        convert: ToolLoan.fromRecord,
       );
 
   @override
@@ -181,14 +181,14 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
         .eq('tool_id', toolId)
         .order('borrowed_at')
         .limit(limit),
-    convert: ToolLoan.fromFirestore,
+    convert: ToolLoan.fromRecord,
   );
 
   /// Loans, newest first.
   Stream<Result<List<ToolLoan>>> _watchLoans(
     Stream<List<Map<String, dynamic>>> stream, {
     bool openOnly = false,
-  }) => watchMany(stream: stream, convert: ToolLoan.fromFirestore).map(
+  }) => watchMany(stream: stream, convert: ToolLoan.fromRecord).map(
     (result) => result.map(
       (loans) => [
         for (final loan in loans)
@@ -199,6 +199,6 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
 
   static Map<String, Object?> _fields(ToolDraft draft) => {
     for (final MapEntry(:key, :value) in draft.toFields().entries)
-      RowSnapshot.columnFor(key): value,
+      RowRecord.columnFor(key): value,
   };
 }

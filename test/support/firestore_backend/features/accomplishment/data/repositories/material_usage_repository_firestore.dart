@@ -10,6 +10,7 @@ import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/inventory/data/models/inventory_item.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 
 /// Firestore-backed [MaterialUsageRepository], over each work order's
@@ -35,7 +36,7 @@ class FirestoreMaterialUsageRepository extends FirestoreRepository
   ) =>
       watchMany(
         query: _recorded(workOrderId),
-        convert: RecordedMaterial.fromFirestore,
+        convert: fromDoc(RecordedMaterial.fromRecord),
       ).map(
         (result) => result.map(
           (materials) => [...materials]
@@ -67,7 +68,7 @@ class FirestoreMaterialUsageRepository extends FirestoreRepository
       if (!workOrderSnapshot.exists) {
         throw FirestoreRepository.notFound('No work order $workOrderId');
       }
-      final workOrder = WorkOrder.fromFirestore(workOrderSnapshot);
+      final workOrder = fromDoc(WorkOrder.fromRecord)(workOrderSnapshot);
       if (!workOrder.assignedPersonnelIds.contains(actor.id)) {
         throw FirestoreRepository.precondition(
           'This work order is not assigned to you.',
@@ -89,7 +90,7 @@ class FirestoreMaterialUsageRepository extends FirestoreRepository
           'This item is no longer in the inventory.',
         );
       }
-      final item = InventoryItem.fromFirestore(itemSnapshot);
+      final item = fromDoc(InventoryItem.fromRecord)(itemSnapshot);
       if (quantity > item.quantityAvailable) {
         throw FirestoreRepository.precondition(
           'Only ${_amount(item.quantityAvailable)} ${item.unitOfMeasurement} '
@@ -100,15 +101,16 @@ class FirestoreMaterialUsageRepository extends FirestoreRepository
       transaction.set(
         _recorded(workOrderId).doc(inventoryItemId),
         RecordedMaterial(
-          usage: MaterialUsage(
-            inventoryItemId: inventoryItemId,
-            itemName: item.name,
-            quantityUsed: quantity,
-            unitOfMeasurement: item.unitOfMeasurement,
-          ),
-          recordedBy: actor.id,
-          recordedAt: DateTime.now().toUtc(),
-        ).toFirestore()..['recordedAt'] = FirestoreRepository.serverNow,
+            usage: MaterialUsage(
+              inventoryItemId: inventoryItemId,
+              itemName: item.name,
+              quantityUsed: quantity,
+              unitOfMeasurement: item.unitOfMeasurement,
+            ),
+            recordedBy: actor.id,
+            recordedAt: DateTime.now().toUtc(),
+          ).toFields().forFirestore
+          ..['recordedAt'] = FirestoreRepository.serverNow,
       );
     });
   }

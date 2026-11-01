@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/data/data_record.dart';
+import '../../../../core/utils/record_converters.dart';
 import 'material_usage.dart';
 
 /// An `accomplishment_reports` document — what maintenance personnel
@@ -25,25 +25,23 @@ class AccomplishmentReport {
     this.reviewedBy,
     this.reviewedAt,
   }) {
-    FirestoreConverters.validateNotBlank(workOrderId, 'workOrderId');
-    FirestoreConverters.validateNotBlank(submittedBy, 'submittedBy');
-    FirestoreConverters.validateNotBlank(completionNotes, 'completionNotes');
+    RecordConverters.validateNotBlank(workOrderId, 'workOrderId');
+    RecordConverters.validateNotBlank(submittedBy, 'submittedBy');
+    RecordConverters.validateNotBlank(completionNotes, 'completionNotes');
   }
 
-  factory AccomplishmentReport.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory AccomplishmentReport.fromRecord(DataRecord record) {
+    final data = record.fields;
     final rawMaterials = data['materialsUsed'];
     return AccomplishmentReport(
-      id: doc.id,
-      workOrderId: FirestoreConverters.require<String>(data, 'workOrderId'),
-      submittedBy: FirestoreConverters.require<String>(data, 'submittedBy'),
-      completionNotes: FirestoreConverters.require<String>(
+      id: record.id,
+      workOrderId: RecordConverters.require<String>(data, 'workOrderId'),
+      submittedBy: RecordConverters.require<String>(data, 'submittedBy'),
+      completionNotes: RecordConverters.require<String>(
         data,
         'completionNotes',
       ),
-      photoUrls: FirestoreConverters.stringList(data, 'photoUrls'),
+      photoUrls: RecordConverters.stringList(data, 'photoUrls'),
       materialsUsed: rawMaterials is List
           ? rawMaterials
                 .map(
@@ -53,11 +51,10 @@ class AccomplishmentReport {
                 .toList(growable: false)
           : const [],
       inventoryDeducted:
-          FirestoreConverters.optional<bool>(data, 'inventoryDeducted') ??
-          false,
-      reviewedBy: FirestoreConverters.optional<String>(data, 'reviewedBy'),
-      reviewedAt: FirestoreConverters.optionalDate(data, 'reviewedAt'),
-      submittedAt: FirestoreConverters.requireDate(data, 'submittedAt'),
+          RecordConverters.optional<bool>(data, 'inventoryDeducted') ?? false,
+      reviewedBy: RecordConverters.optional<String>(data, 'reviewedBy'),
+      reviewedAt: RecordConverters.optionalDate(data, 'reviewedAt'),
+      submittedAt: RecordConverters.requireDate(data, 'submittedAt'),
     );
   }
 
@@ -87,7 +84,7 @@ class AccomplishmentReport {
   final DateTime? reviewedAt;
   final DateTime submittedAt;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'workOrderId': workOrderId,
     'submittedBy': submittedBy,
     'completionNotes': completionNotes,
@@ -97,8 +94,8 @@ class AccomplishmentReport {
         .toList(growable: false),
     'inventoryDeducted': inventoryDeducted,
     'reviewedBy': reviewedBy,
-    'reviewedAt': reviewedAt == null ? null : Timestamp.fromDate(reviewedAt!),
-    'submittedAt': Timestamp.fromDate(submittedAt),
+    'reviewedAt': reviewedAt,
+    'submittedAt': submittedAt,
   };
 
   AccomplishmentReport copyWith({

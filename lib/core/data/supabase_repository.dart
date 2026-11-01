@@ -5,7 +5,8 @@ import 'package:supabase/supabase.dart';
 import '../errors/failures.dart';
 import '../services/supabase/supabase_call_guard.dart';
 import '../utils/result.dart';
-import 'row_snapshot.dart';
+import 'data_record.dart';
+import 'row_record.dart';
 
 /// Shared plumbing for the Supabase repositories (Objective 1), as
 /// `FirestoreRepository` was for the Firestore ones.
@@ -13,7 +14,7 @@ import 'row_snapshot.dart';
 /// Reads go straight to the tables: row level security decides what the
 /// caller sees. Writes go through the database's functions
 /// (supabase/migrations/*_functions.sql), because app users can read the
-/// tables and nothing more. Rows reach the models as [RowSnapshot]s, so
+/// tables and nothing more. Rows reach the models as [DataRecord]s, so
 /// every model keeps its one converter.
 ///
 /// Live views are Realtime streams. Realtime takes one filter per
@@ -32,52 +33,52 @@ abstract class SupabaseRepository {
   Future<Result<T>> getOne<T>({
     required String table,
     required String id,
-    required T Function(RowSnapshot) convert,
+    required T Function(DataRecord) convert,
   }) => guard.call(() async {
     final row = await client.from(table).select().eq('id', id).maybeSingle();
     if (row == null) throw notFound('No $table $id');
-    return convert(RowSnapshot.fromRow(row));
+    return convert(RowRecord.fromRow(row));
   });
 
   /// One row by id, or null when there is none.
   Future<Result<T?>> getOneOrNull<T>({
     required String table,
     required String id,
-    required T Function(RowSnapshot) convert,
+    required T Function(DataRecord) convert,
   }) => guard.call(() async {
     final row = await client.from(table).select().eq('id', id).maybeSingle();
-    return row == null ? null : convert(RowSnapshot.fromRow(row));
+    return row == null ? null : convert(RowRecord.fromRow(row));
   });
 
   Future<Result<List<T>>> getMany<T>({
     required Future<List<Map<String, dynamic>>> query,
-    required T Function(RowSnapshot) convert,
+    required T Function(DataRecord) convert,
   }) => guard.call(() async {
     final rows = await query;
-    return [for (final row in rows) convert(RowSnapshot.fromRow(row))];
+    return [for (final row in rows) convert(RowRecord.fromRow(row))];
   });
 
   /// One row, live. Gone, or out of the caller's sight, is not-found.
   Stream<Result<T>> watchOne<T>({
     required String table,
     required String id,
-    required T Function(RowSnapshot) convert,
+    required T Function(DataRecord) convert,
   }) => guard.stream(
     client.from(table).stream(primaryKey: const ['id']).eq('id', id).map((
       rows,
     ) {
       if (rows.isEmpty) throw notFound('No $table $id');
-      return convert(RowSnapshot.fromRow(rows.first));
+      return convert(RowRecord.fromRow(rows.first));
     }),
   );
 
   /// Rows, live: every change the caller may see re-emits the list.
   Stream<Result<List<T>>> watchMany<T>({
     required Stream<List<Map<String, dynamic>>> stream,
-    required T Function(RowSnapshot) convert,
+    required T Function(DataRecord) convert,
   }) => guard.stream(
     stream.map(
-      (rows) => [for (final row in rows) convert(RowSnapshot.fromRow(row))],
+      (rows) => [for (final row in rows) convert(RowRecord.fromRow(row))],
     ),
   );
 
@@ -97,7 +98,7 @@ abstract class SupabaseRepository {
   Future<Result<T>> rpcRow<T>(
     String function,
     Map<String, Object?> params, {
-    required T Function(RowSnapshot) convert,
+    required T Function(DataRecord) convert,
     bool once = false,
   }) {
     Future<T> run() async {
@@ -105,7 +106,7 @@ abstract class SupabaseRepository {
         function,
         params: params,
       );
-      return convert(RowSnapshot.fromRow(row));
+      return convert(RowRecord.fromRow(row));
     }
 
     return once ? guard.callOnce(run) : guard.call(run);

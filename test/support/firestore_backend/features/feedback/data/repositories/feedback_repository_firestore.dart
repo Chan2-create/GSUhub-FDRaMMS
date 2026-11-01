@@ -8,6 +8,7 @@ import 'package:gsuhub/features/feedback/data/models/service_feedback.dart';
 import 'package:gsuhub/features/feedback/data/repositories/feedback_repository.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../../../reporting/data/repositories/status_history_writes.dart';
@@ -25,7 +26,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
 
   @override
   Future<Result<ServiceFeedback>> getById(String id) =>
-      getOne(path: _path, id: id, convert: ServiceFeedback.fromFirestore);
+      getOne(path: _path, id: id, convert: fromDoc(ServiceFeedback.fromRecord));
 
   @override
   Future<Result<ServiceFeedback?>> getByWorkOrder(String workOrderId) async {
@@ -33,7 +34,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
       query: collection(_path)
           .where('workOrderId', isEqualTo: workOrderId)
           .limit(1),
-      convert: ServiceFeedback.fromFirestore,
+      convert: fromDoc(ServiceFeedback.fromRecord),
     );
 
     // Absence is normal: rating is optional (Figure 23 offers "Skip"), so
@@ -47,7 +48,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
         query: collection(_path)
             .where('submittedBy', isEqualTo: requestorId)
             .orderBy('submittedAt', descending: true),
-        convert: ServiceFeedback.fromFirestore,
+        convert: fromDoc(ServiceFeedback.fromRecord),
       );
 
   @override
@@ -65,7 +66,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
           isLessThanOrEqualTo: Timestamp.fromDate(to.toUtc()),
         )
         .orderBy('submittedAt', descending: true),
-    convert: ServiceFeedback.fromFirestore,
+    convert: fromDoc(ServiceFeedback.fromRecord),
   );
 
   @override
@@ -76,7 +77,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
             .snapshots()
             .map(
               (snapshot) => snapshot.exists
-                  ? ServiceFeedback.fromFirestore(snapshot)
+                  ? fromDoc(ServiceFeedback.fromRecord)(snapshot)
                   : null,
             ),
       );
@@ -101,7 +102,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
     if (!reportSnapshot.exists) {
       throw FirestoreRepository.notFound('No damage report $reportId');
     }
-    final report = DamageReport.fromFirestore(reportSnapshot);
+    final report = fromDoc(DamageReport.fromRecord)(reportSnapshot);
     if (report.reporterId != rater.id) {
       throw FirestoreRepository.precondition(
         'Only the person who filed this report can rate the service.',
@@ -146,7 +147,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
 
     transaction
       ..set(feedbackReference, {
-        ...feedback.toFirestore(),
+        ...feedback.toFields().forFirestore,
         'submittedAt': FirestoreRepository.serverNow,
       })
       ..update(reportReference, {

@@ -32,11 +32,8 @@ class AccomplishmentReportRepositoryImpl extends SupabaseRepository
   String newReportId() => SupabaseRepository.newId();
 
   @override
-  Future<Result<AccomplishmentReport>> getById(String id) => getOne(
-    table: _table,
-    id: id,
-    convert: AccomplishmentReport.fromFirestore,
-  );
+  Future<Result<AccomplishmentReport>> getById(String id) =>
+      getOne(table: _table, id: id, convert: AccomplishmentReport.fromRecord);
 
   @override
   Stream<Result<List<AccomplishmentReport>>> watchByWorkOrder(
@@ -48,7 +45,7 @@ class AccomplishmentReportRepositoryImpl extends SupabaseRepository
             .from(_table)
             .stream(primaryKey: const ['id'])
             .eq('work_order_id', workOrderId),
-        convert: AccomplishmentReport.fromFirestore,
+        convert: AccomplishmentReport.fromRecord,
       ).map(
         (result) => result.map(
           (reports) => [

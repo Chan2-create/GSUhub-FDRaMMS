@@ -17,9 +17,14 @@ which needs no global install.
 | `migrations/*_storage_policies.sql` | The private `photos` bucket (10 MB, images only) and who may upload or read each folder. |
 | `migrations/*_realtime.sql` | The tables the app watches live. |
 | `migrations/*_server_helpers.sql` | What every write shares: the status rules and labels (mirroring the Dart enums), the audit entry, the notification wording, the report's timeline entry, a work order's move. |
-| `migrations/*_account_functions.sql` … `*_feedback_notification_config_functions.sql` | The writes: signing up, accounts, rooms and equipment, reports, work orders, ratings, notifications, settings. |
+| `migrations/*_account_functions.sql` … `*_tool_functions.sql` | The writes: signing up, accounts, rooms and equipment, reports, work orders, ratings, notifications, settings, tasks, accomplishment reports, materials, inventory and tools. |
+| `migrations/*_admin_notifications.sql` | The administrators' notices (Objective 7.A): `app.notify_admins` and the triggers that write them. |
+| `migrations/*_reassign_work_order.sql` | Handing open work to another technician (7.A). |
+| `migrations/*_work_order_signoff.sql` | `set_work_order_status` only starts work; the sign-off completes it (7.B). |
+| `migrations/*_config_validation.sql` | `update_config` refuses settings the app could not read (7.A). |
+| `migrations/*_task_start_audit.sql` | The audit entry for a task started with a proof photo (7.B). |
 | `seed.sql` | Demo data. **Generated, don't edit it**: see below. |
-| `tests/*.test.sql` | pgTAP tests: the permission matrix, the stock ledger and the storage policies. |
+| `tests/*.test.sql` | 696 pgTAP tests in 17 files: the permission matrix, every function allowed and refused, the stock ledger, the storage policies and the notices. |
 | `functions/firebase-token-exchange/` | Trades a Firebase ID token for a Supabase access token. See below. |
 | `functions/tests/` | Its tests, in Deno. |
 
@@ -77,7 +82,8 @@ sent. docs/manual_deploy.md, "Going live", has the steps in order.
 
 Development builds use the Firebase Auth emulator and the local Supabase
 stack together. `SUPABASE_URL` defaults to `http://localhost:54321`. The
-key is passed in rather than written into the code:
+key is passed in rather than written into the code. On Windows,
+`tool\run_local.cmd` does all of this (docs/local_setup.md); by hand:
 
 ```
 firebase emulators:start --only auth     # keeps its terminal; the rest in a second one
@@ -97,6 +103,9 @@ web deploy workflow) take `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the
 environment, or from the repository secrets of the same names.
 
 ## Running the tests
+
+Every test set, and which requirement each one proves, is in
+docs/testing.md.
 
 **With Docker** (the real check):
 

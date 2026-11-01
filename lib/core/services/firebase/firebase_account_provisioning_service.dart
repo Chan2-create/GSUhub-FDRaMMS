@@ -6,10 +6,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../config/app_config.dart';
 import '../../config/web_auth_emulator.dart';
-import '../../errors/firebase_error_mapper.dart';
 import '../../utils/result.dart';
 import '../account_provisioning_service.dart';
 import 'firebase_call_guard.dart';
+import 'firebase_error_mapper.dart';
 
 /// [AccountProvisioningService] over a second Firebase app instance.
 ///

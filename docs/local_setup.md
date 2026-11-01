@@ -41,6 +41,25 @@ the hosted Supabase project.
 npm install     # firebase-tools, for the Auth emulator and the rules tests
 ```
 
+## One command (Objective 7.A)
+
+On Windows, `tool\run_local.cmd` does everything below for you:
+
+1. starts the stack, or reuses it if it is running;
+2. the first time, writes the token exchange's local secrets;
+3. opens the Auth emulator on Java 21, in its own window;
+4. adds the sign-in accounts;
+5. runs the app in Edge with the stack's key.
+
+```powershell
+tool\run_local.cmd            # the app in Edge
+tool\run_local.cmd -Server    # serve it at http://localhost:5556, for any browser
+tool\run_local.cmd -Reseed    # load the demo data again first
+tool\run_local.cmd -Stop      # stop the app, the emulator and the stack
+```
+
+The rest of this page does the same by hand.
+
 ## First run
 
 ```powershell
@@ -168,6 +187,10 @@ always reads as recent.
   4 LED bulbs recorded on `wo-0003`, the multimeter borrowed by
   `personnel@`, two accomplishment reports (one signed off, one waiting
   for sign-off) and 6 notices to technicians.
+- **The administrators' notifications (7.A)** — ten for each
+  administrator: two reports filed (one urgent), the work waiting for
+  sign-off (`wo-0009`), work started, two material requests, Liza Tan's
+  sign-up and the three low-stock materials. Some are already read.
 
 ## The personnel app (Objectives 5.A–5.C)
 
@@ -251,6 +274,30 @@ Sign in to the console as `admin@` and open **Inventory Management**
   materials GSU pre-assigned; **Request Materials** opens Group 43's page,
   with "Flickering Lights"'s request history (one waiting, one declined).
 
+## Notifications, reassigning and Settings (Objective 7)
+
+Sign in to the console as `admin@`.
+
+- **Notifications.** The bell, or Notifications in the sidebar, opens
+  the seeded notices, the unread ones tinted. Filter by Unread, Reports
+  or System, or by date. A row opens what it is about. **Mark All as
+  Read** clears the count. File a report on the faculty side and a new
+  one arrives: *New report submitted*, or *New urgent report submitted*
+  for High or Critical. Each goes to every administrator except the one
+  who acted.
+- **Reassign.** Work Orders → "Sparking Wall Outlet" (`wo-0013`) →
+  **Reassign** → pick another technician. The work, its unfinished
+  tasks and the open-work counts move. Marcus, the new technician and
+  the requestor are told.
+- **The board and the sign-off.** On the board, a Pending card's ⋯ menu
+  starts the work. "Loose Ceiling Panel" (`wo-0009`) waits for sign-off.
+  Its ⋯ menu, or dropping it on Completed, opens its accomplishment
+  report to sign off. Nothing completes work without the sign-off.
+- **Settings → Priority scoring, Duplicate detection.** Change a weight
+  or a band and the sample report's score changes before you save. A
+  value that cannot work, like bands out of order or every weight at
+  zero, is refused with the reason, by the page and by the database.
+
 ## The faculty and staff app (Objectives 3.A, 3.B and 3.C)
 
 Off the web the app opens on the faculty and staff sign-in. In a browser
@@ -311,6 +358,11 @@ Without Docker, the same pgTAP tests run in PGlite (Postgres compiled to
 WebAssembly): `cd tool/sql_tests; npm install; node run.mjs` (add
 `--seed` to run them on the demo data). The token exchange's tests run in
 Deno: see `supabase/README.md`.
+
+What each set proves, requirement by requirement, is in
+`docs/testing.md`. Run the e2e flows on a warm stack: the first run
+straight after `npx supabase db reset` can time out while Realtime
+restarts.
 
 The widget tests run the screens against an in-memory backend
 (`test/support/firestore_backend`: the Firestore repositories the app used

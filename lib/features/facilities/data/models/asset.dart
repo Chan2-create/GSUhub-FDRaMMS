@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/item_condition.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// An `assets` document — a registered piece of equipment installed at a
 /// facility (an air-conditioning unit, a light fixture) that can be
@@ -29,29 +28,29 @@ class Asset {
     this.serialNumber,
     this.acquiredAt,
   }) {
-    FirestoreConverters.validateNotBlank(name, 'name');
-    FirestoreConverters.validateNotBlank(qrCode, 'qrCode');
-    FirestoreConverters.validateNotBlank(facilityId, 'facilityId');
+    RecordConverters.validateNotBlank(name, 'name');
+    RecordConverters.validateNotBlank(qrCode, 'qrCode');
+    RecordConverters.validateNotBlank(facilityId, 'facilityId');
   }
 
-  factory Asset.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory Asset.fromRecord(DataRecord record) {
+    final data = record.fields;
     return Asset(
-      id: doc.id,
-      name: FirestoreConverters.require<String>(data, 'name'),
-      qrCode: FirestoreConverters.require<String>(data, 'qrCode'),
-      facilityId: FirestoreConverters.require<String>(data, 'facilityId'),
-      condition: FirestoreConverters.requireEnum(
+      id: record.id,
+      name: RecordConverters.require<String>(data, 'name'),
+      qrCode: RecordConverters.require<String>(data, 'qrCode'),
+      facilityId: RecordConverters.require<String>(data, 'facilityId'),
+      condition: RecordConverters.requireEnum(
         data,
         'condition',
         ItemCondition.fromId,
       ),
-      isActive: FirestoreConverters.require<bool>(data, 'isActive'),
-      category: FirestoreConverters.optional<String>(data, 'category'),
-      serialNumber: FirestoreConverters.optional<String>(data, 'serialNumber'),
-      acquiredAt: FirestoreConverters.optionalDate(data, 'acquiredAt'),
-      createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
+      isActive: RecordConverters.require<bool>(data, 'isActive'),
+      category: RecordConverters.optional<String>(data, 'category'),
+      serialNumber: RecordConverters.optional<String>(data, 'serialNumber'),
+      acquiredAt: RecordConverters.optionalDate(data, 'acquiredAt'),
+      createdAt: RecordConverters.requireDate(data, 'createdAt'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
     );
   }
 
@@ -83,17 +82,17 @@ class Asset {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'name': name,
     'qrCode': qrCode,
     'facilityId': facilityId,
     'condition': condition.id,
     'category': category,
     'serialNumber': serialNumber,
-    'acquiredAt': acquiredAt == null ? null : Timestamp.fromDate(acquiredAt!),
+    'acquiredAt': acquiredAt,
     'isActive': isActive,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
   };
 
   Asset copyWith({

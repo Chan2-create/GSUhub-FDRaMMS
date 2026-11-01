@@ -1124,7 +1124,8 @@ second app instance, §13), and the phone's FCM token. Supabase holds the
 19 tables (Postgres), the photos (Storage), the live updates (Realtime)
 and one Edge Function. The repository interfaces, models, `Result` and
 providers did not change: only the `*_impl.dart` files and the
-`core/services` data pieces did, so no screen changed. Chris confirmed
+`core/services` data pieces did, so no screen changed (7.A later took
+Firebase's types out of the models: §22). Chris confirmed
 four decisions (2026-10-16), noted below. This replaces §6b's Firestore
 transactions, §7's `firebase_storage` and §9's collections; their other
 points stand.
@@ -1220,7 +1221,8 @@ longer need the Blaze plan.
 timestamps as `Timestamp`, latitude and longitude as a `GeoPoint`. The
 models' `fromFirestore` constructors read it unchanged. `cloud_firestore`
 stays as a dependency for those types and for the test harnesses;
-nothing in the app talks to Firestore.
+nothing in the app talks to Firestore. *Superseded in 7.A: models read a
+`DataRecord`, which `RowRecord` builds from a row (§22).*
 
 **Live lists filter only on what never changes.** Realtime tells a
 listener about a row that changes inside its filter, never about one
@@ -1264,7 +1266,8 @@ local stack (`SUPABASE_E2E=1`): a report with photos and a geo-tag; its
 review and approval; assignment, work, materials, sign-off and rating,
 checking the audit trail, the ledger and `activeTaskCount` at each step.
 The old Firestore implementations moved to `test/support/firestore_backend`,
-where they back the widget tests through `fake_cloud_firestore`.
+where they back the widget tests through `fake_cloud_firestore`. Since
+Objective 7: 696 pgTAP tests, and 48 calls covering 46 functions (§22).
 
 **Unused repository methods (item 4).** `WorkOrderRepository.assignPersonnel`
 is deleted. Nothing in the app calls the methods below; they are kept
@@ -1297,7 +1300,7 @@ uses them: `AccomplishmentReportRepository.getById`,
 - The console's Kanban columns can still move a work order to For Review
   or Completed without an accomplishment report (an administrator may
   make any move the lifecycle allows); unchanged, on the still-to-do
-  list.
+  list. *Fixed in 7.B (§22).*
 - A free Supabase project pauses after a week without use, and must be
   resumed from the dashboard before a demo.
 - **Nothing has run against a real Supabase stack yet.** This machine has
@@ -1306,6 +1309,222 @@ uses them: `AccomplishmentReportRepository.getById`,
   schemas, `tool/sql_tests`) and the function on Deno. `npx supabase test db`, `tool/storage_api_test.mjs`
   and the e2e flows wait for Docker. Importing the hosted signing key, and
   Supabase accepting the function's tokens with it, wait for the hosted
-  project.
+  project. *Since done (2026-10-20): every set passed on the local Docker
+  stack, and on the hosted project the imported key signs the tokens
+  Supabase accepts; the whole report lifecycle ran there
+  (docs/manual_deploy.md, "Check it works on live").*
 - Firestore and Storage keep their old data and rules until the move is
   done; locking them afterwards is Chris's decision (docs/manual_deploy.md).
+
+## 22. Objective 7: one system, tested, ready to present
+
+**Scope and sources.** Chris's brief of 2026-10-20: finish every
+unfinished objective so the whole system is complete and running. The
+manuscript and the WBS are the authority. No invented UI: Figma or the
+PDFs, otherwise a plain working screen listed for the GUI pass. Open
+manuscript questions are asked, or made configurable and flagged. Nothing
+works around a Blaze-only feature. Only Objective 7 was unfinished:
+
+- 7.A: join the faculty and staff app, the personnel app, the console and
+  the backend into one working system;
+- 7.B: functionality and usability testing, fixing what it finds;
+- 7.C: documentation, deployment and the final presentation.
+
+Checking the manuscript (§1.5, §3.4) against what was built found two
+administrator requirements with nothing behind them:
+
+- managing system notifications: the console's Notifications page was
+  disabled;
+- modifying assignments: work could be assigned, never reassigned.
+
+The weights, score bands and duplicate rules had no editor either
+(still-to-do item 2).
+
+**7.A: the administrator's notifications (Figma `202:5608`).** The
+Notifications page follows the frame:
+
+- the header, with **Mark All as Read**;
+- the All, Unread, Reports and System filters, and a date range;
+- unread rows tinted, each row with its icon tile, a priority tag and the
+  record number in bold;
+- **View Older Notifications**, 50 at a time.
+
+The bell and the sidebar open it, and the sidebar counts the unread. A
+row opens what it is about: the report, the work order, Inventory, or
+User Accounts.
+
+The manuscript says the administrator manages "system notifications" but
+not which events reach them. **The six events are derived** from the
+frame's examples and the console's pages; confirm them with the adviser:
+
+1. A report is submitted ("New urgent report submitted" when the
+   requestor chose High or Critical).
+2. A technician starts work.
+3. An accomplishment report waits for sign-off.
+4. A technician requests materials.
+5. A sign-up waits for approval.
+6. A material reaches its minimum or runs out.
+
+Database triggers write them (`20261020111840_admin_notifications.sql`),
+so no path that makes the change can skip the notice. Each goes to every
+active administrator except the one who acted. They fire only for a
+signed-in caller (`app.uid()`), so loading the demo data or moving the
+old data does not flood the list. Five of the types are new, in
+`notifications_type_check` and `NotificationType`; the low-stock notice
+uses the existing `lowStockAlert`. The phones' Alerts tab knows them too.
+
+**7.A: reassigning a work order (§3.4, "modify ... assignments").**
+`reassign_work_order` is the administrator's. It hands pending or
+in-progress work to one other active technician:
+
+- the assignee, both technicians' open-work counts and the unfinished
+  tasks move;
+- each linked report gets a history entry ("Reassigned to …"), and its
+  timeline shows the newest assignment;
+- the requestor, the new technician and the former one are told;
+- the audit entry says who had it.
+
+Finished work, an account that is not an active technician, and the
+technician who already has the work are refused, each with the reason.
+The work order's page offers **Reassign** while the work is open. Its
+dialog lists the active technicians, the matching trade first, then the
+least busy. No frame exists for it, so it is a plain dialog, listed for
+the GUI pass.
+
+**7.A: Settings for the scoring and the duplicates.** Under the keyword
+editor (§18), Settings gains two sections. Each shows its effect on a
+sample report before saving.
+
+- **Priority scoring**: which weights are in use, both weight sets, the
+  score bands, and the Frequency window with the report counts that
+  make a 2, 3 or 4.
+- **Duplicate detection**: on or off; what is compared (the facility or
+  asset's QR code, the stated location, the damage type); the
+  description similarity; the window, in hours.
+
+**Flagged:** both of the manuscript's weight sets are stored and
+editable. Chris chose the formula's on 2026-10-12, and Table 3.2 still
+needs correcting. The administrator rates all four criteria in review,
+also Chris's decision (§18).
+
+`update_config` now refuses any setting the app could not read
+(`20261020111849_config_validation.sql`), so a setting saved some other
+way cannot break the scoring or the classification:
+
+- weights from 0 to 100, at least one above zero;
+- ratings from 1 to 4 (Table 3.4);
+- score bands between 1.00 and 4.00, falling from Critical to Low;
+- a Frequency window of 1 to 365 days, with counts that rise;
+- a duplicate window of 1 to 2160 hours;
+- known damage types only, and keywords of 1 to 80 characters. This is
+  a backstop: the keyword editor itself asks for 3 to 60.
+
+The Settings frame (`61:5550`) shows a system information card, not
+these sections, so they are plain and listed for the GUI pass.
+
+**7.A: the dashboard links.** **View All** opens Reports, and each
+recent report opens its page. The 2.A placeholders are gone.
+
+**7.A: models free of Firebase.** This supersedes §21's "the models did
+not change" and "Reading rows as documents".
+
+- Models read a `DataRecord` (an id and its fields) with `fromRecord`,
+  and write `toFields()`.
+- Times are UTC `DateTime`s (`RecordConverters`, which replaces
+  `FirestoreConverters`). A geo-tag is a `GeoCoordinates` (`core/data`).
+- `RowRecord` turns a Postgres row into a `DataRecord`.
+- `cloud_firestore` is a dev dependency, for the test harness only, which
+  converts with `firestoreRecord` and `.forFirestore`.
+- `firebase_initializer.dart` and `firebase_error_mapper.dart` moved to
+  `core/services/firebase`. `main.dart` registers the background message
+  handler through the FCM service.
+
+Firebase is imported in `core/services` only, apart from the generated
+`firebase_options.dart`.
+
+**7.A: one command runs it all.** `tool\run_local.cmd` (untracked until
+Chris decides) does the following:
+
+1. starts the Supabase stack, or reuses it;
+2. the first time, writes the token exchange's local secrets;
+3. starts the Auth emulator on Java 21, in its own window;
+4. adds the sign-in accounts;
+5. runs the app with the stack's key.
+
+`-Server` serves the app on a fixed port, `-Reseed` loads the demo data
+again, and `-Stop` stops everything. The seed now adds ten notices for
+each of the two administrators.
+
+**7.B: the board can no longer skip the sign-off.** This was still-to-do
+item 8, confirmed on live on 2026-10-20. An administrator dragged a work
+order For Review → In Progress → For Review → Completed in nine
+seconds, and its accomplishment report was never reviewed.
+
+`set_work_order_status` now only starts work, Pending to In Progress, for
+everyone (`20261020111846_work_order_signoff.sql`). For Review comes only
+from the technician's report. Completed, or a send-back, comes only from
+`review_accomplishment`.
+
+The board follows the same rules:
+
+- Pending's menu starts the work.
+- A card waiting for sign-off opens its accomplishment report. This
+  happens from its menu, or when it is dropped on Completed or In
+  Progress.
+- A card dropped on For Review gets a message saying how work gets there.
+
+**7.B: other bugs found and fixed.**
+
+- The board's date filter hid open work older than the period, so
+  overdue work vanished after 30 days. The period now narrows finished
+  work only.
+- Two quick refusals on the board queued their messages. The newer one
+  now replaces the older.
+- Starting a task with a proof photo wrote no audit entry
+  (`20261020112150_task_start_audit.sql`, still-to-do 20).
+- The Alerts test failed between midnight and 00:45, because its "45
+  minutes ago" crossed midnight. The app now reads the time from
+  `package:clock`, which the tests fix.
+- The record-material sheet now picks the technician's only open work
+  order. Opening a sheet clears an older message that would cover it
+  (still-to-do 10).
+- The release check also refuses the local stack's ports, `:54321` and
+  `:54322` (still-to-do 17).
+- Stale text: the dashboard's 2.A tooltips (still-to-do 7) and the
+  faculty Profile's note.
+- The new tests caught two bugs in new code before they shipped. The
+  score bands were checked in the wrong order. The review menu's item
+  never fired, because a `PopupMenuItem` with no value counts as
+  dismissed.
+
+**7.B: the test plan.** docs/testing.md does three things:
+
+- maps each requirement in §3.4 and §1.5 to the tests that prove it;
+- says how to run each test set;
+- gives the team's usability tasks for each role.
+
+**7.C: the documents.**
+
+- docs/demo_script.md: the defense walkthrough.
+- docs/local_setup.md and docs/manual_deploy.md: the five new
+  migrations, and the order for going live.
+- docs/data_dictionary.md: the new notification types and rules.
+- supabase/README.md and the README.
+
+**Flagged.**
+
+- Push to a phone whose app is closed still needs a server: Cloud
+  Functions, on the Blaze plan. Not built, by the brief's rule (§16).
+- The six notice events are derived; confirm them with the adviser.
+- Map View (Figma `202:5356`) is not in the manuscript; its sidebar item
+  stays disabled.
+- The Settings frame's system information card is not a manuscript
+  feature, and is not built.
+- Usability testing with users, and the camera, GPS, scanning and
+  notifications on real phones, are the team's (docs/testing.md).
+- `docs/diagrams` (untracked): `generate.mjs` redraws the application
+  architecture, deployment, and development-versus-production diagrams
+  for the Supabase design. The context diagram and the data flow
+  diagrams still predate Objectives 4 to 6, and the second stage (PNG
+  and PDF) waits for approval.
+- The 35 unused repository methods (§21) are still Chris's to decide on.

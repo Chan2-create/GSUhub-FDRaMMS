@@ -265,3 +265,12 @@ class FcmNotificationService implements NotificationService {
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Intentionally empty. See the doc comment above.
 }
+
+/// Registers [firebaseMessagingBackgroundHandler]. Call it before `runApp`,
+/// so a notification that cold-starts the app is not missed. Web has its
+/// own service worker (web/firebase-messaging-sw.js) and rejects the
+/// handler, so there it does nothing.
+void registerBackgroundMessageHandler() {
+  if (kIsWeb) return;
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+}

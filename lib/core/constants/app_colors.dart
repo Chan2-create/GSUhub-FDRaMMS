@@ -516,4 +516,25 @@ abstract final class AppColors {
 
   /// The table's header row and footer.
   static const Color inventoryTableBand = Color(0xFFEFF4FF);
+
+  // --- console Notifications (Objective 7.A, Figma 202:5608) ---
+
+  /// An unread notice's fill, and the navy of its left edge, its record
+  /// number and its bell tile.
+  static const Color notificationUnreadFill = Color(0xFFEEF2FF);
+  static const Color notificationAccent = Color(0xFF1A3A8F);
+
+  /// The words of an unread notice.
+  static const Color notificationBody = Color(0xFF444652);
+
+  /// The icon tiles: green for work done or under way, blue for a request,
+  /// orange for an account, red for stock.
+  static const Color notificationTileGreen = Color(0xFFDCFCE7);
+  static const Color notificationTileBlue = Color(0xFFDBEAFE);
+  static const Color notificationTileOrange = Color(0xFFFFEDD5);
+  static const Color notificationTileRed = Color(0xFFFEE2E2);
+
+  /// "HIGH PRIORITY" on a notice.
+  static const Color notificationPriorityFill = Color(0xFFFEE2E2);
+  static const Color notificationPriorityText = Color(0xFFB91C1C);
 }

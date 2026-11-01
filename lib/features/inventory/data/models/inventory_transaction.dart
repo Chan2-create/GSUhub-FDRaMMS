@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/inventory_transaction_type.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// An `inventory_transactions` document — one immutable entry in the
 /// inventory history log (manuscript §3.4: the system "records the
@@ -41,9 +40,9 @@ class InventoryTransaction {
     this.notes,
     this.performedByName,
   }) {
-    FirestoreConverters.validateNotBlank(inventoryItemId, 'inventoryItemId');
-    FirestoreConverters.validateNotBlank(itemName, 'itemName');
-    FirestoreConverters.validateNotBlank(performedBy, 'performedBy');
+    RecordConverters.validateNotBlank(inventoryItemId, 'inventoryItemId');
+    RecordConverters.validateNotBlank(itemName, 'itemName');
+    RecordConverters.validateNotBlank(performedBy, 'performedBy');
     if (quantity <= 0) {
       throw ArgumentError.value(
         quantity,
@@ -52,47 +51,45 @@ class InventoryTransaction {
             'carried by the transaction type, not the sign',
       );
     }
-    FirestoreConverters.validateNonNegative(quantityBefore, 'quantityBefore');
-    FirestoreConverters.validateNonNegative(quantityAfter, 'quantityAfter');
+    RecordConverters.validateNonNegative(quantityBefore, 'quantityBefore');
+    RecordConverters.validateNonNegative(quantityAfter, 'quantityAfter');
   }
 
-  factory InventoryTransaction.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory InventoryTransaction.fromRecord(DataRecord record) {
+    final data = record.fields;
     return InventoryTransaction(
-      id: doc.id,
-      inventoryItemId: FirestoreConverters.require<String>(
+      id: record.id,
+      inventoryItemId: RecordConverters.require<String>(
         data,
         'inventoryItemId',
       ),
-      itemName: FirestoreConverters.require<String>(data, 'itemName'),
-      type: FirestoreConverters.requireEnum(
+      itemName: RecordConverters.require<String>(data, 'itemName'),
+      type: RecordConverters.requireEnum(
         data,
         'type',
         InventoryTransactionType.fromId,
       ),
-      quantity: FirestoreConverters.require<num>(data, 'quantity').toDouble(),
-      quantityBefore: FirestoreConverters.require<num>(
+      quantity: RecordConverters.require<num>(data, 'quantity').toDouble(),
+      quantityBefore: RecordConverters.require<num>(
         data,
         'quantityBefore',
       ).toDouble(),
-      quantityAfter: FirestoreConverters.require<num>(
+      quantityAfter: RecordConverters.require<num>(
         data,
         'quantityAfter',
       ).toDouble(),
-      workOrderId: FirestoreConverters.optional<String>(data, 'workOrderId'),
-      accomplishmentReportId: FirestoreConverters.optional<String>(
+      workOrderId: RecordConverters.optional<String>(data, 'workOrderId'),
+      accomplishmentReportId: RecordConverters.optional<String>(
         data,
         'accomplishmentReportId',
       ),
-      notes: FirestoreConverters.optional<String>(data, 'notes'),
-      performedBy: FirestoreConverters.require<String>(data, 'performedBy'),
-      performedByName: FirestoreConverters.optional<String>(
+      notes: RecordConverters.optional<String>(data, 'notes'),
+      performedBy: RecordConverters.require<String>(data, 'performedBy'),
+      performedByName: RecordConverters.optional<String>(
         data,
         'performedByName',
       ),
-      performedAt: FirestoreConverters.requireDate(data, 'performedAt'),
+      performedAt: RecordConverters.requireDate(data, 'performedAt'),
     );
   }
 
@@ -136,7 +133,7 @@ class InventoryTransaction {
   /// balances rather than the type.
   double get change => quantityAfter - quantityBefore;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'inventoryItemId': inventoryItemId,
     'itemName': itemName,
     'type': type.id,
@@ -148,7 +145,7 @@ class InventoryTransaction {
     'notes': notes,
     'performedBy': performedBy,
     'performedByName': performedByName,
-    'performedAt': Timestamp.fromDate(performedAt),
+    'performedAt': performedAt,
   };
 
   // Intentionally no copyWith — see the class doc comment. A ledger entry

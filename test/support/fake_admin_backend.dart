@@ -70,6 +70,7 @@ ProviderScope fakeAdminScope({
   FakeDamageReportRepository? reportRepository,
   FakeConfigRepository? config,
   FakeWorkOrderRepository? workOrderRepository,
+  NotificationRepository? notificationRepository,
   FakeUserRepository? userRepository,
   FakeAccountProvisioningService? provisioning,
   FakeFileDownloadService? downloads,
@@ -97,7 +98,7 @@ ProviderScope fakeAdminScope({
       FakeAuditLogRepository(activity),
     ),
     notificationRepositoryProvider.overrideWithValue(
-      FakeNotificationRepository(unreadCount),
+      notificationRepository ?? FakeNotificationRepository(unreadCount),
     ),
     workOrderRepositoryProvider.overrideWithValue(
       workOrderRepository ?? FakeWorkOrderRepository(workOrders),

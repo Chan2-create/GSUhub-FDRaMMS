@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/task_status.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A `tasks` document — one checklist item within a work order, backing
 /// the personnel "daily task management" capability (manuscript §1.2
@@ -26,31 +26,25 @@ class MaintenanceTask {
     this.proofPhotoUrls = const [],
     this.completedAt,
   }) {
-    FirestoreConverters.validateNotBlank(workOrderId, 'workOrderId');
-    FirestoreConverters.validateNotBlank(title, 'title');
-    FirestoreConverters.validateNotBlank(assignedTo, 'assignedTo');
+    RecordConverters.validateNotBlank(workOrderId, 'workOrderId');
+    RecordConverters.validateNotBlank(title, 'title');
+    RecordConverters.validateNotBlank(assignedTo, 'assignedTo');
   }
 
-  factory MaintenanceTask.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory MaintenanceTask.fromRecord(DataRecord record) {
+    final data = record.fields;
     return MaintenanceTask(
-      id: doc.id,
-      workOrderId: FirestoreConverters.require<String>(data, 'workOrderId'),
-      title: FirestoreConverters.require<String>(data, 'title'),
-      assignedTo: FirestoreConverters.require<String>(data, 'assignedTo'),
-      status: FirestoreConverters.requireEnum(
-        data,
-        'status',
-        TaskStatus.fromId,
-      ),
-      description: FirestoreConverters.optional<String>(data, 'description'),
-      dueDate: FirestoreConverters.optionalDate(data, 'dueDate'),
-      proofPhotoUrls: FirestoreConverters.stringList(data, 'proofPhotoUrls'),
-      completedAt: FirestoreConverters.optionalDate(data, 'completedAt'),
-      createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
+      id: record.id,
+      workOrderId: RecordConverters.require<String>(data, 'workOrderId'),
+      title: RecordConverters.require<String>(data, 'title'),
+      assignedTo: RecordConverters.require<String>(data, 'assignedTo'),
+      status: RecordConverters.requireEnum(data, 'status', TaskStatus.fromId),
+      description: RecordConverters.optional<String>(data, 'description'),
+      dueDate: RecordConverters.optionalDate(data, 'dueDate'),
+      proofPhotoUrls: RecordConverters.stringList(data, 'proofPhotoUrls'),
+      completedAt: RecordConverters.optionalDate(data, 'completedAt'),
+      createdAt: RecordConverters.requireDate(data, 'createdAt'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
     );
   }
 
@@ -81,19 +75,17 @@ class MaintenanceTask {
   /// "PROOF SUBMITTED" badge.
   bool get hasProof => proofPhotoUrls.isNotEmpty;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'workOrderId': workOrderId,
     'title': title,
     'description': description,
     'assignedTo': assignedTo,
     'status': status.id,
-    'dueDate': dueDate == null ? null : Timestamp.fromDate(dueDate!),
+    'dueDate': dueDate,
     'proofPhotoUrls': proofPhotoUrls,
-    'completedAt': completedAt == null
-        ? null
-        : Timestamp.fromDate(completedAt!),
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'completedAt': completedAt,
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
   };
 
   MaintenanceTask copyWith({

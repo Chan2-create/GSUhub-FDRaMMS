@@ -86,6 +86,21 @@ class WorkOrderDetailController {
         .review(reportId: reportId, approve: approve, actor: actor, note: note),
   );
 
+  /// Hands the work to [personnelId] (Objective 7.A; manuscript §3.4:
+  /// "Modify report priorities and assignments when necessary").
+  Future<Result<void>> reassign({
+    required String workOrderId,
+    required String personnelId,
+  }) => _act(
+    (actor) => _ref
+        .read(workOrderRepositoryProvider)
+        .reassign(
+          workOrderId: workOrderId,
+          personnelId: personnelId,
+          actor: actor,
+        ),
+  );
+
   Future<Result<void>> _act(
     Future<Result<void>> Function(AuditActor actor) action,
   ) async {

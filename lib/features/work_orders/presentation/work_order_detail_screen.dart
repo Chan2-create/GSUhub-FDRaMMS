@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/enums/account_status.dart';
+import '../../../core/enums/personnel_availability.dart';
 import '../../../core/enums/task_status.dart';
 import '../../../core/enums/work_order_status.dart';
 import '../../../core/routing/route_paths.dart';
@@ -205,12 +207,34 @@ class _DetailsCard extends ConsumerWidget {
           ),
           _Field(
             'Assigned to',
-            Text(
-              workOrder.assignedPersonnelIds
-                  .map((id) => names[id] ?? id)
-                  .join(', ')
-                  .ifEmpty('Nobody'),
-              style: AppTextStyles.fieldValue,
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                Text(
+                  workOrder.assignedPersonnelIds
+                      .map((id) => names[id] ?? id)
+                      .join(', ')
+                      .ifEmpty('Nobody'),
+                  style: AppTextStyles.fieldValue,
+                ),
+                // Open work only (Objective 7.A): work sent for review is
+                // the sign-off's to settle first.
+                if (MyWork.isOpen(workOrder.status))
+                  TextButton(
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (context) =>
+                          _ReassignDialog(workOrder: workOrder),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Reassign'),
+                  ),
+              ],
             ),
           ),
           _Field(
@@ -247,6 +271,131 @@ class _DetailsCard extends ConsumerWidget {
 
 extension on String {
   String ifEmpty(String fallback) => isEmpty ? fallback : this;
+}
+
+/// Hands open work to another technician (Objective 7.A; manuscript §3.4:
+/// "Modify report priorities and assignments when necessary"). No design
+/// covers it: a plain list of the active technicians, those of the work's
+/// trade first, then the least busy, as Task Assignment ranks them.
+class _ReassignDialog extends ConsumerStatefulWidget {
+  const _ReassignDialog({required this.workOrder});
+
+  final WorkOrder workOrder;
+
+  @override
+  ConsumerState<_ReassignDialog> createState() => _ReassignDialogState();
+}
+
+class _ReassignDialogState extends ConsumerState<_ReassignDialog> {
+  String? _chosen;
+  bool _busy = false;
+
+  static String _availability(PersonnelAvailability? availability) =>
+      switch (availability) {
+        PersonnelAvailability.available || null => 'Available',
+        PersonnelAvailability.busy => 'Busy',
+        PersonnelAvailability.onLeave => 'On leave',
+      };
+
+  Future<void> _save() async {
+    final chosen = _chosen;
+    if (chosen == null) return;
+    setState(() => _busy = true);
+    final result = await ref
+        .read(workOrderDetailControllerProvider)
+        .reassign(workOrderId: widget.workOrder.id, personnelId: chosen);
+    if (!mounted) return;
+    final name = ref.read(personnelNamesProvider)[chosen] ?? 'them';
+    if (result is Success) Navigator.of(context).pop();
+    setState(() => _busy = false);
+    _report(context, result, 'Reassigned to $name. They have been told.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final workOrder = widget.workOrder;
+    final people = switch (ref.watch(personnelStreamProvider)) {
+      AsyncData(value: Success(:final value)) =>
+        [
+          for (final person in value)
+            if (person.accountStatus == AccountStatus.active &&
+                !workOrder.assignedPersonnelIds.contains(person.id))
+              person,
+        ]..sort((a, b) {
+          final trade =
+              (b.specialization == workOrder.category ? 1 : 0) -
+              (a.specialization == workOrder.category ? 1 : 0);
+          if (trade != 0) return trade;
+          final load = a.activeTaskCount.compareTo(b.activeTaskCount);
+          return load != 0 ? load : a.fullName.compareTo(b.fullName);
+        }),
+      _ => null,
+    };
+
+    return AlertDialog(
+      title: const Text('Reassign this work order'),
+      content: SizedBox(
+        width: 460,
+        child: switch (people) {
+          null => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          [] => const Text(
+            'No other active technician can take it.',
+            style: AppTextStyles.bodySmall,
+          ),
+          final people => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Its unfinished tasks go with it. The requestor, the new '
+                'technician and the one it is taken from are told.',
+                style: AppTextStyles.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: RadioGroup<String>(
+                  groupValue: _chosen,
+                  onChanged: (id) => setState(() => _chosen = id),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final person in people)
+                        RadioListTile<String>(
+                          value: person.id,
+                          title: Text(person.fullName),
+                          subtitle: Text(
+                            [
+                              person.specialization?.label ?? 'No trade set',
+                              _availability(person.availability),
+                              '${person.activeTaskCount} open '
+                                  'work order${person.activeTaskCount == 1 ? '' : 's'}',
+                            ].join(' · '),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy || _chosen == null ? null : _save,
+          child: Text(_busy ? 'Saving…' : 'Reassign'),
+        ),
+      ],
+    );
+  }
 }
 
 /// The note shown at the top of the work order on the technician's phone.

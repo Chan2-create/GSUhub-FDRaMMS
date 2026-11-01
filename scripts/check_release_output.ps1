@@ -1,12 +1,16 @@
 <#
 .SYNOPSIS
-  Fails if a release build still points at the Firebase emulators.
+  Fails if a release build still points at the Firebase emulators or the
+  local Supabase stack.
 
 .DESCRIPTION
   Checks a built web folder (-WebDir) or Android APKs (-Apk) for:
     - 127.0.0.1 or 10.0.2.2 anywhere;
     - an emulator port in host:port form (:8080 Firestore, :9099 Auth,
       :9199 Storage);
+    - a local Supabase port in host:port form (:54321 API, :54322
+      database), so an APK built against http://localhost:54321 fails
+      too, which its "localhost" alone could not show;
   and confirms the live project id from lib/firebase_options.dart was
   compiled in. Then, by build type:
 
@@ -49,7 +53,11 @@ $allowedLocalhost = 'location\.hostname,"localhost"'
 $forbidden = @(
   @{ Name = 'loopback address 127.0.0.1'; Pattern = '127\.0\.0\.1' },
   @{ Name = 'Android emulator host 10.0.2.2'; Pattern = '10\.0\.2\.2' },
-  @{ Name = 'emulator port (:8080, :9099, :9199)'; Pattern = ':(8080|9099|9199)(?!\d)' }
+  @{ Name = 'emulator port (:8080, :9099, :9199)'; Pattern = ':(8080|9099|9199)(?!\d)' },
+  # The local Supabase stack's API and database (Objective 1): a release
+  # build reads the hosted project, never these. A normal release build
+  # holds neither (checked 2026-10-17), so this cannot false-alarm.
+  @{ Name = 'local Supabase port (:54321, :54322)'; Pattern = ':(54321|54322)(?!\d)' }
 )
 # Only in an APK: the FlutterFire calls that point the app at the emulators.
 $forbiddenInApk = @(

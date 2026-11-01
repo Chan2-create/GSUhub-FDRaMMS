@@ -69,6 +69,9 @@ Work proceeds objective by objective against the project WBS.
 | 6.A | Inventory Management page (Figure 15): materials, unit costs, deliveries, stock counts, stock history, low-stock alerts | Complete |
 | 6.B | Tools: check out, check in, repair, retire; technicians' material requests and pre-assigned materials | Complete |
 | 6.C | QR codes and printable labels for materials, tools, rooms and equipment; Facilities & Equipment page; Most Used Materials and the inventory CSV | Complete |
+| 7.A | Integration: the console's notification centre and the administrator's notices; reassigning a work order; Settings for the priority weights, score bands and duplicate rules; data models free of Firebase types; one script to run the whole system locally | Complete |
+| 7.B | Testing and fixes: the Kanban board can no longer skip the sign-off; functional, database, end-to-end and release checks; the test plan and a usability checklist (docs/testing.md) | Complete; usability testing with users is the team's (docs/testing.md) |
+| 7.C | Documentation, deployment and the final presentation: docs/architecture_decisions.md §22, the demo script (docs/demo_script.md), going live (docs/manual_deploy.md) | Complete; the data flow diagrams' update and the diagrams' second stage wait for approval |
 
 The administrator console has working screens for every 2.x objective:
 the dashboard, damage reports and their detail view, task assignment,
@@ -94,6 +97,16 @@ the tools and who has them, and the technicians' requests for more
 materials. Facilities & Equipment registers the rooms and equipment, and
 every material, tool, room and piece of equipment prints its QR label
 (6.C).
+
+Objective 7 joins the three apps up. The console's Notifications page
+(the sidebar item and the top bar's bell) tells the administrator of new
+reports, work started, work waiting for sign-off, materials requested,
+stock at its minimum and sign-ups to approve. A work order's page can
+hand open work to another technician. Settings also holds the priority
+weights, score bands and Frequency hint, and the duplicate rules. The
+Kanban board starts work, and sends work waiting for sign-off to its
+accomplishment report: completing it is the sign-off's alone.
+`tool\run_local.cmd` runs the whole system on one machine.
 
 ## Setup
 
@@ -123,6 +136,16 @@ from the **local Supabase stack** by default. `gsuhub-dorsu` is the
 project the team demos from, so reaching the live projects from a debug
 build takes explicit flags. Docker Desktop must be running for the local
 stack. The full walkthrough is [`docs/local_setup.md`](docs/local_setup.md).
+
+One command does all of it on Windows (Objective 7.A): the stack, the
+Auth emulator in its own window, the sign-in accounts, and the app in
+Edge with the stack's key.
+
+```powershell
+tool\run_local.cmd            # -Server: serve at http://localhost:5556; -Reseed: demo data again; -Stop
+```
+
+By hand, step by step:
 
 ```bash
 npx supabase start                    # the database, photos, realtime, the token exchange
@@ -173,6 +196,9 @@ cd tool/sql_tests && npm install && node run.mjs   # the same, without Docker
 
 `test/e2e` drives the three main flows against the local stack; it runs
 with `SUPABASE_E2E=1` set. See [`supabase/README.md`](supabase/README.md).
+What each test set proves, which manuscript requirement each covers,
+and the usability checklist for the team's own testing with users are
+in [`docs/testing.md`](docs/testing.md).
 
 ## First administrator account
 
@@ -236,6 +262,8 @@ the reason a backend swap would touch the DI files and nothing else.
 | [`docs/local_setup.md`](docs/local_setup.md) | The Auth emulator and the local Supabase stack |
 | [`supabase/README.md`](supabase/README.md) | The database: how a write works, the tests, the demo data |
 | [`docs/manual_deploy.md`](docs/manual_deploy.md) | Setting up the hosted Supabase project and moving the data, automatic web deploys to Vercel and their secrets, building the release APK |
+| [`docs/testing.md`](docs/testing.md) | The test plan: each requirement and the tests that prove it, how to run them, and the usability checklist (Objective 7.B) |
+| [`docs/demo_script.md`](docs/demo_script.md) | The final presentation's walkthrough, account by account (Objective 7.C) |
 | [`docs/git_workflow.md`](docs/git_workflow.md) | Branches, commit conventions, PR process |
 
 ## Contributing

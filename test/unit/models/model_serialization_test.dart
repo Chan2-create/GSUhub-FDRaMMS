@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/inventory_transaction_type.dart';
@@ -35,7 +35,7 @@ import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
 import '../../support/firestore_round_trip.dart';
 
-/// `toFirestore()` -> Firestore -> `fromFirestore()` -> equal object, for
+/// `toFields()` -> Firestore -> `fromRecord()` -> equal object, for
 /// every model.
 ///
 /// These catch the failure mode that matters most in a schema layer: a
@@ -67,10 +67,10 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.users,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
 
-      expect(AppUser.fromFirestore(doc), original);
+      expect(AppUser.fromRecord(doc), original);
     });
 
     test('Facility', () async {
@@ -80,7 +80,10 @@ void main() {
         buildingName: 'Engineering Building',
         roomIdentifier: 'Room 101',
         locationDescription: '1st Floor, East Wing',
-        coordinates: const GeoPoint(7.2048, 126.5354),
+        coordinates: const GeoCoordinates(
+          latitude: 7.2048,
+          longitude: 126.5354,
+        ),
         qrCode: 'FAC-ENG-101',
         isActive: true,
         createdAt: createdAt,
@@ -90,12 +93,15 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.facilities,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
 
-      final restored = Facility.fromFirestore(doc);
+      final restored = Facility.fromRecord(doc);
       expect(restored, original);
-      expect(restored.coordinates, const GeoPoint(7.2048, 126.5354));
+      expect(
+        restored.coordinates,
+        const GeoCoordinates(latitude: 7.2048, longitude: 126.5354),
+      );
     });
 
     test('Asset', () async {
@@ -116,10 +122,10 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.assets,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
 
-      expect(Asset.fromFirestore(doc), original);
+      expect(Asset.fromRecord(doc), original);
     });
 
     test('DamageReport with every optional field populated', () async {
@@ -135,7 +141,10 @@ void main() {
         facilityName: 'Engineering Building',
         locationDescription: 'Room 204',
         assetId: 'asset-9',
-        coordinates: const GeoPoint(7.2048, 126.5354),
+        coordinates: const GeoCoordinates(
+          latitude: 7.2048,
+          longitude: 126.5354,
+        ),
         photoUrls: const ['https://example.test/a.jpg'],
         requestorPriority: PriorityLevel.high,
         severityRating: 3,
@@ -157,10 +166,10 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.damageReports,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
 
-      expect(DamageReport.fromFirestore(doc), original);
+      expect(DamageReport.fromRecord(doc), original);
     });
 
     test('DamageReport with only required fields', () async {
@@ -179,9 +188,9 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.damageReports,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
-      final restored = DamageReport.fromFirestore(doc);
+      final restored = DamageReport.fromRecord(doc);
 
       expect(restored, original);
       expect(restored.category, isNull);
@@ -213,9 +222,9 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.workOrders,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
-      final restored = WorkOrder.fromFirestore(doc);
+      final restored = WorkOrder.fromRecord(doc);
 
       expect(restored, original);
       expect(restored.reportIds, ['rep-1', 'rep-7']);
@@ -239,10 +248,10 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.tasks,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
 
-      expect(MaintenanceTask.fromFirestore(doc), original);
+      expect(MaintenanceTask.fromRecord(doc), original);
     });
 
     test('AccomplishmentReport with embedded material usage', () async {
@@ -272,9 +281,9 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.accomplishmentReports,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
-      final restored = AccomplishmentReport.fromFirestore(doc);
+      final restored = AccomplishmentReport.fromRecord(doc);
 
       expect(restored, original);
       expect(restored.materialsUsed, hasLength(2));
@@ -300,9 +309,9 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.inventoryItems,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
-      final restored = InventoryItem.fromFirestore(doc);
+      final restored = InventoryItem.fromRecord(doc);
 
       expect(restored, original);
       expect(restored.isLowStock, isFalse);
@@ -327,10 +336,10 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.inventoryTransactions,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
 
-      expect(InventoryTransaction.fromFirestore(doc), original);
+      expect(InventoryTransaction.fromRecord(doc), original);
     });
 
     test('Tool', () async {
@@ -352,10 +361,10 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.tools,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
 
-      expect(Tool.fromFirestore(doc), original);
+      expect(Tool.fromRecord(doc), original);
     });
 
     test('ToolLoan, open and closed', () async {
@@ -373,9 +382,9 @@ void main() {
       final openDoc = await roundTrip(
         FirestorePaths.toolLoans,
         open.id,
-        open.toFirestore(),
+        open.toFields(),
       );
-      expect(ToolLoan.fromFirestore(openDoc), open);
+      expect(ToolLoan.fromRecord(openDoc), open);
       expect(open.isReturned, isFalse);
 
       final closed = open.copyWith(
@@ -385,9 +394,9 @@ void main() {
       final closedDoc = await roundTrip(
         FirestorePaths.toolLoans,
         closed.id,
-        closed.toFirestore(),
+        closed.toFields(),
       );
-      final restoredClosed = ToolLoan.fromFirestore(closedDoc);
+      final restoredClosed = ToolLoan.fromRecord(closedDoc);
 
       expect(restoredClosed, closed);
       expect(restoredClosed.isReturned, isTrue);
@@ -410,9 +419,9 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.feedback,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
-      final restored = ServiceFeedback.fromFirestore(doc);
+      final restored = ServiceFeedback.fromRecord(doc);
 
       expect(restored, original);
       expect(restored.responseTimeRating, 2);
@@ -437,10 +446,10 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.notifications,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
 
-      expect(AppNotification.fromFirestore(doc), original);
+      expect(AppNotification.fromRecord(doc), original);
     });
 
     test('AuditLogEntry', () async {
@@ -459,10 +468,10 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.auditLogs,
         original.id,
-        original.toFirestore(),
+        original.toFields(),
       );
 
-      expect(AuditLogEntry.fromFirestore(doc), original);
+      expect(AuditLogEntry.fromRecord(doc), original);
     });
 
     test('PrioritizationConfig keeps both weight schemes intact', () async {
@@ -474,9 +483,9 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.config,
         'prioritization',
-        original.toFirestore(),
+        original.toFields(),
       );
-      final restored = PrioritizationConfig.fromFirestore(doc);
+      final restored = PrioritizationConfig.fromRecord(doc);
 
       expect(restored, original);
       // Both conflicting schemes survive the round trip — neither is
@@ -494,9 +503,9 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.config,
         'prioritization',
-        original.toFirestore(),
+        original.toFields(),
       );
-      final restored = PrioritizationConfig.fromFirestore(doc);
+      final restored = PrioritizationConfig.fromRecord(doc);
 
       expect(restored, original);
       expect(restored.frequencyWindowDays, 14);
@@ -509,7 +518,7 @@ void main() {
           PrioritizationConfig.manuscriptDefaults(
               updatedAt: updatedAt,
               updatedBy: 'admin-1',
-            ).toFirestore()
+            ).toFields()
             ..remove('frequencyWindowDays')
             ..remove('frequencyBands');
 
@@ -518,7 +527,7 @@ void main() {
         'prioritization',
         data,
       );
-      final restored = PrioritizationConfig.fromFirestore(doc);
+      final restored = PrioritizationConfig.fromRecord(doc);
 
       expect(restored.frequencyWindowDays, 30);
       expect(restored.frequencyBands, [2, 3, 5]);
@@ -533,9 +542,9 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.config,
         'classification_rules',
-        original.toFirestore(),
+        original.toFields(),
       );
-      final restored = ClassificationRulesConfig.fromFirestore(doc);
+      final restored = ClassificationRulesConfig.fromRecord(doc);
 
       expect(restored, original);
       expect(
@@ -557,9 +566,9 @@ void main() {
       final doc = await roundTrip(
         FirestorePaths.config,
         'duplicate_detection',
-        original.toFirestore(),
+        original.toFields(),
       );
-      final restored = DuplicateDetectionConfig.fromFirestore(doc);
+      final restored = DuplicateDetectionConfig.fromRecord(doc);
 
       expect(restored, original);
       expect(restored.timeWindow, const Duration(hours: 72));

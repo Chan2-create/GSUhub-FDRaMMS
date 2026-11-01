@@ -1,14 +1,12 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'core/config/app_config.dart';
 import 'core/config/env.dart';
-import 'core/config/firebase_initializer.dart';
 import 'core/di/service_providers.dart';
 import 'core/services/firebase/fcm_notification_service.dart';
+import 'core/services/firebase/firebase_initializer.dart';
 import 'core/widgets/startup_error_screen.dart';
 
 Future<void> main() async {
@@ -63,14 +61,7 @@ Future<void> _startApp() async {
       runApp(StartupErrorScreen(failure: startup, onRetry: _startApp));
 
     case FirebaseStartupSuccess():
-      // Registered before runApp so a notification that cold-starts the
-      // app is not missed. Web has its own service worker
-      // (web/firebase-messaging-sw.js) and rejects this handler.
-      if (!kIsWeb) {
-        FirebaseMessaging.onBackgroundMessage(
-          firebaseMessagingBackgroundHandler,
-        );
-      }
+      registerBackgroundMessageHandler();
 
       runApp(
         ProviderScope(

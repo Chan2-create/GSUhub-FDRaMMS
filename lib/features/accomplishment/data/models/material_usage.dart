@@ -1,4 +1,4 @@
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// One material line item inside an accomplishment report — an embedded
 /// value object, not its own collection.
@@ -16,8 +16,8 @@ class MaterialUsage {
     required this.quantityUsed,
     required this.unitOfMeasurement,
   }) {
-    FirestoreConverters.validateNotBlank(inventoryItemId, 'inventoryItemId');
-    FirestoreConverters.validateNotBlank(itemName, 'itemName');
+    RecordConverters.validateNotBlank(inventoryItemId, 'inventoryItemId');
+    RecordConverters.validateNotBlank(itemName, 'itemName');
     if (quantityUsed <= 0) {
       throw ArgumentError.value(
         quantityUsed,
@@ -28,16 +28,13 @@ class MaterialUsage {
   }
 
   factory MaterialUsage.fromMap(Map<String, dynamic> data) => MaterialUsage(
-    inventoryItemId: FirestoreConverters.require<String>(
-      data,
-      'inventoryItemId',
-    ),
-    itemName: FirestoreConverters.require<String>(data, 'itemName'),
-    quantityUsed: FirestoreConverters.require<num>(
+    inventoryItemId: RecordConverters.require<String>(data, 'inventoryItemId'),
+    itemName: RecordConverters.require<String>(data, 'itemName'),
+    quantityUsed: RecordConverters.require<num>(
       data,
       'quantityUsed',
     ).toDouble(),
-    unitOfMeasurement: FirestoreConverters.require<String>(
+    unitOfMeasurement: RecordConverters.require<String>(
       data,
       'unitOfMeasurement',
     ),

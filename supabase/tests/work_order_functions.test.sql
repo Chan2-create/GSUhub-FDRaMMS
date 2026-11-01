@@ -3,7 +3,7 @@
 
 begin;
 select tests.create_fixtures();
-select plan(37);
+select plan(36);
 
 insert into public.damage_reports (id, reporter_id, reporter_name, title, description, requestor_priority, status,
   category, official_priority, facility_id, facility_name, location_description) values
@@ -156,36 +156,30 @@ select is(
 
 select is(
   tests.error_of('u-admin', $$select public.set_work_order_status('w-2', 'completed')$$),
-  'A work order cannot move from Pending to Completed.',
-  'an administrator cannot skip the lifecycle'
-);
-update public.users set active_task_count = 1 where id = 'u-tech';
-select is(
-  tests.attempt('u-admin', $$select public.set_work_order_status('w-1', 'forReview')$$)
-    || tests.attempt('u-admin', $$select public.set_work_order_status('w-1', 'completed')$$),
-  'okok',
-  'an administrator signs work off'
+  'Sign off the accomplishment report to complete this work order.',
+  'an administrator cannot complete work by moving it (7.B)'
 );
 select is(
-  (select array[w.status, (w.completed_at is not null)::text, r.status]
-     from public.work_orders w join public.damage_reports r on r.id = 'r-1' where w.id = 'w-1'),
-  array['completed', 'true', 'completed'],
-  '…the report is completed with it'
+  tests.error_of('u-admin', $$select public.set_work_order_status('w-1', 'forReview')$$),
+  'Work goes to For Review when its technician submits the accomplishment report.',
+  'nor send it for review: the technician does, with the accomplishment report'
+);
+update public.work_orders set status = 'forReview' where id = 'w-1';
+update public.damage_reports set status = 'forReview' where id = 'r-1';
+select is(
+  tests.error_of('u-admin', $$select public.set_work_order_status('w-1', 'completed')$$),
+  'Sign off the accomplishment report to complete this work order.',
+  'work for review is completed only by signing off its report'
 );
 select is(
-  (select string_agg(id || ':' || active_task_count, ',' order by id) from public.users where id in ('u-tech', 'u-tech-off')),
-  'u-tech:0,u-tech-off:0',
-  '…and the job stops counting against whoever held it, never below zero'
+  tests.error_of('u-admin', $$select public.set_work_order_status('w-1', 'inProgress')$$),
+  'Send the work back from its accomplishment report, with a note for the technician.',
+  '…and sent back only from it'
 );
 select is(
-  (select body from public.notifications where related_entity_id = 'r-1' and title = 'Work completed'),
-  'The work on your report "Flickering lights" is complete. Open it to rate the service.',
-  '…and the requestor is asked to rate it'
-);
-select is(
-  (select description from public.audit_logs where entity_id = 'w-1' order by "timestamp" desc, description limit 1),
-  'Status changed from For Review to Completed',
-  'each move is audited'
+  (select array[w.status, r.status] from public.work_orders w join public.damage_reports r on r.id = 'r-1' where w.id = 'w-1'),
+  array['forReview', 'forReview'],
+  '…so neither moved'
 );
 
 -- A report that cannot follow its work order stops the move.

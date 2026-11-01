@@ -174,13 +174,17 @@ class FakeNotificationRepository implements NotificationRepository {
   Stream<Result<List<AppNotification>>> watchForUser(
     String userId, {
     bool unreadOnly = false,
+    int limit = 100,
   }) {
     if (failure case final failure?) {
       return Stream.value(Result.failure(failure));
     }
     return _live(
       () => Result.success(
-        _forUser(userId).where((n) => !unreadOnly || !n.isRead).toList(),
+        _forUser(userId)
+            .where((n) => !unreadOnly || !n.isRead)
+            .take(limit)
+            .toList(),
       ),
     );
   }

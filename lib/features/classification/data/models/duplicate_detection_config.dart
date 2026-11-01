@@ -1,6 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/data/data_record.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// The `config/duplicate_detection` document — tunable parameters for
 /// flagging potential duplicate reports.
@@ -36,7 +35,7 @@ class DuplicateDetectionConfig {
     this.matchOnLocation = true,
     this.matchOnCategory = true,
   }) {
-    FirestoreConverters.validateRange(
+    RecordConverters.validateRange(
       descriptionSimilarityThreshold,
       0.0,
       1.0,
@@ -51,32 +50,24 @@ class DuplicateDetectionConfig {
     }
   }
 
-  factory DuplicateDetectionConfig.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory DuplicateDetectionConfig.fromRecord(DataRecord record) {
+    final data = record.fields;
     return DuplicateDetectionConfig(
-      enabled: FirestoreConverters.require<bool>(data, 'enabled'),
-      descriptionSimilarityThreshold: FirestoreConverters.require<num>(
+      enabled: RecordConverters.require<bool>(data, 'enabled'),
+      descriptionSimilarityThreshold: RecordConverters.require<num>(
         data,
         'descriptionSimilarityThreshold',
       ).toDouble(),
-      timeWindowHours: FirestoreConverters.require<int>(
-        data,
-        'timeWindowHours',
-      ),
+      timeWindowHours: RecordConverters.require<int>(data, 'timeWindowHours'),
       matchOnFacilityIdentifier:
-          FirestoreConverters.optional<bool>(
-            data,
-            'matchOnFacilityIdentifier',
-          ) ??
+          RecordConverters.optional<bool>(data, 'matchOnFacilityIdentifier') ??
           true,
       matchOnLocation:
-          FirestoreConverters.optional<bool>(data, 'matchOnLocation') ?? true,
+          RecordConverters.optional<bool>(data, 'matchOnLocation') ?? true,
       matchOnCategory:
-          FirestoreConverters.optional<bool>(data, 'matchOnCategory') ?? true,
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
-      updatedBy: FirestoreConverters.require<String>(data, 'updatedBy'),
+          RecordConverters.optional<bool>(data, 'matchOnCategory') ?? true,
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
+      updatedBy: RecordConverters.require<String>(data, 'updatedBy'),
     );
   }
 
@@ -123,14 +114,14 @@ class DuplicateDetectionConfig {
   /// The time window as a [Duration], for query construction.
   Duration get timeWindow => Duration(hours: timeWindowHours);
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'enabled': enabled,
     'matchOnFacilityIdentifier': matchOnFacilityIdentifier,
     'matchOnLocation': matchOnLocation,
     'matchOnCategory': matchOnCategory,
     'descriptionSimilarityThreshold': descriptionSimilarityThreshold,
     'timeWindowHours': timeWindowHours,
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'updatedAt': updatedAt,
     'updatedBy': updatedBy,
   };
 

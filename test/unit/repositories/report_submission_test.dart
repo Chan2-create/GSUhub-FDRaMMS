@@ -9,6 +9,7 @@ import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
 
 import '../../support/fake_firestore_repositories.dart';
+import '../../support/firestore_backend/core/data/firestore_records.dart';
 
 /// Filing a report from the mobile form (Objective 3.C): one transaction
 /// that writes the report and its audit entry, and that a retry cannot
@@ -189,7 +190,7 @@ void main() {
     );
 
     expect(result.isFailure, isTrue);
-    final kept = DamageReport.fromFirestore(
+    final kept = fromDoc(DamageReport.fromRecord)(
       await harness.firestore
           .collection(FirestorePaths.damageReports)
           .doc('rep-existing')

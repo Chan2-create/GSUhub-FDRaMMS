@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -131,7 +132,8 @@ class _Grouped extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    // Through package:clock, so a test can say what time it is.
+    final now = clock.now();
     final today = DateTime(now.year, now.month, now.day);
     final todays = <AppNotification>[];
     final earlier = <AppNotification>[];
@@ -179,9 +181,16 @@ class _AlertCard extends ConsumerWidget {
         Icons.person_outline,
         unread ? AppColors.linkIndigo : AppColors.warmMuted,
       ),
+      // The administrator's types never reach a phone; listed so the
+      // switch stays exhaustive.
       NotificationType.reportAcknowledged ||
       NotificationType.statusUpdate ||
-      NotificationType.lowStockAlert => (
+      NotificationType.lowStockAlert ||
+      NotificationType.reportSubmitted ||
+      NotificationType.workStarted ||
+      NotificationType.reviewRequested ||
+      NotificationType.materialsRequested ||
+      NotificationType.accountRequested => (
         Icons.notifications_none,
         unread ? AppColors.trackingAccentText : AppColors.warmMuted,
       ),

@@ -11,6 +11,7 @@ import 'package:gsuhub/features/inventory/data/models/inventory_item_draft.dart'
 import 'package:gsuhub/features/inventory/data/models/inventory_transaction.dart';
 import 'package:gsuhub/features/inventory/data/repositories/inventory_repository.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../../core/data/qr_codes.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
@@ -35,13 +36,13 @@ class FirestoreInventoryRepository extends FirestoreRepository
 
   @override
   Future<Result<InventoryItem>> getItemById(String id) =>
-      getOne(path: _items, id: id, convert: InventoryItem.fromFirestore);
+      getOne(path: _items, id: id, convert: fromDoc(InventoryItem.fromRecord));
 
   @override
   Future<Result<InventoryItem>> getItemByQrCode(String qrCode) async {
     final matches = await getMany(
       query: collection(_items).where('qrCode', isEqualTo: qrCode).limit(1),
-      convert: InventoryItem.fromFirestore,
+      convert: fromDoc(InventoryItem.fromRecord),
     );
 
     return matches.fold(
@@ -62,13 +63,16 @@ class FirestoreInventoryRepository extends FirestoreRepository
     }
     return watchMany(
       query: query.orderBy('name'),
-      convert: InventoryItem.fromFirestore,
+      convert: fromDoc(InventoryItem.fromRecord),
     );
   }
 
   @override
-  Stream<Result<InventoryItem>> watchItem(String id) =>
-      watchOne(path: _items, id: id, convert: InventoryItem.fromFirestore);
+  Stream<Result<InventoryItem>> watchItem(String id) => watchOne(
+    path: _items,
+    id: id,
+    convert: fromDoc(InventoryItem.fromRecord),
+  );
 
   @override
   Stream<Result<List<InventoryItem>>> watchLowStockItems() =>
@@ -80,7 +84,7 @@ class FirestoreInventoryRepository extends FirestoreRepository
       // transaction that moves stock.
       watchMany(
         query: collection(_items),
-        convert: InventoryItem.fromFirestore,
+        convert: fromDoc(InventoryItem.fromRecord),
       ).map(
         (result) =>
             result.map((items) => items.where((i) => i.isLowStock).toList()),
@@ -236,7 +240,7 @@ class FirestoreInventoryRepository extends FirestoreRepository
           'This material is no longer in the inventory.',
         );
       }
-      final item = InventoryItem.fromFirestore(snapshot);
+      final item = fromDoc(InventoryItem.fromRecord)(snapshot);
       final before = item.quantityAvailable;
       if (countedQuantity == before) {
         throw FirestoreRepository.precondition(
@@ -290,7 +294,7 @@ class FirestoreInventoryRepository extends FirestoreRepository
         );
       }
 
-      final item = InventoryItem.fromFirestore(snapshot);
+      final item = fromDoc(InventoryItem.fromRecord)(snapshot);
       final before = item.quantityAvailable;
       // The new balance is computed from the value read *inside* this
       // transaction, never from anything the caller supplied — that is
@@ -333,7 +337,7 @@ class FirestoreInventoryRepository extends FirestoreRepository
         .where('inventoryItemId', isEqualTo: inventoryItemId)
         .orderBy('performedAt', descending: true)
         .limit(limit),
-    convert: InventoryTransaction.fromFirestore,
+    convert: fromDoc(InventoryTransaction.fromRecord),
   );
 
   @override
@@ -346,7 +350,7 @@ class FirestoreInventoryRepository extends FirestoreRepository
           isGreaterThanOrEqualTo: Timestamp.fromDate(since.toUtc()),
         )
         .orderBy('performedAt', descending: true),
-    convert: InventoryTransaction.fromFirestore,
+    convert: fromDoc(InventoryTransaction.fromRecord),
   );
 
   @override
@@ -358,7 +362,7 @@ class FirestoreInventoryRepository extends FirestoreRepository
         .where('inventoryItemId', isEqualTo: inventoryItemId)
         .orderBy('performedAt', descending: true)
         .limit(limit),
-    convert: InventoryTransaction.fromFirestore,
+    convert: fromDoc(InventoryTransaction.fromRecord),
   );
 
   @override
@@ -368,7 +372,7 @@ class FirestoreInventoryRepository extends FirestoreRepository
     query: collection(_transactions)
         .where('workOrderId', isEqualTo: workOrderId)
         .orderBy('performedAt', descending: true),
-    convert: InventoryTransaction.fromFirestore,
+    convert: fromDoc(InventoryTransaction.fromRecord),
   );
 
   /// Writes one ledger entry, stamped with server time, and returns it as
@@ -403,7 +407,7 @@ class FirestoreInventoryRepository extends FirestoreRepository
       performedAt: DateTime.now().toUtc(),
     );
     transaction.set(ledgerRef, {
-      ...entry.toFirestore(),
+      ...entry.toFields().forFirestore,
       'performedAt': FirestoreRepository.serverNow,
     });
     return entry;

@@ -9,6 +9,7 @@ import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
 import 'package:gsuhub/features/reporting/data/models/status_change.dart';
 
 import '../../support/fake_firestore_repositories.dart';
+import '../../support/firestore_backend/core/data/firestore_records.dart';
 
 /// The status history behind the requestor's timeline (Objective 3.B):
 /// every move a repository makes writes one entry in the same transaction,
@@ -164,7 +165,7 @@ void main() {
           personnelSpecialization: status == ReportStatus.approved
               ? DamageCategory.plumbing
               : null,
-        ).toFirestore(),
+        ).toFields().forFirestore,
       );
     }
 

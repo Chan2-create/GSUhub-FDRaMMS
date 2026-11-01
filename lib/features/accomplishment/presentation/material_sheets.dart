@@ -24,19 +24,23 @@ Future<void> showRecordMaterialSheet(
   String? workOrderId,
   InventoryItem? item,
   double? current,
-}) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
-  builder: (context) => Padding(
-    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-    child: _RecordMaterialSheet(
-      workOrderId: workOrderId,
-      item: item,
-      current: current,
+}) {
+  // A message still showing would sit over the sheet (Objective 7.B).
+  ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: _RecordMaterialSheet(
+        workOrderId: workOrderId,
+        item: item,
+        current: current,
+      ),
     ),
-  ),
-);
+  );
+}
 
 class _RecordMaterialSheet extends ConsumerStatefulWidget {
   const _RecordMaterialSheet({
@@ -338,8 +342,17 @@ class _WorkOrderPicker extends ConsumerWidget {
         style: AppTextStyles.personnelCardBody,
       );
     }
+    // With one open work order there is nothing to choose: it is chosen,
+    // and still shown, so the technician sees which (Objective 7.B).
+    final chosen = value ?? (open.length == 1 ? open.single.id : null);
+    if (value == null && chosen != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => onChanged(chosen));
+    }
     return DropdownButtonFormField<String>(
-      initialValue: value,
+      // Rebuilt when the choice changes from outside, as the preselection
+      // above does: the field otherwise keeps its first value.
+      key: ValueKey(chosen),
+      initialValue: chosen,
       isExpanded: true,
       decoration: const InputDecoration(
         labelText: 'Work order',

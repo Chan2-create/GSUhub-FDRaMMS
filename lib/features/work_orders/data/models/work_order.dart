@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 
 import '../../../../core/constants/damage_categories.dart';
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/priority_level.dart';
 import '../../../../core/enums/work_order_status.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A `work_orders` document — "an official maintenance task generated
 /// within the GSUhub system based on validated facility damage reports"
@@ -42,45 +42,45 @@ class WorkOrder {
         'A work order must originate from at least one damage report',
       );
     }
-    FirestoreConverters.validateNotBlank(title, 'title');
-    FirestoreConverters.validateNotBlank(createdBy, 'createdBy');
+    RecordConverters.validateNotBlank(title, 'title');
+    RecordConverters.validateNotBlank(createdBy, 'createdBy');
   }
 
-  factory WorkOrder.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory WorkOrder.fromRecord(DataRecord record) {
+    final data = record.fields;
     return WorkOrder(
-      id: doc.id,
-      reportIds: FirestoreConverters.stringList(data, 'reportIds'),
-      title: FirestoreConverters.require<String>(data, 'title'),
-      description: FirestoreConverters.require<String>(data, 'description'),
-      category: FirestoreConverters.requireEnum(
+      id: record.id,
+      reportIds: RecordConverters.stringList(data, 'reportIds'),
+      title: RecordConverters.require<String>(data, 'title'),
+      description: RecordConverters.require<String>(data, 'description'),
+      category: RecordConverters.requireEnum(
         data,
         'category',
         DamageCategory.fromId,
       ),
-      priority: FirestoreConverters.requireEnum(
+      priority: RecordConverters.requireEnum(
         data,
         'priority',
         PriorityLevel.fromId,
       ),
-      status: FirestoreConverters.requireEnum(
+      status: RecordConverters.requireEnum(
         data,
         'status',
         WorkOrderStatus.fromId,
       ),
-      assignedPersonnelIds: FirestoreConverters.stringList(
+      assignedPersonnelIds: RecordConverters.stringList(
         data,
         'assignedPersonnelIds',
       ),
-      facilityId: FirestoreConverters.optional<String>(data, 'facilityId'),
-      facilityName: FirestoreConverters.optional<String>(data, 'facilityName'),
-      adminNotes: FirestoreConverters.optional<String>(data, 'adminNotes'),
-      scheduledFor: FirestoreConverters.optionalDate(data, 'scheduledFor'),
-      startedAt: FirestoreConverters.optionalDate(data, 'startedAt'),
-      completedAt: FirestoreConverters.optionalDate(data, 'completedAt'),
-      createdBy: FirestoreConverters.require<String>(data, 'createdBy'),
-      createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
+      facilityId: RecordConverters.optional<String>(data, 'facilityId'),
+      facilityName: RecordConverters.optional<String>(data, 'facilityName'),
+      adminNotes: RecordConverters.optional<String>(data, 'adminNotes'),
+      scheduledFor: RecordConverters.optionalDate(data, 'scheduledFor'),
+      startedAt: RecordConverters.optionalDate(data, 'startedAt'),
+      completedAt: RecordConverters.optionalDate(data, 'completedAt'),
+      createdBy: RecordConverters.require<String>(data, 'createdBy'),
+      createdAt: RecordConverters.requireDate(data, 'createdAt'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
     );
   }
 
@@ -150,7 +150,7 @@ class WorkOrder {
     return moment.toLocal().isAfter(endOfTargetDay);
   }
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'reportIds': reportIds,
     'title': title,
     'description': description,
@@ -161,16 +161,12 @@ class WorkOrder {
     'facilityId': facilityId,
     'facilityName': facilityName,
     'adminNotes': adminNotes,
-    'scheduledFor': scheduledFor == null
-        ? null
-        : Timestamp.fromDate(scheduledFor!),
-    'startedAt': startedAt == null ? null : Timestamp.fromDate(startedAt!),
-    'completedAt': completedAt == null
-        ? null
-        : Timestamp.fromDate(completedAt!),
+    'scheduledFor': scheduledFor,
+    'startedAt': startedAt,
+    'completedAt': completedAt,
     'createdBy': createdBy,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
   };
 
   WorkOrder copyWith({

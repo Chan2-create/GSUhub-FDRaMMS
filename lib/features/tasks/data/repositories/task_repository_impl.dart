@@ -38,7 +38,7 @@ class TaskRepositoryImpl extends SupabaseRepository implements TaskRepository {
 
   @override
   Future<Result<MaintenanceTask>> getById(String id) =>
-      getOne(table: _table, id: id, convert: MaintenanceTask.fromFirestore);
+      getOne(table: _table, id: id, convert: MaintenanceTask.fromRecord);
 
   @override
   Stream<Result<List<MaintenanceTask>>> watchByWorkOrder(String workOrderId) =>
@@ -47,7 +47,7 @@ class TaskRepositoryImpl extends SupabaseRepository implements TaskRepository {
             .from(_table)
             .stream(primaryKey: const ['id'])
             .eq('work_order_id', workOrderId),
-        convert: MaintenanceTask.fromFirestore,
+        convert: MaintenanceTask.fromRecord,
       ).map((result) => result.map(sorted));
 
   /// A task stays with the technician it was given to, so a stream
@@ -59,7 +59,7 @@ class TaskRepositoryImpl extends SupabaseRepository implements TaskRepository {
             .from(_table)
             .stream(primaryKey: const ['id'])
             .eq('assigned_to', personnelId),
-        convert: MaintenanceTask.fromFirestore,
+        convert: MaintenanceTask.fromRecord,
       ).map((result) => result.map(sorted));
 
   @override

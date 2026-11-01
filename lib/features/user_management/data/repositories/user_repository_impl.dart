@@ -21,25 +21,25 @@ class UserRepositoryImpl extends SupabaseRepository implements UserRepository {
 
   @override
   Future<Result<AppUser>> getById(String uid) =>
-      getOne(table: _table, id: uid, convert: AppUser.fromFirestore);
+      getOne(table: _table, id: uid, convert: AppUser.fromRecord);
 
   @override
   Stream<Result<AppUser>> watchById(String uid) =>
-      watchOne(table: _table, id: uid, convert: AppUser.fromFirestore);
+      watchOne(table: _table, id: uid, convert: AppUser.fromRecord);
 
   @override
   Future<Result<List<AppUser>>> getAll({UserRole? role}) {
     final query = client.from(_table).select();
     return getMany(
       query: role == null ? query : query.eq('role', role.id),
-      convert: AppUser.fromFirestore,
+      convert: AppUser.fromRecord,
     );
   }
 
   @override
   Stream<Result<List<AppUser>>> watchAll() => watchMany(
     stream: client.from(_table).stream(primaryKey: const ['id']),
-    convert: AppUser.fromFirestore,
+    convert: AppUser.fromRecord,
   );
 
   @override
@@ -57,7 +57,7 @@ class UserRepositoryImpl extends SupabaseRepository implements UserRepository {
     if (availability != null) {
       query = query.eq('availability', availability.id);
     }
-    return getMany(query: query, convert: AppUser.fromFirestore);
+    return getMany(query: query, convert: AppUser.fromRecord);
   }
 
   @override

@@ -5,6 +5,7 @@ import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
 import 'package:gsuhub/features/audit/data/repositories/audit_log_repository.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 
 /// Firestore-backed [AuditLogRepository].
@@ -22,7 +23,7 @@ class FirestoreAuditLogRepository extends FirestoreRepository
 
   @override
   Future<Result<String>> record(AuditLogEntry entry) =>
-      add(path: _path, data: entry.toFirestore());
+      add(path: _path, data: entry.toFields().forFirestore);
 
   @override
   Future<Result<List<AuditLogEntry>>> getForEntity({
@@ -35,7 +36,7 @@ class FirestoreAuditLogRepository extends FirestoreRepository
         .where('entityId', isEqualTo: entityId)
         .orderBy('timestamp', descending: true)
         .limit(limit),
-    convert: AuditLogEntry.fromFirestore,
+    convert: fromDoc(AuditLogEntry.fromRecord),
   );
 
   @override
@@ -47,7 +48,7 @@ class FirestoreAuditLogRepository extends FirestoreRepository
         .where('actorId', isEqualTo: actorId)
         .orderBy('timestamp', descending: true)
         .limit(limit),
-    convert: AuditLogEntry.fromFirestore,
+    convert: fromDoc(AuditLogEntry.fromRecord),
   );
 
   @override
@@ -79,7 +80,7 @@ class FirestoreAuditLogRepository extends FirestoreRepository
 
     return getMany(
       query: built.orderBy('timestamp', descending: true).limit(limit),
-      convert: AuditLogEntry.fromFirestore,
+      convert: fromDoc(AuditLogEntry.fromRecord),
     );
   }
 }

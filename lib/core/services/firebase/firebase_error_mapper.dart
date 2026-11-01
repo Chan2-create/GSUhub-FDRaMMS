@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 
-import 'failures.dart';
+import '../../errors/failures.dart';
 
 /// Translates Firebase's untyped, string-coded errors into the typed
 /// [Failure] hierarchy the rest of the app understands.

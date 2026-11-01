@@ -156,6 +156,18 @@ void main() {
         find.text('Report submitted. GSU will review it and sign it off.'),
         findsOneWidget,
       );
+
+      // The technician can read back what they filed, and where its
+      // review stands (Objective 7.B: "view accomplishment reports").
+      await reveal(tester, find.text('Accomplishment Report'));
+      expect(
+        find.textContaining('Waiting for GSU to sign it off.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Replaced the ballast and tested every tube.'),
+        findsOneWidget,
+      );
     });
   });
 
@@ -174,10 +186,14 @@ void main() {
 
       await tester.tap(find.text('Record use on a work order'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Work order'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.textContaining('Flickering lights').last);
-      await tester.pumpAndSettle();
+      // The technician's only open work order is already chosen (7.B).
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.textContaining('Flickering lights'),
+        ),
+        findsOneWidget,
+      );
       await tester.enterText(
         find.widgetWithText(TextField, 'Quantity used'),
         '3',

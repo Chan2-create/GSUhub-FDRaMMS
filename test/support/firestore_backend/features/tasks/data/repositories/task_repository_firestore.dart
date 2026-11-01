@@ -12,6 +12,7 @@ import 'package:gsuhub/features/tasks/data/models/maintenance_task.dart';
 import 'package:gsuhub/features/tasks/data/repositories/task_repository.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../../../notifications/data/repositories/notification_writes.dart';
@@ -54,7 +55,7 @@ class FirestoreTaskRepository extends FirestoreRepository
 
   @override
   Future<Result<MaintenanceTask>> getById(String id) =>
-      getOne(path: _path, id: id, convert: MaintenanceTask.fromFirestore);
+      getOne(path: _path, id: id, convert: fromDoc(MaintenanceTask.fromRecord));
 
   // Both lists are sorted here rather than by the query: they are short,
   // and an orderBy would need a composite index on the live project.
@@ -62,14 +63,14 @@ class FirestoreTaskRepository extends FirestoreRepository
   Stream<Result<List<MaintenanceTask>>> watchByWorkOrder(String workOrderId) =>
       watchMany(
         query: collection(_path).where('workOrderId', isEqualTo: workOrderId),
-        convert: MaintenanceTask.fromFirestore,
+        convert: fromDoc(MaintenanceTask.fromRecord),
       ).map((result) => result.map(sorted));
 
   @override
   Stream<Result<List<MaintenanceTask>>> watchByAssignee(String personnelId) =>
       watchMany(
         query: collection(_path).where('assignedTo', isEqualTo: personnelId),
-        convert: MaintenanceTask.fromFirestore,
+        convert: fromDoc(MaintenanceTask.fromRecord),
       ).map((result) => result.map(sorted));
 
   @override
@@ -126,7 +127,7 @@ class FirestoreTaskRepository extends FirestoreRepository
           dueDate: dueDate?.toUtc(),
           createdAt: now,
           updatedAt: now,
-        ).toFirestore(),
+        ).toFields().forFirestore,
         'createdAt': FirestoreRepository.serverNow,
         'updatedAt': FirestoreRepository.serverNow,
       });
@@ -259,7 +260,7 @@ class FirestoreTaskRepository extends FirestoreRepository
     if (!snapshot.exists) {
       throw FirestoreRepository.notFound('No task $id');
     }
-    return MaintenanceTask.fromFirestore(snapshot);
+    return fromDoc(MaintenanceTask.fromRecord)(snapshot);
   }
 
   Future<WorkOrder> _readWorkOrder(Transaction transaction, String id) async {
@@ -269,7 +270,7 @@ class FirestoreTaskRepository extends FirestoreRepository
     if (!snapshot.exists) {
       throw FirestoreRepository.notFound('No work order $id');
     }
-    return WorkOrder.fromFirestore(snapshot);
+    return fromDoc(WorkOrder.fromRecord)(snapshot);
   }
 
   static bool _isOpen(WorkOrderStatus status) =>

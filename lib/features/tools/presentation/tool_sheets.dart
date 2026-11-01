@@ -22,12 +22,17 @@ Future<void> showBorrowToolSheet(
   BuildContext context, {
   Tool? tool,
   String? workOrderId,
-}) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
-  builder: (context) => _BorrowToolSheet(tool: tool, workOrderId: workOrderId),
-);
+}) {
+  // A message still showing would sit over the sheet (Objective 7.B).
+  ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) =>
+        _BorrowToolSheet(tool: tool, workOrderId: workOrderId),
+  );
+}
 
 class _BorrowToolSheet extends ConsumerStatefulWidget {
   const _BorrowToolSheet({required this.tool, required this.workOrderId});
@@ -248,18 +253,20 @@ class _ToolPicker extends ConsumerWidget {
 
 /// Returning a tool: what condition it comes back in, and a note (5.C).
 /// Poor sends it to repair rather than back on the shelf.
-Future<void> showReturnToolSheet(BuildContext context, ToolLoan loan) =>
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: _ReturnToolSheet(loan: loan),
-      ),
-    );
+Future<void> showReturnToolSheet(BuildContext context, ToolLoan loan) {
+  // "You have the multimeter..." from borrowing it would otherwise sit
+  // over this sheet for its four seconds (Objective 7.B).
+  ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: _ReturnToolSheet(loan: loan),
+    ),
+  );
+}
 
 class _ReturnToolSheet extends ConsumerStatefulWidget {
   const _ReturnToolSheet({required this.loan});

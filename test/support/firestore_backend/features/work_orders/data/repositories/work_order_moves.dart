@@ -7,6 +7,7 @@ import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../../../reporting/data/repositories/status_history_writes.dart';
@@ -80,7 +81,7 @@ class WorkOrderMove {
         firestore.collection(FirestorePaths.damageReports).doc(reportId),
       );
       if (!snapshot.exists) continue;
-      final linked = DamageReport.fromFirestore(snapshot);
+      final linked = fromDoc(DamageReport.fromRecord)(snapshot);
       if (linked.status == reportTarget) continue;
       if (!linked.status.canTransitionTo(reportTarget)) {
         // The report and its work order disagree about where the job is.

@@ -9,6 +9,7 @@ import 'package:gsuhub/features/facilities/data/models/facility.dart';
 import 'package:gsuhub/features/facilities/data/models/facility_draft.dart';
 import 'package:gsuhub/features/facilities/data/repositories/facility_repository.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../../core/data/qr_codes.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
@@ -26,13 +27,13 @@ class FirestoreFacilityRepository extends FirestoreRepository
 
   @override
   Future<Result<Facility>> getFacilityById(String id) =>
-      getOne(path: _facilities, id: id, convert: Facility.fromFirestore);
+      getOne(path: _facilities, id: id, convert: fromDoc(Facility.fromRecord));
 
   @override
   Future<Result<Facility>> getFacilityByQrCode(String qrCode) => _firstByQrCode(
     path: _facilities,
     qrCode: qrCode,
-    convert: Facility.fromFirestore,
+    convert: fromDoc(Facility.fromRecord),
     label: 'facility',
   );
 
@@ -42,14 +43,14 @@ class FirestoreFacilityRepository extends FirestoreRepository
     if (activeOnly) {
       query = query.where('isActive', isEqualTo: true);
     }
-    return getMany(query: query, convert: Facility.fromFirestore);
+    return getMany(query: query, convert: fromDoc(Facility.fromRecord));
   }
 
   @override
   Stream<Result<List<Facility>>> watchFacilities() =>
       watchMany(
         query: collection(_facilities),
-        convert: Facility.fromFirestore,
+        convert: fromDoc(Facility.fromRecord),
       ).map(
         (result) => result.map(
           (facilities) => [...facilities]
@@ -161,13 +162,13 @@ class FirestoreFacilityRepository extends FirestoreRepository
 
   @override
   Future<Result<Asset>> getAssetById(String id) =>
-      getOne(path: _assets, id: id, convert: Asset.fromFirestore);
+      getOne(path: _assets, id: id, convert: fromDoc(Asset.fromRecord));
 
   @override
   Future<Result<Asset>> getAssetByQrCode(String qrCode) => _firstByQrCode(
     path: _assets,
     qrCode: qrCode,
-    convert: Asset.fromFirestore,
+    convert: fromDoc(Asset.fromRecord),
     label: 'asset',
   );
 
@@ -181,12 +182,15 @@ class FirestoreFacilityRepository extends FirestoreRepository
     if (activeOnly) {
       query = query.where('isActive', isEqualTo: true);
     }
-    return getMany(query: query, convert: Asset.fromFirestore);
+    return getMany(query: query, convert: fromDoc(Asset.fromRecord));
   }
 
   @override
   Stream<Result<List<Asset>>> watchAssets() =>
-      watchMany(query: collection(_assets), convert: Asset.fromFirestore).map(
+      watchMany(
+        query: collection(_assets),
+        convert: fromDoc(Asset.fromRecord),
+      ).map(
         (result) => result.map(
           (assets) => [...assets]
             ..sort(

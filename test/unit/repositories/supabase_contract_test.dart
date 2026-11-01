@@ -241,6 +241,11 @@ void main() {
       notes: 'Bring a ladder.',
       actor: actor,
     );
+    await workOrders.reassign(
+      workOrderId: 'w-1',
+      personnelId: 'u-2',
+      actor: actor,
+    );
 
     await FeedbackRepositoryImpl(client: client, guard: guard).rate(
       reportId: 'r-1',
@@ -428,7 +433,7 @@ void main() {
   test('every write calls a database function that exists, with the '
       'parameters it takes', () async {
     await exerciseEveryWrite();
-    expect(calls, hasLength(47));
+    expect(calls, hasLength(48));
     for (final (function, params) in calls) {
       final signature = signatures[function];
       expect(

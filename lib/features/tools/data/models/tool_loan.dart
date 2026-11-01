@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/item_condition.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A `tool_loans` document — one borrow-and-return cycle for a [Tool].
 ///
@@ -28,9 +27,9 @@ class ToolLoan {
     this.conditionOnReturn,
     this.notes,
   }) {
-    FirestoreConverters.validateNotBlank(toolId, 'toolId');
-    FirestoreConverters.validateNotBlank(toolName, 'toolName');
-    FirestoreConverters.validateNotBlank(borrowedBy, 'borrowedBy');
+    RecordConverters.validateNotBlank(toolId, 'toolId');
+    RecordConverters.validateNotBlank(toolName, 'toolName');
+    RecordConverters.validateNotBlank(borrowedBy, 'borrowedBy');
     if (returnedAt != null && returnedAt!.isBefore(borrowedAt)) {
       throw ArgumentError.value(
         returnedAt,
@@ -48,31 +47,28 @@ class ToolLoan {
     }
   }
 
-  factory ToolLoan.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory ToolLoan.fromRecord(DataRecord record) {
+    final data = record.fields;
     return ToolLoan(
-      id: doc.id,
-      toolId: FirestoreConverters.require<String>(data, 'toolId'),
-      toolName: FirestoreConverters.require<String>(data, 'toolName'),
-      borrowedBy: FirestoreConverters.require<String>(data, 'borrowedBy'),
-      borrowedAt: FirestoreConverters.requireDate(data, 'borrowedAt'),
-      conditionOnBorrow: FirestoreConverters.requireEnum(
+      id: record.id,
+      toolId: RecordConverters.require<String>(data, 'toolId'),
+      toolName: RecordConverters.require<String>(data, 'toolName'),
+      borrowedBy: RecordConverters.require<String>(data, 'borrowedBy'),
+      borrowedAt: RecordConverters.requireDate(data, 'borrowedAt'),
+      conditionOnBorrow: RecordConverters.requireEnum(
         data,
         'conditionOnBorrow',
         ItemCondition.fromId,
       ),
-      workOrderId: FirestoreConverters.optional<String>(data, 'workOrderId'),
-      expectedReturnAt: FirestoreConverters.optionalDate(
-        data,
-        'expectedReturnAt',
-      ),
-      returnedAt: FirestoreConverters.optionalDate(data, 'returnedAt'),
-      conditionOnReturn: FirestoreConverters.optionalEnum(
+      workOrderId: RecordConverters.optional<String>(data, 'workOrderId'),
+      expectedReturnAt: RecordConverters.optionalDate(data, 'expectedReturnAt'),
+      returnedAt: RecordConverters.optionalDate(data, 'returnedAt'),
+      conditionOnReturn: RecordConverters.optionalEnum(
         data,
         'conditionOnReturn',
         ItemCondition.fromId,
       ),
-      notes: FirestoreConverters.optional<String>(data, 'notes'),
+      notes: RecordConverters.optional<String>(data, 'notes'),
     );
   }
 
@@ -114,16 +110,14 @@ class ToolLoan {
       conditionOnReturn != null &&
       conditionOnReturn!.index > conditionOnBorrow.index;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'toolId': toolId,
     'toolName': toolName,
     'borrowedBy': borrowedBy,
     'workOrderId': workOrderId,
-    'borrowedAt': Timestamp.fromDate(borrowedAt),
-    'expectedReturnAt': expectedReturnAt == null
-        ? null
-        : Timestamp.fromDate(expectedReturnAt!),
-    'returnedAt': returnedAt == null ? null : Timestamp.fromDate(returnedAt!),
+    'borrowedAt': borrowedAt,
+    'expectedReturnAt': expectedReturnAt,
+    'returnedAt': returnedAt,
     'conditionOnBorrow': conditionOnBorrow.id,
     'conditionOnReturn': conditionOnReturn?.id,
     'notes': notes,

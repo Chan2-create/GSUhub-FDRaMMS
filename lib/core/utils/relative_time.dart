@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:intl/intl.dart';
 
 /// "How long ago", as the faculty and staff home screen writes it on a
@@ -11,7 +12,7 @@ abstract final class RelativeTime {
   /// in local time, so "yesterday" follows the device's calendar.
   static String stamp(DateTime when, {DateTime? now}) {
     final local = when.toLocal();
-    final current = (now ?? DateTime.now()).toLocal();
+    final current = (now ?? clock.now()).toLocal();
     final elapsed = current.difference(local);
 
     // A clock slightly behind the server's can put a fresh report in the
@@ -31,7 +32,7 @@ abstract final class RelativeTime {
   /// reads as [dayAndTime].
   static String ago(DateTime when, {DateTime? now}) {
     final local = when.toLocal();
-    final current = (now ?? DateTime.now()).toLocal();
+    final current = (now ?? clock.now()).toLocal();
     final today = DateTime(current.year, current.month, current.day);
     if (local.isBefore(today)) return dayAndTime(when, now: now);
 
@@ -52,7 +53,7 @@ abstract final class RelativeTime {
   /// once it is not this one.
   static String dayAndTime(DateTime when, {DateTime? now}) {
     final local = when.toLocal();
-    final current = (now ?? DateTime.now()).toLocal();
+    final current = (now ?? clock.now()).toLocal();
     final today = DateTime(current.year, current.month, current.day);
     final day = DateTime(local.year, local.month, local.day);
 

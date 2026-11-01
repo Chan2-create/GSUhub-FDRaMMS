@@ -10,6 +10,7 @@ import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 
 import '../../support/fake_firestore_repositories.dart';
+import '../../support/firestore_backend/core/data/firestore_records.dart';
 
 /// Account management (Objective 2.C): every change audited, and the two
 /// changes that could lock the system out refused inside the transaction.
@@ -45,7 +46,7 @@ void main() {
   Future<void> store(AppUser user) => harness.firestore
       .collection(FirestorePaths.users)
       .doc(user.id)
-      .set(user.toFirestore());
+      .set(user.toFields().forFirestore);
 
   Failure failureOf(Result<void> result) =>
       result.fold((_) => fail('expected a failure'), (failure) => failure);
