@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
@@ -14,6 +15,7 @@ import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
 import 'package:gsuhub/features/reporting/data/models/status_change.dart';
 import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import 'status_history_writes.dart';
@@ -35,11 +37,11 @@ class FirestoreDamageReportRepository extends FirestoreRepository
 
   @override
   Future<Result<DamageReport>> getById(String id) =>
-      getOne(path: _path, id: id, convert: DamageReport.fromFirestore);
+      getOne(path: _path, id: id, convert: fromDoc(DamageReport.fromRecord));
 
   @override
   Stream<Result<DamageReport>> watchById(String id) =>
-      watchOne(path: _path, id: id, convert: DamageReport.fromFirestore);
+      watchOne(path: _path, id: id, convert: fromDoc(DamageReport.fromRecord));
 
   @override
   Stream<Result<List<StatusChange>>> watchStatusHistory(String reportId) =>
@@ -52,7 +54,7 @@ class FirestoreDamageReportRepository extends FirestoreRepository
             // for rework a few times has a dozen entries. A bound all the
             // same, so one malformed report cannot run up the reads.
             .limit(statusHistoryLimit),
-        convert: StatusChange.fromFirestore,
+        convert: fromDoc(StatusChange.fromRecord),
       );
 
   static const int statusHistoryLimit = 50;
@@ -68,7 +70,7 @@ class FirestoreDamageReportRepository extends FirestoreRepository
             .where('reporterId', isEqualTo: reporterId)
             .orderBy('submittedAt', descending: true)
             .limit(DamageReportRepository.reporterQueryLimit),
-        convert: DamageReport.fromFirestore,
+        convert: fromDoc(DamageReport.fromRecord),
       );
 
   @override
@@ -96,13 +98,13 @@ class FirestoreDamageReportRepository extends FirestoreRepository
 
     return watchMany(
       query: query.orderBy('submittedAt', descending: true),
-      convert: DamageReport.fromFirestore,
+      convert: fromDoc(DamageReport.fromRecord),
     );
   }
 
   @override
   Future<Result<String>> create(DamageReport report) =>
-      add(path: _path, data: report.toFirestore());
+      add(path: _path, data: report.toFields().forFirestore);
 
   @override
   String newReportId() => collection(_path).doc().id;
@@ -152,14 +154,17 @@ class FirestoreDamageReportRepository extends FirestoreRepository
       assetId: submission.assetId,
       coordinates: coordinates == null
           ? null
-          : GeoPoint(coordinates.latitude, coordinates.longitude),
+          : GeoCoordinates(
+              latitude: coordinates.latitude,
+              longitude: coordinates.longitude,
+            ),
       photoUrls: submission.photoUrls,
       submittedAt: now,
       updatedAt: now,
     );
 
     transaction.set(reference, {
-      ...report.toFirestore(),
+      ...report.toFields().forFirestore,
       'submittedAt': FirestoreRepository.serverNow,
       'updatedAt': FirestoreRepository.serverNow,
     });
@@ -195,7 +200,10 @@ class FirestoreDamageReportRepository extends FirestoreRepository
   Future<Result<void>> update(DamageReport report) => updateDoc(
     path: _path,
     id: report.id,
-    data: {...report.toFirestore(), 'updatedAt': FirestoreRepository.serverNow},
+    data: {
+      ...report.toFields().forFirestore,
+      'updatedAt': FirestoreRepository.serverNow,
+    },
   );
 
   @override
@@ -212,7 +220,7 @@ class FirestoreDamageReportRepository extends FirestoreRepository
 
     // The stored report, not the caller's copy: a second administrator may
     // have merged it, or raised its work order, since the page loaded.
-    final report = DamageReport.fromFirestore(snapshot);
+    final report = fromDoc(DamageReport.fromRecord)(snapshot);
     if (report.isDuplicate) {
       throw FirestoreRepository.precondition(
         'This report was merged into another. Assess that report instead.',
@@ -340,7 +348,7 @@ class FirestoreDamageReportRepository extends FirestoreRepository
 
       // The stored status, not the caller's copy: a second administrator
       // may have acted on this report since the screen last refreshed.
-      final stored = DamageReport.fromFirestore(snapshot);
+      final stored = fromDoc(DamageReport.fromRecord)(snapshot);
       final current = stored.status;
       if (current == to) return;
 
@@ -430,7 +438,7 @@ class FirestoreDamageReportRepository extends FirestoreRepository
       if (!parentSnapshot.exists) {
         throw FirestoreRepository.notFound('No damage report $parentReportId');
       }
-      final parent = DamageReport.fromFirestore(parentSnapshot);
+      final parent = fromDoc(DamageReport.fromRecord)(parentSnapshot);
       if (parent.isDuplicate || !parent.status.isOpen) {
         throw FirestoreRepository.precondition(
           'Report ${DisplayId.report(parent.id)} is '
@@ -445,7 +453,7 @@ class FirestoreDamageReportRepository extends FirestoreRepository
         if (!snapshot.exists) {
           throw FirestoreRepository.notFound('No damage report $id');
         }
-        final duplicate = DamageReport.fromFirestore(snapshot);
+        final duplicate = fromDoc(DamageReport.fromRecord)(snapshot);
         // Read from the stored report: the move is legal only from a
         // report still awaiting review, with no work order behind it.
         if (duplicate.isDuplicate ||

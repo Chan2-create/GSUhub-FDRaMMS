@@ -9,6 +9,7 @@ import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 
@@ -24,11 +25,11 @@ class FirestoreUserRepository extends FirestoreRepository
 
   @override
   Future<Result<AppUser>> getById(String uid) =>
-      getOne(path: _path, id: uid, convert: AppUser.fromFirestore);
+      getOne(path: _path, id: uid, convert: fromDoc(AppUser.fromRecord));
 
   @override
   Stream<Result<AppUser>> watchById(String uid) =>
-      watchOne(path: _path, id: uid, convert: AppUser.fromFirestore);
+      watchOne(path: _path, id: uid, convert: fromDoc(AppUser.fromRecord));
 
   @override
   Future<Result<List<AppUser>>> getAll({UserRole? role}) {
@@ -36,12 +37,12 @@ class FirestoreUserRepository extends FirestoreRepository
     if (role != null) {
       query = query.where('role', isEqualTo: role.id);
     }
-    return getMany(query: query, convert: AppUser.fromFirestore);
+    return getMany(query: query, convert: fromDoc(AppUser.fromRecord));
   }
 
   @override
   Stream<Result<List<AppUser>>> watchAll() =>
-      watchMany(query: collection(_path), convert: AppUser.fromFirestore);
+      watchMany(query: collection(_path), convert: fromDoc(AppUser.fromRecord));
 
   @override
   Future<Result<List<AppUser>>> getPersonnel({
@@ -58,7 +59,7 @@ class FirestoreUserRepository extends FirestoreRepository
       query = query.where('availability', isEqualTo: availability.id);
     }
 
-    return getMany(query: query, convert: AppUser.fromFirestore);
+    return getMany(query: query, convert: fromDoc(AppUser.fromRecord));
   }
 
   @override
@@ -67,19 +68,19 @@ class FirestoreUserRepository extends FirestoreRepository
     // server-side would, so the caller orders the (small) roster instead.
     query: collection(_path)
         .where('role', isEqualTo: UserRole.maintenancePersonnel.id),
-    convert: AppUser.fromFirestore,
+    convert: fromDoc(AppUser.fromRecord),
   );
 
   @override
   Future<Result<void>> create(AppUser user) =>
-      setDoc(path: _path, id: user.id, data: user.toFirestore());
+      setDoc(path: _path, id: user.id, data: user.toFields().forFirestore);
 
   @override
   Future<Result<void>> update(AppUser user) => updateDoc(
     path: _path,
     id: user.id,
     data: {
-      ...user.toFirestore(),
+      ...user.toFields().forFirestore,
       'updatedAt': FirestoreRepository.serverNow,
       // activeTaskCount is excluded deliberately: it is maintained only
       // by adjustActiveTaskCount's atomic increment. Letting a general
@@ -93,7 +94,7 @@ class FirestoreUserRepository extends FirestoreRepository
     path: _path,
     id: user.id,
     data: {
-      ...user.toFirestore(),
+      ...user.toFields().forFirestore,
       // The rules check both against request time, so a device with a
       // wrong clock cannot back-date the request.
       'createdAt': FirestoreRepository.serverNow,
@@ -114,7 +115,7 @@ class FirestoreUserRepository extends FirestoreRepository
     }
 
     transaction.set(reference, {
-      ...user.toFirestore(),
+      ...user.toFields().forFirestore,
       'createdAt': FirestoreRepository.serverNow,
       'updatedAt': FirestoreRepository.serverNow,
     });
@@ -144,7 +145,7 @@ class FirestoreUserRepository extends FirestoreRepository
 
     // The stored account, not the caller's copy: another administrator
     // may have changed it since the dialog opened.
-    final current = AppUser.fromFirestore(snapshot);
+    final current = fromDoc(AppUser.fromRecord)(snapshot);
     final roleChanges = updated.role != current.role;
 
     if (roleChanges && updated.id == actor.id) {
@@ -220,7 +221,7 @@ class FirestoreUserRepository extends FirestoreRepository
     final snapshot = await transaction.get(reference);
     if (!snapshot.exists) throw FirestoreRepository.notFound('No account $uid');
 
-    final current = AppUser.fromFirestore(snapshot);
+    final current = fromDoc(AppUser.fromRecord)(snapshot);
     if (current.accountStatus == status) return;
     if (uid == actor.id && status != AccountStatus.active) {
       throw FirestoreRepository.precondition(

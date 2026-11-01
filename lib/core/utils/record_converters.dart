@@ -1,15 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../errors/exceptions.dart';
 
-/// Shared read/validate helpers for model `fromFirestore` converters.
+/// Shared read/validate helpers for model `fromRecord` converters.
 ///
-/// Firestore hands back `Map<String, dynamic>`, so every field read is an
-/// unchecked cast waiting to happen. These helpers centralize that risk:
+/// A record's fields are a `Map<String, dynamic>`, so every field read is
+/// an unchecked cast waiting to happen. These helpers centralize that risk:
 /// a malformed or missing field throws a [ValidationException] naming the
 /// field, instead of a bare `TypeError` somewhere up the stack with no
 /// indication of which document is bad.
-abstract final class FirestoreConverters {
+abstract final class RecordConverters {
   /// Reads a required field of type [T], throwing if absent or wrongly
   /// typed.
   static T require<T>(Map<String, dynamic> data, String field) {
@@ -39,22 +37,21 @@ abstract final class FirestoreConverters {
     return value;
   }
 
-  /// Reads a required `Timestamp` field as a **UTC** [DateTime].
+  /// Reads a required time field as a **UTC** [DateTime].
   ///
-  /// `Timestamp.toDate()` returns a local-zone `DateTime`. Every model
-  /// normalizes to UTC on the way in, for two reasons: Dart's `DateTime`
-  /// equality compares the UTC flag as well as the instant, so a
-  /// local/UTC mismatch makes two identical moments compare unequal; and
+  /// Every model normalizes to UTC on the way in, for two reasons: Dart's
+  /// `DateTime` equality compares the UTC flag as well as the instant, so
+  /// a local/UTC mismatch makes two identical moments compare unequal; and
   /// maintenance timestamps that silently shift meaning with the device's
   /// timezone are a bug waiting to happen in a system that reports on
   /// response times.
   static DateTime requireDate(Map<String, dynamic> data, String field) =>
-      require<Timestamp>(data, field).toDate().toUtc();
+      require<DateTime>(data, field).toUtc();
 
-  /// Reads an optional `Timestamp` field as a **UTC** [DateTime]. See
+  /// Reads an optional time field as a **UTC** [DateTime]. See
   /// [requireDate] for why UTC.
   static DateTime? optionalDate(Map<String, dynamic> data, String field) =>
-      optional<Timestamp>(data, field)?.toDate().toUtc();
+      optional<DateTime>(data, field)?.toUtc();
 
   /// Reads a list-of-strings field, treating absence as an empty list —
   /// an empty photo list and a missing photo list mean the same thing.

@@ -5,6 +5,7 @@ import 'package:gsuhub/features/classification/data/models/duplicate_detection_c
 import 'package:gsuhub/features/classification/data/models/prioritization_config.dart';
 import 'package:gsuhub/features/classification/data/repositories/config_repository.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 
 /// Firestore-backed [ConfigRepository] for the three fixed-id `config/*`
@@ -28,7 +29,7 @@ class FirestoreConfigRepository extends FirestoreRepository
   Future<Result<ClassificationRulesConfig>> getClassificationRules() => getOne(
     path: _path,
     id: classificationRulesId,
-    convert: ClassificationRulesConfig.fromFirestore,
+    convert: fromDoc(ClassificationRulesConfig.fromRecord),
   );
 
   @override
@@ -36,7 +37,7 @@ class FirestoreConfigRepository extends FirestoreRepository
       watchOne(
         path: _path,
         id: classificationRulesId,
-        convert: ClassificationRulesConfig.fromFirestore,
+        convert: fromDoc(ClassificationRulesConfig.fromRecord),
       );
 
   @override
@@ -45,32 +46,36 @@ class FirestoreConfigRepository extends FirestoreRepository
   ) => setDoc(
     path: _path,
     id: classificationRulesId,
-    data: config.toFirestore(),
+    data: config.toFields().forFirestore,
   );
 
   @override
   Future<Result<PrioritizationConfig>> getPrioritization() => getOne(
     path: _path,
     id: prioritizationId,
-    convert: PrioritizationConfig.fromFirestore,
+    convert: fromDoc(PrioritizationConfig.fromRecord),
   );
 
   @override
   Stream<Result<PrioritizationConfig>> watchPrioritization() => watchOne(
     path: _path,
     id: prioritizationId,
-    convert: PrioritizationConfig.fromFirestore,
+    convert: fromDoc(PrioritizationConfig.fromRecord),
   );
 
   @override
   Future<Result<void>> updatePrioritization(PrioritizationConfig config) =>
-      setDoc(path: _path, id: prioritizationId, data: config.toFirestore());
+      setDoc(
+        path: _path,
+        id: prioritizationId,
+        data: config.toFields().forFirestore,
+      );
 
   @override
   Future<Result<DuplicateDetectionConfig>> getDuplicateDetection() => getOne(
     path: _path,
     id: duplicateDetectionId,
-    convert: DuplicateDetectionConfig.fromFirestore,
+    convert: fromDoc(DuplicateDetectionConfig.fromRecord),
   );
 
   @override
@@ -78,12 +83,15 @@ class FirestoreConfigRepository extends FirestoreRepository
       watchOne(
         path: _path,
         id: duplicateDetectionId,
-        convert: DuplicateDetectionConfig.fromFirestore,
+        convert: fromDoc(DuplicateDetectionConfig.fromRecord),
       );
 
   @override
   Future<Result<void>> updateDuplicateDetection(
     DuplicateDetectionConfig config,
-  ) =>
-      setDoc(path: _path, id: duplicateDetectionId, data: config.toFirestore());
+  ) => setDoc(
+    path: _path,
+    id: duplicateDetectionId,
+    data: config.toFields().forFirestore,
+  );
 }

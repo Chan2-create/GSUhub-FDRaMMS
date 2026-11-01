@@ -14,6 +14,7 @@ import 'package:gsuhub/features/inventory/data/models/material_request.dart';
 import 'package:gsuhub/features/inventory/data/repositories/material_request_repository.dart';
 import 'package:gsuhub/features/notifications/data/models/personnel_notice.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../../../notifications/data/repositories/notification_writes.dart';
@@ -54,7 +55,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
     }
     return watchMany(
       query: query,
-      convert: MaterialRequest.fromFirestore,
+      convert: fromDoc(MaterialRequest.fromRecord),
     ).map((result) => result.map(_newestFirst));
   }
 
@@ -64,7 +65,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
         query: collection(_requests)
             .orderBy('createdAt', descending: true)
             .limit(limit),
-        convert: MaterialRequest.fromFirestore,
+        convert: fromDoc(MaterialRequest.fromRecord),
       );
 
   static List<MaterialRequest> _newestFirst(List<MaterialRequest> requests) =>
@@ -130,7 +131,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
             'A material you picked is no longer in the inventory.',
           );
         }
-        final item = InventoryItem.fromFirestore(snapshot);
+        final item = fromDoc(InventoryItem.fromRecord)(snapshot);
         lines.add(
           MaterialLine(
             inventoryItemId: itemId,
@@ -207,7 +208,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
             '${line.itemName} is no longer in the inventory.',
           );
         }
-        final item = InventoryItem.fromFirestore(snapshot);
+        final item = fromDoc(InventoryItem.fromRecord)(snapshot);
         if (line.quantity > item.quantityAvailable) {
           throw FirestoreRepository.precondition(
             'Only ${QuantityFormat.withUnit(item.quantityAvailable, item.unitOfMeasurement)} '
@@ -219,7 +220,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
           allocated.doc(line.inventoryItemId),
         );
         already[line.inventoryItemId] = current.exists
-            ? AllocatedMaterial.fromFirestore(current).line.quantity
+            ? fromDoc(AllocatedMaterial.fromRecord)(current).line.quantity
             : 0;
       }
 
@@ -228,15 +229,16 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
         transaction.set(
           allocated.doc(line.inventoryItemId),
           AllocatedMaterial(
-            line: MaterialLine(
-              inventoryItemId: line.inventoryItemId,
-              itemName: item.name,
-              quantity: already[line.inventoryItemId]! + line.quantity,
-              unitOfMeasurement: item.unitOfMeasurement,
-            ),
-            allocatedBy: actor.id,
-            allocatedAt: DateTime.now().toUtc(),
-          ).toFirestore()..['allocatedAt'] = FirestoreRepository.serverNow,
+              line: MaterialLine(
+                inventoryItemId: line.inventoryItemId,
+                itemName: item.name,
+                quantity: already[line.inventoryItemId]! + line.quantity,
+                unitOfMeasurement: item.unitOfMeasurement,
+              ),
+              allocatedBy: actor.id,
+              allocatedAt: DateTime.now().toUtc(),
+            ).toFields().forFirestore
+            ..['allocatedAt'] = FirestoreRepository.serverNow,
         );
       }
       _stageReview(
@@ -318,7 +320,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
     if (!snapshot.exists) {
       throw FirestoreRepository.notFound('No material request $requestId');
     }
-    final request = MaterialRequest.fromFirestore(snapshot);
+    final request = fromDoc(MaterialRequest.fromRecord)(snapshot);
     if (!request.isPending) {
       throw FirestoreRepository.precondition(
         '${DisplayId.materialRequest(requestId)} was already '

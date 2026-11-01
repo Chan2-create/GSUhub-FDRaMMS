@@ -4,6 +4,7 @@ import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 
 /// Stages an `audit_logs` entry inside another repository's transaction.
@@ -40,7 +41,7 @@ void stageAuditEntry(
   );
 
   transaction.set(firestore.collection(FirestorePaths.auditLogs).doc(), {
-    ...entry.toFirestore(),
+    ...entry.toFields().forFirestore,
     'timestamp': FirestoreRepository.serverNow,
   });
 }

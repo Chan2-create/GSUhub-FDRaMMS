@@ -12,9 +12,10 @@ import '../../auth/presentation/auth_controller.dart';
 import '../../notifications/presentation/push_coordinator.dart';
 import 'profile_providers.dart';
 
-/// The Profile tab — a marked placeholder in Objective 3.A that holds only
-/// who is signed in and Sign out. Editing a profile belongs to a later
-/// objective; the design draws no Profile page.
+/// The Profile tab: who is signed in, and Sign out (Objective 3.A). The
+/// manuscript gives requestors no profile editing and the design draws no
+/// Profile page, so accounts are changed by an administrator, in User
+/// Accounts (2.C). Listed for the GUI pass.
 class RequestorProfileScreen extends ConsumerWidget {
   const RequestorProfileScreen({super.key});
 
@@ -39,7 +40,9 @@ class RequestorProfileScreen extends ConsumerWidget {
     return RequestorPlaceholderPage(
       title: 'Profile',
       icon: Icons.person_outline_rounded,
-      message: 'Editing your profile arrives in a later objective.',
+      message:
+          'Your account, as the General Services Unit keeps it. To change '
+          'your name or department, ask the GSU office.',
       children: [
         if (person != null) ...[
           const SizedBox(height: 32),

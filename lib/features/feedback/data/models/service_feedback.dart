@@ -1,6 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/data/data_record.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A `feedback` document — the requestor's post-service evaluation
 /// (manuscript §1.7 "Feedback and Rating System").
@@ -26,22 +25,22 @@ class ServiceFeedback {
     required this.submittedAt,
     this.comments,
   }) {
-    FirestoreConverters.validateNotBlank(workOrderId, 'workOrderId');
-    FirestoreConverters.validateNotBlank(reportId, 'reportId');
-    FirestoreConverters.validateNotBlank(submittedBy, 'submittedBy');
-    FirestoreConverters.validateRange(
+    RecordConverters.validateNotBlank(workOrderId, 'workOrderId');
+    RecordConverters.validateNotBlank(reportId, 'reportId');
+    RecordConverters.validateNotBlank(submittedBy, 'submittedBy');
+    RecordConverters.validateRange(
       responseTimeRating,
       minRating,
       maxRating,
       'responseTimeRating',
     );
-    FirestoreConverters.validateRange(
+    RecordConverters.validateRange(
       serviceQualityRating,
       minRating,
       maxRating,
       'serviceQualityRating',
     );
-    FirestoreConverters.validateRange(
+    RecordConverters.validateRange(
       overallSatisfactionRating,
       minRating,
       maxRating,
@@ -49,29 +48,27 @@ class ServiceFeedback {
     );
   }
 
-  factory ServiceFeedback.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory ServiceFeedback.fromRecord(DataRecord record) {
+    final data = record.fields;
     return ServiceFeedback(
-      id: doc.id,
-      workOrderId: FirestoreConverters.require<String>(data, 'workOrderId'),
-      reportId: FirestoreConverters.require<String>(data, 'reportId'),
-      submittedBy: FirestoreConverters.require<String>(data, 'submittedBy'),
-      responseTimeRating: FirestoreConverters.require<int>(
+      id: record.id,
+      workOrderId: RecordConverters.require<String>(data, 'workOrderId'),
+      reportId: RecordConverters.require<String>(data, 'reportId'),
+      submittedBy: RecordConverters.require<String>(data, 'submittedBy'),
+      responseTimeRating: RecordConverters.require<int>(
         data,
         'responseTimeRating',
       ),
-      serviceQualityRating: FirestoreConverters.require<int>(
+      serviceQualityRating: RecordConverters.require<int>(
         data,
         'serviceQualityRating',
       ),
-      overallSatisfactionRating: FirestoreConverters.require<int>(
+      overallSatisfactionRating: RecordConverters.require<int>(
         data,
         'overallSatisfactionRating',
       ),
-      comments: FirestoreConverters.optional<String>(data, 'comments'),
-      submittedAt: FirestoreConverters.requireDate(data, 'submittedAt'),
+      comments: RecordConverters.optional<String>(data, 'comments'),
+      submittedAt: RecordConverters.requireDate(data, 'submittedAt'),
     );
   }
 
@@ -108,7 +105,7 @@ class ServiceFeedback {
 
   final DateTime submittedAt;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'workOrderId': workOrderId,
     'reportId': reportId,
     'submittedBy': submittedBy,
@@ -116,7 +113,7 @@ class ServiceFeedback {
     'serviceQualityRating': serviceQualityRating,
     'overallSatisfactionRating': overallSatisfactionRating,
     'comments': comments,
-    'submittedAt': Timestamp.fromDate(submittedAt),
+    'submittedAt': submittedAt,
   };
 
   ServiceFeedback copyWith({

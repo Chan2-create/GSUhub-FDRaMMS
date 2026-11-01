@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 
 import '../../../../core/constants/damage_categories.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/data/data_record.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// The `config/classification_rules` document — the admin-editable keyword
 /// dictionary the rule-based classifier matches report descriptions
@@ -38,11 +38,9 @@ class ClassificationRulesConfig {
     }
   }
 
-  factory ClassificationRulesConfig.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
-    final raw = FirestoreConverters.require<Map<String, dynamic>>(
+  factory ClassificationRulesConfig.fromRecord(DataRecord record) {
+    final data = record.fields;
+    final raw = RecordConverters.require<Map<String, dynamic>>(
       data,
       'keywordsByCategory',
     );
@@ -55,9 +53,9 @@ class ClassificationRulesConfig {
                 .toList(growable: false),
       },
       caseSensitive:
-          FirestoreConverters.optional<bool>(data, 'caseSensitive') ?? false,
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
-      updatedBy: FirestoreConverters.require<String>(data, 'updatedBy'),
+          RecordConverters.optional<bool>(data, 'caseSensitive') ?? false,
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
+      updatedBy: RecordConverters.require<String>(data, 'updatedBy'),
     );
   }
 
@@ -93,12 +91,12 @@ class ClassificationRulesConfig {
   Iterable<String> get allKeywords =>
       keywordsByCategory.values.expand((keywords) => keywords);
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'keywordsByCategory': {
       for (final entry in keywordsByCategory.entries) entry.key.id: entry.value,
     },
     'caseSensitive': caseSensitive,
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'updatedAt': updatedAt,
     'updatedBy': updatedBy,
   };
 

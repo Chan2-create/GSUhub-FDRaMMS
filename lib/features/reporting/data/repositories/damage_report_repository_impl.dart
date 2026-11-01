@@ -34,11 +34,11 @@ class DamageReportRepositoryImpl extends SupabaseRepository
 
   @override
   Future<Result<DamageReport>> getById(String id) =>
-      getOne(table: _table, id: id, convert: DamageReport.fromFirestore);
+      getOne(table: _table, id: id, convert: DamageReport.fromRecord);
 
   @override
   Stream<Result<DamageReport>> watchById(String id) =>
-      watchOne(table: _table, id: id, convert: DamageReport.fromFirestore);
+      watchOne(table: _table, id: id, convert: DamageReport.fromRecord);
 
   @override
   Stream<Result<List<StatusChange>>> watchStatusHistory(String reportId) =>
@@ -50,7 +50,7 @@ class DamageReportRepositoryImpl extends SupabaseRepository
             .order('changed_at', ascending: true)
             // Far beyond any real report's history; a bound all the same.
             .limit(statusHistoryLimit),
-        convert: StatusChange.fromFirestore,
+        convert: StatusChange.fromRecord,
       );
 
   @override
@@ -62,7 +62,7 @@ class DamageReportRepositoryImpl extends SupabaseRepository
             .eq('reporter_id', reporterId)
             .order('submitted_at')
             .limit(DamageReportRepository.reporterQueryLimit),
-        convert: DamageReport.fromFirestore,
+        convert: DamageReport.fromRecord,
       );
 
   @override
@@ -80,7 +80,7 @@ class DamageReportRepositoryImpl extends SupabaseRepository
             .from(_table)
             .stream(primaryKey: const ['id'])
             .order('submitted_at'),
-        convert: DamageReport.fromFirestore,
+        convert: DamageReport.fromRecord,
       ).map(
         (result) => result.map(
           (reports) => [

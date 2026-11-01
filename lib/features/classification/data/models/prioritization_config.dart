@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/priority_level.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// Which of the two weight schemes the manuscript provides is currently
 /// authoritative.
@@ -118,12 +118,10 @@ class PrioritizationConfig {
     }
   }
 
-  factory PrioritizationConfig.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory PrioritizationConfig.fromRecord(DataRecord record) {
+    final data = record.fields;
     return PrioritizationConfig(
-      activeScheme: FirestoreConverters.requireEnum(
+      activeScheme: RecordConverters.requireEnum(
         data,
         'activeScheme',
         PrioritizationScheme.fromId,
@@ -131,11 +129,11 @@ class PrioritizationConfig {
       integerWeights: _readWeights(data, 'integerWeights'),
       decimalWeights: _readWeights(data, 'decimalWeights'),
       thresholds: _readThresholds(data),
-      minRating: FirestoreConverters.optional<int>(data, 'minRating') ?? 1,
-      maxRating: FirestoreConverters.optional<int>(data, 'maxRating') ?? 4,
+      minRating: RecordConverters.optional<int>(data, 'minRating') ?? 1,
+      maxRating: RecordConverters.optional<int>(data, 'maxRating') ?? 4,
       // Added in 4.B; a document saved before then has neither.
       frequencyWindowDays:
-          FirestoreConverters.optional<int>(data, 'frequencyWindowDays') ??
+          RecordConverters.optional<int>(data, 'frequencyWindowDays') ??
           defaultFrequencyWindowDays,
       frequencyBands: data['frequencyBands'] == null
           ? defaultFrequencyBands
@@ -144,8 +142,8 @@ class PrioritizationConfig {
                 (value) => (value as num).toInt(),
               ),
             ),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
-      updatedBy: FirestoreConverters.require<String>(data, 'updatedBy'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
+      updatedBy: RecordConverters.require<String>(data, 'updatedBy'),
     );
   }
 
@@ -182,7 +180,7 @@ class PrioritizationConfig {
     Map<String, dynamic> data,
     String field,
   ) {
-    final raw = FirestoreConverters.require<Map<String, dynamic>>(data, field);
+    final raw = RecordConverters.require<Map<String, dynamic>>(data, field);
     return {
       for (final criterion in PrioritizationCriterion.values)
         criterion:
@@ -196,7 +194,7 @@ class PrioritizationConfig {
   }
 
   static Map<PriorityLevel, double> _readThresholds(Map<String, dynamic> data) {
-    final raw = FirestoreConverters.require<Map<String, dynamic>>(
+    final raw = RecordConverters.require<Map<String, dynamic>>(
       data,
       'thresholds',
     );
@@ -274,7 +272,7 @@ class PrioritizationConfig {
     return (sum - 1.0).abs() < 0.0001;
   }
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'activeScheme': activeScheme.id,
     'integerWeights': {
       for (final entry in integerWeights.entries) entry.key.id: entry.value,
@@ -289,7 +287,7 @@ class PrioritizationConfig {
     'maxRating': maxRating,
     'frequencyWindowDays': frequencyWindowDays,
     'frequencyBands': frequencyBands,
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'updatedAt': updatedAt,
     'updatedBy': updatedBy,
   };
 

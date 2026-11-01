@@ -1,6 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/data/data_record.dart';
+import '../../../../core/utils/record_converters.dart';
 import 'material_line.dart';
 
 /// A material GSU has set aside for a work order —
@@ -19,14 +18,12 @@ class AllocatedMaterial {
     required this.allocatedAt,
   });
 
-  factory AllocatedMaterial.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory AllocatedMaterial.fromRecord(DataRecord record) {
+    final data = record.fields;
     return AllocatedMaterial(
-      line: MaterialLine.fromMap({...data, 'inventoryItemId': doc.id}),
-      allocatedBy: FirestoreConverters.require<String>(data, 'allocatedBy'),
-      allocatedAt: FirestoreConverters.requireDate(data, 'allocatedAt'),
+      line: MaterialLine.fromMap({...data, 'inventoryItemId': record.id}),
+      allocatedBy: RecordConverters.require<String>(data, 'allocatedBy'),
+      allocatedAt: RecordConverters.requireDate(data, 'allocatedAt'),
     );
   }
 
@@ -38,9 +35,9 @@ class AllocatedMaterial {
 
   String get inventoryItemId => line.inventoryItemId;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     ...line.toMap()..remove('inventoryItemId'),
     'allocatedBy': allocatedBy,
-    'allocatedAt': Timestamp.fromDate(allocatedAt),
+    'allocatedAt': allocatedAt,
   };
 }

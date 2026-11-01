@@ -1,8 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/item_condition.dart';
 import '../../../../core/enums/tool_status.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A `tools` document — durable maintenance equipment that personnel
 /// borrow and return, as opposed to consumable `inventory_items` that are
@@ -28,9 +27,9 @@ class Tool {
     this.currentHolderId,
     this.currentLoanId,
   }) {
-    FirestoreConverters.validateNotBlank(toolCode, 'toolCode');
-    FirestoreConverters.validateNotBlank(name, 'name');
-    FirestoreConverters.validateNotBlank(qrCode, 'qrCode');
+    RecordConverters.validateNotBlank(toolCode, 'toolCode');
+    RecordConverters.validateNotBlank(name, 'name');
+    RecordConverters.validateNotBlank(qrCode, 'qrCode');
     if (status == ToolStatus.borrowed && currentHolderId == null) {
       throw ArgumentError.value(
         currentHolderId,
@@ -41,38 +40,31 @@ class Tool {
     }
   }
 
-  factory Tool.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory Tool.fromRecord(DataRecord record) {
+    final data = record.fields;
     return Tool(
-      id: doc.id,
-      toolCode: FirestoreConverters.require<String>(data, 'toolCode'),
-      name: FirestoreConverters.require<String>(data, 'name'),
-      status: FirestoreConverters.requireEnum(
-        data,
-        'status',
-        ToolStatus.fromId,
-      ),
-      condition: FirestoreConverters.requireEnum(
+      id: record.id,
+      toolCode: RecordConverters.require<String>(data, 'toolCode'),
+      name: RecordConverters.require<String>(data, 'name'),
+      status: RecordConverters.requireEnum(data, 'status', ToolStatus.fromId),
+      condition: RecordConverters.requireEnum(
         data,
         'condition',
         ItemCondition.fromId,
       ),
-      qrCode: FirestoreConverters.require<String>(data, 'qrCode'),
-      category: FirestoreConverters.optional<String>(data, 'category'),
-      storageLocation: FirestoreConverters.optional<String>(
+      qrCode: RecordConverters.require<String>(data, 'qrCode'),
+      category: RecordConverters.optional<String>(data, 'category'),
+      storageLocation: RecordConverters.optional<String>(
         data,
         'storageLocation',
       ),
-      currentHolderId: FirestoreConverters.optional<String>(
+      currentHolderId: RecordConverters.optional<String>(
         data,
         'currentHolderId',
       ),
-      currentLoanId: FirestoreConverters.optional<String>(
-        data,
-        'currentLoanId',
-      ),
-      createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
+      currentLoanId: RecordConverters.optional<String>(data, 'currentLoanId'),
+      createdAt: RecordConverters.requireDate(data, 'createdAt'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
     );
   }
 
@@ -106,7 +98,7 @@ class Tool {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'toolCode': toolCode,
     'name': name,
     'status': status.id,
@@ -116,8 +108,8 @@ class Tool {
     'currentHolderId': currentHolderId,
     'currentLoanId': currentLoanId,
     'qrCode': qrCode,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
   };
 
   Tool copyWith({

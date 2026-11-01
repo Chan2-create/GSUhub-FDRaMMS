@@ -5,6 +5,7 @@ import 'package:gsuhub/features/notifications/data/models/report_notice.dart';
 import 'package:gsuhub/features/reporting/data/models/status_change.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../notifications/data/repositories/notification_writes.dart';
 
@@ -94,6 +95,9 @@ void stageStatusChange(
         .doc(reportId)
         .collection(FirestorePaths.statusHistory)
         .doc(),
-    {...entry.toFirestore(), 'changedAt': FirestoreRepository.serverNow},
+    {
+      ...entry.toFields().forFirestore,
+      'changedAt': FirestoreRepository.serverNow,
+    },
   );
 }

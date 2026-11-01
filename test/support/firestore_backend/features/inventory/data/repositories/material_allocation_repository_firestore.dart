@@ -13,6 +13,7 @@ import 'package:gsuhub/features/inventory/data/models/material_line.dart';
 import 'package:gsuhub/features/inventory/data/repositories/material_allocation_repository.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 
@@ -54,7 +55,7 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
     if (!snapshot.exists) {
       throw FirestoreRepository.notFound('No work order $workOrderId');
     }
-    final workOrder = WorkOrder.fromFirestore(snapshot);
+    final workOrder = fromDoc(WorkOrder.fromRecord)(snapshot);
     if (workOrder.status != WorkOrderStatus.pending &&
         workOrder.status != WorkOrderStatus.inProgress) {
       throw FirestoreRepository.precondition(
@@ -72,7 +73,7 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
   ) =>
       watchMany(
         query: _allocated(workOrderId),
-        convert: AllocatedMaterial.fromFirestore,
+        convert: fromDoc(AllocatedMaterial.fromRecord),
       ).map(
         (result) => result.map(
           (materials) => [...materials]
@@ -107,7 +108,7 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
           'This material is no longer in the inventory.',
         );
       }
-      final item = InventoryItem.fromFirestore(itemSnapshot);
+      final item = fromDoc(InventoryItem.fromRecord)(itemSnapshot);
       if (quantity > item.quantityAvailable) {
         throw FirestoreRepository.precondition(
           'Only ${QuantityFormat.withUnit(item.quantityAvailable, item.unitOfMeasurement)} '
@@ -118,15 +119,16 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
       transaction.set(
         _allocated(workOrderId).doc(inventoryItemId),
         AllocatedMaterial(
-          line: MaterialLine(
-            inventoryItemId: inventoryItemId,
-            itemName: item.name,
-            quantity: quantity,
-            unitOfMeasurement: item.unitOfMeasurement,
-          ),
-          allocatedBy: actor.id,
-          allocatedAt: DateTime.now().toUtc(),
-        ).toFirestore()..['allocatedAt'] = FirestoreRepository.serverNow,
+            line: MaterialLine(
+              inventoryItemId: inventoryItemId,
+              itemName: item.name,
+              quantity: quantity,
+              unitOfMeasurement: item.unitOfMeasurement,
+            ),
+            allocatedBy: actor.id,
+            allocatedAt: DateTime.now().toUtc(),
+          ).toFields().forFirestore
+          ..['allocatedAt'] = FirestoreRepository.serverNow,
       );
       stageAuditEntry(
         transaction,
@@ -154,7 +156,7 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
     final reference = _allocated(workOrderId).doc(inventoryItemId);
     final snapshot = await transaction.get(reference);
     if (!snapshot.exists) return;
-    final allocated = AllocatedMaterial.fromFirestore(snapshot);
+    final allocated = fromDoc(AllocatedMaterial.fromRecord)(snapshot);
 
     transaction.delete(reference);
     stageAuditEntry(

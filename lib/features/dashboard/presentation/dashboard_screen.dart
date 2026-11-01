@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/routing/route_paths.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/category_donut.dart';
@@ -131,14 +133,11 @@ class _RecentReportsCard extends ConsumerWidget {
     title: 'Recent Reports',
     dividerUnderHeader: true,
     contentPadding: EdgeInsets.zero,
-    trailing: Tooltip(
-      message: 'The full report list arrives in Objective 2.B.',
-      child: TextButton(
-        onPressed: null,
-        child: Text(
-          'View All',
-          style: AppTextStyles.buttonLabel.copyWith(color: AppColors.primary),
-        ),
+    trailing: TextButton(
+      onPressed: () => context.go(RoutePaths.adminReports),
+      child: Text(
+        'View All',
+        style: AppTextStyles.buttonLabel.copyWith(color: AppColors.primary),
       ),
     ),
     child: AsyncValueView<List<DamageReport>>(
@@ -195,18 +194,17 @@ class _RecentReportsCard extends ConsumerWidget {
             label: 'Actions',
             width: 90,
             alignment: Alignment.center,
-            cell: (report) => Tooltip(
-              message: 'Report detail arrives in Objective 2.B.',
-              child: IconButton(
-                onPressed: null,
-                icon: SvgPicture.asset(
-                  'assets/icons/action_view.svg',
-                  width: 22,
-                  height: 15,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.textFaint,
-                    BlendMode.srcIn,
-                  ),
+            cell: (report) => IconButton(
+              tooltip: 'Open the report',
+              onPressed: () =>
+                  context.go(RoutePaths.adminReportDetailFor(report.id)),
+              icon: SvgPicture.asset(
+                'assets/icons/action_view.svg',
+                width: 22,
+                height: 15,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.textFaint,
+                  BlendMode.srcIn,
                 ),
               ),
             ),

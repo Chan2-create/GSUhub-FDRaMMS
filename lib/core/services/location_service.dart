@@ -1,38 +1,7 @@
+import '../data/geo_coordinates.dart';
 import '../utils/result.dart';
 
-/// A point on the earth, as the device measured it.
-///
-/// A plain value rather than Firestore's `GeoPoint`, so the screens that
-/// capture a location never import Firebase. The report repository
-/// converts it on the way in.
-class GeoCoordinates {
-  const GeoCoordinates({
-    required this.latitude,
-    required this.longitude,
-    this.accuracyMeters,
-  });
-
-  final double latitude;
-  final double longitude;
-
-  /// Radius of the fix's 68% confidence circle, when the platform reports
-  /// one. Worth showing: manuscript §2.2 notes GPS is imprecise inside
-  /// multi-storey buildings, which is where most damage is reported from.
-  final double? accuracyMeters;
-
-  @override
-  bool operator ==(Object other) =>
-      other is GeoCoordinates &&
-      other.latitude == latitude &&
-      other.longitude == longitude &&
-      other.accuracyMeters == accuracyMeters;
-
-  @override
-  int get hashCode => Object.hash(latitude, longitude, accuracyMeters);
-
-  @override
-  String toString() => 'GeoCoordinates($latitude, $longitude)';
-}
+export '../data/geo_coordinates.dart';
 
 /// Device location — the geo-tag on a damage report (manuscript §1.5).
 ///

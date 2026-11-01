@@ -1,4 +1,4 @@
-import '../../../../core/data/row_snapshot.dart';
+import '../../../../core/data/row_record.dart';
 import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
@@ -29,11 +29,8 @@ class MaterialAllocationRepositoryImpl extends SupabaseRepository
           (rows) =>
               [
                 for (final row in rows)
-                  AllocatedMaterial.fromFirestore(
-                    RowSnapshot.fromKeyedRow(
-                      row,
-                      idColumn: 'inventory_item_id',
-                    ),
+                  AllocatedMaterial.fromRecord(
+                    RowRecord.fromKeyedRow(row, idColumn: 'inventory_item_id'),
                   ),
               ]..sort(
                 (a, b) => a.line.itemName.toLowerCase().compareTo(

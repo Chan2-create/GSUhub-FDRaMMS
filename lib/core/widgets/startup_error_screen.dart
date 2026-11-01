@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../config/firebase_initializer.dart';
+import '../services/firebase/firebase_initializer.dart';
 
 /// Shown when Firebase could not be initialized, in place of the app.
 ///

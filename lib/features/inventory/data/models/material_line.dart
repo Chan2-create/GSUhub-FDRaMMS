@@ -1,4 +1,4 @@
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A material and a quantity: one line of a technician's request, or one
 /// material pre-assigned to a work order (Objective 6.B).
@@ -12,8 +12,8 @@ class MaterialLine {
     required this.quantity,
     required this.unitOfMeasurement,
   }) {
-    FirestoreConverters.validateNotBlank(inventoryItemId, 'inventoryItemId');
-    FirestoreConverters.validateNotBlank(itemName, 'itemName');
+    RecordConverters.validateNotBlank(inventoryItemId, 'inventoryItemId');
+    RecordConverters.validateNotBlank(itemName, 'itemName');
     if (quantity <= 0) {
       throw ArgumentError.value(
         quantity,
@@ -24,13 +24,10 @@ class MaterialLine {
   }
 
   factory MaterialLine.fromMap(Map<String, dynamic> data) => MaterialLine(
-    inventoryItemId: FirestoreConverters.require<String>(
-      data,
-      'inventoryItemId',
-    ),
-    itemName: FirestoreConverters.require<String>(data, 'itemName'),
-    quantity: FirestoreConverters.require<num>(data, 'quantity').toDouble(),
-    unitOfMeasurement: FirestoreConverters.require<String>(
+    inventoryItemId: RecordConverters.require<String>(data, 'inventoryItemId'),
+    itemName: RecordConverters.require<String>(data, 'itemName'),
+    quantity: RecordConverters.require<num>(data, 'quantity').toDouble(),
+    unitOfMeasurement: RecordConverters.require<String>(
       data,
       'unitOfMeasurement',
     ),

@@ -2,7 +2,7 @@
 
 begin;
 select tests.create_fixtures();
-select plan(25);
+select plan(27);
 
 insert into public.work_orders (id, report_ids, title, description, category, priority, status, assigned_personnel_ids, created_by) values
   ('w-done', array['r-4'], 'Old job', 'Done.', 'electrical', 'low', 'completed', array['u-tech'], 'u-admin');
@@ -110,6 +110,17 @@ select is(
   (select array[array_to_string(proof_photo_urls, ','), status] from public.tasks where id = 't-proof'),
   array['p/a.jpg,p/b.jpg', 'inProgress'],
   '…each once, and the task is under way'
+);
+select is(
+  (select string_agg(description, ' | ' order by "timestamp") from public.audit_logs
+     where entity_id = 't-proof' and action = 'statusChanged'),
+  'Task "Photograph the panel" changed from To do to In progress',
+  '…and the start is audited, as any task''s move is (7.B)'
+);
+select is(
+  (select count(*)::int from public.audit_logs where entity_id = 't-proof' and action = 'statusChanged'),
+  1,
+  '…once: more photos on a task under way move nothing'
 );
 select is(
   tests.attempt('u-tech', $$select public.add_proof_photos('t-proof', array['p/b.jpg', 'p/c.jpg'])$$),

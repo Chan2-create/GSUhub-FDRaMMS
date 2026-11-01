@@ -357,6 +357,11 @@ class WorkOrderCard extends ConsumerWidget {
 }
 
 /// Keyboard- and screen-reader-reachable equivalent of dragging.
+///
+/// Offers what the board itself does (Objective 7.B): starting pending
+/// work, and opening work that waits for sign-off at its accomplishment
+/// report. Work in progress has no move here: it goes for review when the
+/// technician submits the report.
 class _MoveMenu extends ConsumerWidget {
   const _MoveMenu({required this.workOrder});
 
@@ -364,24 +369,38 @@ class _MoveMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final targets = WorkOrderStatus.values
-        .where(workOrder.status.canTransitionTo)
-        .toList();
-
-    if (targets.isEmpty) return const SizedBox.shrink();
-
-    return PopupMenuButton<WorkOrderStatus>(
-      tooltip: 'Move work order',
-      position: PopupMenuPosition.under,
-      icon: const Icon(Icons.more_horiz, size: 16),
-      padding: EdgeInsets.zero,
-      onSelected: (status) => ref
-          .read(workOrderControllerProvider)
-          .move(context: context, workOrder: workOrder, to: status),
-      itemBuilder: (context) => [
-        for (final status in targets)
-          PopupMenuItem(value: status, child: Text('Move to ${status.title}')),
-      ],
-    );
+    final controller = ref.read(workOrderControllerProvider);
+    return switch (workOrder.status) {
+      WorkOrderStatus.pending => PopupMenuButton<WorkOrderStatus>(
+        tooltip: 'Move work order',
+        position: PopupMenuPosition.under,
+        icon: const Icon(Icons.more_horiz, size: 16),
+        padding: EdgeInsets.zero,
+        onSelected: (status) =>
+            controller.move(context: context, workOrder: workOrder, to: status),
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: WorkOrderStatus.inProgress,
+            child: Text('Move to ${WorkOrderStatus.inProgress.title}'),
+          ),
+        ],
+      ),
+      // A value, not null: a menu item without one counts as dismissed.
+      WorkOrderStatus.forReview => PopupMenuButton<String>(
+        tooltip: 'Review work order',
+        position: PopupMenuPosition.under,
+        icon: const Icon(Icons.more_horiz, size: 16),
+        padding: EdgeInsets.zero,
+        onSelected: (_) => controller.review(context, workOrder),
+        itemBuilder: (context) => const [
+          PopupMenuItem<String>(
+            value: 'review',
+            child: Text('Review the accomplishment report'),
+          ),
+        ],
+      ),
+      WorkOrderStatus.inProgress ||
+      WorkOrderStatus.completed => const SizedBox.shrink(),
+    };
   }
 }

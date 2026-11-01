@@ -17,6 +17,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:gsuhub/core/enums/notification_type.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/features/notifications/data/models/personnel_notice.dart';
 import 'package:gsuhub/features/notifications/data/models/report_notice.dart';
@@ -57,6 +58,7 @@ Future<void> main(List<String> args) async {
   await _seedMaterialRequests();
   await _seedHistory();
   await _seedAuditLogs();
+  await _seedAdminNotices();
   stdout.writeln(
     '  notifications: $_notices (one per move a reporter is told of; '
     'older than two days already read)',
@@ -2115,6 +2117,153 @@ Future<void> _seedMaterialRequests() async {
 /// A short audit trail, so the dashboard's Recent Activity panel and the
 /// report detail view's history have something to show on a fresh
 /// emulator. Entries the app writes itself look exactly like these.
+/// The administrators' own notices (Objective 7.A), as the database's
+/// triggers would have written them for the seeded data, so the console's
+/// notification centre has something to show. Worded exactly as
+/// supabase/migrations/*_admin_notifications.sql words them; both seeded
+/// administrators get each one.
+Future<void> _seedAdminNotices() async {
+  // app.format_quantity: "12 units", "1 roll".
+  String quantity(double value, String unit) {
+    final amount = value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toString();
+    final singular =
+        value == 1 &&
+        unit.length > 2 &&
+        unit.endsWith('s') &&
+        !unit.endsWith('ss');
+    return '$amount ${singular ? unit.substring(0, unit.length - 1) : unit}';
+  }
+
+  _SeededReport report(String id) =>
+      _seededReports.firstWhere((candidate) => candidate.id == id);
+  String filed(String id) {
+    final seeded = report(id);
+    return '#${id.toUpperCase()} ${seeded.title} — ${seeded.facilityName}.';
+  }
+
+  final low = [
+    for (final item in _inventory)
+      if (item.$5 <= item.$7) item,
+  ];
+  final notices =
+      <(String, NotificationType, String, String, String, String, int, bool)>[
+        (
+          'an-rep-0004',
+          NotificationType.reportSubmitted,
+          'New report submitted',
+          filed('rep-0004'),
+          'damage_reports',
+          'rep-0004',
+          report('rep-0004').submittedHoursAgo,
+          false,
+        ),
+        (
+          'an-rep-0001',
+          NotificationType.reportSubmitted,
+          'New urgent report submitted',
+          filed('rep-0001'),
+          'damage_reports',
+          'rep-0001',
+          report('rep-0001').submittedHoursAgo,
+          true,
+        ),
+        (
+          'an-wo-0009',
+          NotificationType.reviewRequested,
+          'Work ready for sign-off',
+          'Rosa Villanueva submitted the accomplishment report for #WO-0009 '
+              '(Loose Ceiling Panel). Sign it off or send it back.',
+          'work_orders',
+          'wo-0009',
+          6,
+          false,
+        ),
+        (
+          'an-wo-0003',
+          NotificationType.workStarted,
+          'Work started',
+          'Marcus Wright started working on #WO-0003 (Flickering Lights).',
+          'work_orders',
+          'wo-0003',
+          44,
+          true,
+        ),
+        (
+          'an-rq-0001',
+          NotificationType.materialsRequested,
+          'Materials requested',
+          'Marcus Wright asked for 1 material for #WO-0003.',
+          'material_requests',
+          'rq-0001',
+          2,
+          false,
+        ),
+        (
+          'an-rq-0004',
+          NotificationType.materialsRequested,
+          'Materials requested',
+          'Juan Luna asked for 1 material for #WO-0002.',
+          'material_requests',
+          'rq-0004',
+          1,
+          false,
+        ),
+        (
+          'an-signup',
+          NotificationType.accountRequested,
+          'Account request',
+          'Liza Mae Tan (liza.tan@dorsu.edu.ph) signed up and is waiting for '
+              'approval.',
+          'users',
+          facultyPendingUid,
+          20,
+          false,
+        ),
+        // The materials seeded below their minimum.
+        for (final (index, (id, name, _, _, onHand, unit, minimum, _))
+            in low.indexed)
+          (
+            'an-low-$id',
+            NotificationType.lowStockAlert,
+            '${onHand <= 0 ? 'Out of stock' : 'Low stock'}: $name',
+            '$name is down to ${quantity(onHand, unit)}; its minimum is '
+                '${quantity(minimum, unit)}.',
+            'inventory_items',
+            id,
+            const [8, 26, 30][index % 3],
+            index > 0,
+          ),
+      ];
+
+  for (final admin in [adminUid, secondAdminUid]) {
+    for (final (id, type, title, body, entity, entityId, hoursAgo, isRead)
+        in notices) {
+      final created = DateTime.now().toUtc().subtract(
+        Duration(hours: hoursAgo),
+      );
+      _notices++;
+      await _writeDoc('notifications', '$id-$admin', {
+        'recipientId': _str(admin),
+        'type': _str(type.id),
+        'title': _str(title),
+        'body': _str(body),
+        'relatedEntityType': _str(entity),
+        'relatedEntityId': _str(entityId),
+        'isRead': _bool(isRead),
+        'readAt': isRead ? _at(created.add(const Duration(hours: 1))) : _null(),
+        'createdAt': _at(created),
+      });
+    }
+  }
+
+  stdout.writeln(
+    '  administrator notices: ${notices.length} for each of the two '
+    'administrators (Objective 7.A)',
+  );
+}
+
 Future<void> _seedAuditLogs() async {
   final entries = [
     (

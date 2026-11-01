@@ -3,7 +3,7 @@
 
 begin;
 select tests.create_fixtures();
-select plan(44);
+select plan(45);
 
 -- ---------------------------------------------------------------- filing
 
@@ -26,10 +26,18 @@ select is(
   '…its timeline starts'
 );
 select is(
-  (select array[recipient_id, type, title, body] from public.notifications where related_entity_id = 'r-new'),
+  (select array[recipient_id, type, title, body] from public.notifications
+     where related_entity_id = 'r-new' and recipient_id = 'u-req2'),
   array['u-req2', 'reportAcknowledged', 'Report received',
     'The General Services Unit received your report "Broken window". You will be notified as it moves along.'],
   '…they are told it was received'
+);
+select is(
+  (select array[recipient_id, type, title, body] from public.notifications
+     where related_entity_id = 'r-new' and recipient_id = 'u-admin'),
+  array['u-admin', 'reportSubmitted', 'New urgent report submitted',
+    '#R-NEW Broken window — Engineering Building.'],
+  '…and the administrators are told, as urgent: the requestor chose High (7.A)'
 );
 select is(
   (select array[description, changes ->> 'photos', changes ->> 'geoTagged'] from public.audit_logs where entity_id = 'r-new'),

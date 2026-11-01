@@ -12,6 +12,7 @@ import 'package:gsuhub/features/tools/data/models/tool_draft.dart';
 import 'package:gsuhub/features/tools/data/models/tool_loan.dart';
 import 'package:gsuhub/features/tools/data/repositories/tool_repository.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../../core/data/qr_codes.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
@@ -34,13 +35,13 @@ class FirestoreToolRepository extends FirestoreRepository
 
   @override
   Future<Result<Tool>> getToolById(String id) =>
-      getOne(path: _tools, id: id, convert: Tool.fromFirestore);
+      getOne(path: _tools, id: id, convert: fromDoc(Tool.fromRecord));
 
   @override
   Future<Result<Tool>> getToolByQrCode(String qrCode) async {
     final matches = await getMany(
       query: collection(_tools).where('qrCode', isEqualTo: qrCode).limit(1),
-      convert: Tool.fromFirestore,
+      convert: fromDoc(Tool.fromRecord),
     );
 
     return matches.fold(
@@ -59,13 +60,13 @@ class FirestoreToolRepository extends FirestoreRepository
     if (status != null) query = query.where('status', isEqualTo: status.id);
     return watchMany(
       query: query.orderBy('toolCode'),
-      convert: Tool.fromFirestore,
+      convert: fromDoc(Tool.fromRecord),
     );
   }
 
   @override
   Stream<Result<Tool>> watchTool(String id) =>
-      watchOne(path: _tools, id: id, convert: Tool.fromFirestore);
+      watchOne(path: _tools, id: id, convert: fromDoc(Tool.fromRecord));
 
   @override
   Future<Result<String>> createTool({
@@ -121,7 +122,7 @@ class FirestoreToolRepository extends FirestoreRepository
       if (!snapshot.exists) {
         throw FirestoreRepository.notFound('No tool $toolId');
       }
-      final tool = Tool.fromFirestore(snapshot);
+      final tool = fromDoc(Tool.fromRecord)(snapshot);
       final fields = clean.toFields();
       // A tool out on loan keeps the condition it left in; its return
       // records what it comes back in.
@@ -163,7 +164,7 @@ class FirestoreToolRepository extends FirestoreRepository
     if (!snapshot.exists) {
       throw FirestoreRepository.notFound('No tool $toolId');
     }
-    final tool = Tool.fromFirestore(snapshot);
+    final tool = fromDoc(Tool.fromRecord)(snapshot);
     if (tool.status == status) return;
     if (status == ToolStatus.borrowed) {
       throw FirestoreRepository.precondition('Check a tool out to lend it.');
@@ -240,7 +241,7 @@ class FirestoreToolRepository extends FirestoreRepository
       );
     }
 
-    final tool = Tool.fromFirestore(snapshot);
+    final tool = fromDoc(Tool.fromRecord)(snapshot);
     if (!tool.status.isIssuable) {
       throw FirebaseException(
         plugin: 'gsuhub',
@@ -265,7 +266,7 @@ class FirestoreToolRepository extends FirestoreRepository
       conditionOnBorrow: tool.condition,
     );
 
-    transaction.set(loanRef, loan.toFirestore());
+    transaction.set(loanRef, loan.toFields().forFirestore);
     transaction.update(toolRef, {
       'status': ToolStatus.borrowed.id,
       'currentHolderId': borrowedBy,
@@ -313,7 +314,7 @@ class FirestoreToolRepository extends FirestoreRepository
       );
     }
 
-    final loan = ToolLoan.fromFirestore(loanSnapshot);
+    final loan = fromDoc(ToolLoan.fromRecord)(loanSnapshot);
     if (loan.isReturned) {
       throw FirebaseException(
         plugin: 'gsuhub',
@@ -370,14 +371,14 @@ class FirestoreToolRepository extends FirestoreRepository
         query: collection(_loans)
             .where('borrowedBy', isEqualTo: personnelId)
             .where('returnedAt', isNull: true),
-        convert: ToolLoan.fromFirestore,
+        convert: fromDoc(ToolLoan.fromRecord),
       ).map((result) => result.map(_newestFirst));
 
   @override
   Stream<Result<List<ToolLoan>>> watchLoansForWorkOrder(String workOrderId) =>
       watchMany(
         query: collection(_loans).where('workOrderId', isEqualTo: workOrderId),
-        convert: ToolLoan.fromFirestore,
+        convert: fromDoc(ToolLoan.fromRecord),
       ).map((result) => result.map(_newestFirst));
 
   static List<ToolLoan> _newestFirst(List<ToolLoan> loans) =>
@@ -388,7 +389,7 @@ class FirestoreToolRepository extends FirestoreRepository
     query: collection(_loans)
         .where('returnedAt', isNull: true)
         .orderBy('borrowedAt', descending: true),
-    convert: ToolLoan.fromFirestore,
+    convert: fromDoc(ToolLoan.fromRecord),
   );
 
   @override
@@ -398,13 +399,13 @@ class FirestoreToolRepository extends FirestoreRepository
             .where('borrowedBy', isEqualTo: personnelId)
             .where('returnedAt', isNull: true)
             .orderBy('borrowedAt', descending: true),
-        convert: ToolLoan.fromFirestore,
+        convert: fromDoc(ToolLoan.fromRecord),
       );
 
   @override
   Stream<Result<List<ToolLoan>>> watchLoanHistory(String toolId) => watchMany(
     query: collection(_loans).where('toolId', isEqualTo: toolId),
-    convert: ToolLoan.fromFirestore,
+    convert: fromDoc(ToolLoan.fromRecord),
   ).map((result) => result.map(_newestFirst));
 
   @override
@@ -416,6 +417,6 @@ class FirestoreToolRepository extends FirestoreRepository
         .where('toolId', isEqualTo: toolId)
         .orderBy('borrowedAt', descending: true)
         .limit(limit),
-    convert: ToolLoan.fromFirestore,
+    convert: fromDoc(ToolLoan.fromRecord),
   );
 }

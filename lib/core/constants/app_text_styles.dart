@@ -1861,4 +1861,83 @@ abstract final class AppTextStyles {
     color: AppColors.textPrimary,
     height: 21 / 14,
   );
+
+  // --- console Notifications (Objective 7.A, Figma 202:5608) ---
+
+  /// "Mark All as Read".
+  static const TextStyle notificationAction = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primary,
+    height: 1,
+  );
+
+  /// The filter pills: "All", "Unread", "Reports", "System".
+  static const TextStyle notificationFilter = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    height: 20 / 14,
+  );
+
+  /// "FILTER BY DATE".
+  static const TextStyle notificationFilterLabel = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: AppColors.iconMuted,
+    height: 1,
+    letterSpacing: 0.6,
+  );
+
+  /// The date range in the filter bar.
+  static const TextStyle notificationDateRange = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.notificationBody,
+    height: 20 / 14,
+  );
+
+  /// A notice's title; navy while unread.
+  static const TextStyle notificationTitle = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 24 / 16,
+  );
+
+  /// "2 hours ago".
+  static const TextStyle notificationTime = TextStyle(
+    fontFamily: _ui,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    height: 16 / 12,
+  );
+
+  /// A notice's words. The record number in it is bold.
+  static const TextStyle notificationBody = TextStyle(
+    fontFamily: _ui,
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 24 / 16,
+  );
+
+  /// "HIGH PRIORITY", "UNREAD".
+  static const TextStyle notificationTag = TextStyle(
+    fontFamily: _ui,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    height: 15 / 10,
+  );
+
+  /// "View Older Notifications".
+  static const TextStyle notificationOlder = TextStyle(
+    fontFamily: _ui,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primary,
+    height: 20 / 14,
+  );
 }

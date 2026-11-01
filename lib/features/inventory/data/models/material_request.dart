@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/material_request_status.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 import 'material_line.dart';
 
 /// A technician's request for materials a work order needs and does not
@@ -27,42 +26,40 @@ class MaterialRequest {
     this.reviewedBy,
     this.reviewedAt,
   }) {
-    FirestoreConverters.validateNotBlank(workOrderId, 'workOrderId');
-    FirestoreConverters.validateNotBlank(requestedBy, 'requestedBy');
+    RecordConverters.validateNotBlank(workOrderId, 'workOrderId');
+    RecordConverters.validateNotBlank(requestedBy, 'requestedBy');
     if (items.isEmpty) {
       throw ArgumentError.value(items, 'items', 'A request needs a material');
     }
   }
 
-  factory MaterialRequest.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory MaterialRequest.fromRecord(DataRecord record) {
+    final data = record.fields;
     return MaterialRequest(
-      id: doc.id,
-      workOrderId: FirestoreConverters.require<String>(data, 'workOrderId'),
-      requestedBy: FirestoreConverters.require<String>(data, 'requestedBy'),
-      requestedByName: FirestoreConverters.require<String>(
+      id: record.id,
+      workOrderId: RecordConverters.require<String>(data, 'workOrderId'),
+      requestedBy: RecordConverters.require<String>(data, 'requestedBy'),
+      requestedByName: RecordConverters.require<String>(
         data,
         'requestedByName',
       ),
       items: [
         for (final item
-            in FirestoreConverters.optional<List<dynamic>>(data, 'items') ??
+            in RecordConverters.optional<List<dynamic>>(data, 'items') ??
                 const [])
           MaterialLine.fromMap(Map<String, dynamic>.from(item as Map)),
       ],
-      status: FirestoreConverters.requireEnum(
+      status: RecordConverters.requireEnum(
         data,
         'status',
         MaterialRequestStatus.fromId,
       ),
-      note: FirestoreConverters.optional<String>(data, 'note'),
-      adminNote: FirestoreConverters.optional<String>(data, 'adminNote'),
-      reviewedBy: FirestoreConverters.optional<String>(data, 'reviewedBy'),
-      reviewedAt: FirestoreConverters.optionalDate(data, 'reviewedAt'),
-      createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
+      note: RecordConverters.optional<String>(data, 'note'),
+      adminNote: RecordConverters.optional<String>(data, 'adminNote'),
+      reviewedBy: RecordConverters.optional<String>(data, 'reviewedBy'),
+      reviewedAt: RecordConverters.optionalDate(data, 'reviewedAt'),
+      createdAt: RecordConverters.requireDate(data, 'createdAt'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
     );
   }
 
@@ -92,7 +89,7 @@ class MaterialRequest {
 
   bool get isPending => status == MaterialRequestStatus.pending;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'workOrderId': workOrderId,
     'requestedBy': requestedBy,
     'requestedByName': requestedByName,
@@ -101,8 +98,8 @@ class MaterialRequest {
     'note': note,
     'adminNote': adminNote,
     'reviewedBy': reviewedBy,
-    'reviewedAt': reviewedAt == null ? null : Timestamp.fromDate(reviewedAt!),
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'reviewedAt': reviewedAt,
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
   };
 }

@@ -89,8 +89,15 @@ class ReportTimeline {
     final newestFirst = steps.reversed.toList(growable: false);
     return ReportTimeline._(
       entries: newestFirst,
+      // The newest step that names a technician: the assignment, or a
+      // reassignment since (Objective 7.A), which keeps the report's own
+      // status and names the new technician.
       assignment: newestFirst
-          .where((entry) => entry.status == ReportStatus.assigned)
+          .where(
+            (entry) =>
+                entry.status == ReportStatus.assigned ||
+                entry.personnelName != null,
+          )
           .firstOrNull,
     );
   }
@@ -99,7 +106,8 @@ class ReportTimeline {
   /// `169:1064`).
   final List<TimelineEntry> entries;
 
-  /// The latest assignment, for the "Assigned Maintenance Personnel" card
-  /// (Figma `169:1048`) — null until the report is assigned.
+  /// The latest assignment or reassignment, for the "Assigned Maintenance
+  /// Personnel" card (Figma `169:1048`) — null until the report is
+  /// assigned.
   final TimelineEntry? assignment;
 }

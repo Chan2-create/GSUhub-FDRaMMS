@@ -3,9 +3,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../firebase_options.dart';
-import 'app_config.dart';
-import 'web_auth_emulator.dart';
+import '../../../firebase_options.dart';
+import '../../config/app_config.dart';
+import '../../config/web_auth_emulator.dart';
 
 /// Outcome of application startup.
 ///

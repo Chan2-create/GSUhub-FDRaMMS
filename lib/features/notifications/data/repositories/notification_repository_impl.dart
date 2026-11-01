@@ -18,15 +18,16 @@ class NotificationRepositoryImpl extends SupabaseRepository
 
   static const String _table = 'notifications';
 
-  /// The newest hundred: the list never shows more, and the badge only
-  /// needs to tell "some" from "a lot".
+  /// The newest hundred, unless more are asked for: the badge only needs
+  /// to tell "some" from "a lot".
   static const int _limit = 100;
 
   @override
   Stream<Result<List<AppNotification>>> watchForUser(
     String userId, {
     bool unreadOnly = false,
-  }) => _watch(userId).map(
+    int limit = _limit,
+  }) => _watch(userId, limit: limit).map(
     (result) => result.map(
       (notifications) => [
         for (final notification in notifications)
@@ -44,14 +45,17 @@ class NotificationRepositoryImpl extends SupabaseRepository
 
   /// Filtered on the recipient, which never changes, and not on read: a
   /// stream filtered on `is_read` would never hear that one was read.
-  Stream<Result<List<AppNotification>>> _watch(String userId) => watchMany(
+  Stream<Result<List<AppNotification>>> _watch(
+    String userId, {
+    int limit = _limit,
+  }) => watchMany(
     stream: client
         .from(_table)
         .stream(primaryKey: const ['id'])
         .eq('recipient_id', userId)
         .order('created_at')
-        .limit(_limit),
-    convert: AppNotification.fromFirestore,
+        .limit(limit),
+    convert: AppNotification.fromRecord,
   );
 
   @override

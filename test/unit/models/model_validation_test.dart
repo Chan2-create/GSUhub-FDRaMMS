@@ -523,14 +523,14 @@ void main() {
     });
   });
 
-  group('FirestoreConverters error reporting', () {
+  group('RecordConverters error reporting', () {
     test('names the field when a required one is missing', () async {
       final doc = await roundTrip('inventory_items', 'inv-1', {
         'name': 'LED Bulb',
       });
 
       expect(
-        () => InventoryItem.fromFirestore(doc),
+        () => InventoryItem.fromRecord(doc),
         throwsA(
           isA<ValidationException>().having(
             (e) => e.message,
@@ -551,7 +551,7 @@ void main() {
       });
 
       expect(
-        () => Tool.fromFirestore(doc),
+        () => Tool.fromRecord(doc),
         throwsA(
           isA<ValidationException>().having(
             (e) => e.message,

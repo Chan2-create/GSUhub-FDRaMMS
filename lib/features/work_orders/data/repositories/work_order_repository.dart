@@ -52,7 +52,12 @@ abstract interface class WorkOrderRepository {
     DateTime? scheduledFor,
   });
 
-  /// Moves a work order between Kanban columns.
+  /// Starts a work order: Pending to In Progress, the one move made
+  /// directly (Objective 7.B). The rest belong to the accomplishment
+  /// report: submitting it sends the work for review, and its review
+  /// completes the work or sends it back. Implementations refuse those
+  /// here, saying where they are made, so the Kanban board cannot skip the
+  /// sign-off.
   ///
   /// Implementations must, in one transaction:
   /// - reject transitions `WorkOrderStatus.canTransitionTo` disallows,
@@ -60,11 +65,29 @@ abstract interface class WorkOrderRepository {
   /// - move every linked report to the matching `ReportStatus`, through
   ///   its own transition guard — a report whose status cannot follow
   ///   aborts the move rather than leaving the two disagreeing;
-  /// - release the assignees' `activeTaskCount` on completion;
   /// - append an audit entry naming [actor].
   Future<Result<void>> setStatus(
     String workOrderId,
     WorkOrderStatus status, {
+    required AuditActor actor,
+  });
+
+  /// Hands open work to another technician (Objective 7.A; manuscript
+  /// §3.4: "Modify report priorities and assignments when necessary").
+  ///
+  /// Implementations must, in one transaction:
+  /// - refuse work that is not pending or in progress, a person who is not
+  ///   an active technician, and the technician who already holds it;
+  /// - name [personnelId] alone on the work order, and hand them its
+  ///   unfinished tasks;
+  /// - move the open-work counts, never below zero;
+  /// - record the change in each linked report's history, with the new
+  ///   technician, and tell the requestor, the new technician and the one
+  ///   it was taken from;
+  /// - append an audit entry naming [actor].
+  Future<Result<void>> reassign({
+    required String workOrderId,
+    required String personnelId,
     required AuditActor actor,
   });
 

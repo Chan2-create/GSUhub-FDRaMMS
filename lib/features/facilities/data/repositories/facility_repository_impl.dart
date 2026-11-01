@@ -1,4 +1,4 @@
-import '../../../../core/data/row_snapshot.dart';
+import '../../../../core/data/data_record.dart';
 import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/result.dart';
@@ -23,13 +23,13 @@ class FacilityRepositoryImpl extends SupabaseRepository
 
   @override
   Future<Result<Facility>> getFacilityById(String id) =>
-      getOne(table: _facilities, id: id, convert: Facility.fromFirestore);
+      getOne(table: _facilities, id: id, convert: Facility.fromRecord);
 
   @override
   Future<Result<Facility>> getFacilityByQrCode(String qrCode) => _byQrCode(
     table: _facilities,
     qrCode: qrCode,
-    convert: Facility.fromFirestore,
+    convert: Facility.fromRecord,
     label: 'facility',
   );
 
@@ -38,7 +38,7 @@ class FacilityRepositoryImpl extends SupabaseRepository
     final query = client.from(_facilities).select();
     return getMany(
       query: activeOnly ? query.eq('is_active', true) : query,
-      convert: Facility.fromFirestore,
+      convert: Facility.fromRecord,
     );
   }
 
@@ -46,7 +46,7 @@ class FacilityRepositoryImpl extends SupabaseRepository
   Stream<Result<List<Facility>>> watchFacilities() =>
       watchMany(
         stream: client.from(_facilities).stream(primaryKey: const ['id']),
-        convert: Facility.fromFirestore,
+        convert: Facility.fromRecord,
       ).map(
         (result) => result.map(
           (facilities) => [...facilities]
@@ -114,13 +114,13 @@ class FacilityRepositoryImpl extends SupabaseRepository
 
   @override
   Future<Result<Asset>> getAssetById(String id) =>
-      getOne(table: _assets, id: id, convert: Asset.fromFirestore);
+      getOne(table: _assets, id: id, convert: Asset.fromRecord);
 
   @override
   Future<Result<Asset>> getAssetByQrCode(String qrCode) => _byQrCode(
     table: _assets,
     qrCode: qrCode,
-    convert: Asset.fromFirestore,
+    convert: Asset.fromRecord,
     label: 'asset',
   );
 
@@ -132,7 +132,7 @@ class FacilityRepositoryImpl extends SupabaseRepository
     final query = client.from(_assets).select().eq('facility_id', facilityId);
     return getMany(
       query: activeOnly ? query.eq('is_active', true) : query,
-      convert: Asset.fromFirestore,
+      convert: Asset.fromRecord,
     );
   }
 
@@ -140,7 +140,7 @@ class FacilityRepositoryImpl extends SupabaseRepository
   Stream<Result<List<Asset>>> watchAssets() =>
       watchMany(
         stream: client.from(_assets).stream(primaryKey: const ['id']),
-        convert: Asset.fromFirestore,
+        convert: Asset.fromRecord,
       ).map(
         (result) => result.map(
           (assets) => [...assets]
@@ -205,7 +205,7 @@ class FacilityRepositoryImpl extends SupabaseRepository
   Future<Result<T>> _byQrCode<T>({
     required String table,
     required String qrCode,
-    required T Function(RowSnapshot) convert,
+    required T Function(DataRecord) convert,
     required String label,
   }) async {
     final matches = await getMany(

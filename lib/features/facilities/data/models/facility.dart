@@ -1,6 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/data/data_record.dart';
+import '../../../../core/data/geo_coordinates.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A `facilities` document — a registered campus building, room, or area
 /// that can be QR-identified and reported against (manuscript §1.7 "QR
@@ -25,30 +25,30 @@ class Facility {
     this.locationDescription,
     this.coordinates,
   }) {
-    FirestoreConverters.validateNotBlank(name, 'name');
-    FirestoreConverters.validateNotBlank(buildingName, 'buildingName');
-    FirestoreConverters.validateNotBlank(qrCode, 'qrCode');
+    RecordConverters.validateNotBlank(name, 'name');
+    RecordConverters.validateNotBlank(buildingName, 'buildingName');
+    RecordConverters.validateNotBlank(qrCode, 'qrCode');
   }
 
-  factory Facility.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory Facility.fromRecord(DataRecord record) {
+    final data = record.fields;
     return Facility(
-      id: doc.id,
-      name: FirestoreConverters.require<String>(data, 'name'),
-      buildingName: FirestoreConverters.require<String>(data, 'buildingName'),
-      qrCode: FirestoreConverters.require<String>(data, 'qrCode'),
-      isActive: FirestoreConverters.require<bool>(data, 'isActive'),
-      roomIdentifier: FirestoreConverters.optional<String>(
-        data,
-        'roomIdentifier',
-      ),
-      locationDescription: FirestoreConverters.optional<String>(
+      id: record.id,
+      name: RecordConverters.require<String>(data, 'name'),
+      buildingName: RecordConverters.require<String>(data, 'buildingName'),
+      qrCode: RecordConverters.require<String>(data, 'qrCode'),
+      isActive: RecordConverters.require<bool>(data, 'isActive'),
+      roomIdentifier: RecordConverters.optional<String>(data, 'roomIdentifier'),
+      locationDescription: RecordConverters.optional<String>(
         data,
         'locationDescription',
       ),
-      coordinates: FirestoreConverters.optional<GeoPoint>(data, 'coordinates'),
-      createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
+      coordinates: RecordConverters.optional<GeoCoordinates>(
+        data,
+        'coordinates',
+      ),
+      createdAt: RecordConverters.requireDate(data, 'createdAt'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
     );
   }
 
@@ -70,7 +70,7 @@ class Facility {
   /// geo-tag captured on an individual report. Optional because indoor
   /// facilities in multi-storey buildings gain little from a single point
   /// (manuscript §2.2 notes GPS accuracy limits in such buildings).
-  final GeoPoint? coordinates;
+  final GeoCoordinates? coordinates;
 
   /// Value encoded in this facility's printed QR code. Unique across
   /// `facilities`; enforced by application logic and rules, since
@@ -85,7 +85,7 @@ class Facility {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'name': name,
     'buildingName': buildingName,
     'roomIdentifier': roomIdentifier,
@@ -93,8 +93,8 @@ class Facility {
     'coordinates': coordinates,
     'qrCode': qrCode,
     'isActive': isActive,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
   };
 
   Facility copyWith({
@@ -103,7 +103,7 @@ class Facility {
     String? buildingName,
     String? roomIdentifier,
     String? locationDescription,
-    GeoPoint? coordinates,
+    GeoCoordinates? coordinates,
     String? qrCode,
     bool? isActive,
     DateTime? createdAt,

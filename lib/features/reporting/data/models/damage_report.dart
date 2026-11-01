@@ -1,10 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 
 import '../../../../core/constants/damage_categories.dart';
+import '../../../../core/data/data_record.dart';
+import '../../../../core/data/geo_coordinates.dart';
 import '../../../../core/enums/priority_level.dart';
 import '../../../../core/enums/report_status.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A `damage_reports` document — the facility damage report a requestor
 /// submits, and the primary input to the whole maintenance lifecycle
@@ -58,11 +59,11 @@ class DamageReport {
     this.reviewedAt,
     this.rejectionReason,
   }) {
-    FirestoreConverters.validateNotBlank(reporterId, 'reporterId');
-    FirestoreConverters.validateNotBlank(title, 'title');
+    RecordConverters.validateNotBlank(reporterId, 'reporterId');
+    RecordConverters.validateNotBlank(title, 'title');
     // Manuscript §3.4 Reporting Policy: "Each report must contain complete
     // and accurate information, including the description of the issue".
-    FirestoreConverters.validateNotBlank(description, 'description');
+    RecordConverters.validateNotBlank(description, 'description');
     _validateRating(severityRating, 'severityRating');
     _validateRating(safetyRiskRating, 'safetyRiskRating');
     _validateRating(frequencyRating, 'frequencyRating');
@@ -70,104 +71,93 @@ class DamageReport {
     if (priorityScore != null) {
       // Bounds of the weighted formula when every criterion is rated 1–4
       // (manuscript Table 3.4 / Table 3.5).
-      FirestoreConverters.validateRange(
-        priorityScore!,
-        1.0,
-        4.0,
-        'priorityScore',
-      );
+      RecordConverters.validateRange(priorityScore!, 1.0, 4.0, 'priorityScore');
     }
   }
 
-  factory DamageReport.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory DamageReport.fromRecord(DataRecord record) {
+    final data = record.fields;
     return DamageReport(
-      id: doc.id,
-      reporterId: FirestoreConverters.require<String>(data, 'reporterId'),
-      reporterName: FirestoreConverters.require<String>(data, 'reporterName'),
-      title: FirestoreConverters.require<String>(data, 'title'),
-      description: FirestoreConverters.require<String>(data, 'description'),
-      requestorPriority: FirestoreConverters.requireEnum(
+      id: record.id,
+      reporterId: RecordConverters.require<String>(data, 'reporterId'),
+      reporterName: RecordConverters.require<String>(data, 'reporterName'),
+      title: RecordConverters.require<String>(data, 'title'),
+      description: RecordConverters.require<String>(data, 'description'),
+      requestorPriority: RecordConverters.requireEnum(
         data,
         'requestorPriority',
         PriorityLevel.fromId,
       ),
-      status: FirestoreConverters.requireEnum(
-        data,
-        'status',
-        ReportStatus.fromId,
-      ),
-      category: FirestoreConverters.optionalEnum(
+      status: RecordConverters.requireEnum(data, 'status', ReportStatus.fromId),
+      category: RecordConverters.optionalEnum(
         data,
         'category',
         DamageCategory.fromId,
       ),
       classifiedAutomatically:
-          FirestoreConverters.optional<bool>(data, 'classifiedAutomatically') ??
+          RecordConverters.optional<bool>(data, 'classifiedAutomatically') ??
           false,
-      requestorCategory: FirestoreConverters.optionalEnum(
+      requestorCategory: RecordConverters.optionalEnum(
         data,
         'requestorCategory',
         DamageCategory.fromId,
       ),
-      facilityId: FirestoreConverters.optional<String>(data, 'facilityId'),
-      facilityName: FirestoreConverters.optional<String>(data, 'facilityName'),
-      locationDescription: FirestoreConverters.optional<String>(
+      facilityId: RecordConverters.optional<String>(data, 'facilityId'),
+      facilityName: RecordConverters.optional<String>(data, 'facilityName'),
+      locationDescription: RecordConverters.optional<String>(
         data,
         'locationDescription',
       ),
-      assetId: FirestoreConverters.optional<String>(data, 'assetId'),
-      coordinates: FirestoreConverters.optional<GeoPoint>(data, 'coordinates'),
-      photoUrls: FirestoreConverters.stringList(data, 'photoUrls'),
-      severityRating: FirestoreConverters.optional<int>(data, 'severityRating'),
-      safetyRiskRating: FirestoreConverters.optional<int>(
+      assetId: RecordConverters.optional<String>(data, 'assetId'),
+      coordinates: RecordConverters.optional<GeoCoordinates>(
+        data,
+        'coordinates',
+      ),
+      photoUrls: RecordConverters.stringList(data, 'photoUrls'),
+      severityRating: RecordConverters.optional<int>(data, 'severityRating'),
+      safetyRiskRating: RecordConverters.optional<int>(
         data,
         'safetyRiskRating',
       ),
-      frequencyRating: FirestoreConverters.optional<int>(
-        data,
-        'frequencyRating',
-      ),
-      locationImportanceRating: FirestoreConverters.optional<int>(
+      frequencyRating: RecordConverters.optional<int>(data, 'frequencyRating'),
+      locationImportanceRating: RecordConverters.optional<int>(
         data,
         'locationImportanceRating',
       ),
-      priorityScore: FirestoreConverters.optional<num>(
+      priorityScore: RecordConverters.optional<num>(
         data,
         'priorityScore',
       )?.toDouble(),
-      recommendedPriority: FirestoreConverters.optionalEnum(
+      recommendedPriority: RecordConverters.optionalEnum(
         data,
         'recommendedPriority',
         PriorityLevel.fromId,
       ),
-      officialPriority: FirestoreConverters.optionalEnum(
+      officialPriority: RecordConverters.optionalEnum(
         data,
         'officialPriority',
         PriorityLevel.fromId,
       ),
-      duplicateOf: FirestoreConverters.optional<String>(data, 'duplicateOf'),
-      dismissedDuplicateIds: FirestoreConverters.stringList(
+      duplicateOf: RecordConverters.optional<String>(data, 'duplicateOf'),
+      dismissedDuplicateIds: RecordConverters.stringList(
         data,
         'dismissedDuplicateIds',
       ),
-      workOrderId: FirestoreConverters.optional<String>(data, 'workOrderId'),
-      reviewedBy: FirestoreConverters.optional<String>(data, 'reviewedBy'),
-      reviewedAt: FirestoreConverters.optionalDate(data, 'reviewedAt'),
-      rejectionReason: FirestoreConverters.optional<String>(
+      workOrderId: RecordConverters.optional<String>(data, 'workOrderId'),
+      reviewedBy: RecordConverters.optional<String>(data, 'reviewedBy'),
+      reviewedAt: RecordConverters.optionalDate(data, 'reviewedAt'),
+      rejectionReason: RecordConverters.optional<String>(
         data,
         'rejectionReason',
       ),
-      submittedAt: FirestoreConverters.requireDate(data, 'submittedAt'),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
+      submittedAt: RecordConverters.requireDate(data, 'submittedAt'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
     );
   }
 
   static void _validateRating(int? value, String field) {
     if (value == null) return;
-    FirestoreConverters.validateRange(value, 1, 4, field);
+    RecordConverters.validateRange(value, 1, 4, field);
   }
 
   final String id;
@@ -218,7 +208,7 @@ class DamageReport {
 
   /// Device GPS at submission. Explicitly supplementary — manuscript §2.2:
   /// geo-tagging "does not replace the requestor's own location details".
-  final GeoPoint? coordinates;
+  final GeoCoordinates? coordinates;
 
   /// Cloud Storage download URLs for photo evidence.
   final List<String> photoUrls;
@@ -314,7 +304,7 @@ class DamageReport {
   bool get isAssignable =>
       awaitsAssignment && category != null && officialPriority != null;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'reporterId': reporterId,
     'reporterName': reporterName,
     'title': title,
@@ -341,10 +331,10 @@ class DamageReport {
     'dismissedDuplicateIds': dismissedDuplicateIds,
     'workOrderId': workOrderId,
     'reviewedBy': reviewedBy,
-    'reviewedAt': reviewedAt == null ? null : Timestamp.fromDate(reviewedAt!),
+    'reviewedAt': reviewedAt,
     'rejectionReason': rejectionReason,
-    'submittedAt': Timestamp.fromDate(submittedAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'submittedAt': submittedAt,
+    'updatedAt': updatedAt,
   };
 
   DamageReport copyWith({
@@ -360,7 +350,7 @@ class DamageReport {
     String? facilityName,
     String? locationDescription,
     String? assetId,
-    GeoPoint? coordinates,
+    GeoCoordinates? coordinates,
     List<String>? photoUrls,
     PriorityLevel? requestorPriority,
     int? severityRating,

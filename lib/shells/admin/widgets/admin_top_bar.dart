@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/routing/route_paths.dart';
 import '../../../features/analytics/presentation/analytics_export.dart';
 import '../../../features/analytics/presentation/analytics_providers.dart';
 
@@ -221,9 +223,8 @@ class _NotificationBell extends StatelessWidget {
       alignment: Alignment.topRight,
       children: [
         IconButton(
-          // Reading the notification centre is a later objective; the
-          // badge itself is live.
-          onPressed: null,
+          // The notification centre (Objective 7.A, Figma 202:5608).
+          onPressed: () => context.go(RoutePaths.adminNotifications),
           icon: SvgPicture.asset(
             'assets/icons/topbar_bell.svg',
             width: 16,

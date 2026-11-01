@@ -3,7 +3,7 @@
 
 begin;
 select tests.create_fixtures();
-select plan(23);
+select plan(33);
 
 insert into public.work_orders (id, report_ids, title, description, category, priority, status, assigned_personnel_ids, created_by) values
   ('w-done', array['r-done'], 'Broken lock', 'Door 2', 'carpentry', 'medium', 'completed', array['u-tech'], 'u-admin');
@@ -125,14 +125,86 @@ select is(
   '…stored as sent, under the administrator who saved it, whatever the request claimed'
 );
 select is(
-  tests.attempt('u-admin', $$select public.update_config('prioritization', '{"activeScheme":"decimal"}')$$),
+  tests.attempt('u-admin', $$select public.update_config('prioritization', '{"activeScheme":"decimalWeights",
+    "integerWeights":{"severity":3,"safetyRisk":4,"frequency":2,"locationImportance":3},
+    "decimalWeights":{"severity":0.4,"safetyRisk":0.3,"frequency":0.2,"locationImportance":0.1},
+    "thresholds":{"critical":3.5,"high":2.5,"medium":1.5,"low":1},
+    "minRating":1,"maxRating":4,"frequencyWindowDays":30,"frequencyBands":[2,3,5]}')$$),
   'ok',
   'a settings document that was never saved is created'
 );
 select is(
-  tests.attempt('u-admin', $$select public.update_config('something_else', '{}')$$),
-  '23514',
+  tests.error_of('u-admin', $$select public.update_config('something_else', '{}')$$),
+  'There are no settings called something_else.',
   'only the three settings documents exist'
+);
+select is(
+  tests.error_of('u-admin', $$select public.update_config('prioritization', '{"activeScheme":"decimalWeights",
+    "integerWeights":{"severity":3,"safetyRisk":4,"frequency":2,"locationImportance":3},
+    "decimalWeights":{"severity":-0.4,"safetyRisk":0.3,"frequency":0.2,"locationImportance":0.1},
+    "thresholds":{"critical":3.5,"high":2.5,"medium":1.5,"low":1}}')$$),
+  'Every weight must be a number from 0 to 100.',
+  'a negative weight is refused (7.A)'
+);
+select is(
+  tests.error_of('u-admin', $$select public.update_config('prioritization', '{"activeScheme":"integerWeights",
+    "integerWeights":{"severity":3,"safetyRisk":4,"frequency":2,"locationImportance":3},
+    "decimalWeights":{"severity":0.4,"safetyRisk":0.3,"frequency":0.2,"locationImportance":0.1},
+    "thresholds":{"critical":2.5,"high":3.5,"medium":1.5,"low":1}}')$$),
+  'The score bands must fall from Critical to Low: Critical starts highest, Low lowest.',
+  'score bands out of order are refused'
+);
+select is(
+  tests.error_of('u-admin', $$select public.update_config('prioritization', '{"activeScheme":"bestGuess",
+    "integerWeights":{"severity":3,"safetyRisk":4,"frequency":2,"locationImportance":3},
+    "decimalWeights":{"severity":0.4,"safetyRisk":0.3,"frequency":0.2,"locationImportance":0.1},
+    "thresholds":{"critical":3.5,"high":2.5,"medium":1.5,"low":1}}')$$),
+  'Choose which weights to use: the integer weights or the decimal weights.',
+  'an unknown weighting is refused'
+);
+select is(
+  tests.error_of('u-admin', $$select public.update_config('prioritization', '{"activeScheme":"decimalWeights",
+    "integerWeights":{"severity":3,"safetyRisk":4,"frequency":2,"locationImportance":3},
+    "decimalWeights":{"severity":0.4,"safetyRisk":0.3,"frequency":0.2,"locationImportance":0.1},
+    "thresholds":{"critical":3.5,"high":2.5,"medium":1.5,"low":1},"frequencyBands":[3,2,5]}')$$),
+  'The report counts for Frequency must be whole numbers that rise with the rating, starting above 1.',
+  'Frequency counts that do not rise are refused'
+);
+select is(
+  (select data -> 'decimalWeights' ->> 'severity' from public.app_config where id = 'prioritization'),
+  '0.4',
+  '…and a refused save changes nothing'
+);
+select is(
+  tests.attempt('u-admin', $$select public.update_config('duplicate_detection',
+    '{"enabled":true,"descriptionSimilarityThreshold":0.5,"timeWindowHours":72,
+      "matchOnFacilityIdentifier":true,"matchOnLocation":true,"matchOnCategory":true}')$$),
+  'ok',
+  'an administrator saves the duplicate rules'
+);
+select is(
+  tests.error_of('u-admin', $$select public.update_config('duplicate_detection',
+    '{"enabled":true,"descriptionSimilarityThreshold":1.5,"timeWindowHours":72}')$$),
+  'The description similarity must be from 0 to 1.',
+  '…but not a similarity above 1'
+);
+select is(
+  tests.error_of('u-admin', $$select public.update_config('duplicate_detection',
+    '{"enabled":true,"descriptionSimilarityThreshold":0.5,"timeWindowHours":0}')$$),
+  'The duplicate window must be a whole number of hours from 1 to 2160 (90 days).',
+  '…nor an empty window'
+);
+select is(
+  tests.error_of('u-admin', $$select public.update_config('classification_rules',
+    '{"keywordsByCategory":{"masonry":["brick"]}}')$$),
+  'There is no damage category masonry.',
+  'keywords go under the manuscript''s categories only'
+);
+select is(
+  tests.error_of('u-admin', $$select public.update_config('classification_rules',
+    format('{"keywordsByCategory":{"plumbing":["%s"]}}', repeat('x', 81))::jsonb)$$),
+  'Each keyword must be 1 to 80 characters.',
+  '…each a word or a short phrase'
 );
 select is(
   tests.attempt('u-admin', $$select public.update_config('prioritization', '[1, 2]')$$),

@@ -4,7 +4,7 @@
 
 begin;
 select tests.create_fixtures();
-select plan(25);
+select plan(29);
 
 -- i-1 holds 20 units; w-1 is in progress, assigned to u-tech, with 2 units
 -- recorded as used.
@@ -101,6 +101,7 @@ select is(
 
 -- ---------------------------------------------------------------- review
 
+update public.users set active_task_count = 1 where id = 'u-tech';
 select is(
   tests.attempt('u-admin', $$select public.review_accomplishment('ac-new', true)$$),
   'ok',
@@ -118,6 +119,27 @@ select is(
      from public.notifications where related_entity_id = 'w-1' and title = 'Work signed off'),
   'u-tech:Work signed off,u-tech-off:Work signed off',
   '…every technician on it is told'
+);
+select is(
+  (select completed_at is not null from public.work_orders where id = 'w-1'),
+  true,
+  '…the completion is stamped'
+);
+select is(
+  (select string_agg(id || ':' || active_task_count, ',' order by id) from public.users where id in ('u-tech', 'u-tech-off')),
+  'u-tech:0,u-tech-off:0',
+  '…the job stops counting against whoever held it, never below zero'
+);
+select is(
+  (select body from public.notifications where related_entity_id = 'r-1' and title = 'Work completed'),
+  'The work on your report "Flickering lights" is complete. Open it to rate the service.',
+  '…the requestor is asked to rate it'
+);
+select is(
+  (select count(*)::int from public.audit_logs
+     where entity_id = 'w-1' and description = 'Status changed from For Review to Completed'),
+  1,
+  '…and the move is audited'
 );
 select is(
   (select description from public.audit_logs where entity_id = 'ac-new' and action = 'updated'),

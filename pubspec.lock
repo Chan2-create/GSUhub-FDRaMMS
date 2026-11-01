@@ -90,7 +90,7 @@ packages:
     source: hosted
     version: "1.4.1"
   clock:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: clock
       sha256: e51d50bca3217c9a9fa2b41a30e4a38971133f5f9ec7a3d57bae095007f1d28e
@@ -98,7 +98,7 @@ packages:
     source: hosted
     version: "1.1.3"
   cloud_firestore:
-    dependency: "direct main"
+    dependency: "direct dev"
     description:
       name: cloud_firestore
       sha256: "098f59588473be708ac40e8418a3f7b343a8dba45b1c3fb820e39e94251db921"

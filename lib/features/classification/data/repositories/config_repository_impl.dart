@@ -1,4 +1,5 @@
-import '../../../../core/data/row_snapshot.dart';
+import '../../../../core/data/data_record.dart';
+import '../../../../core/data/row_record.dart';
 import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/utils/result.dart';
 import '../models/classification_rules_config.dart';
@@ -22,43 +23,43 @@ class ConfigRepositoryImpl extends SupabaseRepository
 
   @override
   Future<Result<ClassificationRulesConfig>> getClassificationRules() =>
-      _get(classificationRulesId, ClassificationRulesConfig.fromFirestore);
+      _get(classificationRulesId, ClassificationRulesConfig.fromRecord);
 
   @override
   Stream<Result<ClassificationRulesConfig>> watchClassificationRules() =>
-      _watch(classificationRulesId, ClassificationRulesConfig.fromFirestore);
+      _watch(classificationRulesId, ClassificationRulesConfig.fromRecord);
 
   @override
   Future<Result<void>> updateClassificationRules(
     ClassificationRulesConfig config,
-  ) => _save(classificationRulesId, config.toFirestore());
+  ) => _save(classificationRulesId, config.toFields());
 
   @override
   Future<Result<PrioritizationConfig>> getPrioritization() =>
-      _get(prioritizationId, PrioritizationConfig.fromFirestore);
+      _get(prioritizationId, PrioritizationConfig.fromRecord);
 
   @override
   Stream<Result<PrioritizationConfig>> watchPrioritization() =>
-      _watch(prioritizationId, PrioritizationConfig.fromFirestore);
+      _watch(prioritizationId, PrioritizationConfig.fromRecord);
 
   @override
   Future<Result<void>> updatePrioritization(PrioritizationConfig config) =>
-      _save(prioritizationId, config.toFirestore());
+      _save(prioritizationId, config.toFields());
 
   @override
   Future<Result<DuplicateDetectionConfig>> getDuplicateDetection() =>
-      _get(duplicateDetectionId, DuplicateDetectionConfig.fromFirestore);
+      _get(duplicateDetectionId, DuplicateDetectionConfig.fromRecord);
 
   @override
   Stream<Result<DuplicateDetectionConfig>> watchDuplicateDetection() =>
-      _watch(duplicateDetectionId, DuplicateDetectionConfig.fromFirestore);
+      _watch(duplicateDetectionId, DuplicateDetectionConfig.fromRecord);
 
   @override
   Future<Result<void>> updateDuplicateDetection(
     DuplicateDetectionConfig config,
-  ) => _save(duplicateDetectionId, config.toFirestore());
+  ) => _save(duplicateDetectionId, config.toFields());
 
-  Future<Result<T>> _get<T>(String id, T Function(RowSnapshot) convert) =>
+  Future<Result<T>> _get<T>(String id, T Function(DataRecord) convert) =>
       guard.call(() async {
         final row = await client
             .from(_table)
@@ -66,16 +67,16 @@ class ConfigRepositoryImpl extends SupabaseRepository
             .eq('id', id)
             .maybeSingle();
         if (row == null) throw SupabaseRepository.notFound('No config $id');
-        return convert(RowSnapshot.fromConfigRow(row));
+        return convert(RowRecord.fromConfigRow(row));
       });
 
-  Stream<Result<T>> _watch<T>(String id, T Function(RowSnapshot) convert) =>
+  Stream<Result<T>> _watch<T>(String id, T Function(DataRecord) convert) =>
       guard.stream(
         client.from(_table).stream(primaryKey: const ['id']).eq('id', id).map((
           rows,
         ) {
           if (rows.isEmpty) throw SupabaseRepository.notFound('No config $id');
-          return convert(RowSnapshot.fromConfigRow(rows.first));
+          return convert(RowRecord.fromConfigRow(rows.first));
         }),
       );
 

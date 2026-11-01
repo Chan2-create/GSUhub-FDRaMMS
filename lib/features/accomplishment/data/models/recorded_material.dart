@@ -1,6 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/data/data_record.dart';
+import '../../../../core/utils/record_converters.dart';
 import 'material_usage.dart';
 
 /// A material recorded as used on a work order while the work is under
@@ -20,14 +19,12 @@ class RecordedMaterial {
     required this.recordedAt,
   });
 
-  factory RecordedMaterial.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory RecordedMaterial.fromRecord(DataRecord record) {
+    final data = record.fields;
     return RecordedMaterial(
-      usage: MaterialUsage.fromMap({...data, 'inventoryItemId': doc.id}),
-      recordedBy: FirestoreConverters.require<String>(data, 'recordedBy'),
-      recordedAt: FirestoreConverters.requireDate(data, 'recordedAt'),
+      usage: MaterialUsage.fromMap({...data, 'inventoryItemId': record.id}),
+      recordedBy: RecordConverters.require<String>(data, 'recordedBy'),
+      recordedAt: RecordConverters.requireDate(data, 'recordedAt'),
     );
   }
 
@@ -40,10 +37,10 @@ class RecordedMaterial {
 
   String get inventoryItemId => usage.inventoryItemId;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     ...usage.toMap()..remove('inventoryItemId'),
     'recordedBy': recordedBy,
-    'recordedAt': Timestamp.fromDate(recordedAt),
+    'recordedAt': recordedAt,
   };
 
   @override

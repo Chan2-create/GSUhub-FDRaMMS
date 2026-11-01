@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/damage_categories.dart';
 import '../../../../core/enums/priority_level.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// An administrator's review of one report's classification and priority
 /// (Objectives 4.A–4.C): the damage type they confirm or choose, the four
@@ -30,9 +30,9 @@ class ReportAssessment {
       ('frequencyRating', frequencyRating),
       ('locationImportanceRating', locationImportanceRating),
     ]) {
-      FirestoreConverters.validateRange(rating, 1, 4, field);
+      RecordConverters.validateRange(rating, 1, 4, field);
     }
-    FirestoreConverters.validateRange(priorityScore, 1.0, 4.0, 'priorityScore');
+    RecordConverters.validateRange(priorityScore, 1.0, 4.0, 'priorityScore');
   }
 
   final DamageCategory category;

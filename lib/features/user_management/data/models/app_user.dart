@@ -1,10 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../../../core/constants/damage_categories.dart';
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/account_status.dart';
 import '../../../../core/enums/personnel_availability.dart';
 import '../../../../core/enums/user_role.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A `users` document — an authorized account in one of the three roles
 /// (manuscript §1.5 Scope: faculty/staff, GSU maintenance personnel, GSU
@@ -34,43 +33,40 @@ class AppUser {
     this.activeTaskCount = 0,
     this.fcmToken,
   }) {
-    FirestoreConverters.validateNotBlank(fullName, 'fullName');
-    FirestoreConverters.validateNotBlank(email, 'email');
-    FirestoreConverters.validateNonNegative(activeTaskCount, 'activeTaskCount');
+    RecordConverters.validateNotBlank(fullName, 'fullName');
+    RecordConverters.validateNotBlank(email, 'email');
+    RecordConverters.validateNonNegative(activeTaskCount, 'activeTaskCount');
   }
 
-  factory AppUser.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory AppUser.fromRecord(DataRecord record) {
+    final data = record.fields;
     return AppUser(
-      id: doc.id,
-      fullName: FirestoreConverters.require<String>(data, 'fullName'),
-      email: FirestoreConverters.require<String>(data, 'email'),
-      role: FirestoreConverters.requireEnum(data, 'role', UserRole.fromId),
-      accountStatus: FirestoreConverters.requireEnum(
+      id: record.id,
+      fullName: RecordConverters.require<String>(data, 'fullName'),
+      email: RecordConverters.require<String>(data, 'email'),
+      role: RecordConverters.requireEnum(data, 'role', UserRole.fromId),
+      accountStatus: RecordConverters.requireEnum(
         data,
         'accountStatus',
         AccountStatus.fromId,
       ),
-      department: FirestoreConverters.optional<String>(data, 'department'),
-      contactNumber: FirestoreConverters.optional<String>(
-        data,
-        'contactNumber',
-      ),
-      specialization: FirestoreConverters.optionalEnum(
+      department: RecordConverters.optional<String>(data, 'department'),
+      contactNumber: RecordConverters.optional<String>(data, 'contactNumber'),
+      specialization: RecordConverters.optionalEnum(
         data,
         'specialization',
         DamageCategory.fromId,
       ),
-      availability: FirestoreConverters.optionalEnum(
+      availability: RecordConverters.optionalEnum(
         data,
         'availability',
         PersonnelAvailability.fromId,
       ),
       activeTaskCount:
-          FirestoreConverters.optional<int>(data, 'activeTaskCount') ?? 0,
-      fcmToken: FirestoreConverters.optional<String>(data, 'fcmToken'),
-      createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
+          RecordConverters.optional<int>(data, 'activeTaskCount') ?? 0,
+      fcmToken: RecordConverters.optional<String>(data, 'fcmToken'),
+      createdAt: RecordConverters.requireDate(data, 'createdAt'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
     );
   }
 
@@ -111,7 +107,7 @@ class AppUser {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'fullName': fullName,
     'email': email,
     'role': role.id,
@@ -122,8 +118,8 @@ class AppUser {
     'availability': availability?.id,
     'activeTaskCount': activeTaskCount,
     'fcmToken': fcmToken,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
   };
 
   AppUser copyWith({

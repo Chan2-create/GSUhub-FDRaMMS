@@ -83,9 +83,8 @@ void main() {
     ) async {
       await pumpShell(tester);
 
-      // The rest belong to later objectives. They are shown because the
-      // design shows them, disabled because tapping through to an unbuilt
-      // screen would be worse than a dead tile.
+      // Map View alone stays disabled: drawn in the design, but not in the
+      // manuscript's feature list, so it waits for the adviser's word.
       final enabled = [
         for (final group in adminNavGroups)
           for (final item in group.items)
@@ -102,6 +101,7 @@ void main() {
         'Analytics', // 2.C
         'User Accounts', // 2.C
         'Facilities & Equipment', // 6.C
+        'Notifications', // 7.A
         'Settings', // 4.A
       ]);
     });

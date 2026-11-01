@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/audit_action.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// An `audit_logs` document — one recorded state change, satisfying
 /// manuscript §3.4's Auditability requirement: "The system shall record
@@ -15,7 +14,7 @@ import '../../../../core/utils/firestore_converters.dart';
 /// security rules that permit `create` only.
 ///
 /// Unlike the ledger, this model *does* keep `copyWith` off as well — see
-/// the note above [toFirestore].
+/// the note above [toFields].
 ///
 /// The `audit` feature module is new in 1.B; 1.A's feature directories did
 /// not include one because auditing is cross-cutting rather than
@@ -32,33 +31,24 @@ class AuditLogEntry {
     required this.timestamp,
     this.changes,
   }) {
-    FirestoreConverters.validateNotBlank(actorId, 'actorId');
-    FirestoreConverters.validateNotBlank(entityType, 'entityType');
-    FirestoreConverters.validateNotBlank(entityId, 'entityId');
-    FirestoreConverters.validateNotBlank(description, 'description');
+    RecordConverters.validateNotBlank(actorId, 'actorId');
+    RecordConverters.validateNotBlank(entityType, 'entityType');
+    RecordConverters.validateNotBlank(entityId, 'entityId');
+    RecordConverters.validateNotBlank(description, 'description');
   }
 
-  factory AuditLogEntry.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory AuditLogEntry.fromRecord(DataRecord record) {
+    final data = record.fields;
     return AuditLogEntry(
-      id: doc.id,
-      actorId: FirestoreConverters.require<String>(data, 'actorId'),
-      actorName: FirestoreConverters.require<String>(data, 'actorName'),
-      action: FirestoreConverters.requireEnum(
-        data,
-        'action',
-        AuditAction.fromId,
-      ),
-      entityType: FirestoreConverters.require<String>(data, 'entityType'),
-      entityId: FirestoreConverters.require<String>(data, 'entityId'),
-      description: FirestoreConverters.require<String>(data, 'description'),
-      changes: FirestoreConverters.optional<Map<String, dynamic>>(
-        data,
-        'changes',
-      ),
-      timestamp: FirestoreConverters.requireDate(data, 'timestamp'),
+      id: record.id,
+      actorId: RecordConverters.require<String>(data, 'actorId'),
+      actorName: RecordConverters.require<String>(data, 'actorName'),
+      action: RecordConverters.requireEnum(data, 'action', AuditAction.fromId),
+      entityType: RecordConverters.require<String>(data, 'entityType'),
+      entityId: RecordConverters.require<String>(data, 'entityId'),
+      description: RecordConverters.require<String>(data, 'description'),
+      changes: RecordConverters.optional<Map<String, dynamic>>(data, 'changes'),
+      timestamp: RecordConverters.requireDate(data, 'timestamp'),
     );
   }
 
@@ -92,7 +82,7 @@ class AuditLogEntry {
   final DateTime timestamp;
 
   // Intentionally no copyWith — an audit entry is immutable once written.
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'actorId': actorId,
     'actorName': actorName,
     'action': action.id,
@@ -100,7 +90,7 @@ class AuditLogEntry {
     'entityId': entityId,
     'description': description,
     'changes': changes,
-    'timestamp': Timestamp.fromDate(timestamp),
+    'timestamp': timestamp,
   };
 
   @override

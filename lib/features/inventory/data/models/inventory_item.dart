@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/item_condition.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// An `inventory_items` document — a consumable maintenance material or
 /// replacement part.
@@ -40,64 +39,53 @@ class InventoryItem {
     this.unitCost,
     this.photoUrl,
   }) {
-    FirestoreConverters.validateNotBlank(name, 'name');
-    FirestoreConverters.validateNotBlank(category, 'category');
-    FirestoreConverters.validateNotBlank(
-      unitOfMeasurement,
-      'unitOfMeasurement',
-    );
-    FirestoreConverters.validateNotBlank(qrCode, 'qrCode');
-    FirestoreConverters.validateNonNegative(
+    RecordConverters.validateNotBlank(name, 'name');
+    RecordConverters.validateNotBlank(category, 'category');
+    RecordConverters.validateNotBlank(unitOfMeasurement, 'unitOfMeasurement');
+    RecordConverters.validateNotBlank(qrCode, 'qrCode');
+    RecordConverters.validateNonNegative(
       quantityAvailable,
       'quantityAvailable',
     );
-    FirestoreConverters.validateNonNegative(
-      minimumThreshold,
-      'minimumThreshold',
-    );
+    RecordConverters.validateNonNegative(minimumThreshold, 'minimumThreshold');
     if (unitCost case final cost?) {
-      FirestoreConverters.validateNonNegative(cost, 'unitCost');
+      RecordConverters.validateNonNegative(cost, 'unitCost');
     }
   }
 
-  factory InventoryItem.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
+  factory InventoryItem.fromRecord(DataRecord record) {
+    final data = record.fields;
     return InventoryItem(
-      id: doc.id,
-      name: FirestoreConverters.require<String>(data, 'name'),
-      category: FirestoreConverters.require<String>(data, 'category'),
-      quantityAvailable: FirestoreConverters.require<num>(
+      id: record.id,
+      name: RecordConverters.require<String>(data, 'name'),
+      category: RecordConverters.require<String>(data, 'category'),
+      quantityAvailable: RecordConverters.require<num>(
         data,
         'quantityAvailable',
       ).toDouble(),
-      unitOfMeasurement: FirestoreConverters.require<String>(
+      unitOfMeasurement: RecordConverters.require<String>(
         data,
         'unitOfMeasurement',
       ),
-      storageLocation: FirestoreConverters.require<String>(
+      storageLocation: RecordConverters.require<String>(
         data,
         'storageLocation',
       ),
-      qrCode: FirestoreConverters.require<String>(data, 'qrCode'),
-      minimumThreshold: FirestoreConverters.require<num>(
+      qrCode: RecordConverters.require<String>(data, 'qrCode'),
+      minimumThreshold: RecordConverters.require<num>(
         data,
         'minimumThreshold',
       ).toDouble(),
-      condition: FirestoreConverters.optionalEnum(
+      condition: RecordConverters.optionalEnum(
         data,
         'condition',
         ItemCondition.fromId,
       ),
-      specification: FirestoreConverters.optional<String>(
-        data,
-        'specification',
-      ),
-      unitCost: FirestoreConverters.optional<num>(data, 'unitCost')?.toDouble(),
-      photoUrl: FirestoreConverters.optional<String>(data, 'photoUrl'),
-      createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
-      updatedAt: FirestoreConverters.requireDate(data, 'updatedAt'),
+      specification: RecordConverters.optional<String>(data, 'specification'),
+      unitCost: RecordConverters.optional<num>(data, 'unitCost')?.toDouble(),
+      photoUrl: RecordConverters.optional<String>(data, 'photoUrl'),
+      createdAt: RecordConverters.requireDate(data, 'createdAt'),
+      updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
     );
   }
 
@@ -159,7 +147,7 @@ class InventoryItem {
     null => null,
   };
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'name': name,
     'category': category,
     'quantityAvailable': quantityAvailable,
@@ -171,8 +159,8 @@ class InventoryItem {
     'specification': specification,
     'unitCost': unitCost,
     'photoUrl': photoUrl,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'updatedAt': Timestamp.fromDate(updatedAt),
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
   };
 
   InventoryItem copyWith({

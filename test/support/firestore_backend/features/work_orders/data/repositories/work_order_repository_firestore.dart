@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gsuhub/core/constants/firestore_paths.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
+import 'package:gsuhub/core/enums/notification_type.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/task_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
+import 'package:gsuhub/core/utils/display_id.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/notifications/data/models/personnel_notice.dart';
@@ -15,6 +17,7 @@ import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository.dart';
 
+import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
 import '../../../notifications/data/repositories/notification_writes.dart';
@@ -33,11 +36,11 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
 
   @override
   Future<Result<WorkOrder>> getById(String id) =>
-      getOne(path: _path, id: id, convert: WorkOrder.fromFirestore);
+      getOne(path: _path, id: id, convert: fromDoc(WorkOrder.fromRecord));
 
   @override
   Stream<Result<WorkOrder>> watchById(String id) =>
-      watchOne(path: _path, id: id, convert: WorkOrder.fromFirestore);
+      watchOne(path: _path, id: id, convert: fromDoc(WorkOrder.fromRecord));
 
   @override
   Stream<Result<List<WorkOrder>>> watchAll({
@@ -51,7 +54,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
     }
     return watchMany(
       query: query.orderBy('createdAt', descending: true),
-      convert: WorkOrder.fromFirestore,
+      convert: fromDoc(WorkOrder.fromRecord),
     );
   }
 
@@ -63,7 +66,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
       watchMany(
         query: collection(_path)
             .where('assignedPersonnelIds', arrayContains: personnelId),
-        convert: WorkOrder.fromFirestore,
+        convert: fromDoc(WorkOrder.fromRecord),
       ).map(
         (result) => result.map(
           (orders) =>
@@ -73,14 +76,14 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
 
   @override
   Future<Result<String>> create(WorkOrder workOrder) =>
-      add(path: _path, data: workOrder.toFirestore());
+      add(path: _path, data: workOrder.toFields().forFirestore);
 
   @override
   Future<Result<void>> update(WorkOrder workOrder) => updateDoc(
     path: _path,
     id: workOrder.id,
     data: {
-      ...workOrder.toFirestore(),
+      ...workOrder.toFields().forFirestore,
       'updatedAt': FirestoreRepository.serverNow,
     },
   );
@@ -103,8 +106,8 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
     if (!reportSnapshot.exists) throw _notFound('No damage report $reportId');
     if (!personSnapshot.exists) throw _notFound('No user $personnelId');
 
-    final report = DamageReport.fromFirestore(reportSnapshot);
-    final person = AppUser.fromFirestore(personSnapshot);
+    final report = fromDoc(DamageReport.fromRecord)(reportSnapshot);
+    final person = fromDoc(AppUser.fromRecord)(personSnapshot);
 
     if (report.status != ReportStatus.approved) {
       throw _precondition(
@@ -168,7 +171,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
 
     transaction
       ..set(workOrderReference, {
-        ...workOrder.toFirestore(),
+        ...workOrder.toFields().forFirestore,
         'createdAt': FirestoreRepository.serverNow,
         'updatedAt': FirestoreRepository.serverNow,
       })
@@ -198,7 +201,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
           dueDate: (scheduledFor ?? now).toUtc(),
           createdAt: now,
           updatedAt: now,
-        ).toFirestore(),
+        ).toFields().forFirestore,
         'createdAt': FirestoreRepository.serverNow,
         'updatedAt': FirestoreRepository.serverNow,
       });
@@ -260,6 +263,174 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
     return workOrderReference.id;
   });
 
+  /// As `app.reassign_work_order` does it
+  /// (supabase/migrations/*_reassign_work_order.sql, Objective 7.A).
+  @override
+  Future<Result<void>> reassign({
+    required String workOrderId,
+    required String personnelId,
+    required AuditActor actor,
+  }) async {
+    // Firestore transactions cannot query: the work's unfinished tasks are
+    // found first, then read again inside the transaction.
+    final open = await collection(FirestorePaths.tasks)
+        .where('workOrderId', isEqualTo: workOrderId)
+        .get();
+    return db.runTransaction<void>((transaction) async {
+      final reference = collection(_path).doc(workOrderId);
+      final snapshot = await transaction.get(reference);
+      if (!snapshot.exists) throw _notFound('No work order $workOrderId');
+      final personSnapshot = await transaction.get(
+        collection(FirestorePaths.users).doc(personnelId),
+      );
+      if (!personSnapshot.exists) throw _notFound('No user $personnelId');
+
+      final workOrder = fromDoc(WorkOrder.fromRecord)(snapshot);
+      final person = fromDoc(AppUser.fromRecord)(personSnapshot);
+      if (workOrder.status != WorkOrderStatus.pending &&
+          workOrder.status != WorkOrderStatus.inProgress) {
+        throw _precondition(
+          'This work order is ${workOrder.status.title}. Only work that is '
+          'pending or in progress can be reassigned.',
+        );
+      }
+      if (person.role != UserRole.maintenancePersonnel) {
+        throw _precondition('${person.fullName} is not maintenance personnel.');
+      }
+      if (person.accountStatus != AccountStatus.active) {
+        throw _precondition(
+          "${person.fullName}'s account is inactive and cannot take work.",
+        );
+      }
+      final previous = workOrder.assignedPersonnelIds;
+      if (previous.length == 1 && previous.single == personnelId) {
+        throw _precondition('${person.fullName} already has this work order.');
+      }
+
+      final formers = <AppUser>[];
+      for (final id in previous) {
+        if (id == personnelId) continue;
+        final former = await transaction.get(
+          collection(FirestorePaths.users).doc(id),
+        );
+        if (former.exists) formers.add(fromDoc(AppUser.fromRecord)(former));
+      }
+      final reports = <DamageReport>[];
+      for (final id in workOrder.reportIds) {
+        final report = await transaction.get(
+          collection(FirestorePaths.damageReports).doc(id),
+        );
+        if (report.exists) {
+          reports.add(fromDoc(DamageReport.fromRecord)(report));
+        }
+      }
+      final tasks = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final task in open.docs) {
+        tasks.add(await transaction.get(task.reference));
+      }
+
+      for (final former in formers) {
+        transaction.update(collection(FirestorePaths.users).doc(former.id), {
+          'activeTaskCount': former.activeTaskCount > 0
+              ? former.activeTaskCount - 1
+              : 0,
+          'updatedAt': FirestoreRepository.serverNow,
+        });
+      }
+      if (!previous.contains(personnelId)) {
+        transaction.update(collection(FirestorePaths.users).doc(personnelId), {
+          'activeTaskCount': FieldValue.increment(1),
+          'updatedAt': FirestoreRepository.serverNow,
+        });
+      }
+      transaction.update(reference, {
+        'assignedPersonnelIds': [personnelId],
+        'updatedAt': FirestoreRepository.serverNow,
+      });
+      for (final task in tasks) {
+        final data = task.data() ?? const <String, dynamic>{};
+        if (data['status'] == TaskStatus.completed.id ||
+            data['assignedTo'] == personnelId) {
+          continue;
+        }
+        transaction.update(task.reference, {
+          'assignedTo': personnelId,
+          'updatedAt': FirestoreRepository.serverNow,
+        });
+      }
+
+      for (final report in reports) {
+        stageStatusChange(
+          transaction,
+          db.raw,
+          reportId: report.id,
+          status: report.status,
+          changedBy: actor.id,
+          note: 'Reassigned to ${person.fullName}.',
+          personnel: person,
+        );
+        stageNotification(
+          transaction,
+          db.raw,
+          recipientId: report.reporterId,
+          type: NotificationType.statusUpdate,
+          title: 'New technician assigned',
+          body: 'Your report "${report.title}" is now with ${person.fullName}.',
+          relatedEntityType: FirestorePaths.damageReports,
+          relatedEntityId: report.id,
+        );
+      }
+      stagePersonnelNotice(
+        transaction,
+        db.raw,
+        recipientId: personnelId,
+        workOrderId: workOrderId,
+        notice: PersonnelNotice.workOrderAssigned(
+          workOrderTitle: workOrder.title,
+          facilityName: workOrder.facilityName,
+        ),
+      );
+      for (final former in formers) {
+        stageNotification(
+          transaction,
+          db.raw,
+          recipientId: former.id,
+          type: NotificationType.statusUpdate,
+          title: 'Work reassigned',
+          body:
+              '${DisplayId.workOrder(workOrderId)} ("${workOrder.title}") was '
+              'reassigned to ${person.fullName}. It is off your list.',
+          relatedEntityType: FirestorePaths.workOrders,
+          relatedEntityId: workOrderId,
+        );
+      }
+
+      final formerNames = [for (final former in formers) former.fullName]
+        ..sort();
+      stageAuditEntry(
+        transaction,
+        db.raw,
+        actor: actor,
+        action: AuditAction.assigned,
+        entityType: FirestorePaths.workOrders,
+        entityId: workOrderId,
+        description:
+            'Reassigned to ${person.fullName}'
+            '${formerNames.isEmpty ? '' : ' (was ${formerNames.join(', ')})'}',
+        changes: {
+          'from': previous,
+          'to': [personnelId],
+        },
+      );
+    });
+  }
+
+  /// Any legal move. The database refuses For Review, Completed and
+  /// sending work back here (Objective 7.B,
+  /// supabase/migrations/*_work_order_signoff.sql, proven by its pgTAP
+  /// tests); this in-memory stand-in still makes them, so the lifecycle
+  /// tests can drive work through every state without accomplishment
+  /// reports.
   @override
   Future<Result<void>> setStatus(
     String workOrderId,
@@ -269,7 +440,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
     final snapshot = await transaction.get(collection(_path).doc(workOrderId));
     if (!snapshot.exists) throw _notFound('No work order $workOrderId');
 
-    final workOrder = WorkOrder.fromFirestore(snapshot);
+    final workOrder = fromDoc(WorkOrder.fromRecord)(snapshot);
     if (workOrder.status == status) return;
 
     final move = await WorkOrderMove.prepare(

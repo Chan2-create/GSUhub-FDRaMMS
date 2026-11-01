@@ -487,8 +487,9 @@ physical count that differs is an `adjustment` with its reason, and an
 accomplishment report's materials are `consumption` entries (5.B).
 Editing a material never touches its stock. **Low stock** is
 `quantityAvailable <= minimumThreshold`, read live by the console
-(sidebar count, card, badges); no notification document is written
-(docs/architecture_decisions.md §20).
+(sidebar count, card, badges). Since 7.A, the ledger entry that takes a
+material to its minimum or below also sends every administrator a
+`lowStockAlert` notice (docs/architecture_decisions.md §20, §22).
 
 **One code, one thing.** A `qrCode` is unique across materials, tools,
 rooms and equipment together, because one scanner reads them all; the
@@ -644,15 +645,34 @@ says when notifications fire (§1.5), not how they are stored.
 
 *Invariant:* `isRead == true` requires a `readAt`.
 
-**Who writes them (Objective 3.B).** Not a server: the project is on the
-Spark plan. The client that moves a report writes its reporter's notice
-in the same transaction, with `relatedEntityType: damage_reports` and
-the report's id. Notified moves and their `type`: received
-(`reportAcknowledged`), approved, work started or resumed, rejected and
-merged (`statusUpdate`), assigned (`workOrderAssigned`), completed
-(`maintenanceCompleted`). Wording: `ReportNotice.forMove` (**DERIVED**).
-`createdAt` is server time, `isRead` false. A recipient marks one read
-by setting `isRead` and `readAt` (server time) and nothing else.
+**Who writes them.** Not a server of our own: since Objective 1 the
+database function that makes a change writes its notices in the same
+transaction (`app.notify`). `createdAt` is server time, `isRead` false.
+A recipient marks one read (`mark_notification_read`) and nothing else.
+
+| Recipient | When | `type` | `relatedEntityType` |
+|---|---|---|---|
+| The reporter (3.B) | received | `reportAcknowledged` | `damage_reports` |
+| | approved, work started or resumed, rejected, merged, reassigned (7.A) | `statusUpdate` | `damage_reports` |
+| | assigned | `workOrderAssigned` | `damage_reports` |
+| | completed | `maintenanceCompleted` | `damage_reports` |
+| The technician (5.A–6.B) | a work order assigned or reassigned to them | `workOrderAssigned` | `work_orders` |
+| | a task added | `taskAssigned` | `work_orders` |
+| | work signed off | `maintenanceCompleted` | `work_orders` |
+| | work sent back, reassigned away (7.A), materials approved or declined | `statusUpdate` | `work_orders` |
+| Every administrator but the one who acted (7.A) | a report filed | `reportSubmitted` | `damage_reports` |
+| | work started | `workStarted` | `work_orders` |
+| | an accomplishment report filed | `reviewRequested` | `work_orders` |
+| | materials requested | `materialsRequested` | `material_requests` |
+| | a sign-up | `accountRequested` | `users` |
+| | stock at or below its minimum | `lowStockAlert` | `inventory_items` |
+
+The reporter's wording is `app.report_notice`, mirrored by
+`ReportNotice.forMove` (**DERIVED**). The administrators' notices are
+written by triggers on the change, and only for a signed-in caller, so
+loading data writes none. **Which events reach the administrators is
+DERIVED** from the Figma Notifications frame (`202:5608`); the manuscript
+does not list them.
 
 ## audit_logs — append-only
 
@@ -735,12 +755,20 @@ scale, and rounds to two decimals before reading the bands.
 manuscript's Table 3.2 needs correcting to match.** Both schemes stay
 stored, so the conflict remains visible.
 
+Edited on the console's Settings page since 7.A (**Priority scoring**):
+the scheme in use, both weight sets, the bands, and the Frequency window
+and counts. The database refuses values the app could not score with
+(`app.check_config`).
+
 ### config/duplicate_detection
 
 `enabled`, `matchOnFacilityIdentifier`, `matchOnLocation`,
 `matchOnCategory` (the first three of §3.4's five criteria),
 `descriptionSimilarityThreshold` (**DERIVED** default 0.5),
 `timeWindowHours` (**DERIVED** default 72), `updatedAt`, `updatedBy`.
+
+Edited on the console's Settings page since 7.A (**Duplicate
+detection**); the database checks each value as for the weights.
 
 §3.4 lists the five comparison inputs but gives no numeric values; the
 two defaults are starting points to tune against real data. Detection only
@@ -788,11 +816,22 @@ row in a list view.
 ## Indexes
 
 Postgres indexes are in `supabase/migrations/*_tables.sql`, beside each
-table: every foreign key, the list views' filters and sorts (a
-requestor's reports by date, the active queue, a technician's work
-orders through a GIN index on `assigned_personnel_ids`), and the unique
-codes (`qr_code`, `tool_code`, a user's email). Row level security
-reads `users` by id on every request, which its primary key serves.
+table: the foreign keys the app looks up by (a report's history, a work
+order's tasks, materials and loans, an item's ledger), the list views'
+filters and sorts (a requestor's reports by date, the active queue, a
+technician's work orders through a GIN index on
+`assigned_personnel_ids`), and the unique codes (`qr_code`, `tool_code`,
+a user's email). Row level security reads `users` by id on every
+request, which its primary key serves.
+
+Thirteen foreign keys have no index of their own, all of them "who or
+what" references nothing lists by: `reviewed_by`, `created_by`,
+`submitted_by`, `requested_by`, `recorded_by`, `allocated_by`,
+`current_holder_id`, `asset_id`, `duplicate_of`, a work order's
+`facility_id` and feedback's `report_id`. Supabase's performance advisor
+lists them (INFO). They cost only when the referenced row is deleted, and
+users, rooms and reports are deactivated or closed, never deleted. Add an
+index if a screen ever lists by one of them.
 
 `firebase/firestore.indexes.json` holds the 22 composite indexes the
 Firestore version needed; they matter only to the old data.
@@ -851,7 +890,8 @@ its role; a request with no signed-in user is refused outright.
 | | `record_assessment`, `transition_report`, `merge_duplicates`, `keep_separate` | administrator (4.A–4.C) |
 | | `rate_service` (closes it) | the person who filed it, once, when completed (3.C) |
 | `work_orders` | `assign_work_order`, `update_admin_notes` | administrator |
-| | `set_work_order_status` | administrator, any move the lifecycle allows; the technician assigned, starting it only |
+| | `reassign_work_order` | administrator, while the work is pending or in progress, to one other active technician (7.A) |
+| | `set_work_order_status` | starting the work only, pending to in progress: the technician assigned, or an administrator. For Review comes from `submit_accomplishment`; Completed and the send-back from `review_accomplishment` (7.B) |
 | `tasks` | `add_task`, `delete_task` | administrator (a task that is done stays) |
 | | `set_task_status`, `add_proof_photos` | the technician it is assigned to, or an administrator, while the work is open |
 | `accomplishment_reports` | `submit_accomplishment` | the technician assigned, while the work is in progress (5.B) |
@@ -866,8 +906,8 @@ its role; a request with no signed-in user is refused outright.
 | `tools` | `create_tool`, `update_tool`, `set_tool_status` | administrator |
 | `tool_loans` | `borrow_tool` | a technician for themselves; an administrator to a technician (6.B) |
 | | `return_tool` | the borrower, or an administrator |
-| `app_config` | `update_config` | administrator |
-| `report_status_history`, `notifications`, `audit_logs` | written by the function that makes the change, in the same transaction | — |
+| `app_config` | `update_config` | administrator; a setting the app could not read is refused (7.A) |
+| `report_status_history`, `notifications`, `audit_logs` | written by the function that makes the change, in the same transaction; the administrators' notices by triggers on the change (7.A) | — |
 | `notifications` | `mark_notification_read`, `mark_all_notifications_read` | the recipient |
 
 **Append-only, for everyone, the database owner included:**

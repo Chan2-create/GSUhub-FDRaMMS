@@ -331,7 +331,7 @@ for you by anyone else: you sign in to each service yourself.
    ```powershell
    npx supabase login
    npx supabase link --project-ref <ref>     # asks for the database password
-   npx supabase db push --dry-run            # lists the 17 migrations it would apply
+   npx supabase db push --dry-run            # lists the migrations it would apply (22 on a new project)
    npx supabase db push                      # the migrations; never the demo data
    ```
 
@@ -359,17 +359,35 @@ for you by anyone else: you sign in to each service yourself.
    Then, in Project Settings → **JWT Keys** → JWT Signing Keys
    ([Supabase's signing keys guide](https://supabase.com/docs/guides/auth/signing-keys)):
 
-   1. If the page offers **Migrate JWT secret**, do that first.
-   2. **Create standby key** → import a private key → paste the whole
-      JSON object from `supabase/signing_keys.json` (the `{ … }`, with
-      its `kid`).
+   1. If the page offers **Migrate JWT secret**, do that first. A
+      project created since Supabase's switch is already migrated: its
+      Legacy JWT Secret tab says so, and there is no such button.
+   2. **Create standby key** → import a private key → paste the key as
+      Supabase's docs show it (`kty`, `kid`, `d`, `crv`, `x`, `y`):
+
+      ```powershell
+      $k = (Get-Content supabase\signing_keys.json -Raw).TrimStart([char]0xFEFF) | ConvertFrom-Json
+      [ordered]@{ kty=$k.kty; kid=$k.kid; d=$k.d; crv=$k.crv; x=$k.x; y=$k.y } | ConvertTo-Json -Compress | Set-Clipboard
+      ```
+
+      The new key's id must match `$k.kid`. Clear the clipboard
+      afterwards (`Set-Clipboard -Value ' '`).
    3. **Rotate keys**, so the imported key is the one in use. A standby
       key is not trusted yet: until the rotation, every request the app
       makes is refused. Changing a key's state is throttled for about
       five minutes, so the button may wait.
-   4. **Never revoke** the imported key, nor the legacy JWT secret now
-      under "Previously used": tokens and links already signed with it
+   4. **Never revoke the imported key**: every token the function signs
       would stop working.
+   5. **Retire the legacy keys.** Nothing in GSUhub uses the legacy JWT
+      secret or the `anon` and `service_role` keys built on it (the app
+      takes the publishable key, the migration a secret key). In Project
+      Settings → API Keys, check that a publishable and a secret key
+      exist, then disable the legacy JWT-based keys. Then, on JWT Keys,
+      **revoke** the legacy HS256 key under "Previously used". Anyone who
+      has seen that secret can sign a token that skips every access
+      rule, so do this before any data arrives. It can be moved back to
+      standby if something turns out to need it; the photo check in
+      "Check it works on live" would show that.
 5. **Set the function's secrets and deploy it:**
 
    ```powershell
@@ -453,10 +471,57 @@ Everything already in Firestore moves once, with
    a building and room), then **Inventory Management**. Print the labels
    from each one's QR icon.
 6. **Settings** need no copying: while a settings document is missing,
-   the app uses the manuscript's values. Press **Save keywords** in
-   Settings once to store the keyword list.
+   the app uses the manuscript's values. Press **Save keywords**, **Save
+   priority scoring** and **Save duplicate detection** in Settings once
+   to store them.
 
-### 4. Afterwards
+### 4. Check it works on live
+
+Run the app from your machine against the live services:
+
+```powershell
+flutter run -d edge --dart-define=USE_LIVE_FIREBASE=true --dart-define=SUPABASE_URL=https://<ref>.supabase.co --dart-define=SUPABASE_ANON_KEY=<publishable key>
+```
+
+1. Sign in as the administrator. The dashboard loading proves the whole
+   chain: Firebase sign-in, the token exchange, and Supabase trusting
+   the imported key.
+2. **Photos:** sign in as a faculty account, file a test report with a
+   photo, and open it. Then open it as the administrator. Seeing the
+   photo both times shows the bucket, its policies and the signed links
+   work. Reject the test report afterwards.
+3. Then deploy the console as usual (`scripts\deploy_web.ps1`).
+
+If a step fails, the function's logs are in the dashboard (Edge
+Functions → firebase-token-exchange → Logs).
+
+### 5. A release that changes the database (Objective 7)
+
+A project that went live before Objective 7 has 17 migrations. Objective
+7 adds five: the administrators' notices, reassigning work, the sign-off
+rule for the board, the settings checks, and the audit entry for a task
+started with a photo. Release in this order, so the new app never meets
+the old database:
+
+1. **The database.**
+
+   ```powershell
+   npx supabase db push --dry-run    # lists the five 20261020… migrations, nothing else
+   npx supabase db push
+   ```
+
+2. **The console.** Merge to `main`, then check the run in the **Actions**
+   tab. If it never starts (GitHub says the account is locked for
+   billing), fix that under GitHub Settings → Billing and plans and
+   re-run it, or deploy from your terminal with `scripts\deploy_web.ps1`.
+   The new build is the one whose sidebar Notifications opens a page.
+3. **The APK.** Raise the version, build it with `scripts\build_apk.ps1`,
+   and share it (see "Before each APK build").
+4. File a test report from a faculty account: it should arrive in the
+   console's Notifications. Reject it afterwards.
+5. Only then, the step below: lock Firestore and Storage.
+
+### 6. Afterwards
 
 - **Lock Firestore and Storage.** Once the data is moved and the app on
   live shows it, nothing should read or write Firestore again. Deploy

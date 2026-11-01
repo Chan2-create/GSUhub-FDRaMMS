@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../../../../core/data/data_record.dart';
 import '../../../../core/enums/notification_type.dart';
-import '../../../../core/utils/firestore_converters.dart';
+import '../../../../core/utils/record_converters.dart';
 
 /// A `notifications` document — the persisted record behind a push
 /// notification, so the in-app notification list (manuscript Figure 22)
@@ -27,8 +26,8 @@ class AppNotification {
     this.relatedEntityId,
     this.readAt,
   }) {
-    FirestoreConverters.validateNotBlank(recipientId, 'recipientId');
-    FirestoreConverters.validateNotBlank(title, 'title');
+    RecordConverters.validateNotBlank(recipientId, 'recipientId');
+    RecordConverters.validateNotBlank(title, 'title');
     if (isRead && readAt == null) {
       throw ArgumentError.value(
         readAt,
@@ -38,39 +37,27 @@ class AppNotification {
     }
   }
 
-  factory AppNotification.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data() ?? <String, dynamic>{};
-    final isRead = FirestoreConverters.require<bool>(data, 'isRead');
-    var readAt = FirestoreConverters.optionalDate(data, 'readAt');
-    // Marked read on this device and not yet confirmed (3.B): the server
-    // timestamp reads as null until the server answers, and the listener
-    // sees the change before that. The moment of tapping stands in.
-    if (isRead && readAt == null && doc.metadata.hasPendingWrites) {
-      readAt = DateTime.now().toUtc();
-    }
+  factory AppNotification.fromRecord(DataRecord record) {
+    final data = record.fields;
+    final isRead = RecordConverters.require<bool>(data, 'isRead');
+    final readAt = RecordConverters.optionalDate(data, 'readAt');
     return AppNotification(
-      id: doc.id,
-      recipientId: FirestoreConverters.require<String>(data, 'recipientId'),
-      type: FirestoreConverters.requireEnum(
-        data,
-        'type',
-        NotificationType.fromId,
-      ),
-      title: FirestoreConverters.require<String>(data, 'title'),
-      body: FirestoreConverters.require<String>(data, 'body'),
+      id: record.id,
+      recipientId: RecordConverters.require<String>(data, 'recipientId'),
+      type: RecordConverters.requireEnum(data, 'type', NotificationType.fromId),
+      title: RecordConverters.require<String>(data, 'title'),
+      body: RecordConverters.require<String>(data, 'body'),
       isRead: isRead,
-      relatedEntityType: FirestoreConverters.optional<String>(
+      relatedEntityType: RecordConverters.optional<String>(
         data,
         'relatedEntityType',
       ),
-      relatedEntityId: FirestoreConverters.optional<String>(
+      relatedEntityId: RecordConverters.optional<String>(
         data,
         'relatedEntityId',
       ),
       readAt: readAt,
-      createdAt: FirestoreConverters.requireDate(data, 'createdAt'),
+      createdAt: RecordConverters.requireDate(data, 'createdAt'),
     );
   }
 
@@ -95,7 +82,7 @@ class AppNotification {
   final DateTime? readAt;
   final DateTime createdAt;
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toFields() => {
     'recipientId': recipientId,
     'type': type.id,
     'title': title,
@@ -103,8 +90,8 @@ class AppNotification {
     'relatedEntityType': relatedEntityType,
     'relatedEntityId': relatedEntityId,
     'isRead': isRead,
-    'readAt': readAt == null ? null : Timestamp.fromDate(readAt!),
-    'createdAt': Timestamp.fromDate(createdAt),
+    'readAt': readAt,
+    'createdAt': createdAt,
   };
 
   AppNotification copyWith({

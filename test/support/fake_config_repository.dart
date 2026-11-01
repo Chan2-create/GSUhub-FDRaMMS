@@ -70,6 +70,11 @@ class FakeConfigRepository implements ConfigRepository {
   /// Every keyword dictionary saved, in order.
   final savedKeywordLists = <ClassificationRulesConfig>[];
 
+  /// Every set of priority settings and duplicate rules saved, in order
+  /// (Objective 7.A).
+  final savedPrioritizations = <PrioritizationConfig>[];
+  final savedDuplicateSettings = <DuplicateDetectionConfig>[];
+
   final _keywordChanges =
       StreamController<Result<ClassificationRulesConfig>>.broadcast();
 
@@ -103,8 +108,11 @@ class FakeConfigRepository implements ConfigRepository {
       Stream.value(_prioritization);
 
   @override
-  Future<Result<void>> updatePrioritization(PrioritizationConfig config) =>
-      throw UnimplementedError('No screen saves the weights.');
+  Future<Result<void>> updatePrioritization(PrioritizationConfig config) async {
+    if (saveFailure case final failure?) return Result.failure(failure);
+    savedPrioritizations.add(config);
+    return const Result.success(null);
+  }
 
   @override
   Future<Result<DuplicateDetectionConfig>> getDuplicateDetection() async =>
@@ -117,5 +125,9 @@ class FakeConfigRepository implements ConfigRepository {
   @override
   Future<Result<void>> updateDuplicateDetection(
     DuplicateDetectionConfig config,
-  ) => throw UnimplementedError('No screen saves the duplicate settings.');
+  ) async {
+    if (saveFailure case final failure?) return Result.failure(failure);
+    savedDuplicateSettings.add(config);
+    return const Result.success(null);
+  }
 }

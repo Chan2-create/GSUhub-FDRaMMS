@@ -1,4 +1,4 @@
-import '../../../../core/data/row_snapshot.dart';
+import '../../../../core/data/row_record.dart';
 import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
@@ -17,7 +17,7 @@ class FeedbackRepositoryImpl extends SupabaseRepository
 
   @override
   Future<Result<ServiceFeedback>> getById(String id) =>
-      getOne(table: _table, id: id, convert: ServiceFeedback.fromFirestore);
+      getOne(table: _table, id: id, convert: ServiceFeedback.fromRecord);
 
   @override
   Future<Result<ServiceFeedback?>> getByWorkOrder(String workOrderId) async {
@@ -27,7 +27,7 @@ class FeedbackRepositoryImpl extends SupabaseRepository
           .select()
           .eq('work_order_id', workOrderId)
           .limit(1),
-      convert: ServiceFeedback.fromFirestore,
+      convert: ServiceFeedback.fromRecord,
     );
     // Absence is normal: rating is optional (Figure 23 offers "Skip").
     return matches.map((list) => list.isEmpty ? null : list.first);
@@ -41,7 +41,7 @@ class FeedbackRepositoryImpl extends SupabaseRepository
             .select()
             .eq('submitted_by', requestorId)
             .order('submitted_at'),
-        convert: ServiceFeedback.fromFirestore,
+        convert: ServiceFeedback.fromRecord,
       );
 
   @override
@@ -55,7 +55,7 @@ class FeedbackRepositoryImpl extends SupabaseRepository
         .gte('submitted_at', SupabaseRepository.time(from)!)
         .lte('submitted_at', SupabaseRepository.time(to)!)
         .order('submitted_at'),
-    convert: ServiceFeedback.fromFirestore,
+    convert: ServiceFeedback.fromRecord,
   );
 
   @override
@@ -68,9 +68,7 @@ class FeedbackRepositoryImpl extends SupabaseRepository
             .map(
               (rows) => rows.isEmpty
                   ? null
-                  : ServiceFeedback.fromFirestore(
-                      RowSnapshot.fromRow(rows.first),
-                    ),
+                  : ServiceFeedback.fromRecord(RowRecord.fromRow(rows.first)),
             ),
       );
 

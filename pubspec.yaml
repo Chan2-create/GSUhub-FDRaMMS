@@ -41,11 +41,6 @@ dependencies:
   flutter_riverpod: ^3.4.3
   go_router: ^18.0.1
   firebase_core: ^4.14.0
-  # Not the database any more (Objective 1: the data is on Supabase). The
-  # models still take GeoPoint, Timestamp and DocumentSnapshot from it, and
-  # are read from rows through core/data/row_snapshot.dart; the widget-test
-  # harnesses run on an in-memory Firestore.
-  cloud_firestore: ^6.9.0
   firebase_auth: ^6.6.1
   firebase_messaging: ^16.6.0
   flutter_svg: ^2.3.0
@@ -78,6 +73,7 @@ dependencies:
   # Calls the token exchange directly; the Supabase client cannot be used
   # to fetch its own access token.
   http: ^1.6.0
+  clock: ^1.1.3
 
 dev_dependencies:
   flutter_test:
@@ -89,6 +85,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  # The widget-test harness: the Firestore backend the app used before
+  # Objective 1, run in memory (test/support/firestore_backend). The app
+  # itself has not used Firestore since Objective 7.A.
+  cloud_firestore: ^6.9.0
   fake_cloud_firestore: ^4.2.0
   crypto: ^3.0.7
 

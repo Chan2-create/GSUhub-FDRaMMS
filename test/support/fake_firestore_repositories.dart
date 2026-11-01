@@ -19,6 +19,7 @@ import 'package:gsuhub/features/tools/data/models/tool.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
+import 'firestore_backend/core/data/firestore_records.dart';
 import 'firestore_backend/core/services/firebase/firestore_service_impl.dart';
 import 'firestore_backend/features/accomplishment/data/repositories/accomplishment_report_repository_firestore.dart';
 import 'firestore_backend/features/accomplishment/data/repositories/material_usage_repository_firestore.dart';
@@ -107,7 +108,7 @@ class FirestoreHarness {
           unitCost: unitCost,
           createdAt: DateTime.utc(2026),
           updatedAt: DateTime.utc(2026),
-        ).toFirestore(),
+        ).toFields().forFirestore,
       );
 
   /// A tool on the shelf, or out (Objective 5.C).
@@ -129,7 +130,7 @@ class FirestoreHarness {
           currentHolderId: status == ToolStatus.borrowed ? 'personnel-2' : null,
           createdAt: DateTime.utc(2026),
           updatedAt: DateTime.utc(2026),
-        ).toFirestore(),
+        ).toFields().forFirestore,
       );
 
   /// A task on a work order (Objective 5.A).
@@ -155,7 +156,7 @@ class FirestoreHarness {
               : null,
           createdAt: DateTime.utc(2026, 9),
           updatedAt: DateTime.utc(2026, 9),
-        ).toFirestore(),
+        ).toFields().forFirestore,
       );
 
   Future<void> addReport(
@@ -185,7 +186,7 @@ class FirestoreHarness {
           workOrderId: workOrderId,
           submittedAt: submittedAt ?? DateTime.utc(2026, 9),
           updatedAt: DateTime.utc(2026, 9),
-        ).toFirestore(),
+        ).toFields().forFirestore,
       );
 
   Future<void> addPersonnel(
@@ -193,13 +194,14 @@ class FirestoreHarness {
     AccountStatus accountStatus = AccountStatus.active,
     UserRole role = UserRole.maintenancePersonnel,
     int activeTaskCount = 0,
+    String fullName = 'Marcus Wright',
   }) => firestore
       .collection(FirestorePaths.users)
       .doc(id)
       .set(
         AppUser(
           id: id,
-          fullName: 'Marcus Wright',
+          fullName: fullName,
           email: '$id@dorsu.edu.ph',
           role: role,
           accountStatus: accountStatus,
@@ -207,7 +209,7 @@ class FirestoreHarness {
           activeTaskCount: activeTaskCount,
           createdAt: DateTime.utc(2026),
           updatedAt: DateTime.utc(2026),
-        ).toFirestore(),
+        ).toFields().forFirestore,
       );
 
   Future<void> addWorkOrder(
@@ -231,7 +233,7 @@ class FirestoreHarness {
           createdBy: 'admin-1',
           createdAt: DateTime.utc(2026, 9),
           updatedAt: DateTime.utc(2026, 9),
-        ).toFirestore(),
+        ).toFields().forFirestore,
       );
 
   Future<Map<String, dynamic>> doc(String collection, String id) async =>

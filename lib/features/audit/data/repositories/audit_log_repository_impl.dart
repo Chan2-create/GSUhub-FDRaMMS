@@ -36,7 +36,7 @@ class AuditLogRepositoryImpl extends SupabaseRepository
         .eq('entity_id', entityId)
         .order('timestamp')
         .limit(limit),
-    convert: AuditLogEntry.fromFirestore,
+    convert: AuditLogEntry.fromRecord,
   );
 
   @override
@@ -50,7 +50,7 @@ class AuditLogRepositoryImpl extends SupabaseRepository
         .eq('actor_id', actorId)
         .order('timestamp')
         .limit(limit),
-    convert: AuditLogEntry.fromFirestore,
+    convert: AuditLogEntry.fromRecord,
   );
 
   @override
@@ -72,7 +72,7 @@ class AuditLogRepositoryImpl extends SupabaseRepository
     }
     return getMany(
       query: built.order('timestamp').limit(limit),
-      convert: AuditLogEntry.fromFirestore,
+      convert: AuditLogEntry.fromRecord,
     );
   }
 }

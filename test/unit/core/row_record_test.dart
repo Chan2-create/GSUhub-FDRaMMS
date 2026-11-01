@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
-import 'package:gsuhub/core/data/row_snapshot.dart';
+import 'package:gsuhub/core/data/geo_coordinates.dart';
+import 'package:gsuhub/core/data/row_record.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
@@ -22,8 +22,8 @@ void main() {
   const stamp = '2026-10-16T08:30:00.123456+00:00';
   final when = DateTime.utc(2026, 10, 16, 8, 30, 0, 123, 456);
 
-  test('columns become fields, and timestamps Timestamps', () {
-    final fields = RowSnapshot.documentFields({
+  test('columns become fields, and timestamps UTC DateTimes', () {
+    final fields = RowRecord.fields({
       'id': 'x',
       'full_name': 'Ana',
       'active_task_count': 2,
@@ -33,26 +33,23 @@ void main() {
     });
     expect(fields['fullName'], 'Ana');
     expect(fields['activeTaskCount'], 2);
-    expect(fields['createdAt'], isA<Timestamp>());
-    expect((fields['createdAt'] as Timestamp).toDate().toUtc(), when);
-    expect(fields['timestamp'], isA<Timestamp>());
+    expect(fields['createdAt'], when);
+    expect((fields['createdAt'] as DateTime).isUtc, isTrue);
+    expect(fields['timestamp'], when);
     expect(fields['dueDate'], isNull);
   });
 
   test('a time Realtime sends without a zone is read as UTC', () {
-    final fields = RowSnapshot.documentFields({
+    final fields = RowRecord.fields({
       'id': 'x',
       'updated_at': '2026-10-16T08:30:00.123456',
     });
-    expect(
-      (fields['updatedAt'] as Timestamp).toDate().toUtc(),
-      DateTime.utc(2026, 10, 16, 8, 30, 0, 123, 456),
-    );
+    expect(fields['updatedAt'], DateTime.utc(2026, 10, 16, 8, 30, 0, 123, 456));
   });
 
   test('a damage report row, coordinates and all, reads as the report', () {
-    final report = DamageReport.fromFirestore(
-      RowSnapshot.fromRow({
+    final report = DamageReport.fromRecord(
+      RowRecord.fromRow({
         'id': 'r-1',
         'reporter_id': 'u-1',
         'reporter_name': 'Maria Santos',
@@ -90,14 +87,17 @@ void main() {
     expect(report.id, 'r-1');
     expect(report.status, ReportStatus.submitted);
     expect(report.category, DamageCategory.electrical);
-    expect(report.coordinates, const GeoPoint(7.1, 126));
+    expect(
+      report.coordinates,
+      const GeoCoordinates(latitude: 7.1, longitude: 126),
+    );
     expect(report.photoUrls, ['https://photos.test/1.jpg']);
     expect(report.priorityScore, 3);
     expect(report.submittedAt, when);
   });
 
   test('a report with no geo-tag has no coordinates', () {
-    final fields = RowSnapshot.documentFields({
+    final fields = RowRecord.fields({
       'id': 'r',
       'latitude': null,
       'longitude': null,
@@ -108,8 +108,8 @@ void main() {
   });
 
   test('a users row reads as the account', () {
-    final user = AppUser.fromFirestore(
-      RowSnapshot.fromRow({
+    final user = AppUser.fromRecord(
+      RowRecord.fromRow({
         'id': 'u-1',
         'full_name': 'Marcus Wright',
         'email': 'tech@test.ph',
@@ -132,8 +132,8 @@ void main() {
   });
 
   test('work orders, rooms, timelines, ratings, notices and audit entries read too', () {
-    final workOrder = WorkOrder.fromFirestore(
-      RowSnapshot.fromRow({
+    final workOrder = WorkOrder.fromRecord(
+      RowRecord.fromRow({
         'id': 'w-1',
         'report_ids': ['r-1'],
         'title': 'Flickering lights',
@@ -156,8 +156,8 @@ void main() {
     expect(workOrder.status, WorkOrderStatus.inProgress);
     expect(workOrder.scheduledFor, when);
 
-    final facility = Facility.fromFirestore(
-      RowSnapshot.fromRow({
+    final facility = Facility.fromRecord(
+      RowRecord.fromRow({
         'id': 'f-1',
         'name': 'Engineering Building',
         'building_name': 'Engineering Building',
@@ -174,8 +174,8 @@ void main() {
     expect(facility.roomIdentifier, 'Room 101');
     expect(facility.qrCode, 'FAC-F-1');
 
-    final change = StatusChange.fromFirestore(
-      RowSnapshot.fromRow({
+    final change = StatusChange.fromRecord(
+      RowRecord.fromRow({
         'id': 'h-1',
         'report_id': 'r-1',
         'status': 'assigned',
@@ -189,8 +189,8 @@ void main() {
     expect(change.status, ReportStatus.assigned);
     expect(change.personnelName, 'Marcus Wright');
 
-    final feedback = ServiceFeedback.fromFirestore(
-      RowSnapshot.fromRow({
+    final feedback = ServiceFeedback.fromRecord(
+      RowRecord.fromRow({
         'id': 'r-1',
         'work_order_id': 'w-1',
         'report_id': 'r-1',
@@ -204,8 +204,8 @@ void main() {
     );
     expect(feedback.serviceQualityRating, 5);
 
-    final notification = AppNotification.fromFirestore(
-      RowSnapshot.fromRow({
+    final notification = AppNotification.fromRecord(
+      RowRecord.fromRow({
         'id': 'n-1',
         'recipient_id': 'u-1',
         'type': 'statusUpdate',
@@ -221,8 +221,8 @@ void main() {
     expect(notification.isRead, isTrue);
     expect(notification.readAt, when);
 
-    final entry = AuditLogEntry.fromFirestore(
-      RowSnapshot.fromRow({
+    final entry = AuditLogEntry.fromRecord(
+      RowRecord.fromRow({
         'id': 'au-1',
         'actor_id': 'u-admin',
         'actor_name': 'Ramon Dela Cruz',
@@ -239,8 +239,8 @@ void main() {
   });
 
   test('a settings row reads as its document, stamped with who saved it', () {
-    final config = ClassificationRulesConfig.fromFirestore(
-      RowSnapshot.fromConfigRow({
+    final config = ClassificationRulesConfig.fromRecord(
+      RowRecord.fromConfigRow({
         'id': 'classification_rules',
         'data': {
           'keywordsByCategory': {
