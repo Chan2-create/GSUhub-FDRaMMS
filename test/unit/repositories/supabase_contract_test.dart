@@ -389,6 +389,7 @@ void main() {
       draft: material,
       actor: actor,
     );
+    await inventory.deleteItem(itemId: 'i-2', actor: actor);
     await inventory.recordDelivery(itemId: 'i-1', quantity: 5, actor: actor);
     await inventory.recordStockCount(
       itemId: 'i-1',
@@ -433,7 +434,7 @@ void main() {
   test('every write calls a database function that exists, with the '
       'parameters it takes', () async {
     await exerciseEveryWrite();
-    expect(calls, hasLength(48));
+    expect(calls, hasLength(49));
     for (final (function, params) in calls) {
       final signature = signatures[function];
       expect(

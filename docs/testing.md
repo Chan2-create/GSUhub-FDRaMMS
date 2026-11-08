@@ -14,9 +14,9 @@ sessions with real users.
 
 | Set | Where | How to run | Last run |
 |---|---|---|---|
-| App: unit and widget | `test/unit`, `test/widget` | `flutter test --exclude-tags e2e` | 764 passed (2026-10-20) |
+| App: unit and widget | `test/unit`, `test/widget` | `flutter test --exclude-tags e2e` | 769 passed (2026-11-05) |
 | App: end to end | `test/e2e` | local stack running, then `$env:SUPABASE_E2E='1'; flutter test test/e2e` | 3 passed |
-| Database (pgTAP) | `supabase/tests` | `npx supabase test db` (Docker), or `cd tool/sql_tests; node run.mjs` and `node run.mjs --seed` (PGlite, no Docker) | 696 passed, on Postgres 17 and in PGlite, empty and seeded |
+| Database (pgTAP) | `supabase/tests` | `npx supabase test db` (Docker), or `cd tool/sql_tests; node run.mjs` and `node run.mjs --seed` (PGlite, no Docker) | 716 passed (2026-11-05), on Postgres 17 and in PGlite, empty and seeded |
 | Photos (real uploads) | `tool/storage_api_test.mjs` | local stack running, `node tool/storage_api_test.mjs` | 14 checks passed |
 | Token exchange | `supabase/functions/tests` | see `supabase/README.md` (Deno) | 25 passed |
 | Data move | `tool/migrate/migrate.test.mjs` | `cd tool/migrate; npm test` | 8 passed |
@@ -75,6 +75,7 @@ repositories against the real stack.
 | Monitor progress and update work-order statuses | `widget/work_orders_screen_test.dart`, `widget/work_order_detail_test.dart` (the board cannot skip the sign-off, 7.B); `work_order_functions.test.sql`, `accomplishment_functions.test.sql` |
 | Accomplishment reports and maintenance summaries | `widget/analytics_screen_test.dart`, `unit/presentation/analytics_export_test.dart`, `unit/presentation/analytics_summary_test.dart`, `widget/analytics_inventory_test.dart` |
 | Accounts, roles, permissions, notifications, inventory, QR codes | `widget/user_accounts_screen_test.dart`, `unit/repositories/user_accounts_test.dart`; `account_functions.test.sql`; `widget/admin_notifications_test.dart`, `admin_notifications.test.sql` (7.A); `widget/inventory_screen_test.dart`, `inventory_functions.test.sql`; `widget/facilities_screen_test.dart`, `facility_functions.test.sql` |
+| Delete a material, keeping its history (2026-11-05) | `material_delete.test.sql` (refused while open work counts on it; nothing new happens to it; its code is free), `unit/repositories/inventory_deleted_test.dart`, `widget/inventory_screen_test.dart` |
 | Priority weights and duplicate rules (configurable, flagged) | `widget/settings_screen_test.dart`; `feedback_notification_config.test.sql` (the database refuses what the console would) |
 
 ### Maintenance personnel (mobile)

@@ -71,6 +71,13 @@ class InventoryController {
         .updateItemDetails(itemId: itemId, draft: draft, actor: actor);
   });
 
+  /// Takes a material out of the inventory; its history stays.
+  Future<Result<void>> deleteMaterial(String itemId) => _act(
+    (actor) => _ref
+        .read(inventoryRepositoryProvider)
+        .deleteItem(itemId: itemId, actor: actor),
+  );
+
   Future<Result<void>> _savePhoto(
     String itemId,
     InventoryItemDraft draft,

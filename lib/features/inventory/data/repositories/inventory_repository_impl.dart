@@ -27,13 +27,20 @@ class InventoryRepositoryImpl extends SupabaseRepository
   static const int reasonLimit = 200;
 
   @override
-  Future<Result<InventoryItem>> getItemById(String id) =>
-      getOne(table: _items, id: id, convert: InventoryItem.fromRecord);
+  Future<Result<InventoryItem>> getItemById(String id) async => _present(
+    await getOne(table: _items, id: id, convert: InventoryItem.fromRecord),
+  );
 
   @override
   Future<Result<InventoryItem>> getItemByQrCode(String qrCode) async {
+    // A deleted material's code may be on a material added since.
     final matches = await getMany(
-      query: client.from(_items).select().eq('qr_code', qrCode).limit(1),
+      query: client
+          .from(_items)
+          .select()
+          .eq('qr_code', qrCode)
+          .isFilter('deleted_at', null)
+          .limit(1),
       convert: InventoryItem.fromRecord,
     );
     return matches.fold(
@@ -48,7 +55,8 @@ class InventoryRepositoryImpl extends SupabaseRepository
 
   @override
   Stream<Result<List<InventoryItem>>> watchItems({String? category}) =>
-      // Filtered here: a material's category can change.
+      // Filtered here: a material's category can change, and a live
+      // stream cannot ask for an empty deleted_at.
       watchMany(
         stream: client
             .from(_items)
@@ -59,14 +67,19 @@ class InventoryRepositoryImpl extends SupabaseRepository
         (result) => result.map(
           (items) => [
             for (final item in items)
-              if (category == null || item.category == category) item,
+              if (!item.isDeleted &&
+                  (category == null || item.category == category))
+                item,
           ],
         ),
       );
 
   @override
-  Stream<Result<InventoryItem>> watchItem(String id) =>
-      watchOne(table: _items, id: id, convert: InventoryItem.fromRecord);
+  Stream<Result<InventoryItem>> watchItem(String id) => watchOne(
+    table: _items,
+    id: id,
+    convert: InventoryItem.fromRecord,
+  ).map(_present);
 
   @override
   Stream<Result<List<InventoryItem>>> watchLowStockItems() => watchItems().map(
@@ -101,6 +114,12 @@ class InventoryRepositoryImpl extends SupabaseRepository
     }
     return rpc('update_inventory_item', {'id': itemId, ..._fields(draft)});
   }
+
+  @override
+  Future<Result<void>> deleteItem({
+    required String itemId,
+    required AuditActor actor,
+  }) => rpc('delete_inventory_item', {'id': itemId});
 
   @override
   Future<Result<InventoryTransaction>> recordDelivery({
@@ -196,6 +215,15 @@ class InventoryRepositoryImpl extends SupabaseRepository
         .order('performed_at'),
     convert: InventoryTransaction.fromRecord,
   );
+
+  /// A deleted material reads as gone.
+  static Result<InventoryItem> _present(Result<InventoryItem> result) =>
+      switch (result) {
+        Success(:final value) when value.isDeleted => const Result.failure(
+          NotFoundFailure('This material is no longer in the inventory.'),
+        ),
+        _ => result,
+      };
 
   /// The draft as the database functions take it.
   static Map<String, Object?> _fields(InventoryItemDraft draft) {

@@ -38,6 +38,7 @@ class InventoryItem {
     this.specification,
     this.unitCost,
     this.photoUrl,
+    this.deletedAt,
   }) {
     RecordConverters.validateNotBlank(name, 'name');
     RecordConverters.validateNotBlank(category, 'category');
@@ -86,6 +87,7 @@ class InventoryItem {
       photoUrl: RecordConverters.optional<String>(data, 'photoUrl'),
       createdAt: RecordConverters.requireDate(data, 'createdAt'),
       updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
+      deletedAt: RecordConverters.optionalDate(data, 'deletedAt'),
     );
   }
 
@@ -135,6 +137,13 @@ class InventoryItem {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// When an administrator deleted the material (2026-11-05). Its ledger
+  /// entries keep it in the table; the repositories leave it out of every
+  /// list, scan and lookup (supabase/migrations/*_delete_material.sql).
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
+
   /// Whether a low-stock alert should be raised (§1.5).
   bool get isLowStock => quantityAvailable <= minimumThreshold;
 
@@ -161,6 +170,7 @@ class InventoryItem {
     'photoUrl': photoUrl,
     'createdAt': createdAt,
     'updatedAt': updatedAt,
+    'deletedAt': deletedAt,
   };
 
   InventoryItem copyWith({
@@ -178,6 +188,7 @@ class InventoryItem {
     String? photoUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? deletedAt,
   }) => InventoryItem(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -193,6 +204,7 @@ class InventoryItem {
     photoUrl: photoUrl ?? this.photoUrl,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt ?? this.deletedAt,
   );
 
   @override
@@ -212,7 +224,8 @@ class InventoryItem {
           other.unitCost == unitCost &&
           other.photoUrl == photoUrl &&
           other.createdAt == createdAt &&
-          other.updatedAt == updatedAt;
+          other.updatedAt == updatedAt &&
+          other.deletedAt == deletedAt;
 
   @override
   int get hashCode => Object.hash(
@@ -230,6 +243,7 @@ class InventoryItem {
     photoUrl,
     createdAt,
     updatedAt,
+    deletedAt,
   );
 
   @override

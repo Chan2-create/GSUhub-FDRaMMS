@@ -343,6 +343,19 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
         ),
       ),
       actions: [
+        if (widget.item case final item?)
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            onPressed: _busy
+                ? null
+                : () async {
+                    final navigator = Navigator.of(context);
+                    if (await showDeleteMaterialDialog(context, item)) {
+                      navigator.pop();
+                    }
+                  },
+            child: const Text('Delete'),
+          ),
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
@@ -350,6 +363,104 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
         FilledButton(
           onPressed: _busy ? null : _save,
           child: Text(_busy ? 'Saving…' : (_editing ? 'Save' : 'Add material')),
+        ),
+      ],
+    );
+  }
+}
+
+/// Asks before deleting [item], and deletes it. True once it is deleted.
+Future<bool> showDeleteMaterialDialog(
+  BuildContext context,
+  InventoryItem item,
+) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (_) => _DeleteMaterialDialog(item: item),
+    ) ??
+    false;
+
+class _DeleteMaterialDialog extends ConsumerStatefulWidget {
+  const _DeleteMaterialDialog({required this.item});
+
+  final InventoryItem item;
+
+  @override
+  ConsumerState<_DeleteMaterialDialog> createState() =>
+      _DeleteMaterialDialogState();
+}
+
+class _DeleteMaterialDialogState extends ConsumerState<_DeleteMaterialDialog> {
+  String? _error;
+  bool _busy = false;
+
+  Future<void> _delete() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final result = await ref
+        .read(inventoryControllerProvider)
+        .deleteMaterial(widget.item.id);
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.of(context).pop(true);
+        messenger.showSnackBar(
+          SnackBar(content: Text('Deleted ${widget.item.name}.')),
+        );
+      case Error(:final failure):
+        setState(() {
+          _busy = false;
+          _error = failure.message;
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final stock = item.quantityAvailable > 0
+        ? ' Its stock of '
+              '${QuantityFormat.withUnit(item.quantityAvailable, item.unitOfMeasurement)} '
+              'goes with it.'
+        : '';
+    return AlertDialog(
+      title: Text('Delete ${item.name}?'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'It leaves the inventory and the technicians’ material lists, '
+              'and its label no longer scans.$stock Its stock history stays '
+              'in the records, and its code can go on another material.',
+              style: AppTextStyles.inventoryStatNote,
+            ),
+            if (_error case final message?) ...[
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: AppTextStyles.inventoryStatNote.copyWith(
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+          onPressed: _busy ? null : _delete,
+          child: Text(_busy ? 'Deleting…' : 'Delete'),
         ),
       ],
     );
@@ -753,6 +864,17 @@ class _MaterialDetails extends ConsumerWidget {
                   showQrLabelDialog(context, QrLabel.material(item)),
               icon: const Icon(Icons.qr_code_2_outlined, size: 18),
               label: const Text('QR label'),
+            ),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                if (await showDeleteMaterialDialog(context, item)) {
+                  navigator.pop();
+                }
+              },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('Delete'),
             ),
           ],
         ),
