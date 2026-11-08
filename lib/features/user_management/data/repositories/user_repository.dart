@@ -88,6 +88,13 @@ abstract interface class UserRepository {
     required AuditActor actor,
   });
 
+  /// Removes an account's profile (2026-11-08): only one with no records
+  /// (a sign-up never used, an account made by mistake). Refused for
+  /// [actor]'s own, for one holding open work or a tool, and for one any
+  /// record names: deactivate that one instead. Without a profile the
+  /// sign-in admits no one; the sign-in itself (Firebase) stays.
+  Future<Result<void>> deleteAccount(String uid, {required AuditActor actor});
+
   Future<Result<void>> setAvailability(
     String uid,
     PersonnelAvailability availability,

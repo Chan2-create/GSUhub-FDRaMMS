@@ -562,18 +562,25 @@ class _ScoreLine extends StatelessWidget {
       children: [
         const _Heading('Priority score'),
         const SizedBox(height: 8),
-        Row(
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
               score?.toStringAsFixed(2) ?? '—',
               style: AppTextStyles.statValue,
             ),
-            const SizedBox(width: 16),
-            if (recommended case final level?) ...[
-              const Text('Recommended', style: AppTextStyles.bodySmall),
-              const SizedBox(width: 8),
-              PriorityChip(level: level),
-            ] else
+            if (recommended case final level?)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Recommended', style: AppTextStyles.bodySmall),
+                  const SizedBox(width: 8),
+                  PriorityChip(level: level),
+                ],
+              )
+            else
               const Text(
                 'Rate all four criteria to compute the score.',
                 style: AppTextStyles.bodySmall,

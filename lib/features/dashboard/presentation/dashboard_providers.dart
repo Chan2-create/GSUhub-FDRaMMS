@@ -80,11 +80,17 @@ final dashboardCountsProvider = Provider<AsyncValue<Result<DashboardCounts>>>(
       .whenData((result) => result.map(DashboardCounts.from)),
 );
 
-/// The five most recent reports, for the Recent Reports table.
+/// The five most recent reports, for the Recent Reports table. Archived
+/// ones are out of the console's lists (2026-11-08).
 final recentReportsProvider = Provider<AsyncValue<Result<List<DamageReport>>>>(
   (ref) => ref
       .watch(reportsStreamProvider)
-      .whenData((result) => result.map((reports) => reports.take(5).toList())),
+      .whenData(
+        (result) => result.map(
+          (reports) =>
+              reports.where((report) => !report.isArchived).take(5).toList(),
+        ),
+      ),
 );
 
 /// Report counts per damage category.

@@ -6,11 +6,13 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_chip.dart';
@@ -19,6 +21,7 @@ import '../../classification/domain/duplicate_detector.dart';
 import '../../classification/presentation/classification_providers.dart';
 import '../data/models/damage_report.dart';
 import 'report_providers.dart';
+import 'widgets/report_archive.dart';
 import 'widgets/report_filter_bar.dart';
 import 'widgets/report_side_panels.dart';
 
@@ -32,7 +35,7 @@ class ReportsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
-    padding: const EdgeInsets.all(32),
+    padding: EdgeInsets.all(Breakpoints.gutter(context)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -76,51 +79,44 @@ class _Header extends StatelessWidget {
   const _Header();
 
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.end,
-    children: [
-      const Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Damage Reports', style: AppTextStyles.pageTitle),
-            SizedBox(height: 4),
-            Text(
-              'Review and manage all incoming campus facility issues.',
-              style: AppTextStyles.pageSubtitle,
-            ),
-          ],
+  Widget build(BuildContext context) => PageHeader(
+    heading: const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Damage Reports', style: AppTextStyles.pageTitle),
+        SizedBox(height: 4),
+        Text(
+          'Review and manage all incoming campus facility issues.',
+          style: AppTextStyles.pageSubtitle,
         ),
-      ),
-      Tooltip(
-        // Filing a report is a faculty/staff function (manuscript §1.5);
-        // the admin console has no documented path for creating one.
-        message:
-            'Reports are submitted by faculty and staff from the mobile '
-            'app — not from the admin console.',
-        child: FilledButton.icon(
-          onPressed: null,
-          icon: SvgPicture.asset(
-            'assets/icons/create_add.svg',
-            width: 12,
-            height: 12,
-            colorFilter: const ColorFilter.mode(
-              AppColors.textOnDark,
-              BlendMode.srcIn,
-            ),
-          ),
-          label: const Text('Create Report', style: AppTextStyles.ctaLabel),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.textOnDark,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
+      ],
+    ),
+    action: Tooltip(
+      // Filing a report is a faculty/staff function (manuscript §1.5);
+      // the admin console has no documented path for creating one.
+      message:
+          'Reports are submitted by faculty and staff from the mobile '
+          'app — not from the admin console.',
+      child: FilledButton.icon(
+        onPressed: null,
+        icon: SvgPicture.asset(
+          'assets/icons/create_add.svg',
+          width: 12,
+          height: 12,
+          colorFilter: const ColorFilter.mode(
+            AppColors.textOnDark,
+            BlendMode.srcIn,
           ),
         ),
+        label: const Text('Create Report', style: AppTextStyles.ctaLabel),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.textOnDark,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
       ),
-    ],
+    ),
   );
 }
 
@@ -176,7 +172,11 @@ class _StatRow extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1000 ? 4 : 2;
+        final columns = constraints.maxWidth >= 1000
+            ? 4
+            : constraints.maxWidth >= 440
+            ? 2
+            : 1;
         const gap = 24.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
@@ -217,7 +217,10 @@ class _ReportsTableCard extends ConsumerWidget {
           AsyncValueView<List<DamageReport>>(
             value: page,
             isEmpty: (reports) => reports.isEmpty,
-            emptyMessage: view.hasFilters
+            emptyMessage: view.archived
+                ? 'No archived reports. A closed, merged or rejected report '
+                      'can be archived from its row or its page.'
+                : view.hasFilters
                 ? 'No reports match these filters.'
                 : 'No damage reports have been submitted yet.',
             onRetry: () => ref.invalidate(reportsStreamProvider),
@@ -361,8 +364,10 @@ class _RowActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final canAssign = report.isAssignable;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    // Wraps rather than overflowing if the fixed cell is short of room.
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         OutlinedButton(
           onPressed: () =>
@@ -414,6 +419,34 @@ class _RowActions extends StatelessWidget {
           // from 1.B but no objective that surfaces it. See the report.
           tooltip: 'Merging duplicate reports is not in the current WBS.',
           onPressed: null,
+        ),
+        // The console's delete for a report (2026-11-08): reports are
+        // archived, never deleted.
+        Tooltip(
+          message: report.isArchived
+              ? 'Restore this report to the list'
+              : report.canBeArchived
+              ? 'Archive this report'
+              : 'Only a closed, merged or rejected report can be archived.',
+          child: InkWell(
+            onTap: report.isArchived || report.canBeArchived
+                ? () => confirmReportArchive(context, report)
+                : null,
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              width: 32,
+              height: 32,
+              child: Icon(
+                report.isArchived
+                    ? Icons.unarchive_outlined
+                    : Icons.archive_outlined,
+                size: 18,
+                color: report.isArchived || report.canBeArchived
+                    ? AppColors.iconMuted
+                    : AppColors.textFaint,
+              ),
+            ),
+          ),
         ),
       ],
     );

@@ -35,13 +35,18 @@ class FacilityRepositoryImpl extends SupabaseRepository
 
   @override
   Future<Result<List<Facility>>> getFacilities({bool activeOnly = true}) {
-    final query = client.from(_facilities).select();
+    final query = client
+        .from(_facilities)
+        .select()
+        .isFilter('deleted_at', null);
     return getMany(
       query: activeOnly ? query.eq('is_active', true) : query,
       convert: Facility.fromRecord,
     );
   }
 
+  /// Rooms still registered. A deleted one is still found by its id, for
+  /// the reports that name it.
   @override
   Stream<Result<List<Facility>>> watchFacilities() =>
       watchMany(
@@ -49,16 +54,19 @@ class FacilityRepositoryImpl extends SupabaseRepository
         convert: Facility.fromRecord,
       ).map(
         (result) => result.map(
-          (facilities) => [...facilities]
-            ..sort((a, b) {
-              final byBuilding = a.buildingName.toLowerCase().compareTo(
-                b.buildingName.toLowerCase(),
-              );
-              if (byBuilding != 0) return byBuilding;
-              return (a.roomIdentifier ?? '').toLowerCase().compareTo(
-                (b.roomIdentifier ?? '').toLowerCase(),
-              );
-            }),
+          (facilities) =>
+              [
+                for (final facility in facilities)
+                  if (!facility.isDeleted) facility,
+              ]..sort((a, b) {
+                final byBuilding = a.buildingName.toLowerCase().compareTo(
+                  b.buildingName.toLowerCase(),
+                );
+                if (byBuilding != 0) return byBuilding;
+                return (a.roomIdentifier ?? '').toLowerCase().compareTo(
+                  (b.roomIdentifier ?? '').toLowerCase(),
+                );
+              }),
         ),
       );
 
@@ -113,6 +121,12 @@ class FacilityRepositoryImpl extends SupabaseRepository
   }) => rpc('set_facility_active', {'id': facilityId, 'active': active});
 
   @override
+  Future<Result<void>> deleteFacility({
+    required String facilityId,
+    required AuditActor actor,
+  }) => rpc('delete_facility', {'id': facilityId});
+
+  @override
   Future<Result<Asset>> getAssetById(String id) =>
       getOne(table: _assets, id: id, convert: Asset.fromRecord);
 
@@ -129,7 +143,11 @@ class FacilityRepositoryImpl extends SupabaseRepository
     String facilityId, {
     bool activeOnly = true,
   }) {
-    final query = client.from(_assets).select().eq('facility_id', facilityId);
+    final query = client
+        .from(_assets)
+        .select()
+        .eq('facility_id', facilityId)
+        .isFilter('deleted_at', null);
     return getMany(
       query: activeOnly ? query.eq('is_active', true) : query,
       convert: Asset.fromRecord,
@@ -143,10 +161,13 @@ class FacilityRepositoryImpl extends SupabaseRepository
         convert: Asset.fromRecord,
       ).map(
         (result) => result.map(
-          (assets) => [...assets]
-            ..sort(
-              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-            ),
+          (assets) =>
+              [
+                for (final asset in assets)
+                  if (!asset.isDeleted) asset,
+              ]..sort(
+                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+              ),
         ),
       );
 
@@ -199,6 +220,12 @@ class FacilityRepositoryImpl extends SupabaseRepository
     required AuditActor actor,
   }) => rpc('set_asset_active', {'id': assetId, 'active': active});
 
+  @override
+  Future<Result<void>> deleteAsset({
+    required String assetId,
+    required AuditActor actor,
+  }) => rpc('delete_asset', {'id': assetId});
+
   /// QR lookup, shared by rooms and equipment. An unregistered code is
   /// [NotFoundFailure], not an error: §1.5 limits QR identification to
   /// registered items, so scanning an unknown sticker is expected.
@@ -208,8 +235,14 @@ class FacilityRepositoryImpl extends SupabaseRepository
     required T Function(DataRecord) convert,
     required String label,
   }) async {
+    // A deleted room's or equipment's code may be on one added since.
     final matches = await getMany(
-      query: client.from(table).select().eq('qr_code', qrCode).limit(1),
+      query: client
+          .from(table)
+          .select()
+          .eq('qr_code', qrCode)
+          .isFilter('deleted_at', null)
+          .limit(1),
       convert: convert,
     );
     return matches.fold(

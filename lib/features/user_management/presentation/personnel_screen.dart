@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/di/service_providers.dart';
 import '../../../core/routing/route_paths.dart';
@@ -12,7 +13,9 @@ import '../../../core/utils/display_id.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/category_chip.dart';
 import '../../../core/widgets/filter_select.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/person_avatar.dart';
+import '../../../core/widgets/scroll_when_narrow.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/table_pagination.dart';
 import '../data/models/app_user.dart';
@@ -30,46 +33,38 @@ class PersonnelScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
-    padding: const EdgeInsets.all(32),
+    padding: EdgeInsets.all(Breakpoints.gutter(context)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Maintenance Personnel', style: AppTextStyles.pageTitle),
-                  SizedBox(height: 4),
-                  Text(
-                    'Manage and monitor GSU maintenance staff availability '
-                    'and workloads.',
-                    style: AppTextStyles.pageSubtitle,
-                  ),
-                ],
+        PageHeader(
+          heading: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Maintenance Personnel', style: AppTextStyles.pageTitle),
+              SizedBox(height: 4),
+              Text(
+                'Manage and monitor GSU maintenance staff availability '
+                'and workloads.',
+                style: AppTextStyles.pageSubtitle,
+              ),
+            ],
+          ),
+          action: FilledButton.icon(
+            onPressed: () => showCreateAccountDialog(context),
+            icon: SvgPicture.asset('assets/icons/personnel_add.svg'),
+            label: const Text(
+              'Add Personnel',
+              style: AppTextStyles.primaryButtonLarge,
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
-            FilledButton.icon(
-              onPressed: () => showCreateAccountDialog(context),
-              icon: SvgPicture.asset('assets/icons/personnel_add.svg'),
-              label: const Text(
-                'Add Personnel',
-                style: AppTextStyles.primaryButtonLarge,
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
         const SizedBox(height: 48),
         const _MetricRow(),
@@ -131,7 +126,11 @@ class _MetricRow extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1000 ? 4 : 2;
+        final columns = constraints.maxWidth >= 1000
+            ? 4
+            : constraints.maxWidth >= 440
+            ? 2
+            : 1;
         const gap = 24.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
@@ -171,100 +170,118 @@ class _FilterStripState extends ConsumerState<_FilterStrip> {
     final controller = ref.read(personnelDirectoryViewProvider.notifier);
     final trade = view.trade;
 
+    final search = TextField(
+      controller: _search,
+      onChanged: controller.setSearch,
+      style: AppTextStyles.filterStripText,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Search by name or specialization...',
+        hintStyle: AppTextStyles.filterStripText.copyWith(
+          color: AppColors.textMuted,
+        ),
+        filled: true,
+        fillColor: AppColors.surface,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 11, 0),
+          child: SvgPicture.asset(
+            'assets/icons/search.svg',
+            width: 18,
+            height: 18,
+          ),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 41),
+        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+        border: _border,
+        enabledBorder: _border,
+      ),
+    );
+    final availability = Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text('AVAILABILITY:', style: AppTextStyles.metricLabel),
+        FilterSelect<StaffStatus>(
+          placeholder: 'All Statuses',
+          style: FilterSelectStyle.large,
+          value: view.status,
+          onChanged: controller.setStatus,
+          options: [
+            const FilterOption(value: null, label: 'All Statuses'),
+            for (final status in StaffStatus.values)
+              FilterOption(value: status, label: status.label),
+          ],
+        ),
+      ],
+    );
+    final tradeFilter =
+        // Indexed rather than keyed by category: "All trades" has no
+        // category, and a popup menu treats a null choice as a cancel.
+        PopupMenuButton<int>(
+          tooltip: trade == null ? 'Filter by trade' : 'Trade: ${trade.label}',
+          position: PopupMenuPosition.under,
+          initialValue: trade?.index ?? -1,
+          onSelected: (index) => controller.setTrade(
+            index < 0 ? null : DamageCategory.values[index],
+          ),
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: -1, child: Text('All trades')),
+            for (final category in DamageCategory.values)
+              PopupMenuItem(value: category.index, child: Text(category.label)),
+          ],
+          child: Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: trade == null
+                  ? AppColors.filterButtonBackground
+                  : AppColors.primary,
+              border: Border.all(color: AppColors.borderStrong),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: SvgPicture.asset(
+              'assets/icons/filter_list.svg',
+              width: 18,
+              height: 12,
+              colorFilter: ColorFilter.mode(
+                trade == null ? AppColors.textSecondary : AppColors.textOnDark,
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
+        );
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.filterBarBackground,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _search,
-              onChanged: controller.setSearch,
-              style: AppTextStyles.filterStripText,
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: 'Search by name or specialization...',
-                hintStyle: AppTextStyles.filterStripText.copyWith(
-                  color: AppColors.textMuted,
+      // On a phone the search takes the whole row and the filters go
+      // under it.
+      child: Breakpoints.isCompact(context)
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 24,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [availability, tradeFilter],
                 ),
-                filled: true,
-                fillColor: AppColors.surface,
-                prefixIcon: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 11, 0),
-                  child: SvgPicture.asset(
-                    'assets/icons/search.svg',
-                    width: 18,
-                    height: 18,
-                  ),
-                ),
-                prefixIconConstraints: const BoxConstraints(minWidth: 41),
-                contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                border: _border,
-                enabledBorder: _border,
-              ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: search),
+                const SizedBox(width: 24),
+                availability,
+                const SizedBox(width: 24),
+                tradeFilter,
+              ],
             ),
-          ),
-          const SizedBox(width: 24),
-          const Text('AVAILABILITY:', style: AppTextStyles.metricLabel),
-          const SizedBox(width: 12),
-          FilterSelect<StaffStatus>(
-            placeholder: 'All Statuses',
-            style: FilterSelectStyle.large,
-            value: view.status,
-            onChanged: controller.setStatus,
-            options: [
-              const FilterOption(value: null, label: 'All Statuses'),
-              for (final status in StaffStatus.values)
-                FilterOption(value: status, label: status.label),
-            ],
-          ),
-          const SizedBox(width: 24),
-          // Indexed rather than keyed by category: "All trades" has no
-          // category, and a popup menu treats a null choice as a cancel.
-          PopupMenuButton<int>(
-            tooltip: trade == null
-                ? 'Filter by trade'
-                : 'Trade: ${trade.label}',
-            position: PopupMenuPosition.under,
-            initialValue: trade?.index ?? -1,
-            onSelected: (index) => controller.setTrade(
-              index < 0 ? null : DamageCategory.values[index],
-            ),
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: -1, child: Text('All trades')),
-              for (final category in DamageCategory.values)
-                PopupMenuItem(
-                  value: category.index,
-                  child: Text(category.label),
-                ),
-            ],
-            child: Container(
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: trade == null
-                    ? AppColors.filterButtonBackground
-                    : AppColors.primary,
-                border: Border.all(color: AppColors.borderStrong),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: SvgPicture.asset(
-                'assets/icons/filter_list.svg',
-                width: 18,
-                height: 12,
-                colorFilter: ColorFilter.mode(
-                  trade == null
-                      ? AppColors.textSecondary
-                      : AppColors.textOnDark,
-                  BlendMode.srcIn,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -274,9 +291,11 @@ class _FilterStripState extends ConsumerState<_FilterStrip> {
   );
 }
 
-/// Column shares from the design's header cells
-/// (224/199/134/178/183/216).
-const List<int> _columns = [224, 199, 134, 178, 183, 216];
+/// Column shares from the design's header cells (224/199/134/178/183/216),
+/// with room moved from PERSONNEL to ACTIONS for the delete button
+/// (2026-11-08), so a row
+/// stays one line at the design's width.
+const List<int> _columns = [228, 190, 134, 162, 182, 238];
 
 class _StaffTable extends ConsumerWidget {
   const _StaffTable();
@@ -313,37 +332,48 @@ class _StaffTable extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          Container(
-            color: AppColors.tableStripe,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: const Row(
+          ScrollWhenNarrow(
+            minWidth: 1000,
+            child: Column(
               children: [
-                _HeaderCell('PERSONNEL', column: 0),
-                _HeaderCell('SPECIALIZATION', column: 1),
-                _HeaderCell('STATUS', column: 2),
-                _HeaderCell('ACTIVE TASKS', column: 3, align: TextAlign.center),
-                _HeaderCell('CONTACT INFO', column: 4),
-                _HeaderCell('ACTIONS', column: 5, align: TextAlign.right),
-              ],
-            ),
-          ),
-          AsyncValueView<List<AppUser>>(
-            value: page,
-            isEmpty: (people) => people.isEmpty,
-            emptyIcon: Icons.engineering_outlined,
-            emptyMessage: filtering
-                ? 'No personnel match these filters.'
-                : 'No maintenance personnel yet. Use Add Personnel to create '
-                      'the first account.',
-            onRetry: () => ref.invalidate(personnelStreamProvider),
-            data: (people) => Column(
-              children: [
-                for (var i = 0; i < people.length; i++)
-                  _StaffRow(
-                    person: people[i],
-                    striped: i.isOdd,
-                    isSelf: people[i].id == signedIn,
+                Container(
+                  color: AppColors.tableStripe,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: const Row(
+                    children: [
+                      _HeaderCell('PERSONNEL', column: 0),
+                      _HeaderCell('SPECIALIZATION', column: 1),
+                      _HeaderCell('STATUS', column: 2),
+                      _HeaderCell(
+                        'ACTIVE TASKS',
+                        column: 3,
+                        align: TextAlign.center,
+                      ),
+                      _HeaderCell('CONTACT INFO', column: 4),
+                      _HeaderCell('ACTIONS', column: 5, align: TextAlign.right),
+                    ],
                   ),
+                ),
+                AsyncValueView<List<AppUser>>(
+                  value: page,
+                  isEmpty: (people) => people.isEmpty,
+                  emptyIcon: Icons.engineering_outlined,
+                  emptyMessage: filtering
+                      ? 'No personnel match these filters.'
+                      : 'No maintenance personnel yet. Use Add Personnel to '
+                            'create the first account.',
+                  onRetry: () => ref.invalidate(personnelStreamProvider),
+                  data: (people) => Column(
+                    children: [
+                      for (var i = 0; i < people.length; i++)
+                        _StaffRow(
+                          person: people[i],
+                          striped: i.isOdd,
+                          isSelf: people[i].id == signedIn,
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -509,7 +539,7 @@ class _StaffRow extends StatelessWidget {
   );
 }
 
-class _Actions extends StatelessWidget {
+class _Actions extends ConsumerWidget {
   const _Actions({
     required this.person,
     required this.status,
@@ -521,18 +551,32 @@ class _Actions extends StatelessWidget {
   final bool isSelf;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final onLeave = status == StaffStatus.onLeave;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+    // Wraps rather than overflowing where the column is narrow.
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 4,
+      runSpacing: 8,
       children: [
         IconButton(
+          visualDensity: VisualDensity.compact,
           tooltip: 'Edit ${person.fullName}',
           onPressed: () =>
               showEditAccountDialog(context, person: person, isSelf: isSelf),
           icon: SvgPicture.asset('assets/icons/action_edit_pencil.svg'),
         ),
-        const SizedBox(width: 12),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          tooltip: isSelf
+              ? 'You cannot delete your own account.'
+              : 'Delete the account of ${person.fullName}',
+          onPressed: isSelf
+              ? null
+              : () => confirmDeleteAccount(context, ref, person: person),
+          icon: const Icon(Icons.delete_outline, size: 20),
+        ),
         Tooltip(
           message: onLeave
               ? '${person.fullName} is on leave.'

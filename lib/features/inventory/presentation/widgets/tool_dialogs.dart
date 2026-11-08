@@ -10,6 +10,7 @@ import '../../../../core/enums/tool_status.dart';
 import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/async_value_view.dart';
+import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../../../qr_labels/qr_label.dart';
 import '../../../qr_labels/qr_label_actions.dart';
@@ -599,8 +600,27 @@ class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
   );
 }
 
+/// Asks before deleting [tool], and deletes it. True once it is deleted;
+/// a tool out on loan is refused, and the dialog says so.
+Future<bool> showDeleteToolDialog(BuildContext context, Tool tool) {
+  final controller = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(inventoryControllerProvider);
+  return showConfirmDeleteDialog(
+    context: context,
+    title: 'Delete ${tool.name} (${tool.toolCode})?',
+    message:
+        'It leaves the tools list and its label no longer scans. Its loan '
+        'history stays in the records, and its tool ID and code can go on '
+        'another tool.',
+    doneMessage: 'Deleted ${tool.name}.',
+    onConfirm: () => controller.deleteTool(tool.id),
+  );
+}
+
 /// A tool's details, its loans, and what can be done with it: edit, send
-/// to repair or bring back, retire, print its label.
+/// to repair or bring back, retire, print its label, delete.
 Future<void> showToolDetailsDialog(BuildContext context, String toolId) =>
     showDialog<void>(
       context: context,
@@ -769,6 +789,17 @@ class _ToolDetails extends ConsumerWidget {
               onPressed: () => showQrLabelDialog(context, QrLabel.tool(tool)),
               icon: const Icon(Icons.qr_code_2_outlined, size: 18),
               label: const Text('QR label'),
+            ),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                if (await showDeleteToolDialog(context, tool)) {
+                  navigator.pop();
+                }
+              },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('Delete'),
             ),
           ],
         ),

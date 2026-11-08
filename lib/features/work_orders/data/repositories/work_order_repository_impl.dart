@@ -114,6 +114,14 @@ class WorkOrderRepositoryImpl extends SupabaseRepository
       })).map((_) {});
 
   @override
+  Future<Result<void>> setArchived({
+    required String workOrderId,
+    required bool archived,
+    required AuditActor actor,
+  }) =>
+      rpc('set_work_order_archived', {'id': workOrderId, 'archived': archived});
+
+  @override
   Future<Result<void>> updateAdminNotes({
     required String workOrderId,
     required String? notes,

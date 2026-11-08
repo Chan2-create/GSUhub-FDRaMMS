@@ -91,6 +91,15 @@ abstract interface class WorkOrderRepository {
     required AuditActor actor,
   });
 
+  /// Takes a completed work order off the board, or puts it back
+  /// (2026-11-08). Work orders are never deleted: archiving leaves the
+  /// status and the history as they are, and the technician still sees it.
+  Future<Result<void>> setArchived({
+    required String workOrderId,
+    required bool archived,
+    required AuditActor actor,
+  });
+
   /// Sets or clears the administrator's note to the technician, shown at
   /// the top of the work order in the personnel app (Figure 25).
   Future<Result<void>> updateAdminNotes({

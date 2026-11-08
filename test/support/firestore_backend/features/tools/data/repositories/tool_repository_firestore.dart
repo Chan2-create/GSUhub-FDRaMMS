@@ -34,22 +34,24 @@ class FirestoreToolRepository extends FirestoreRepository
   static const String _loans = FirestorePaths.toolLoans;
 
   @override
-  Future<Result<Tool>> getToolById(String id) =>
-      getOne(path: _tools, id: id, convert: fromDoc(Tool.fromRecord));
+  Future<Result<Tool>> getToolById(String id) async => _present(
+    await getOne(path: _tools, id: id, convert: fromDoc(Tool.fromRecord)),
+  );
 
   @override
   Future<Result<Tool>> getToolByQrCode(String qrCode) async {
     final matches = await getMany(
-      query: collection(_tools).where('qrCode', isEqualTo: qrCode).limit(1),
+      query: collection(_tools).where('qrCode', isEqualTo: qrCode),
       convert: fromDoc(Tool.fromRecord),
     );
 
     return matches.fold(
-      (list) => list.isEmpty
-          ? const Result<Tool>.failure(
-              NotFoundFailure('No registered tool matches that QR code.'),
-            )
-          : Result.success(list.first),
+      (list) => switch (list.where((tool) => !tool.isDeleted)) {
+        final present when present.isNotEmpty => Result.success(present.first),
+        _ => const Result<Tool>.failure(
+          NotFoundFailure('No registered tool matches that QR code.'),
+        ),
+      },
       Result.failure,
     );
   }
@@ -61,12 +63,62 @@ class FirestoreToolRepository extends FirestoreRepository
     return watchMany(
       query: query.orderBy('toolCode'),
       convert: fromDoc(Tool.fromRecord),
+    ).map(
+      (result) =>
+          result.map((tools) => tools.where((t) => !t.isDeleted).toList()),
     );
   }
 
   @override
-  Stream<Result<Tool>> watchTool(String id) =>
-      watchOne(path: _tools, id: id, convert: fromDoc(Tool.fromRecord));
+  Stream<Result<Tool>> watchTool(String id) => watchOne(
+    path: _tools,
+    id: id,
+    convert: fromDoc(Tool.fromRecord),
+  ).map(_present);
+
+  /// As delete_tool: refused while the tool is out on loan.
+  @override
+  Future<Result<void>> deleteTool({
+    required String toolId,
+    required AuditActor actor,
+  }) => db.runTransaction<void>((transaction) async {
+    final toolRef = collection(_tools).doc(toolId);
+    final snapshot = await transaction.get(toolRef);
+    if (!snapshot.exists) {
+      throw FirestoreRepository.notFound(
+        'This tool is no longer in the inventory.',
+      );
+    }
+    final tool = fromDoc(Tool.fromRecord)(snapshot);
+    if (tool.isDeleted) return;
+    if (tool.status == ToolStatus.borrowed) {
+      throw FirestoreRepository.precondition(
+        '${tool.name} is on loan. Check it in first.',
+      );
+    }
+
+    transaction.update(toolRef, {
+      'deletedAt': FirestoreRepository.serverNow,
+      'updatedAt': FirestoreRepository.serverNow,
+    });
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: actor,
+      action: AuditAction.deleted,
+      entityType: _tools,
+      entityId: toolId,
+      description: 'Deleted ${tool.name} (${tool.toolCode}) from the tools',
+    );
+  });
+
+  /// A deleted tool reads as gone.
+  static Result<Tool> _present(Result<Tool> result) => switch (result) {
+    Success(:final value) when value.isDeleted => const Result.failure(
+      NotFoundFailure('This tool is no longer in the inventory.'),
+    ),
+    _ => result,
+  };
 
   @override
   Future<Result<String>> createTool({

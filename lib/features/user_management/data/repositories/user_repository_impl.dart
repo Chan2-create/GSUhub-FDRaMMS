@@ -129,6 +129,10 @@ class UserRepositoryImpl extends SupabaseRepository implements UserRepository {
   }) => rpc('set_account_status', {'id': uid, 'status': status.id});
 
   @override
+  Future<Result<void>> deleteAccount(String uid, {required AuditActor actor}) =>
+      rpc('delete_account', {'id': uid});
+
+  @override
   Future<Result<void>> setAvailability(
     String uid,
     PersonnelAvailability availability,

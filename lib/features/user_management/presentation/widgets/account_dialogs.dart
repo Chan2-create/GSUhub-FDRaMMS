@@ -9,6 +9,7 @@ import '../../../../core/enums/personnel_availability.dart';
 import '../../../../core/enums/user_role.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/models/app_user.dart';
 import '../account_controller.dart';
 
@@ -163,6 +164,26 @@ Future<void> confirmStatusChange(
     ),
   );
 }
+
+/// Asks before deleting [person]'s account, and deletes it (2026-11-08).
+/// The database refuses one's own, one with open work or a tool out, and
+/// one any record names; the dialog shows why.
+Future<bool> confirmDeleteAccount(
+  BuildContext context,
+  WidgetRef ref, {
+  required AppUser person,
+}) => showConfirmDeleteDialog(
+  context: context,
+  title: 'Delete the account of ${person.fullName}?',
+  message:
+      'Their profile is removed and they can no longer use GSUhub. Only an '
+      'account with no reports, work or other records can be deleted; '
+      'deactivate one that has them, so the records keep their name. Their '
+      'sign-in itself stays in Firebase until it is removed from the '
+      'Firebase console.',
+  doneMessage: 'Deleted the account of ${person.fullName}.',
+  onConfirm: () => ref.read(accountControllerProvider).deleteAccount(person),
+);
 
 /// Emails [person] a link to set a new password.
 Future<void> sendPasswordReset(

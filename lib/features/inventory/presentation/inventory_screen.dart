@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/enums/tool_status.dart';
 import '../../../core/utils/quantity_format.dart';
 import '../../../core/utils/result.dart';
@@ -53,21 +54,23 @@ class InventoryScreen extends ConsumerWidget {
   const InventoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) =>
-      const SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 48),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _StatRow(),
-            _RequestsSection(),
-            SizedBox(height: 64),
-            _MaterialsSection(),
-            SizedBox(height: 64),
-            _ToolsSection(),
-          ],
-        ),
-      );
+  Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
+    padding: EdgeInsets.symmetric(
+      horizontal: Breakpoints.gutter(context),
+      vertical: Breakpoints.gutter(context) * 1.5,
+    ),
+    child: const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _StatRow(),
+        _RequestsSection(),
+        SizedBox(height: 64),
+        _MaterialsSection(),
+        SizedBox(height: 64),
+        _ToolsSection(),
+      ],
+    ),
+  );
 }
 
 // --- stat cards ---------------------------------------------------------
@@ -589,6 +592,27 @@ class _MaterialCard extends StatelessWidget {
                       right: 8,
                       child: InventoryBadge.stock(item),
                     ),
+                    // On the photo, opposite the badge: the row below has
+                    // no room for a third button at the usual card width.
+                    Positioned(
+                      top: 4,
+                      left: 4,
+                      child: Material(
+                        color: AppColors.surface.withValues(alpha: 0.9),
+                        shape: const CircleBorder(),
+                        child: IconButton(
+                          tooltip: 'Delete ${item.name}',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () =>
+                              showDeleteMaterialDialog(context, item),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: AppColors.inventoryLabel,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -803,15 +827,16 @@ class _ToolTable extends StatelessWidget {
   final Map<String, String> names;
   final Widget footer;
 
-  /// Figure 15's column widths, as flex weights.
+  /// Figure 15's column widths, as flex weights; Actions took 40 from Tool
+  /// Name for the delete button (2026-11-08), so a row stays one line.
   static const List<(String, int, Alignment)> _columns = [
     ('Tool ID', 106, Alignment.centerLeft),
-    ('Tool Name', 216, Alignment.centerLeft),
+    ('Tool Name', 176, Alignment.centerLeft),
     ('Status', 135, Alignment.centerLeft),
     ('Condition', 109, Alignment.centerLeft),
     ('Current User', 153, Alignment.centerLeft),
     ('QR', 88, Alignment.center),
-    ('Actions', 150, Alignment.centerRight),
+    ('Actions', 190, Alignment.centerRight),
   ];
 
   @override
@@ -935,46 +960,73 @@ class _ToolTable extends StatelessWidget {
         onPressed: () => showQrLabelDialog(context, QrLabel.tool(tool)),
         icon: SvgPicture.asset('assets/icons/inventory_qr.svg'),
       ),
-      switch (tool.status) {
-        ToolStatus.available => InventoryNavyButton(
-          label: 'Check Out',
-          onPressed: () => showCheckOutDialog(context, tool),
-        ),
-        ToolStatus.borrowed => TextButton(
-          onPressed: tool.currentLoanId == null
-              ? null
-              : () => showCheckInDialog(
-                  context,
-                  toolName: tool.name,
-                  loanId: tool.currentLoanId!,
-                  conditionOnBorrow: loan?.conditionOnBorrow ?? tool.condition,
-                  holderName: holderName,
-                ),
-          child: Text(
-            'Check In',
-            style: AppTextStyles.inventoryCellStrong.copyWith(
-              color: AppColors.inventoryHeading,
-            ),
-          ),
-        ),
-        ToolStatus.inRepair => Tooltip(
-          message: 'In repair. Bring it back from its details.',
-          child: Text(
-            'Locked',
-            style: AppTextStyles.inventoryCellStrong.copyWith(
-              color: AppColors.inventoryLabel,
-            ),
-          ),
-        ),
-        ToolStatus.retired => Text(
-          'Retired',
-          style: AppTextStyles.inventoryCellStrong.copyWith(
-            color: AppColors.inventoryLabel,
-          ),
-        ),
-      },
+      Wrap(
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        children: [
+          _toolAction(context, tool, holderName, loan),
+          _delete(context, tool),
+        ],
+      ),
     ], vertical: 20);
   }
+
+  /// Delete, after asking; a tool out on loan is refused, and says so.
+  Widget _delete(BuildContext context, Tool tool) => IconButton(
+    tooltip: 'Delete ${tool.name}',
+    visualDensity: VisualDensity.compact,
+    onPressed: () => showDeleteToolDialog(context, tool),
+    icon: const Icon(
+      Icons.delete_outline,
+      size: 20,
+      color: AppColors.inventoryLabel,
+    ),
+  );
+
+  Widget _toolAction(
+    BuildContext context,
+    Tool tool,
+    String? holderName,
+    ToolLoan? loan,
+  ) => switch (tool.status) {
+    ToolStatus.available => InventoryNavyButton(
+      label: 'Check Out',
+      onPressed: () => showCheckOutDialog(context, tool),
+    ),
+    ToolStatus.borrowed => TextButton(
+      onPressed: tool.currentLoanId == null
+          ? null
+          : () => showCheckInDialog(
+              context,
+              toolName: tool.name,
+              loanId: tool.currentLoanId!,
+              conditionOnBorrow: loan?.conditionOnBorrow ?? tool.condition,
+              holderName: holderName,
+            ),
+      child: Text(
+        'Check In',
+        style: AppTextStyles.inventoryCellStrong.copyWith(
+          color: AppColors.inventoryHeading,
+        ),
+      ),
+    ),
+    ToolStatus.inRepair => Tooltip(
+      message: 'In repair. Bring it back from its details.',
+      child: Text(
+        'Locked',
+        style: AppTextStyles.inventoryCellStrong.copyWith(
+          color: AppColors.inventoryLabel,
+        ),
+      ),
+    ),
+    ToolStatus.retired => Text(
+      'Retired',
+      style: AppTextStyles.inventoryCellStrong.copyWith(
+        color: AppColors.inventoryLabel,
+      ),
+    ),
+  };
 }
 
 /// "Showing 1-5 of 124 tools", with the page and its arrows.

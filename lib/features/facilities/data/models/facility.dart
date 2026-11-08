@@ -21,6 +21,7 @@ class Facility {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
+    this.deletedAt,
     this.roomIdentifier,
     this.locationDescription,
     this.coordinates,
@@ -49,6 +50,7 @@ class Facility {
       ),
       createdAt: RecordConverters.requireDate(data, 'createdAt'),
       updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
+      deletedAt: RecordConverters.optionalDate(data, 'deletedAt'),
     );
   }
 
@@ -85,6 +87,12 @@ class Facility {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// When an administrator deleted the room (2026-11-08). Reports keep it
+  /// in the table; it is left out of the lists, pickers and scans.
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
+
   Map<String, dynamic> toFields() => {
     'name': name,
     'buildingName': buildingName,
@@ -95,6 +103,7 @@ class Facility {
     'isActive': isActive,
     'createdAt': createdAt,
     'updatedAt': updatedAt,
+    'deletedAt': deletedAt,
   };
 
   Facility copyWith({
@@ -108,6 +117,7 @@ class Facility {
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? deletedAt,
   }) => Facility(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -119,6 +129,7 @@ class Facility {
     isActive: isActive ?? this.isActive,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt ?? this.deletedAt,
   );
 
   @override
@@ -134,7 +145,8 @@ class Facility {
           other.qrCode == qrCode &&
           other.isActive == isActive &&
           other.createdAt == createdAt &&
-          other.updatedAt == updatedAt;
+          other.updatedAt == updatedAt &&
+          other.deletedAt == deletedAt;
 
   @override
   int get hashCode => Object.hash(
@@ -148,6 +160,7 @@ class Facility {
     isActive,
     createdAt,
     updatedAt,
+    deletedAt,
   );
 
   @override

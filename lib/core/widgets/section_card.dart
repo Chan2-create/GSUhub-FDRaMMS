@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_text_styles.dart';
+import '../constants/breakpoints.dart';
 
 /// Bordered white panel with a heading and an optional trailing action —
 /// the container shared by "Recent Reports", "Reports by Category",
@@ -72,30 +73,39 @@ class SectionCard extends StatelessWidget {
                   )
                 : null,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
+          // On a phone the header's control goes under the title rather
+          // than squeezing it. Decided by the window, not a LayoutBuilder:
+          // Analytics sets these cards in an IntrinsicHeight.
+          child: trailing != null && Breakpoints.isCompact(context)
+              ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
+                  children: [_heading(), const SizedBox(height: 12), ?trailing],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: titleStyle),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 4),
-                      Text(subtitle!, style: AppTextStyles.bodySmall),
-                    ],
+                    Expanded(child: _heading()),
+                    ?trailing,
                   ],
                 ),
-              ),
-              ?trailing,
-            ],
-          ),
         ),
         Flexible(
           child: Padding(padding: contentPadding, child: child),
         ),
       ],
     ),
+  );
+
+  Widget _heading() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(title, style: titleStyle),
+      if (subtitle != null) ...[
+        const SizedBox(height: 4),
+        Text(subtitle!, style: AppTextStyles.bodySmall),
+      ],
+    ],
   );
 }

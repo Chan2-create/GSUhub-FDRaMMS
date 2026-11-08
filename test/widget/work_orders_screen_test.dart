@@ -200,7 +200,9 @@ void main() {
       expect(find.text('Finished Long Ago'), findsNothing);
     });
 
-    testWidgets('a completed order offers no moves at all', (tester) async {
+    testWidgets('a completed order offers no moves, only Archive', (
+      tester,
+    ) async {
       await pump(tester, [
         order(
           id: 'w1',
@@ -209,7 +211,10 @@ void main() {
         ),
       ]);
 
-      expect(find.byIcon(Icons.more_horiz), findsNothing);
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      expect(find.text('Archive'), findsOneWidget);
+      expect(find.textContaining('Move to'), findsNothing);
     });
   });
 

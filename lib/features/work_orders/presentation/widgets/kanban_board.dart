@@ -13,6 +13,7 @@ import '../../../../core/widgets/priority_chip.dart';
 import '../../../user_management/presentation/personnel_providers.dart';
 import '../../data/models/work_order.dart';
 import '../work_order_controller.dart';
+import 'work_order_archive.dart';
 
 /// The four-column board (Figma `234:694`).
 ///
@@ -253,7 +254,7 @@ class WorkOrderCard extends ConsumerWidget {
                   ),
                 ),
                 PriorityChip(level: workOrder.priority, dense: true),
-                if (!isCompleted) _MoveMenu(workOrder: workOrder),
+                _MoveMenu(workOrder: workOrder),
               ],
             ),
             const SizedBox(height: 8),
@@ -399,8 +400,23 @@ class _MoveMenu extends ConsumerWidget {
           ),
         ],
       ),
-      WorkOrderStatus.inProgress ||
-      WorkOrderStatus.completed => const SizedBox.shrink(),
+      // Archive, or restore, finished work (2026-11-08).
+      WorkOrderStatus.completed => PopupMenuButton<String>(
+        tooltip: 'Work order actions',
+        position: PopupMenuPosition.under,
+        icon: const Icon(Icons.more_horiz, size: 16),
+        padding: EdgeInsets.zero,
+        onSelected: (_) => confirmWorkOrderArchive(context, workOrder),
+        itemBuilder: (context) => [
+          PopupMenuItem<String>(
+            value: 'archive',
+            child: Text(
+              workOrder.isArchived ? 'Restore from archive' : 'Archive',
+            ),
+          ),
+        ],
+      ),
+      WorkOrderStatus.inProgress => const SizedBox.shrink(),
     };
   }
 }

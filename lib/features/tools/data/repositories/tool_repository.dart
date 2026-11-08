@@ -47,6 +47,14 @@ abstract interface class ToolRepository {
     required AuditActor actor,
   });
 
+  /// Takes a tool out of the inventory (2026-11-08). Its loans keep it, so
+  /// it is marked deleted: never listed or found again, its tool ID and
+  /// code free. Refused while it is out on loan.
+  Future<Result<void>> deleteTool({
+    required String toolId,
+    required AuditActor actor,
+  });
+
   /// Issues a tool to a technician.
   ///
   /// Writes the `tool_loans` record and flips the tool to

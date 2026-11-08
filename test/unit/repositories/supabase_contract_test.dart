@@ -147,6 +147,7 @@ void main() {
     await users.createAccount(user: user, actor: actor);
     await users.updateAccount(updated: user, actor: actor);
     await users.setAccountStatus('u-1', AccountStatus.inactive, actor: actor);
+    await users.deleteAccount('u-3', actor: actor);
     await users.setFcmToken('u-1', 'token');
 
     final facilities = FacilityRepositoryImpl(client: client, guard: guard);
@@ -179,6 +180,8 @@ void main() {
       active: false,
       actor: actor,
     );
+    await facilities.deleteAsset(assetId: 'a-1', actor: actor);
+    await facilities.deleteFacility(facilityId: 'f-1', actor: actor);
 
     final reports = DamageReportRepositoryImpl(client: client, guard: guard);
     await reports.submit(
@@ -227,6 +230,7 @@ void main() {
       otherReportId: 'r-2',
       actor: actor,
     );
+    await reports.setArchived(reportId: 'r-1', archived: true, actor: actor);
 
     final workOrders = WorkOrderRepositoryImpl(client: client, guard: guard);
     await workOrders.assignFromReport(
@@ -244,6 +248,11 @@ void main() {
     await workOrders.reassign(
       workOrderId: 'w-1',
       personnelId: 'u-2',
+      actor: actor,
+    );
+    await workOrders.setArchived(
+      workOrderId: 'w-1',
+      archived: true,
       actor: actor,
     );
 
@@ -412,6 +421,7 @@ void main() {
       status: ToolStatus.inRepair,
       actor: actor,
     );
+    await tools.deleteTool(toolId: 'tl-2', actor: actor);
     await tools.borrowTool(
       toolId: 'tl-1',
       borrower: const AuditActor(id: 'u-1', name: 'Marcus Wright'),
@@ -434,7 +444,7 @@ void main() {
   test('every write calls a database function that exists, with the '
       'parameters it takes', () async {
     await exerciseEveryWrite();
-    expect(calls, hasLength(49));
+    expect(calls, hasLength(55));
     for (final (function, params) in calls) {
       final signature = signatures[function];
       expect(

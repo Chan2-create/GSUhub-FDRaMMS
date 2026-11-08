@@ -94,6 +94,17 @@ class ReportFilterBar extends ConsumerWidget {
               style: AppTextStyles.linkText,
             ),
           ),
+          // The archive (2026-11-08): finished reports taken out of the
+          // list. Reports are archived, never deleted.
+          FilterChip(
+            label: const Text('Archived'),
+            tooltip: view.archived
+                ? 'Back to the working list'
+                : 'Show archived reports',
+            selected: view.archived,
+            onSelected: (archived) =>
+                controller.setArchived(archived: archived),
+          ),
         ],
       ),
     );

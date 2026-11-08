@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_text_styles.dart';
+import '../constants/breakpoints.dart';
 
 /// One slice of the category donut.
 class CategorySlice {
@@ -50,7 +51,10 @@ class CategoryDonut extends StatelessWidget {
   int get _total => slices.fold<int>(0, (sum, slice) => sum + slice.count);
 
   @override
-  Widget build(BuildContext context) => _beside ? _besideLegend() : _stacked();
+  // On a phone the ring goes above its legend; decided by the window,
+  // since Analytics sets this in an IntrinsicHeight (no LayoutBuilder).
+  Widget build(BuildContext context) =>
+      _beside && !Breakpoints.isCompact(context) ? _besideLegend() : _stacked();
 
   Widget _besideLegend() => Row(
     children: [

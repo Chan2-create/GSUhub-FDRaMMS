@@ -22,6 +22,7 @@ class Tool {
     required this.qrCode,
     required this.createdAt,
     required this.updatedAt,
+    this.deletedAt,
     this.category,
     this.storageLocation,
     this.currentHolderId,
@@ -65,6 +66,7 @@ class Tool {
       currentLoanId: RecordConverters.optional<String>(data, 'currentLoanId'),
       createdAt: RecordConverters.requireDate(data, 'createdAt'),
       updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
+      deletedAt: RecordConverters.optionalDate(data, 'deletedAt'),
     );
   }
 
@@ -98,6 +100,12 @@ class Tool {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// When an administrator deleted the tool (2026-11-08). Its loans keep it
+  /// in the table; the repositories leave it out of every list and scan.
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
+
   Map<String, dynamic> toFields() => {
     'toolCode': toolCode,
     'name': name,
@@ -110,6 +118,7 @@ class Tool {
     'qrCode': qrCode,
     'createdAt': createdAt,
     'updatedAt': updatedAt,
+    'deletedAt': deletedAt,
   };
 
   Tool copyWith({
@@ -125,6 +134,7 @@ class Tool {
     String? qrCode,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? deletedAt,
   }) => Tool(
     id: id ?? this.id,
     toolCode: toolCode ?? this.toolCode,
@@ -138,6 +148,7 @@ class Tool {
     qrCode: qrCode ?? this.qrCode,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt ?? this.deletedAt,
   );
 
   @override
@@ -155,7 +166,8 @@ class Tool {
           other.currentLoanId == currentLoanId &&
           other.qrCode == qrCode &&
           other.createdAt == createdAt &&
-          other.updatedAt == updatedAt;
+          other.updatedAt == updatedAt &&
+          other.deletedAt == deletedAt;
 
   @override
   int get hashCode => Object.hash(
@@ -171,6 +183,7 @@ class Tool {
     qrCode,
     createdAt,
     updatedAt,
+    deletedAt,
   );
 
   @override

@@ -7,11 +7,13 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/firestore_paths.dart';
 import '../../../core/enums/notification_type.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/relative_time.dart';
 import '../../../core/utils/result.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../reporting/data/models/damage_report.dart';
 import '../../reporting/presentation/report_providers.dart';
@@ -113,31 +115,29 @@ class _AdminNotificationsScreenState
     };
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+      padding: EdgeInsets.symmetric(
+        horizontal: Breakpoints.gutter(context),
+        vertical: Breakpoints.gutter(context) * 1.5,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Figma 202:5643.
           Padding(
             padding: const EdgeInsets.only(bottom: 40),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Notifications', style: AppTextStyles.pageTitle),
-                      SizedBox(height: 4),
-                      Text(
-                        'System-wide notification logs and alerts',
-                        style: AppTextStyles.pageSubtitle,
-                      ),
-                    ],
+            child: PageHeader(
+              heading: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Notifications', style: AppTextStyles.pageTitle),
+                  SizedBox(height: 4),
+                  Text(
+                    'System-wide notification logs and alerts',
+                    style: AppTextStyles.pageSubtitle,
                   ),
-                ),
-                _MarkAllReadButton(onPressed: _markAllRead),
-              ],
+                ],
+              ),
+              action: _MarkAllReadButton(onPressed: _markAllRead),
             ),
           ),
           _FilterBar(
@@ -252,14 +252,15 @@ class _FilterBar extends StatelessWidget {
               ),
           ],
         ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const Text(
               'FILTER BY DATE',
               style: AppTextStyles.notificationFilterLabel,
             ),
-            const SizedBox(width: 12),
             Material(
               color: AppColors.surfaceMuted,
               shape: RoundedRectangleBorder(

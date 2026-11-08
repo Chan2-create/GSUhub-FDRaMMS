@@ -5,11 +5,13 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/di/service_providers.dart';
 import '../../../core/enums/account_status.dart';
 import '../../../core/enums/user_role.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/filter_select.dart';
+import '../../../core/widgets/scroll_when_narrow.dart';
 import '../../../core/widgets/table_pagination.dart';
 import '../data/models/app_user.dart';
 import 'accounts_providers.dart';
@@ -31,12 +33,9 @@ class UserAccountsScreen extends ConsumerWidget {
   const UserAccountsScreen({super.key});
 
   @override
-  Widget build(
-    BuildContext context,
-    WidgetRef ref,
-  ) => const SingleChildScrollView(
-    padding: EdgeInsets.all(32),
-    child: Column(
+  Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
+    padding: EdgeInsets.all(Breakpoints.gutter(context)),
+    child: const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('User Accounts', style: AppTextStyles.pageTitle),
@@ -68,25 +67,30 @@ class _RoleTabs extends ConsumerWidget {
     final controller = ref.read(accountsViewProvider.notifier);
 
     return Container(
+      width: double.infinity,
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.borderStrong)),
       ),
-      child: Row(
-        children: [
-          _Tab(
-            label: 'All Users',
-            selected: role == null,
-            onTap: () => controller.setRole(null),
-          ),
-          for (final option in UserRole.values) ...[
-            const SizedBox(width: 64),
+      // The tabs scroll sideways where they do not fit.
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
             _Tab(
-              label: option.tabLabel,
-              selected: role == option,
-              onTap: () => controller.setRole(option),
+              label: 'All Users',
+              selected: role == null,
+              onTap: () => controller.setRole(null),
             ),
+            for (final option in UserRole.values) ...[
+              SizedBox(width: Breakpoints.isCompact(context) ? 32 : 64),
+              _Tab(
+                label: option.tabLabel,
+                selected: role == option,
+                onTap: () => controller.setRole(option),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -153,80 +157,84 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     final role = ref.watch(accountsViewProvider).role;
     final controller = ref.read(accountsViewProvider.notifier);
 
-    return Wrap(
-      spacing: 24,
-      runSpacing: 16,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      alignment: WrapAlignment.spaceBetween,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 448,
-              child: TextField(
-                controller: _search,
-                onChanged: controller.setSearch,
-                style: AppTextStyles.accountsControlText,
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Search by name or email...',
-                  hintStyle: AppTextStyles.accountsControlText.copyWith(
-                    color: AppColors.textMuted,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  prefixIcon: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 11, 0),
-                    child: SvgPicture.asset(
-                      'assets/icons/search.svg',
-                      width: 18,
-                      height: 18,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.iconMuted,
-                        BlendMode.srcIn,
+    return LayoutBuilder(
+      builder: (context, constraints) => Wrap(
+        spacing: 24,
+        runSpacing: 16,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          Wrap(
+            spacing: 24,
+            runSpacing: 16,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                // The design's 448, or the whole row on a phone.
+                width: constraints.maxWidth.clamp(0, 448).toDouble(),
+                child: TextField(
+                  controller: _search,
+                  onChanged: controller.setSearch,
+                  style: AppTextStyles.accountsControlText,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Search by name or email...',
+                    hintStyle: AppTextStyles.accountsControlText.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    prefixIcon: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 11, 0),
+                      child: SvgPicture.asset(
+                        'assets/icons/search.svg',
+                        width: 18,
+                        height: 18,
+                        colorFilter: const ColorFilter.mode(
+                          AppColors.iconMuted,
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 41),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                    border: _border,
+                    enabledBorder: _border,
                   ),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 41),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 11),
-                  border: _border,
-                  enabledBorder: _border,
                 ),
               ),
-            ),
-            const SizedBox(width: 24),
-            FilterSelect<UserRole>(
-              placeholder: 'All Roles',
-              style: FilterSelectStyle.outlined,
-              width: 148,
-              value: role,
-              onChanged: controller.setRole,
-              options: [
-                const FilterOption(value: null, label: 'All Roles'),
-                for (final option in UserRole.values)
-                  FilterOption(value: option, label: option.label),
-              ],
-            ),
-          ],
-        ),
-        FilledButton.icon(
-          onPressed: () => showCreateAccountDialog(context),
-          icon: const Icon(Icons.add, size: 14),
-          label: const Text(
-            'Create Maintenance Account',
-            style: AppTextStyles.accountsButton,
+              FilterSelect<UserRole>(
+                placeholder: 'All Roles',
+                style: FilterSelectStyle.outlined,
+                width: 148,
+                value: role,
+                onChanged: controller.setRole,
+                options: [
+                  const FilterOption(value: null, label: 'All Roles'),
+                  for (final option in UserRole.values)
+                    FilterOption(value: option, label: option.label),
+                ],
+              ),
+            ],
           ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.textOnDark,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
+          FilledButton.icon(
+            onPressed: () => showCreateAccountDialog(context),
+            icon: const Icon(Icons.add, size: 14),
+            label: const Text(
+              'Create Maintenance Account',
+              style: AppTextStyles.accountsButton,
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.textOnDark,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -238,6 +246,9 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
 
 /// Column shares, widened at NAME from the design's (see the class note).
 const List<int> _columns = [190, 220, 150, 160, 140, 110, 80];
+
+/// Narrower than this the table scrolls sideways inside its card.
+const double _minTableWidth = 1060;
 
 class _AccountsTable extends ConsumerWidget {
   const _AccountsTable();
@@ -264,33 +275,44 @@ class _AccountsTable extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          Container(
-            height: 72,
-            color: AppColors.tableStripe,
-            child: const Row(
+          ScrollWhenNarrow(
+            minWidth: _minTableWidth,
+            child: Column(
               children: [
-                _HeaderCell('NAME', column: 0),
-                _HeaderCell('EMAIL', column: 1),
-                _HeaderCell('ROLE', column: 2),
-                _HeaderCell('DEPARTMENT', column: 3),
-                _HeaderCell('DATE REGISTERED', column: 4),
-                _HeaderCell('STATUS', column: 5),
-                _HeaderCell('ACTIONS', column: 6),
-              ],
-            ),
-          ),
-          AsyncValueView<List<AppUser>>(
-            value: page,
-            isEmpty: (people) => people.isEmpty,
-            emptyIcon: Icons.person_search_outlined,
-            emptyMessage: view.search.trim().isNotEmpty || view.role != null
-                ? 'No accounts match these filters.'
-                : 'No accounts yet.',
-            onRetry: () => ref.invalidate(allAccountsProvider),
-            data: (people) => Column(
-              children: [
-                for (final person in people)
-                  _AccountRow(person: person, isSelf: person.id == signedIn),
+                Container(
+                  height: 72,
+                  color: AppColors.tableStripe,
+                  child: const Row(
+                    children: [
+                      _HeaderCell('NAME', column: 0),
+                      _HeaderCell('EMAIL', column: 1),
+                      _HeaderCell('ROLE', column: 2),
+                      _HeaderCell('DEPARTMENT', column: 3),
+                      _HeaderCell('DATE REGISTERED', column: 4),
+                      _HeaderCell('STATUS', column: 5),
+                      _HeaderCell('ACTIONS', column: 6),
+                    ],
+                  ),
+                ),
+                AsyncValueView<List<AppUser>>(
+                  value: page,
+                  isEmpty: (people) => people.isEmpty,
+                  emptyIcon: Icons.person_search_outlined,
+                  emptyMessage:
+                      view.search.trim().isNotEmpty || view.role != null
+                      ? 'No accounts match these filters.'
+                      : 'No accounts yet.',
+                  onRetry: () => ref.invalidate(allAccountsProvider),
+                  data: (people) => Column(
+                    children: [
+                      for (final person in people)
+                        _AccountRow(
+                          person: person,
+                          isSelf: person.id == signedIn,
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -424,9 +446,16 @@ class _RoleChip extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(9999),
       ),
-      child: Text(
-        role.label.toUpperCase(),
-        style: AppTextStyles.roleChip.copyWith(color: foreground),
+      // One line, the whole word: smaller rather than cut where the
+      // column is narrow.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          role.label.toUpperCase(),
+          style: AppTextStyles.roleChip.copyWith(color: foreground),
+          maxLines: 1,
+          softWrap: false,
+        ),
       ),
     );
   }
@@ -453,16 +482,20 @@ class _StatusLabel extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(
-          status.label,
-          style: AppTextStyles.roleChip.copyWith(color: color),
+        Flexible(
+          child: Text(
+            status.label,
+            style: AppTextStyles.roleChip.copyWith(color: color),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );
   }
 }
 
-enum _RowAction { edit, toggleStatus, approve, decline, resetPassword }
+enum _RowAction { edit, toggleStatus, approve, decline, resetPassword, delete }
 
 /// Edit details, Deactivate/Reactivate, Send password reset (decided for
 /// 2.C; the frame draws the ⋮ but not its contents). A pending sign-up
@@ -509,6 +542,7 @@ class _RowMenu extends ConsumerWidget {
           ref,
           person: person,
         ),
+        _RowAction.delete => confirmDeleteAccount(context, ref, person: person),
       },
       itemBuilder: (context) => [
         const PopupMenuItem(
@@ -529,6 +563,16 @@ class _RowMenu extends ConsumerWidget {
         const PopupMenuItem(
           value: _RowAction.resetPassword,
           child: Text('Send password reset'),
+        ),
+        PopupMenuItem(
+          value: _RowAction.delete,
+          // Your own account cannot be deleted (the database refuses it
+          // too).
+          enabled: !isSelf,
+          child: Text(
+            'Delete account',
+            style: TextStyle(color: isSelf ? null : AppColors.error),
+          ),
         ),
       ],
     );

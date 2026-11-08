@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../classification/presentation/keyword_settings_section.dart';
 import '../../classification/presentation/scoring_settings_section.dart';
 
@@ -17,9 +18,9 @@ class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => const SingleChildScrollView(
-    padding: EdgeInsets.all(32),
-    child: Column(
+  Widget build(BuildContext context) => SingleChildScrollView(
+    padding: EdgeInsets.all(Breakpoints.gutter(context)),
+    child: const Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('Settings', style: AppTextStyles.pageTitle),

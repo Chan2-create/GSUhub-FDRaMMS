@@ -99,11 +99,11 @@ class BuildingVolumeLegend extends StatelessWidget {
   const BuildingVolumeLegend({super.key});
 
   @override
-  Widget build(BuildContext context) => const Row(
-    mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) => const Wrap(
+    spacing: 8,
+    runSpacing: 4,
     children: [
       _LegendKey(color: AppColors.primary, label: 'CURRENT MONTH'),
-      SizedBox(width: 8),
       _LegendKey(color: AppColors.trackComparison, label: 'PREVIOUS MONTH'),
     ],
   );

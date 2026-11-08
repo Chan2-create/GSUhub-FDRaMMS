@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/enums/account_status.dart';
 import '../../../core/routing/route_paths.dart';
@@ -55,7 +56,7 @@ class _TaskAssignmentScreenState extends ConsumerState<TaskAssignmentScreen> {
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
-    padding: const EdgeInsets.all(32),
+    padding: EdgeInsets.all(Breakpoints.gutter(context)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -523,12 +524,16 @@ class _PersonnelRowState extends ConsumerState<_PersonnelRow> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  isActive ? 'ACTIVE' : 'INACTIVE',
-                  style: AppTextStyles.presenceLabel.copyWith(
-                    color: isActive
-                        ? AppColors.presenceActiveText
-                        : AppColors.textFaint,
+                Flexible(
+                  child: Text(
+                    isActive ? 'ACTIVE' : 'INACTIVE',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.presenceLabel.copyWith(
+                      color: isActive
+                          ? AppColors.presenceActiveText
+                          : AppColors.textFaint,
+                    ),
                   ),
                 ),
               ],

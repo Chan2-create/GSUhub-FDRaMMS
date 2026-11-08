@@ -174,6 +174,13 @@ class InventoryController {
         .setToolStatus(toolId: toolId, status: status, actor: actor),
   );
 
+  /// Takes a tool out of the inventory; its loan history stays.
+  Future<Result<void>> deleteTool(String toolId) => _act(
+    (actor) => _ref
+        .read(toolRepositoryProvider)
+        .deleteTool(toolId: toolId, actor: actor),
+  );
+
   /// Figure 15's Check Out: lends [toolId] to a technician.
   Future<Result<void>> checkOut({
     required String toolId,
@@ -273,6 +280,13 @@ class InventoryController {
             .setFacilityActive(facilityId: id, active: active, actor: actor),
       );
 
+  /// Deletes a room; the reports about it still name it.
+  Future<Result<void>> deleteFacility(String id) => _act(
+    (actor) => _ref
+        .read(facilityRepositoryProvider)
+        .deleteFacility(facilityId: id, actor: actor),
+  );
+
   Future<Result<void>> createAsset(AssetDraft draft) => _act(
     (actor) async => _done(
       await _ref
@@ -293,6 +307,13 @@ class InventoryController {
             .read(facilityRepositoryProvider)
             .setAssetActive(assetId: id, active: active, actor: actor),
       );
+
+  /// Deletes a piece of equipment; the reports about it still name it.
+  Future<Result<void>> deleteAsset(String id) => _act(
+    (actor) => _ref
+        .read(facilityRepositoryProvider)
+        .deleteAsset(assetId: id, actor: actor),
+  );
 
   static Result<void> _done(Result<Object?> result) => switch (result) {
     Success() => const Result.success(null),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
@@ -27,7 +28,9 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
-    padding: const EdgeInsets.fromLTRB(25, 24, 48, 48),
+    padding: Breakpoints.isCompact(context)
+        ? const EdgeInsets.fromLTRB(16, 16, 16, 24)
+        : const EdgeInsets.fromLTRB(25, 24, 48, 48),
     child: LayoutBuilder(
       builder: (context, constraints) {
         // Below ~1100px the side column would squeeze the table past
@@ -44,7 +47,11 @@ class DashboardScreen extends ConsumerWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 2, child: _RecentReportsCard()),
+                    // Always room for the table here (784 px or more).
+                    Expanded(
+                      flex: 2,
+                      child: _RecentReportsCard(scrollable: false),
+                    ),
                     SizedBox(width: 16),
                     SizedBox(width: 300, child: _SideColumn()),
                   ],
@@ -98,7 +105,11 @@ class _StatCardRow extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Four across on a desktop viewport, two-by-two when narrower.
-        final columns = constraints.maxWidth >= 1000 ? 4 : 2;
+        final columns = constraints.maxWidth >= 1000
+            ? 4
+            : constraints.maxWidth >= 440
+            ? 2
+            : 1;
         const gap = 18.0;
         final cardWidth =
             (constraints.maxWidth - gap * (columns - 1)) / columns;
@@ -126,7 +137,9 @@ class _StatCardRow extends ConsumerWidget {
 }
 
 class _RecentReportsCard extends ConsumerWidget {
-  const _RecentReportsCard();
+  const _RecentReportsCard({this.scrollable = true});
+
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => SectionCard(
@@ -147,6 +160,7 @@ class _RecentReportsCard extends ConsumerWidget {
       emptyIcon: Icons.assignment_outlined,
       onRetry: () => refreshDashboard(ref),
       data: (reports) => AppDataTable<DamageReport>(
+        scrollable: scrollable,
         rows: reports,
         columns: [
           AppTableColumn(

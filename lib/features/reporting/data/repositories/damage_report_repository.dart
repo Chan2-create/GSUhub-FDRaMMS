@@ -121,6 +121,16 @@ abstract interface class DamageReportRepository {
     String? reason,
   });
 
+  /// Takes a finished report (closed, merged or rejected) out of the
+  /// console's lists, or puts it back (2026-11-08). Reports are never
+  /// deleted: archiving leaves the status, the timeline and the audit
+  /// trail as they are, and the requestor still sees it.
+  Future<Result<void>> setArchived({
+    required String reportId,
+    required bool archived,
+    required AuditActor actor,
+  });
+
   /// Closes [duplicateReportIds] as duplicates of [parentReportId]
   /// (§3.4; Objective 4.C). The merged reports keep their own documents and
   /// ids; they gain a `duplicateOf` pointer, a `status_history` entry and

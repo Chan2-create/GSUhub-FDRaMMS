@@ -89,6 +89,17 @@ class AccountController {
         .setAccountStatus(person.id, status, actor: actor);
   }
 
+  /// Removes [person]'s profile, when no record names them (2026-11-08).
+  /// Their sign-in stays in Firebase Authentication, but admits no one
+  /// without a profile; removing it needs the Firebase console.
+  Future<Result<void>> deleteAccount(AppUser person) async {
+    final actor = await _actor();
+    if (actor == null) return const Result.failure(_sessionExpired);
+    return _ref
+        .read(userRepositoryProvider)
+        .deleteAccount(person.id, actor: actor);
+  }
+
   /// Emails [person] a link to set a new password — for a forgotten one,
   /// or when the setup email from account creation did not arrive.
   Future<Result<void>> sendPasswordReset(AppUser person) => _ref

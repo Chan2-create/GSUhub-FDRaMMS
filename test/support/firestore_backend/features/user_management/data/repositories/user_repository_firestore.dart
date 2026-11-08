@@ -4,6 +4,8 @@ import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/personnel_availability.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
+import 'package:gsuhub/core/enums/work_order_status.dart';
+import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
@@ -252,6 +254,106 @@ class FirestoreUserRepository extends FirestoreRepository
       changes: {'from': current.accountStatus.id, 'to': status.id},
     );
   });
+
+  /// As delete_account: never one's own, never one with open work, and
+  /// never one any record names (here: reports, work orders, tasks, loans
+  /// and accomplishment reports).
+  @override
+  Future<Result<void>> deleteAccount(
+    String uid, {
+    required AuditActor actor,
+  }) async {
+    if (uid == actor.id) {
+      return const Result.failure(
+        ValidationFailure(
+          'You cannot delete your own account. Ask another administrator.',
+        ),
+      );
+    }
+    final found = await getById(uid);
+    final AppUser person;
+    switch (found) {
+      case Success(:final value):
+        person = value;
+      case Error(:final failure):
+        return Result.failure(failure);
+    }
+    final raw = db.raw;
+    final references = await guard.call(() async {
+      final work = await raw
+          .collection(FirestorePaths.workOrders)
+          .where('assignedPersonnelIds', arrayContains: uid)
+          .get();
+      final open = work.docs
+          .where((doc) => doc.data()['status'] != WorkOrderStatus.completed.id)
+          .length;
+      var records = work.size;
+      for (final (path, field) in [
+        (FirestorePaths.damageReports, 'reporterId'),
+        (FirestorePaths.tasks, 'assignedTo'),
+        (FirestorePaths.toolLoans, 'borrowedBy'),
+        (FirestorePaths.accomplishmentReports, 'submittedBy'),
+      ]) {
+        records +=
+            (await raw
+                    .collection(path)
+                    .where(field, isEqualTo: uid)
+                    .limit(1)
+                    .get())
+                .size;
+      }
+      return (open: open, records: records);
+    });
+    switch (references) {
+      case Error(:final failure):
+        return Result.failure(failure);
+      case Success(value: (open: final open, records: _)) when open > 0:
+        return Result.failure(
+          ValidationFailure(
+            '${person.fullName} is assigned to $open open work order'
+            '${open == 1 ? '' : 's'}. Reassign ${open == 1 ? 'it' : 'them'} '
+            'first.',
+          ),
+        );
+      case Success(value: (open: _, records: final records)) when records > 0:
+        return Result.failure(
+          ValidationFailure(
+            '${person.fullName} has records in GSUhub (reports, work or '
+            'history), so the account stays to keep them. Deactivate it '
+            'instead.',
+          ),
+        );
+      case Success():
+        break;
+    }
+
+    final notices = await guard.call(
+      () => raw
+          .collection(FirestorePaths.notifications)
+          .where('recipientId', isEqualTo: uid)
+          .get(),
+    );
+    return db.runTransaction<void>((transaction) async {
+      final docs = notices.fold(
+        (snapshot) => snapshot.docs,
+        (_) => const <QueryDocumentSnapshot<Map<String, dynamic>>>[],
+      );
+      for (final notice in docs) {
+        transaction.delete(notice.reference);
+      }
+      transaction.delete(collection(_path).doc(uid));
+      stageAuditEntry(
+        transaction,
+        raw,
+        actor: actor,
+        action: AuditAction.deleted,
+        entityType: _path,
+        entityId: uid,
+        description:
+            'Deleted the account of ${person.fullName} (${person.email})',
+      );
+    });
+  }
 
   static String? _blankToNull(String? value) {
     final trimmed = value?.trim();

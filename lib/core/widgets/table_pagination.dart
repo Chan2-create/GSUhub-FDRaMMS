@@ -62,12 +62,21 @@ class TablePagination extends StatelessWidget {
   VoidCallback? get _next =>
       page < pageCount - 1 ? () => onPageChanged(page + 1) : null;
 
+  /// Narrower than this, a style draws as [_arrows]: its numbered pages,
+  /// and the full style's rows-per-page picker and first and last
+  /// buttons, do not fit.
+  double get _narrowWidth => style == TablePaginationStyle.full ? 760 : 560;
+
   @override
-  Widget build(BuildContext context) => switch (style) {
-    TablePaginationStyle.numbered => _numbered(),
-    TablePaginationStyle.arrows => _arrows(),
-    TablePaginationStyle.full => _full(),
-  };
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => constraints.maxWidth < _narrowWidth
+        ? _arrows()
+        : switch (style) {
+            TablePaginationStyle.numbered => _numbered(),
+            TablePaginationStyle.arrows => _arrows(),
+            TablePaginationStyle.full => _full(),
+          },
+  );
 
   Widget _numbered() => Container(
     // Wrap sizes to its content, so without this the strip would sit as

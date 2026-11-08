@@ -186,8 +186,9 @@ BUILDING / ROOM pair (Fig 21), but gives no field list.
 | `locationDescription` | String | — | Wayfinding detail | **DERIVED** |
 | `coordinates` | GeoPoint | — | Reference point | **DERIVED** |
 | `qrCode` | String | ✔ | Printed QR value; unique | §1.5, §1.7 |
-| `isActive` | bool | ✔ | Soft-delete flag | **DERIVED** |
+| `isActive` | bool | ✔ | Deactivated: out of the report form, can come back | **DERIVED** |
 | `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | | **DERIVED** |
+| `deletedAt` | DateTime (UTC) | — | Deleted by an administrator: out of every list, picker and scan; reports keep it; code free (2026-11-08, architecture_decisions §24) | **DERIVED** |
 
 > **Uniqueness caveat:** Firestore has no unique-field constraint.
 > `qrCode` uniqueness across `facilities` and `assets` must be enforced by
@@ -209,8 +210,9 @@ borrowed). **Largely DERIVED.**
 | `category` | String | — | Free text, not an enum — the manuscript never enumerates asset types | **DERIVED** |
 | `serialNumber` | String | — | | **DERIVED** |
 | `acquiredAt` | DateTime (UTC) | — | | **DERIVED** |
-| `isActive` | bool | ✔ | Soft-delete flag | **DERIVED** |
+| `isActive` | bool | ✔ | Deactivated: out of the report form, can come back | **DERIVED** |
 | `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | | **DERIVED** |
+| `deletedAt` | DateTime (UTC) | — | As a room’s (§24) | **DERIVED** |
 
 ## damage_reports
 
@@ -247,6 +249,7 @@ Model: `DamageReport`. The primary input to the whole lifecycle (§1.7).
 | `reviewedAt` | DateTime (UTC) | — | | **DERIVED** |
 | `rejectionReason` | String | — | Required when `status == rejected`; null otherwise | **DERIVED** |
 | `submittedAt`, `updatedAt` | DateTime (UTC) | ✔ | | §1.5 |
+| `archivedAt` | DateTime (UTC) | — | Out of the console’s lists (the Archived filter); status, timeline and audit untouched. Not the ARCHIVED status. Only a closed, merged or rejected report (2026-11-08, §24) | **DERIVED** |
 
 ### Who assigns the four criterion ratings — decided (Objective 4.B)
 
@@ -554,7 +557,7 @@ consumables.
 (`ToolStatus`), `condition` (`ItemCondition`), `qrCode`, `category`
 (DERIVED), `storageLocation` (DERIVED), `currentHolderId` (Fig 15
 "Current User"), `currentLoanId` (**denormalized** pointer, DERIVED),
-`createdAt`/`updatedAt`.
+`createdAt`/`updatedAt`, `deletedAt` (deleted by an administrator, never while on loan; loans keep it; tool ID and code free; 2026-11-08, §24).
 
 *Invariant:* a tool with `status == borrowed` must have a
 `currentHolderId` — enforced in the constructor. Personnel accountability
@@ -897,11 +900,15 @@ its role; a request with no signed-in user is refused outright.
 | `users` | `register_self` | someone signed in with no profile yet: becomes a pending requestor under their sign-in email (3.A) |
 | | `create_account`, `update_account`, `set_account_status` | administrator; never their own role or status, never the role of someone holding work |
 | | `set_fcm_token` | the account itself |
-| `facilities`, `assets` | `create_facility`, `update_facility`, `set_facility_active`, `create_asset`, `update_asset`, `set_asset_active` | administrator; a code is unique across rooms, equipment, materials and tools |
+| | `delete_account` | administrator; never their own, never one with open work or a tool on loan, never one any record names (deactivate that one); removes the profile and its notifications (2026-11-08) |
+| `facilities`, `assets` | `create_facility`, `update_facility`, `set_facility_active`, `create_asset`, `update_asset`, `set_asset_active` | administrator; a code is unique across rooms, equipment, materials and tools still in use |
+| | `delete_facility`, `delete_asset` | administrator, unless open reports (or, for a room, open work orders or equipment) depend on it; marks it deleted (2026-11-08) |
 | `damage_reports` | `submit_report` | an active requestor, as themselves (3.C) |
 | | `record_assessment`, `transition_report`, `merge_duplicates`, `keep_separate` | administrator (4.A–4.C) |
 | | `rate_service` (closes it) | the person who filed it, once, when completed (3.C) |
+| | `set_report_archived` | administrator; archives a closed, merged or rejected report, or restores one (2026-11-08) |
 | `work_orders` | `assign_work_order`, `update_admin_notes` | administrator |
+| | `set_work_order_archived` | administrator; archives a completed work order, or restores one (2026-11-08) |
 | | `reassign_work_order` | administrator, while the work is pending or in progress, to one other active technician (7.A) |
 | | `set_work_order_status` | starting the work only, pending to in progress: the technician assigned, or an administrator. For Review comes from `submit_accomplishment`; Completed and the send-back from `review_accomplishment` (7.B) |
 | `tasks` | `add_task`, `delete_task` | administrator (a task that is done stays) |
@@ -917,6 +924,7 @@ its role; a request with no signed-in user is refused outright.
 | `inventory_transactions` | `record_delivery`, `record_stock_count` | administrator |
 | | (consumption) | written by `submit_accomplishment` |
 | `tools` | `create_tool`, `update_tool`, `set_tool_status` | administrator |
+| | `delete_tool` | administrator, unless it is on loan; marks it deleted (2026-11-08) |
 | `tool_loans` | `borrow_tool` | a technician for themselves; an administrator to a technician (6.B) |
 | | `return_tool` | the borrower, or an administrator |
 | `app_config` | `update_config` | administrator; a setting the app could not read is refused (7.A) |
