@@ -27,9 +27,11 @@ Future<String?> qrCodeOwner(
     final matches = await firestore
         .collection(path)
         .where('qrCode', isEqualTo: code)
-        .limit(2)
         .get();
-    if (matches.docs.any((doc) => doc.id != exceptId)) {
+    // A deleted material no longer holds its code.
+    if (matches.docs.any(
+      (doc) => doc.id != exceptId && doc.data()['deletedAt'] == null,
+    )) {
       return switch (path) {
         FirestorePaths.inventoryItems => 'a material',
         FirestorePaths.tools => 'a tool',

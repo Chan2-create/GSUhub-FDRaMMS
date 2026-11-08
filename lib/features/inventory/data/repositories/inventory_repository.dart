@@ -8,6 +8,9 @@ import '../models/inventory_transaction.dart';
 /// Abstract contract for the `inventory_items` collection and its
 /// append-only `inventory_transactions` ledger.
 ///
+/// A deleted material ([deleteItem]) is never returned: not listed, not
+/// found by its id or its code.
+///
 /// **The append-only invariant is enforced by this contract's shape.**
 /// There is deliberately no `updateTransaction` and no `deleteTransaction`
 /// method, and no way to write `quantityAvailable` directly — every path
@@ -44,6 +47,15 @@ abstract interface class InventoryRepository {
   Future<Result<void>> updateItemDetails({
     required String itemId,
     required InventoryItemDraft draft,
+    required AuditActor actor,
+  });
+
+  /// Takes a material out of the inventory. Its ledger entries cannot go,
+  /// so it is marked deleted: its history stays, nothing new happens to
+  /// it, and its code is free again. Refused while open work still counts
+  /// on it: recorded as used, set aside, or on a pending request.
+  Future<Result<void>> deleteItem({
+    required String itemId,
     required AuditActor actor,
   });
 

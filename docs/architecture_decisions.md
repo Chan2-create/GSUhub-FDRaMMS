@@ -1528,3 +1528,48 @@ The board follows the same rules:
   diagrams still predate Objectives 4 to 6, and the second stage (PNG
   and PDF) waits for approval.
 - The 35 unused repository methods (§21) are still Chris's to decide on.
+
+## 23. Deleting a material (2026-11-05)
+
+Chris asked for a delete option on the Inventory page's Consumable
+Materials.
+
+**A delete that keeps the ledger.** Every ledger entry points at its
+material, and the ledger is never changed or removed (§3.4
+Auditability; `stock_ledger.sql`). A material that ever held stock,
+which is nearly every one, cannot leave the table. So deleting marks it
+deleted (`inventory_items.deleted_at`), as a room is deactivated and a
+tool retired:
+
+- the repositories never return it: not listed, not found by its id or
+  its code, so it leaves the cards, the totals, the low-stock alerts,
+  scans and the technicians' material lists;
+- its stock history stays, and the work orders, requests and reports
+  that name it read as they were written;
+- the database refuses anything new on it (triggers): a ledger entry,
+  an edit, a recorded use, a set-aside, a request;
+- its code is free: the unique index on `qr_code` covers only the
+  materials still in the inventory, so it can be re-added under the
+  same label;
+- the audit entry records the stock it still had. The stock is not
+  written off in the ledger: a write-off would read as a stock count
+  and send an out-of-stock notice for a material nobody keeps any more.
+
+**Refused while open work counts on it**: recorded as used on pending
+or in-progress work (not yet off stock), set aside for it, or on a
+request waiting for review. The message names the work order or
+request. Finished work does not block it.
+
+**Where.** A **Delete** button in the material's Edit dialog (the
+card's pencil) and in its details (a click on the card), each asking
+first. Not on the card itself: at the console's usual width a card is
+about 180 pixels wide, and a third button there would squeeze out the
+quantity. No design covers it; listed for the GUI pass.
+
+**Not built**: undoing a delete. Re-adding the material under the same
+code works, but starts a new history.
+
+Migration `20261105104825_delete_material.sql`; tests
+`supabase/tests/material_delete.test.sql`,
+`test/unit/repositories/inventory_deleted_test.dart` and two in
+`test/widget/inventory_screen_test.dart`.

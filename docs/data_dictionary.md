@@ -479,6 +479,7 @@ field** — §3.4 lists the first seven verbatim.
 | `unitCost` | double ≥ 0 | — | Pesos per unit; Total Stock Value sums quantity × this | Fig 15, Chris 2026-10-13 (**DERIVED** field) |
 | `photoUrl` | String | — | The card's photo, in Storage under `inventory_items/{id}/` | Fig 15 (**DERIVED** field) |
 | `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | | **DERIVED** |
+| `deletedAt` | DateTime (UTC) | — | Set when an administrator deletes the material; see below | Chris 2026-11-05 (**DERIVED** field) |
 
 **How stock changes (Objective 6.A).** Only through the ledger, in the
 same transaction as the balance: a new material's opening stock and a
@@ -495,6 +496,17 @@ material to its minimum or below also sends every administrator a
 rooms and equipment together, because one scanner reads them all; the
 console checks before saving. New codes default to `INV-<NAME>`,
 `TOOL-<tool ID>`, `FAC-<ID>` and `AST-<ID>`.
+
+**Deleting a material (2026-11-05).** Its ledger entries point at it and
+are never removed, so a deleted material stays in the table with
+`deletedAt` set. The app leaves it out of every list, scan and lookup;
+its stock history, and the reports, requests and work orders that name
+it, keep it as they recorded it. Nothing new happens to it (no ledger
+entry, edit, recorded use, set-aside or request), and its code is free
+for another material. Deleting is refused while open work still counts
+on it: recorded as used, set aside, or on a request waiting for review.
+The audit entry records the stock it still had
+(docs/architecture_decisions.md §23).
 
 ## inventory_transactions — append-only
 
@@ -901,6 +913,7 @@ its role; a request with no signed-in user is refused outright.
 | `material_requests` | `submit_material_request` | the technician assigned, for open work (6.B) |
 | | `approve_material_request`, `decline_material_request` | administrator, once; a reason to decline |
 | `inventory_items` | `create_inventory_item`, `update_inventory_item` | administrator. **No function writes a quantity**: stock moves only through the ledger |
+| | `delete_inventory_item` | administrator, unless open work still counts on it; marks it deleted |
 | `inventory_transactions` | `record_delivery`, `record_stock_count` | administrator |
 | | (consumption) | written by `submit_accomplishment` |
 | `tools` | `create_tool`, `update_tool`, `set_tool_status` | administrator |

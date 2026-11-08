@@ -127,6 +127,76 @@ void main() {
     expect(find.text('Wall Socket Plate'), findsOneWidget);
   });
 
+  testWidgets('a material is deleted from its Edit dialog, after asking', (
+    tester,
+  ) async {
+    final app = await console(tester);
+    await pump(app, tester);
+
+    await tester.tap(find.byTooltip('Edit Insulation Tape'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete Insulation Tape?'), findsOneWidget);
+    expect(
+      find.textContaining('Its stock of 2 rolls goes with it.'),
+      findsOneWidget,
+    );
+
+    // Cancel keeps it.
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Delete Insulation Tape?'), findsNothing);
+    expect(find.text('Edit material'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    final tape = await app.read(FirestorePaths.inventoryItems, 'inv-tape');
+    expect(tape['deletedAt'], isNotNull);
+    expect(stock(tape), 2, reason: 'deleting moves no stock');
+    final audit = await app.data.firestore
+        .collection(FirestorePaths.auditLogs)
+        .where('action', isEqualTo: 'deleted')
+        .get();
+    expect(
+      audit.docs.single.data()['description'],
+      'Deleted Insulation Tape from the inventory, with 2 rolls still '
+      'recorded',
+    );
+
+    expect(find.text('Deleted Insulation Tape.'), findsOneWidget);
+    expect(find.text('Edit material'), findsNothing);
+    // Its card, its share of the totals and its alert are gone.
+    expect(find.text('Insulation Tape'), findsNothing);
+    expect(find.text('₱4,000'), findsOneWidget);
+    expect(find.text('Across 1 material'), findsOneWidget);
+    expect(find.text('LOW STOCK'), findsNothing);
+  });
+
+  testWidgets('a material is deleted from its details too', (tester) async {
+    final app = await console(tester);
+    await pump(app, tester);
+
+    await tester.tap(find.text('LED Bulbs'));
+    await tester.pumpAndSettle();
+    expect(find.text('STOCK HISTORY'), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(
+      (await app.read(FirestorePaths.inventoryItems, 'inv-led'))['deletedAt'],
+      isNotNull,
+    );
+    expect(find.text('STOCK HISTORY'), findsNothing);
+    expect(find.text('LED Bulbs'), findsNothing);
+    expect(find.text('Insulation Tape'), findsOneWidget);
+  });
+
   testWidgets('a tool is checked out to a technician, then checked in', (
     tester,
   ) async {

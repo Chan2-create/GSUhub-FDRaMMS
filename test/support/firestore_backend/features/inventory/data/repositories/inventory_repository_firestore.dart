@@ -35,22 +35,28 @@ class FirestoreInventoryRepository extends FirestoreRepository
   static const int reasonLimit = 200;
 
   @override
-  Future<Result<InventoryItem>> getItemById(String id) =>
-      getOne(path: _items, id: id, convert: fromDoc(InventoryItem.fromRecord));
+  Future<Result<InventoryItem>> getItemById(String id) async => _present(
+    await getOne(
+      path: _items,
+      id: id,
+      convert: fromDoc(InventoryItem.fromRecord),
+    ),
+  );
 
   @override
   Future<Result<InventoryItem>> getItemByQrCode(String qrCode) async {
     final matches = await getMany(
-      query: collection(_items).where('qrCode', isEqualTo: qrCode).limit(1),
+      query: collection(_items).where('qrCode', isEqualTo: qrCode),
       convert: fromDoc(InventoryItem.fromRecord),
     );
 
     return matches.fold(
-      (list) => list.isEmpty
-          ? const Result<InventoryItem>.failure(
-              NotFoundFailure('No inventory item matches that code.'),
-            )
-          : Result.success(list.first),
+      (list) => switch (list.where((item) => !item.isDeleted)) {
+        final present when present.isNotEmpty => Result.success(present.first),
+        _ => const Result<InventoryItem>.failure(
+          NotFoundFailure('No inventory item matches that code.'),
+        ),
+      },
       Result.failure,
     );
   }
@@ -64,6 +70,10 @@ class FirestoreInventoryRepository extends FirestoreRepository
     return watchMany(
       query: query.orderBy('name'),
       convert: fromDoc(InventoryItem.fromRecord),
+    ).map(
+      (result) => result.map(
+        (items) => items.where((item) => !item.isDeleted).toList(),
+      ),
     );
   }
 
@@ -72,7 +82,7 @@ class FirestoreInventoryRepository extends FirestoreRepository
     path: _items,
     id: id,
     convert: fromDoc(InventoryItem.fromRecord),
-  );
+  ).map(_present);
 
   @override
   Stream<Result<List<InventoryItem>>> watchLowStockItems() =>
@@ -86,8 +96,9 @@ class FirestoreInventoryRepository extends FirestoreRepository
         query: collection(_items),
         convert: fromDoc(InventoryItem.fromRecord),
       ).map(
-        (result) =>
-            result.map((items) => items.where((i) => i.isLowStock).toList()),
+        (result) => result.map(
+          (items) => items.where((i) => !i.isDeleted && i.isLowStock).toList(),
+        ),
       );
 
   @override
@@ -192,6 +203,40 @@ class FirestoreInventoryRepository extends FirestoreRepository
       );
     });
   }
+
+  /// Marks the material deleted. The refusals while open work counts on
+  /// it are the database's (supabase/tests/material_delete.test.sql).
+  @override
+  Future<Result<void>> deleteItem({
+    required String itemId,
+    required AuditActor actor,
+  }) => db.runTransaction<void>((transaction) async {
+    final itemRef = collection(_items).doc(itemId);
+    final snapshot = await transaction.get(itemRef);
+    if (!snapshot.exists) {
+      throw FirestoreRepository.notFound(
+        'This material is no longer in the inventory.',
+      );
+    }
+    final item = fromDoc(InventoryItem.fromRecord)(snapshot);
+    if (item.isDeleted) return;
+
+    transaction.update(itemRef, {
+      'deletedAt': FirestoreRepository.serverNow,
+      'updatedAt': FirestoreRepository.serverNow,
+    });
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: actor,
+      action: AuditAction.deleted,
+      entityType: _items,
+      entityId: itemId,
+      description:
+          'Deleted ${item.name} from the inventory'
+          '${item.quantityAvailable > 0 ? ', with ${QuantityFormat.withUnit(item.quantityAvailable, item.unitOfMeasurement)} still recorded' : ''}',
+    );
+  });
 
   @override
   Future<Result<InventoryTransaction>> recordDelivery({
@@ -425,6 +470,15 @@ class FirestoreInventoryRepository extends FirestoreRepository
       (failure) => failure,
     );
   }
+
+  /// A deleted material reads as gone.
+  static Result<InventoryItem> _present(Result<InventoryItem> result) =>
+      switch (result) {
+        Success(:final value) when value.isDeleted => const Result.failure(
+          NotFoundFailure('This material is no longer in the inventory.'),
+        ),
+        _ => result,
+      };
 
   static String? _orNull(String? value) {
     final trimmed = value?.trim();
