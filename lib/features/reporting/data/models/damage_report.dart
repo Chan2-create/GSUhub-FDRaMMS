@@ -36,6 +36,7 @@ class DamageReport {
     required this.status,
     required this.submittedAt,
     required this.updatedAt,
+    this.archivedAt,
     this.category,
     this.classifiedAutomatically = false,
     this.requestorCategory,
@@ -152,6 +153,7 @@ class DamageReport {
       ),
       submittedAt: RecordConverters.requireDate(data, 'submittedAt'),
       updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
+      archivedAt: RecordConverters.optionalDate(data, 'archivedAt'),
     );
   }
 
@@ -264,6 +266,12 @@ class DamageReport {
   final DateTime submittedAt;
   final DateTime updatedAt;
 
+  /// When an administrator archived the report (2026-11-08): out of the
+  /// console's lists, its status and history untouched. Null when not.
+  final DateTime? archivedAt;
+
+  bool get isArchived => archivedAt != null;
+
   /// Whether this report was merged into another and should be hidden from
   /// active queues.
   bool get isDuplicate => duplicateOf != null;
@@ -335,6 +343,7 @@ class DamageReport {
     'rejectionReason': rejectionReason,
     'submittedAt': submittedAt,
     'updatedAt': updatedAt,
+    'archivedAt': archivedAt,
   };
 
   DamageReport copyWith({
@@ -369,6 +378,7 @@ class DamageReport {
     String? rejectionReason,
     DateTime? submittedAt,
     DateTime? updatedAt,
+    DateTime? archivedAt,
   }) => DamageReport(
     id: id ?? this.id,
     reporterId: reporterId ?? this.reporterId,
@@ -403,6 +413,7 @@ class DamageReport {
     rejectionReason: rejectionReason ?? this.rejectionReason,
     submittedAt: submittedAt ?? this.submittedAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    archivedAt: archivedAt ?? this.archivedAt,
   );
 
   @override
@@ -439,7 +450,8 @@ class DamageReport {
         other.reviewedAt == reviewedAt &&
         other.rejectionReason == rejectionReason &&
         other.submittedAt == submittedAt &&
-        other.updatedAt == updatedAt;
+        other.updatedAt == updatedAt &&
+        other.archivedAt == archivedAt;
   }
 
   @override
@@ -475,6 +487,7 @@ class DamageReport {
     rejectionReason,
     submittedAt,
     updatedAt,
+    archivedAt,
   ]);
 
   @override

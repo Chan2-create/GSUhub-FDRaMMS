@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/breakpoints.dart';
 import '../../core/di/service_providers.dart';
 import '../../core/routing/route_paths.dart';
 import '../../features/analytics/presentation/widgets/analytics_range_select.dart';
@@ -35,29 +36,44 @@ class AdminShell extends ConsumerWidget {
                   ?.fold((count) => count, (_) => 0) ??
               0;
 
+    // As drawn above Breakpoints.expanded; an icon rail on a tablet or a
+    // small laptop; a drawer behind the top bar's menu button on a phone.
+    final width = Breakpoints.widthOf(context);
+    final drawer = width < Breakpoints.compact;
+    AdminSidebar sidebar({bool rail = false}) => AdminSidebar(
+      currentLocation: location,
+      user: user,
+      rail: rail,
+      badges: {
+        RoutePaths.adminInventory: ref.watch(lowStockCountProvider),
+        RoutePaths.adminNotifications: unread,
+      },
+      onSignOut: () async {
+        await ref.read(authControllerProvider.notifier).signOut();
+        if (context.mounted) context.go(RoutePaths.adminLogin);
+      },
+    );
+
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
+      drawer: drawer
+          ? Drawer(
+              width: AdminSidebar.width.clamp(0, width - 56),
+              shape: const RoundedRectangleBorder(),
+              child: sidebar(),
+            )
+          : null,
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AdminSidebar(
-            currentLocation: location,
-            user: user,
-            badges: {
-              RoutePaths.adminInventory: ref.watch(lowStockCountProvider),
-              RoutePaths.adminNotifications: unread,
-            },
-            onSignOut: () async {
-              await ref.read(authControllerProvider.notifier).signOut();
-              if (context.mounted) context.go(RoutePaths.adminLogin);
-            },
-          ),
+          if (!drawer) sidebar(rail: width < Breakpoints.expanded),
           Expanded(
             child: Column(
               children: [
                 AdminTopBar(
                   pageTitle: titleFor(location),
                   unreadNotifications: unread,
+                  showMenuButton: drawer,
                   pageControls: location.startsWith(RoutePaths.adminAnalytics)
                       ? const AnalyticsRangeSelect()
                       : null,

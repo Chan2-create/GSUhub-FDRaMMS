@@ -24,6 +24,7 @@ class Asset {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
+    this.deletedAt,
     this.category,
     this.serialNumber,
     this.acquiredAt,
@@ -51,6 +52,7 @@ class Asset {
       acquiredAt: RecordConverters.optionalDate(data, 'acquiredAt'),
       createdAt: RecordConverters.requireDate(data, 'createdAt'),
       updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
+      deletedAt: RecordConverters.optionalDate(data, 'deletedAt'),
     );
   }
 
@@ -82,6 +84,12 @@ class Asset {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// When an administrator deleted the equipment (2026-11-08). Reports keep
+  /// it in the table; it is left out of the lists, pickers and scans.
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
+
   Map<String, dynamic> toFields() => {
     'name': name,
     'qrCode': qrCode,
@@ -93,6 +101,7 @@ class Asset {
     'isActive': isActive,
     'createdAt': createdAt,
     'updatedAt': updatedAt,
+    'deletedAt': deletedAt,
   };
 
   Asset copyWith({
@@ -107,6 +116,7 @@ class Asset {
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? deletedAt,
   }) => Asset(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -119,6 +129,7 @@ class Asset {
     isActive: isActive ?? this.isActive,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt ?? this.deletedAt,
   );
 
   @override
@@ -135,7 +146,8 @@ class Asset {
           other.acquiredAt == acquiredAt &&
           other.isActive == isActive &&
           other.createdAt == createdAt &&
-          other.updatedAt == updatedAt;
+          other.updatedAt == updatedAt &&
+          other.deletedAt == deletedAt;
 
   @override
   int get hashCode => Object.hash(
@@ -150,6 +162,7 @@ class Asset {
     isActive,
     createdAt,
     updatedAt,
+    deletedAt,
   );
 
   @override

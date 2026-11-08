@@ -6,6 +6,7 @@ import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/constants/damage_categories.dart';
 import '../../../../core/routing/route_paths.dart';
 import '../../../../core/widgets/category_chip.dart';
+import '../../../../core/widgets/scroll_when_narrow.dart';
 import '../analytics_summary.dart';
 
 /// "Top Reported Issues This Month" (Figma `85:4169`): this calendar
@@ -24,7 +25,10 @@ class TopIssuesTable extends StatelessWidget {
   static const List<int> _flex = [105, 258, 218, 117, 174, 99];
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) =>
+      ScrollWhenNarrow(minWidth: 640, child: _table(context));
+
+  Widget _table(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
       Container(

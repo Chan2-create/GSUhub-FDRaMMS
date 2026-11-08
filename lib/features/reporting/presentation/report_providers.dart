@@ -30,11 +30,21 @@ final reportByIdProvider = StreamProvider.family<Result<DamageReport>, String>(
 
 /// What the Damage Reports table is currently showing.
 class ReportsView {
-  const ReportsView({this.category, this.priority, this.status, this.page = 0});
+  const ReportsView({
+    this.category,
+    this.priority,
+    this.status,
+    this.archived = false,
+    this.page = 0,
+  });
 
   final DamageCategory? category;
   final PriorityLevel? priority;
   final ReportStatus? status;
+
+  /// The archive instead of the working list (2026-11-08): archived
+  /// reports only, or none of them.
+  final bool archived;
 
   /// Zero-based page index.
   final int page;
@@ -45,6 +55,7 @@ class ReportsView {
 
   /// Whether [report] survives the current filters.
   bool matches(DamageReport report) {
+    if (report.isArchived != archived) return false;
     if (category != null && report.category != category) return false;
     if (priority != null && report.effectivePriority != priority) return false;
     if (status != null && report.status != status) return false;
@@ -63,26 +74,38 @@ class ReportsViewController extends Notifier<ReportsView> {
     category: category,
     priority: state.priority,
     status: state.status,
+    archived: state.archived,
   );
 
   void setPriority(PriorityLevel? priority) => state = ReportsView(
     category: state.category,
     priority: priority,
     status: state.status,
+    archived: state.archived,
   );
 
   void setStatus(ReportStatus? status) => state = ReportsView(
     category: state.category,
     priority: state.priority,
     status: status,
+    archived: state.archived,
   );
 
-  void clearFilters() => state = const ReportsView();
+  void clearFilters() => state = ReportsView(archived: state.archived);
+
+  /// Between the working list and the archive, on the first page.
+  void setArchived({required bool archived}) => state = ReportsView(
+    category: state.category,
+    priority: state.priority,
+    status: state.status,
+    archived: archived,
+  );
 
   void setPage(int page) => state = ReportsView(
     category: state.category,
     priority: state.priority,
     status: state.status,
+    archived: state.archived,
     page: page,
   );
 }

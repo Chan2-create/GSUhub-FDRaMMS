@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/enums/work_order_status.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
@@ -24,27 +25,26 @@ class WorkOrdersScreen extends ConsumerWidget {
   const WorkOrdersScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) =>
-      const SingleChildScrollView(
-        padding: EdgeInsets.all(32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Work Order Management', style: AppTextStyles.pageTitle),
-            SizedBox(height: 4),
-            Text(
-              'Track and manage all maintenance tasks and staff assignments.',
-              style: AppTextStyles.pageSubtitle,
-            ),
-            SizedBox(height: 24),
-            _StatRow(),
-            SizedBox(height: 24),
-            WorkOrderFilterBar(),
-            SizedBox(height: 24),
-            _Body(),
-          ],
+  Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
+    padding: EdgeInsets.all(Breakpoints.gutter(context)),
+    child: const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Work Order Management', style: AppTextStyles.pageTitle),
+        SizedBox(height: 4),
+        Text(
+          'Track and manage all maintenance tasks and staff assignments.',
+          style: AppTextStyles.pageSubtitle,
         ),
-      );
+        SizedBox(height: 24),
+        _StatRow(),
+        SizedBox(height: 24),
+        WorkOrderFilterBar(),
+        SizedBox(height: 24),
+        _Body(),
+      ],
+    ),
+  );
 }
 
 class _StatRow extends ConsumerWidget {
@@ -98,7 +98,11 @@ class _StatRow extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1000 ? 4 : 2;
+        final columns = constraints.maxWidth >= 1000
+            ? 4
+            : constraints.maxWidth >= 440
+            ? 2
+            : 1;
         const gap = 16.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(

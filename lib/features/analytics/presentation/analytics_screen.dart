@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/category_donut.dart';
 import '../../../core/widgets/section_card.dart';
@@ -32,7 +33,7 @@ class AnalyticsScreen extends ConsumerWidget {
     final summary = ref.watch(analyticsSummaryProvider);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(Breakpoints.gutter(context)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -44,7 +45,7 @@ class AnalyticsScreen extends ConsumerWidget {
           ColoredBox(
             color: AppColors.surfaceSunken,
             child: Padding(
-              padding: const EdgeInsets.all(32),
+              padding: EdgeInsets.all(Breakpoints.gutter(context)),
               child: AsyncValueView<AnalyticsSummary>(
                 value: summary,
                 loadingHeight: 480,

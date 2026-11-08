@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gsuhub/core/constants/firestore_paths.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
+import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
@@ -38,12 +39,15 @@ class FirestoreFacilityRepository extends FirestoreRepository
   );
 
   @override
-  Future<Result<List<Facility>>> getFacilities({bool activeOnly = true}) {
+  Future<Result<List<Facility>>> getFacilities({bool activeOnly = true}) async {
     Query<Map<String, dynamic>> query = collection(_facilities);
     if (activeOnly) {
       query = query.where('isActive', isEqualTo: true);
     }
-    return getMany(query: query, convert: fromDoc(Facility.fromRecord));
+    return (await getMany(
+      query: query,
+      convert: fromDoc(Facility.fromRecord),
+    )).map((rooms) => rooms.where((room) => !room.isDeleted).toList());
   }
 
   @override
@@ -53,16 +57,19 @@ class FirestoreFacilityRepository extends FirestoreRepository
         convert: fromDoc(Facility.fromRecord),
       ).map(
         (result) => result.map(
-          (facilities) => [...facilities]
-            ..sort((a, b) {
-              final byBuilding = a.buildingName.toLowerCase().compareTo(
-                b.buildingName.toLowerCase(),
-              );
-              if (byBuilding != 0) return byBuilding;
-              return (a.roomIdentifier ?? '').toLowerCase().compareTo(
-                (b.roomIdentifier ?? '').toLowerCase(),
-              );
-            }),
+          (facilities) =>
+              [
+                for (final facility in facilities)
+                  if (!facility.isDeleted) facility,
+              ]..sort((a, b) {
+                final byBuilding = a.buildingName.toLowerCase().compareTo(
+                  b.buildingName.toLowerCase(),
+                );
+                if (byBuilding != 0) return byBuilding;
+                return (a.roomIdentifier ?? '').toLowerCase().compareTo(
+                  (b.roomIdentifier ?? '').toLowerCase(),
+                );
+              }),
         ),
       );
 
@@ -160,6 +167,48 @@ class FirestoreFacilityRepository extends FirestoreRepository
         [data['buildingName'], ?data['roomIdentifier']].join(', '),
   );
 
+  /// As delete_facility: refused while open reports are about the room or
+  /// equipment is in it (open work orders follow their reports here).
+  @override
+  Future<Result<void>> deleteFacility({
+    required String facilityId,
+    required AuditActor actor,
+  }) async {
+    final room = await getFacilityById(facilityId);
+    if (room case Success(:final value) when !value.isDeleted) {
+      final place = [value.buildingName, ?value.roomIdentifier].join(', ');
+      if (await _openReports('facilityId', facilityId) case final count?
+          when count > 0) {
+        return Result.failure(
+          ValidationFailure(
+            '$place has $count open report${count == 1 ? '' : 's'}. '
+            'Finish, reject or merge them first.',
+          ),
+        );
+      }
+      final equipment = await getAssetsForFacility(
+        facilityId,
+        activeOnly: false,
+      );
+      if (equipment case Success(value: final assets) when assets.isNotEmpty) {
+        final count = assets.length;
+        return Result.failure(
+          ValidationFailure(
+            '$place still has $count piece${count == 1 ? '' : 's'} of '
+            'equipment. Delete it or move it to another room first.',
+          ),
+        );
+      }
+    }
+    return _markDeleted(
+      path: _facilities,
+      id: facilityId,
+      actor: actor,
+      nameOf: (data) =>
+          [data['buildingName'], ?data['roomIdentifier']].join(', '),
+    );
+  }
+
   @override
   Future<Result<Asset>> getAssetById(String id) =>
       getOne(path: _assets, id: id, convert: fromDoc(Asset.fromRecord));
@@ -182,7 +231,10 @@ class FirestoreFacilityRepository extends FirestoreRepository
     if (activeOnly) {
       query = query.where('isActive', isEqualTo: true);
     }
-    return getMany(query: query, convert: fromDoc(Asset.fromRecord));
+    return getMany(query: query, convert: fromDoc(Asset.fromRecord)).then(
+      (result) =>
+          result.map((assets) => assets.where((a) => !a.isDeleted).toList()),
+    );
   }
 
   @override
@@ -192,10 +244,13 @@ class FirestoreFacilityRepository extends FirestoreRepository
         convert: fromDoc(Asset.fromRecord),
       ).map(
         (result) => result.map(
-          (assets) => [...assets]
-            ..sort(
-              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-            ),
+          (assets) =>
+              [
+                for (final asset in assets)
+                  if (!asset.isDeleted) asset,
+              ]..sort(
+                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+              ),
         ),
       );
 
@@ -294,6 +349,82 @@ class FirestoreFacilityRepository extends FirestoreRepository
     actor: actor,
     nameOf: (data) => data['name'] as String? ?? assetId,
   );
+
+  @override
+  Future<Result<void>> deleteAsset({
+    required String assetId,
+    required AuditActor actor,
+  }) async {
+    final asset = await getAssetById(assetId);
+    if (asset case Success(:final value) when !value.isDeleted) {
+      if (await _openReports('assetId', assetId) case final count?
+          when count > 0) {
+        return Result.failure(
+          ValidationFailure(
+            '${value.name} has $count open report${count == 1 ? '' : 's'}. '
+            'Finish, reject or merge them first.',
+          ),
+        );
+      }
+    }
+    return _markDeleted(
+      path: _assets,
+      id: assetId,
+      actor: actor,
+      nameOf: (data) => data['name'] as String? ?? assetId,
+    );
+  }
+
+  /// How many open reports name [id] in [field]; null when unreadable.
+  Future<int?> _openReports(String field, String id) async {
+    final reports = await guard.call(
+      () => db.raw
+          .collection(FirestorePaths.damageReports)
+          .where(field, isEqualTo: id)
+          .get(),
+    );
+    return reports.fold(
+      (snapshot) => snapshot.docs
+          .where(
+            (doc) =>
+                ReportStatus.values
+                    .where((s) => s.id == doc.data()['status'])
+                    .firstOrNull
+                    ?.isOpen ??
+                false,
+          )
+          .length,
+      (_) => null,
+    );
+  }
+
+  /// Marks a room or piece of equipment deleted, once, and audits it.
+  Future<Result<void>> _markDeleted({
+    required String path,
+    required String id,
+    required AuditActor actor,
+    required String Function(Map<String, dynamic>) nameOf,
+  }) => db.runTransaction<void>((transaction) async {
+    final reference = collection(path).doc(id);
+    final snapshot = await transaction.get(reference);
+    if (!snapshot.exists) throw FirestoreRepository.notFound('No $path $id');
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    if (data['deletedAt'] != null) return;
+
+    transaction.update(reference, {
+      'deletedAt': FirestoreRepository.serverNow,
+      'updatedAt': FirestoreRepository.serverNow,
+    });
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: actor,
+      action: AuditAction.deleted,
+      entityType: path,
+      entityId: id,
+      description: 'Deleted ${nameOf(data)}',
+    );
+  });
 
   Future<Result<void>> _setActive({
     required String path,
@@ -411,9 +542,15 @@ class FirestoreFacilityRepository extends FirestoreRepository
     required T Function(DocumentSnapshot<Map<String, dynamic>>) convert,
     required String label,
   }) async {
-    final matches = await getMany(
-      query: collection(path).where('qrCode', isEqualTo: qrCode).limit(1),
-      convert: convert,
+    // A deleted one's code may be on one added since.
+    final docs = await guard.call(
+      () => collection(path).where('qrCode', isEqualTo: qrCode).get(),
+    );
+    final matches = docs.map(
+      (snapshot) => [
+        for (final doc in snapshot.docs)
+          if (doc.data()['deletedAt'] == null) convert(doc),
+      ],
     );
 
     return matches.fold(

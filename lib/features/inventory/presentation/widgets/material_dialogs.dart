@@ -13,6 +13,7 @@ import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/quantity_format.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/async_value_view.dart';
+import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../qr_labels/qr_label.dart';
 import '../../../qr_labels/qr_label_actions.dart';
 import '../../../user_management/presentation/personnel_providers.dart';
@@ -373,98 +374,26 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
 Future<bool> showDeleteMaterialDialog(
   BuildContext context,
   InventoryItem item,
-) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (_) => _DeleteMaterialDialog(item: item),
-    ) ??
-    false;
-
-class _DeleteMaterialDialog extends ConsumerStatefulWidget {
-  const _DeleteMaterialDialog({required this.item});
-
-  final InventoryItem item;
-
-  @override
-  ConsumerState<_DeleteMaterialDialog> createState() =>
-      _DeleteMaterialDialogState();
-}
-
-class _DeleteMaterialDialogState extends ConsumerState<_DeleteMaterialDialog> {
-  String? _error;
-  bool _busy = false;
-
-  Future<void> _delete() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    final result = await ref
-        .read(inventoryControllerProvider)
-        .deleteMaterial(widget.item.id);
-    if (!mounted) return;
-    switch (result) {
-      case Success():
-        final messenger = ScaffoldMessenger.of(context);
-        Navigator.of(context).pop(true);
-        messenger.showSnackBar(
-          SnackBar(content: Text('Deleted ${widget.item.name}.')),
-        );
-      case Error(:final failure):
-        setState(() {
-          _busy = false;
-          _error = failure.message;
-        });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final item = widget.item;
-    final stock = item.quantityAvailable > 0
-        ? ' Its stock of '
-              '${QuantityFormat.withUnit(item.quantityAvailable, item.unitOfMeasurement)} '
-              'goes with it.'
-        : '';
-    return AlertDialog(
-      title: Text('Delete ${item.name}?'),
-      content: SizedBox(
-        width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'It leaves the inventory and the technicians’ material lists, '
-              'and its label no longer scans.$stock Its stock history stays '
-              'in the records, and its code can go on another material.',
-              style: AppTextStyles.inventoryStatNote,
-            ),
-            if (_error case final message?) ...[
-              const SizedBox(height: 12),
-              Text(
-                message,
-                style: AppTextStyles.inventoryStatNote.copyWith(
-                  color: AppColors.error,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-          onPressed: _busy ? null : _delete,
-          child: Text(_busy ? 'Deleting…' : 'Delete'),
-        ),
-      ],
-    );
-  }
+) {
+  final controller = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(inventoryControllerProvider);
+  final stock = item.quantityAvailable > 0
+      ? ' Its stock of '
+            '${QuantityFormat.withUnit(item.quantityAvailable, item.unitOfMeasurement)} '
+            'goes with it.'
+      : '';
+  return showConfirmDeleteDialog(
+    context: context,
+    title: 'Delete ${item.name}?',
+    message:
+        'It leaves the inventory and the technicians’ material lists, '
+        'and its label no longer scans.$stock Its stock history stays in '
+        'the records, and its code can go on another material.',
+    doneMessage: 'Deleted ${item.name}.',
+    onConfirm: () => controller.deleteMaterial(item.id),
+  );
 }
 
 /// Records stock received for [item]: Figure 15's cart, and ORDER.

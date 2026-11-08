@@ -82,6 +82,16 @@ class ReportReviewController {
             ),
       );
 
+  /// Takes a finished report out of the console's lists, or back
+  /// (2026-11-08). Reports are archived, never deleted.
+  Future<Result<void>> setArchived(String reportId, {required bool archived}) =>
+      _act(
+        [reportId],
+        (actor) => _ref
+            .read(damageReportRepositoryProvider)
+            .setArchived(reportId: reportId, archived: archived, actor: actor),
+      );
+
   Future<Result<void>> _transition(
     String reportId,
     ReportStatus to, {

@@ -39,12 +39,20 @@ abstract interface class FacilityRepository {
     required AuditActor actor,
   });
 
-  /// Deactivates or reactivates a room. Facilities are never deleted, so
-  /// old reports keep resolving; an inactive one is left out of the
-  /// report form.
+  /// Deactivates or reactivates a room. An inactive one is left out of
+  /// the report form, and can come back.
   Future<Result<void>> setFacilityActive({
     required String facilityId,
     required bool active,
+    required AuditActor actor,
+  });
+
+  /// Deletes a room (2026-11-08). Reports keep it, so it is marked
+  /// deleted: out of every list, picker and scan, its code free, still
+  /// found by its id for the reports that name it. Refused while open
+  /// reports or work orders are about it, or equipment is in it.
+  Future<Result<void>> deleteFacility({
+    required String facilityId,
     required AuditActor actor,
   });
 
@@ -75,6 +83,13 @@ abstract interface class FacilityRepository {
   Future<Result<void>> setAssetActive({
     required String assetId,
     required bool active,
+    required AuditActor actor,
+  });
+
+  /// Deletes a piece of equipment, as [deleteFacility] a room. Refused
+  /// while open reports are about it.
+  Future<Result<void>> deleteAsset({
+    required String assetId,
     required AuditActor actor,
   });
 }

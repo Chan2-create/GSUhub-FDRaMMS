@@ -510,6 +510,51 @@ class FirestoreDamageReportRepository extends FirestoreRepository
   }
 
   @override
+  Future<Result<void>> setArchived({
+    required String reportId,
+    required bool archived,
+    required AuditActor actor,
+  }) => db.runTransaction<void>((transaction) async {
+    final reference = collection(_path).doc(reportId);
+    final snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw FirestoreRepository.notFound('No report $reportId');
+    }
+    final report = fromDoc(DamageReport.fromRecord)(snapshot);
+    if (report.isArchived == archived) return;
+    final label = DisplayId.report(reportId);
+    if (archived &&
+        !const {
+          ReportStatus.closed,
+          ReportStatus.merged,
+          ReportStatus.rejected,
+          ReportStatus.archived,
+        }.contains(report.status)) {
+      throw FirestoreRepository.precondition(
+        '$label is ${report.status.label.toLowerCase()}. Only a closed, '
+        'merged or rejected report can be archived.',
+      );
+    }
+    transaction.update(reference, {
+      'archivedAt': archived ? FirestoreRepository.serverNow : null,
+    });
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: actor,
+      action: AuditAction.updated,
+      entityType: _path,
+      entityId: reportId,
+      description: archived
+          ? 'Archived report $label'
+          : 'Restored report $label from the archive',
+      changes: {
+        'archived': {'from': !archived, 'to': archived},
+      },
+    );
+  });
+
+  @override
   Future<Result<void>> keepSeparate({
     required String reportId,
     required String otherReportId,

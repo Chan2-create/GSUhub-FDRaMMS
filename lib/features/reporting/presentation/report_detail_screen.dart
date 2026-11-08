@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/enums/report_status.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
@@ -20,6 +21,7 @@ import '../../classification/presentation/report_assessment_panel.dart';
 import '../data/models/damage_report.dart';
 import 'report_providers.dart';
 import 'report_review_controller.dart';
+import 'widgets/report_archive.dart';
 
 /// One damage report in full.
 ///
@@ -37,7 +39,7 @@ class ReportDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
-    padding: const EdgeInsets.all(32),
+    padding: EdgeInsets.all(Breakpoints.gutter(context)),
     child: AsyncValueView<DamageReport>(
       value: ref.watch(reportByIdProvider(reportId)),
       onRetry: () => ref.invalidate(reportByIdProvider(reportId)),
@@ -223,6 +225,18 @@ class _ReviewActionsState extends ConsumerState<_ReviewActions> {
         OutlinedButton(
           onPressed: _busy ? null : _promptReject,
           child: const Text('Reject'),
+        ),
+      // Reports are archived, never deleted (2026-11-08).
+      if (report.isArchived || report.canBeArchived)
+        OutlinedButton.icon(
+          onPressed: _busy ? null : () => confirmReportArchive(context, report),
+          icon: Icon(
+            report.isArchived
+                ? Icons.unarchive_outlined
+                : Icons.archive_outlined,
+            size: 18,
+          ),
+          label: Text(report.isArchived ? 'Restore from archive' : 'Archive'),
         ),
     ];
 

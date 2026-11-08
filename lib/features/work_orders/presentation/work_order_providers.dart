@@ -127,11 +127,25 @@ final workOrderViewModeProvider =
       WorkOrderViewModeController.new,
     );
 
+/// The archive instead of the board (2026-11-08): archived work orders
+/// only, or none of them. Takes effect at once, unlike the Apply filters:
+/// it chooses which list, not how to narrow it.
+class ShowArchivedWorkOrders extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set({required bool archived}) => state = archived;
+}
+
+final showArchivedWorkOrdersProvider =
+    NotifierProvider<ShowArchivedWorkOrders, bool>(ShowArchivedWorkOrders.new);
+
 /// Work orders passing the applied filters.
 final filteredWorkOrdersProvider =
     Provider<AsyncValue<Result<List<WorkOrder>>>>((ref) {
       final filters = ref.watch(appliedWorkOrderFiltersProvider);
       final assignees = ref.watch(personnelNamesProvider);
+      final archived = ref.watch(showArchivedWorkOrdersProvider);
 
       return ref
           .watch(workOrdersStreamProvider)
@@ -140,6 +154,7 @@ final filteredWorkOrdersProvider =
               (workOrders) => workOrders
                   .where(
                     (workOrder) =>
+                        workOrder.isArchived == archived &&
                         filters.matches(workOrder, assignees: assignees),
                   )
                   .toList(growable: false),

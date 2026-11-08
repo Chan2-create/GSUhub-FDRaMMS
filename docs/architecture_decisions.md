@@ -1573,3 +1573,84 @@ Migration `20261105104825_delete_material.sql`; tests
 `supabase/tests/material_delete.test.sql`,
 `test/unit/repositories/inventory_deleted_test.dart` and two in
 `test/widget/inventory_screen_test.dart`.
+
+## 24. A console for every screen size, and delete everywhere (2026-11-08)
+
+Chris asked for the admin web to fit desktop, laptop, tablet and phone
+browsers, and for a delete button on everything the console lists, with
+damage reports and work orders archived instead of deleted.
+
+**Responsive layout.** The Figma frames are 1440 wide; above 1200 the
+console is laid out as drawn. `core/constants/breakpoints.dart` holds the
+widths:
+
+- 1200 and up: the design's 305 px sidebar.
+- 720 to 1200: the sidebar as an icon rail (76 px), names in tooltips,
+  the low-stock count as a bubble.
+- Below 720: the sidebar in a drawer behind a menu button in the top bar;
+  pages keep a 16 px margin instead of 32.
+- The top bar, narrower than 900, keeps the title, a page's own control,
+  Export Data as an icon, and the bell; the date, the disabled Report New
+  Damage and Help buttons, and the plain avatar return with the room.
+- Tables keep their columns and scroll sideways inside their card when
+  narrower than the columns need (`core/widgets/scroll_when_narrow.dart`,
+  used by `AppDataTable` and the custom tables). The page itself never
+  scrolls sideways.
+- Stat rows go from four columns to two, then one; filter bars, button
+  rows and legends wrap; section headers put their control under the
+  title on a phone; the Analytics donut goes above its legend.
+- `test/widget/responsive_console_test.dart` opens every console page at
+  360, 768, 1024 and 1440 px over a full set of data and fails on any
+  overflow.
+
+**Delete.** Firestore holds no GSUhub data since Objective 1 (§21), so the
+"security rules" for delete are the database's: each delete is a
+security-definer function that checks the caller is an administrator,
+refuses what something open depends on, and writes the audit entry; the
+tests are pgTAP (`supabase/tests/console_delete_archive.test.sql`,
+`material_delete.test.sql`). Every delete asks first, naming the item
+(`core/widgets/confirm_delete_dialog.dart`), shows a refusal in the dialog,
+and announces success; the lists are live, so the row goes at once.
+
+| List | What delete does | Refused while |
+|---|---|---|
+| Consumable materials | Marks it deleted (§23) | recorded as used on open work, set aside, on a pending request |
+| Tools | Marks it deleted; loans keep it; tool ID and code freed | out on loan |
+| Rooms | Marks it deleted; reports keep it; code freed | open reports or work orders about it, equipment in it |
+| Equipment | Marks it deleted; reports keep it; code freed | open reports about it |
+| User accounts, Personnel | Removes the profile (and the person's notifications) | one's own; open work orders; a tool on loan; **any record** naming them: then deactivate instead |
+| Damage reports | **Archives** it (never deleted) | not closed, merged or rejected |
+| Work orders | **Archives** it (never deleted) | not completed |
+
+Marking deleted rather than removing: every one of those rows is named
+by records the manuscript keeps (§3.4 Auditability): the stock ledger,
+loans, reports, work orders. Removing them would break those records or
+need them removed too. A deleted row is left out of every list, picker
+and scan, nothing new can happen to it (triggers refuse edits, loans,
+reports against it), and its code can be reused.
+
+Archiving sets `archived_at` and nothing else: the status (including the
+manuscript's own ARCHIVED status, which is a lifecycle outcome, not this),
+the timeline, the audit trail, and the requestor's and the technician's
+views are unchanged. The Damage Reports list and the Work Orders board
+leave archived ones out; their **Archived** filter shows them, with
+Restore. Analytics still counts them: they are history.
+
+**Accounts and Firebase.** Deleting an account removes its profile; the
+sign-in admits no one without a profile (`FirebaseAuthService`), so the
+person can no longer use GSUhub. The Firebase Authentication login itself
+stays: removing it needs the Admin SDK on a server. Cloud Functions need
+the Blaze plan, so by the brief it is not built; an administrator can
+delete the login by hand in the Firebase console (Authentication → Users).
+
+**Not given a delete, on purpose:** the audit trail and the stock ledger
+(insert-only, §3.4); accomplishment reports, feedback and tool loans
+(records of work done); material requests (decided records; a pending
+one is declined); notifications (messages to their reader, already marked
+read; auditing each removal would be noise); a work order's tasks keep
+their own delete (5.A).
+
+Migrations `20261108141827_console_delete_and_archive.sql`; tests
+`supabase/tests/console_delete_archive.test.sql`,
+`test/widget/console_delete_test.dart`,
+`test/widget/responsive_console_test.dart`.

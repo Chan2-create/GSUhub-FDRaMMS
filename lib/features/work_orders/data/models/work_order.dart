@@ -27,6 +27,7 @@ class WorkOrder {
     required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
+    this.archivedAt,
     this.assignedPersonnelIds = const [],
     this.facilityId,
     this.facilityName,
@@ -81,6 +82,7 @@ class WorkOrder {
       createdBy: RecordConverters.require<String>(data, 'createdBy'),
       createdAt: RecordConverters.requireDate(data, 'createdAt'),
       updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
+      archivedAt: RecordConverters.optionalDate(data, 'archivedAt'),
     );
   }
 
@@ -126,6 +128,12 @@ class WorkOrder {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// When an administrator archived the work order (2026-11-08): off the
+  /// board, its status and history untouched. Null when not.
+  final DateTime? archivedAt;
+
+  bool get isArchived => archivedAt != null;
+
   /// Whether this work order consolidates merged duplicate reports.
   bool get isMergedFromDuplicates => reportIds.length > 1;
 
@@ -167,6 +175,7 @@ class WorkOrder {
     'createdBy': createdBy,
     'createdAt': createdAt,
     'updatedAt': updatedAt,
+    'archivedAt': archivedAt,
   };
 
   WorkOrder copyWith({
@@ -187,6 +196,7 @@ class WorkOrder {
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? archivedAt,
   }) => WorkOrder(
     id: id ?? this.id,
     reportIds: reportIds ?? this.reportIds,
@@ -205,6 +215,7 @@ class WorkOrder {
     createdBy: createdBy ?? this.createdBy,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    archivedAt: archivedAt ?? this.archivedAt,
   );
 
   @override
@@ -227,7 +238,8 @@ class WorkOrder {
         other.completedAt == completedAt &&
         other.createdBy == createdBy &&
         other.createdAt == createdAt &&
-        other.updatedAt == updatedAt;
+        other.updatedAt == updatedAt &&
+        other.archivedAt == archivedAt;
   }
 
   @override
@@ -249,6 +261,7 @@ class WorkOrder {
     createdBy,
     createdAt,
     updatedAt,
+    archivedAt,
   ]);
 
   @override

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/enums/account_status.dart';
 import '../../../core/enums/personnel_availability.dart';
 import '../../../core/enums/task_status.dart';
@@ -27,6 +28,7 @@ import '../../tools/data/models/tool_loan.dart';
 import '../../user_management/presentation/personnel_providers.dart';
 import '../data/models/work_order.dart';
 import 'personnel/personnel_providers.dart';
+import 'widgets/work_order_archive.dart';
 import 'work_order_detail_controller.dart';
 
 /// A work order in the console (Objective 5): its tasks — which the
@@ -44,7 +46,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
-    padding: const EdgeInsets.all(32),
+    padding: EdgeInsets.all(Breakpoints.gutter(context)),
     child: AsyncValueView<WorkOrder>(
       value: ref.watch(workOrderDetailProvider(workOrderId)),
       onRetry: () => ref.invalidate(workOrderDetailProvider(workOrderId)),
@@ -87,6 +89,22 @@ class _Detail extends ConsumerWidget {
             PriorityChip(level: workOrder.priority),
           ],
         ),
+        // Work orders are archived, never deleted (2026-11-08).
+        if (workOrder.isArchived || workOrder.canBeArchived) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => confirmWorkOrderArchive(context, workOrder),
+            icon: Icon(
+              workOrder.isArchived
+                  ? Icons.unarchive_outlined
+                  : Icons.archive_outlined,
+              size: 18,
+            ),
+            label: Text(
+              workOrder.isArchived ? 'Restore from archive' : 'Archive',
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -665,14 +683,17 @@ class _AddTaskFormState extends ConsumerState<_AddTaskForm> {
         ),
       ),
       const SizedBox(height: 8),
-      Row(
+      Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 8,
         children: [
           OutlinedButton.icon(
             onPressed: _busy ? null : _pickDate,
             icon: const Icon(Icons.event_outlined, size: 18),
             label: Text('Due ${DateFormat('MMM d, y').format(_due)}'),
           ),
-          const Spacer(),
           FilledButton(
             onPressed: _busy || _title.text.trim().isEmpty ? null : _add,
             child: Text(_busy ? 'Adding…' : 'Add task'),

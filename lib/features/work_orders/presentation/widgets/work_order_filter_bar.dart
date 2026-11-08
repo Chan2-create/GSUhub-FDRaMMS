@@ -33,6 +33,7 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
     final draft = ref.watch(workOrderFilterDraftProvider);
     final draftController = ref.read(workOrderFilterDraftProvider.notifier);
     final mode = ref.watch(workOrderViewModeProvider);
+    final archived = ref.watch(showArchivedWorkOrdersProvider);
 
     return Container(
       decoration: BoxDecoration(
@@ -135,6 +136,18 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
           _ViewToggle(
             mode: mode,
             onChanged: ref.read(workOrderViewModeProvider.notifier).set,
+          ),
+          // Completed work taken off the board (2026-11-08). Work orders
+          // are archived, never deleted.
+          FilterChip(
+            label: const Text('Archived'),
+            tooltip: archived
+                ? 'Back to the board'
+                : 'Show archived work orders',
+            selected: archived,
+            onSelected: (value) => ref
+                .read(showArchivedWorkOrdersProvider.notifier)
+                .set(archived: value),
           ),
         ],
       ),

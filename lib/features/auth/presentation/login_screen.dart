@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/routing/route_paths.dart';
 import 'auth_controller.dart';
 
@@ -77,7 +78,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 // squeezed to an unusable width.
                 final isWide = constraints.maxWidth >= 1000;
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(40, 100, 40, 40),
+                  padding: Breakpoints.isCompact(context)
+                      ? const EdgeInsets.fromLTRB(16, 96, 16, 24)
+                      : const EdgeInsets.fromLTRB(40, 100, 40, 40),
                   child: isWide
                       ? Row(
                           children: [
@@ -295,9 +298,15 @@ class _HeadingBlock extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
-      Text(
-        'DAVAO ORIENTAL STATE\nUNIVERSITY',
-        style: AppTextStyles.loginHeadline,
+      // Scaled down, never broken mid-word, where the window is narrower
+      // than the design's two lines.
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'DAVAO ORIENTAL STATE\nUNIVERSITY',
+          style: AppTextStyles.loginHeadline,
+        ),
       ),
       SizedBox(height: 24),
       SizedBox(
@@ -355,7 +364,9 @@ class _SignInCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 56),
+      padding: Breakpoints.isCompact(context)
+          ? const EdgeInsets.symmetric(horizontal: 24, vertical: 32)
+          : const EdgeInsets.symmetric(horizontal: 80, vertical: 56),
       child: Form(
         key: formKey,
         child: Column(

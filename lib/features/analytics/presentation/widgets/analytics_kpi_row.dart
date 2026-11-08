@@ -32,7 +32,11 @@ class AnalyticsKpiRow extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1000 ? 4 : 2;
+        final columns = constraints.maxWidth >= 1000
+            ? 4
+            : constraints.maxWidth >= 440
+            ? 2
+            : 1;
         const gap = 24.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(

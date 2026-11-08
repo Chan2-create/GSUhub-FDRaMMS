@@ -150,8 +150,9 @@ class _KeywordEditorState extends ConsumerState<_KeywordEditor> {
                     : 'All changes saved.',
                 style: AppTextStyles.bodySmall,
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
                 children: [
                   OutlinedButton(
                     onPressed: _hasChanges && !_saving
@@ -159,7 +160,6 @@ class _KeywordEditorState extends ConsumerState<_KeywordEditor> {
                         : null,
                     child: const Text('Discard changes'),
                   ),
-                  const SizedBox(width: 12),
                   FilledButton(
                     onPressed: (_hasChanges || _isManuscriptList) && !_saving
                         ? _save

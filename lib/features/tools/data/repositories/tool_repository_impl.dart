@@ -22,13 +22,19 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
   static const String _loans = 'tool_loans';
 
   @override
-  Future<Result<Tool>> getToolById(String id) =>
-      getOne(table: _tools, id: id, convert: Tool.fromRecord);
+  Future<Result<Tool>> getToolById(String id) async =>
+      _present(await getOne(table: _tools, id: id, convert: Tool.fromRecord));
 
   @override
   Future<Result<Tool>> getToolByQrCode(String qrCode) async {
     final matches = await getMany(
-      query: client.from(_tools).select().eq('qr_code', qrCode).limit(1),
+      // A deleted tool's code may be on a tool added since.
+      query: client
+          .from(_tools)
+          .select()
+          .eq('qr_code', qrCode)
+          .isFilter('deleted_at', null)
+          .limit(1),
       convert: Tool.fromRecord,
     );
     return matches.fold(
@@ -43,7 +49,8 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
 
   @override
   Stream<Result<List<Tool>>> watchTools({ToolStatus? status}) =>
-      // Filtered here: a tool's status changes with every loan.
+      // Filtered here: a tool's status changes with every loan, and a
+      // live stream cannot ask for an empty deleted_at.
       watchMany(
         stream: client
             .from(_tools)
@@ -54,14 +61,15 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
         (result) => result.map(
           (tools) => [
             for (final tool in tools)
-              if (status == null || tool.status == status) tool,
+              if (!tool.isDeleted && (status == null || tool.status == status))
+                tool,
           ],
         ),
       );
 
   @override
   Stream<Result<Tool>> watchTool(String id) =>
-      watchOne(table: _tools, id: id, convert: Tool.fromRecord);
+      watchOne(table: _tools, id: id, convert: Tool.fromRecord).map(_present);
 
   @override
   Future<Result<String>> createTool({
@@ -92,6 +100,20 @@ class ToolRepositoryImpl extends SupabaseRepository implements ToolRepository {
     required ToolStatus status,
     required AuditActor actor,
   }) => rpc('set_tool_status', {'id': toolId, 'status': status.id});
+
+  @override
+  Future<Result<void>> deleteTool({
+    required String toolId,
+    required AuditActor actor,
+  }) => rpc('delete_tool', {'id': toolId});
+
+  /// A deleted tool reads as gone.
+  static Result<Tool> _present(Result<Tool> result) => switch (result) {
+    Success(:final value) when value.isDeleted => const Result.failure(
+      NotFoundFailure('This tool is no longer in the inventory.'),
+    ),
+    _ => result,
+  };
 
   @override
   Future<Result<ToolLoan>> borrowTool({

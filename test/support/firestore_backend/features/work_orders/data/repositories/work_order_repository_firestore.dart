@@ -482,6 +482,44 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
     );
   });
 
+  /// As set_work_order_archived: only a completed work order is archived.
+  @override
+  Future<Result<void>> setArchived({
+    required String workOrderId,
+    required bool archived,
+    required AuditActor actor,
+  }) => db.runTransaction<void>((transaction) async {
+    final reference = collection(_path).doc(workOrderId);
+    final snapshot = await transaction.get(reference);
+    if (!snapshot.exists) throw _notFound('No work order $workOrderId');
+    final order = fromDoc(WorkOrder.fromRecord)(snapshot);
+    if (order.isArchived == archived) return;
+    final label = DisplayId.workOrder(workOrderId);
+    if (archived && order.status != WorkOrderStatus.completed) {
+      throw FirestoreRepository.precondition(
+        '$label is ${order.status.title}. Only a completed work order can be '
+        'archived.',
+      );
+    }
+    transaction.update(reference, {
+      'archivedAt': archived ? FirestoreRepository.serverNow : null,
+    });
+    stageAuditEntry(
+      transaction,
+      db.raw,
+      actor: actor,
+      action: AuditAction.updated,
+      entityType: FirestorePaths.workOrders,
+      entityId: workOrderId,
+      description: archived
+          ? 'Archived work order $label'
+          : 'Restored work order $label from the archive',
+      changes: {
+        'archived': {'from': !archived, 'to': archived},
+      },
+    );
+  });
+
   /// The report status that corresponds to each Kanban column.
   static ReportStatus reportStatusFor(WorkOrderStatus status) =>
       WorkOrderMove.reportStatusFor(status);

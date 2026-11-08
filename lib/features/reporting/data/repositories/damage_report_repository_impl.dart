@@ -176,6 +176,13 @@ class DamageReportRepositoryImpl extends SupabaseRepository
   });
 
   @override
+  Future<Result<void>> setArchived({
+    required String reportId,
+    required bool archived,
+    required AuditActor actor,
+  }) => rpc('set_report_archived', {'id': reportId, 'archived': archived});
+
+  @override
   Future<Result<void>> mergeDuplicates({
     required String parentReportId,
     required List<String> duplicateReportIds,

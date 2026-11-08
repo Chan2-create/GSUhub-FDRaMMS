@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/di/repository_providers.dart';
 import '../../../core/enums/item_condition.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../inventory/presentation/inventory_controller.dart';
 import '../../inventory/presentation/widgets/inventory_widgets.dart';
@@ -53,7 +55,7 @@ class FacilitiesScreen extends ConsumerWidget {
     final roomsById = {for (final room in rooms) room.id: room};
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(Breakpoints.gutter(context)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -250,6 +252,13 @@ class _RoomsTable extends ConsumerWidget {
           onActive: (active) => ref
               .read(inventoryControllerProvider)
               .setFacilityActive(room.id, active: active),
+          onDelete: () => _confirmDelete(
+            context,
+            name: [room.buildingName, ?room.roomIdentifier].join(', '),
+            kind: 'room',
+            delete: () =>
+                ref.read(inventoryControllerProvider).deleteFacility(room.id),
+          ),
         ),
       ),
     ],
@@ -317,6 +326,13 @@ class _EquipmentTable extends ConsumerWidget {
             onActive: (active) => ref
                 .read(inventoryControllerProvider)
                 .setAssetActive(asset.id, active: active),
+            onDelete: () => _confirmDelete(
+              context,
+              name: asset.name,
+              kind: 'equipment',
+              delete: () =>
+                  ref.read(inventoryControllerProvider).deleteAsset(asset.id),
+            ),
           ),
         ),
       ],
@@ -324,7 +340,7 @@ class _EquipmentTable extends ConsumerWidget {
   }
 }
 
-/// Edit, the sticker, and deactivate or reactivate.
+/// Edit, the sticker, deactivate or reactivate, and delete.
 class _RowActions extends StatelessWidget {
   const _RowActions({
     required this.name,
@@ -332,6 +348,7 @@ class _RowActions extends StatelessWidget {
     required this.onEdit,
     required this.onLabel,
     required this.onActive,
+    required this.onDelete,
   });
 
   final String name;
@@ -339,6 +356,7 @@ class _RowActions extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onLabel;
   final Future<Result<void>> Function(bool active) onActive;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -371,9 +389,32 @@ class _RowActions extends StatelessWidget {
           size: 20,
         ),
       ),
+      IconButton(
+        tooltip: 'Delete $name',
+        onPressed: onDelete,
+        icon: const Icon(Icons.delete_outline, size: 20),
+      ),
     ],
   );
 }
+
+/// Asks before deleting a room or piece of equipment named [name], and
+/// deletes it with [delete]. Refusals (open reports, equipment still in
+/// the room) show in the dialog.
+Future<bool> _confirmDelete(
+  BuildContext context, {
+  required String name,
+  required String kind,
+  required Future<Result<void>> Function() delete,
+}) => showConfirmDeleteDialog(
+  context: context,
+  title: 'Delete $name?',
+  message:
+      'It leaves the $kind list, the report form and the scanner. Reports '
+      'about it keep its name, and its code can go on another $kind.',
+  doneMessage: 'Deleted $name.',
+  onConfirm: delete,
+);
 
 /// Adds a room, or edits [room].
 Future<void> showFacilityFormDialog(BuildContext context, {Facility? room}) =>

@@ -27,6 +27,7 @@ class AdminTopBar extends StatelessWidget {
     required this.unreadNotifications,
     super.key,
     this.pageControls,
+    this.showMenuButton = false,
   });
 
   final String pageTitle;
@@ -37,8 +38,16 @@ class AdminTopBar extends StatelessWidget {
   /// A page's own control, between the title and the date.
   final Widget? pageControls;
 
+  /// On a phone the sidebar is a drawer, opened from here.
+  final bool showMenuButton;
+
   /// Room the page title keeps before the actions start to scale down.
   static const double _minTitleWidth = 120;
+
+  /// Below this the bar keeps the title, the page's control, Export Data
+  /// as an icon, and the bell. The date, the disabled Report New Damage
+  /// and Help, and the plain avatar come back with the room.
+  static const double _compactWidth = 900;
 
   @override
   Widget build(BuildContext context) {
@@ -52,9 +61,15 @@ class AdminTopBar extends StatelessWidget {
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.only(
+        left: showMenuButton ? 4 : 32,
+        right: showMenuButton ? 8 : 32,
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          if (constraints.maxWidth < _compactWidth) {
+            return _compact(context, constraints.maxWidth);
+          }
           final trailing = Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -89,6 +104,7 @@ class AdminTopBar extends StatelessWidget {
 
           return Row(
             children: [
+              if (showMenuButton) const _MenuButton(),
               // The design's leading title slot is an empty frame, followed
               // by a divider and the section name. The empty frame is
               // omitted — filling it with the route title too would print
@@ -127,10 +143,63 @@ class AdminTopBar extends StatelessWidget {
       ),
     );
   }
+
+  Widget _compact(BuildContext context, double width) => Row(
+    children: [
+      if (showMenuButton) const _MenuButton(),
+      Expanded(
+        child: Text(
+          pageTitle,
+          style: AppTextStyles.topBarTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      const SizedBox(width: 8),
+      ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: (width - 8 - (showMenuButton ? 48 : 0) - 96).clamp(
+            0,
+            double.infinity,
+          ),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (pageControls case final controls?) ...[
+                controls,
+                const SizedBox(width: 4),
+              ],
+              const _ExportDataButton(iconOnly: true),
+              _NotificationBell(unreadCount: unreadNotifications),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+/// Opens the drawer that holds the sidebar on a phone.
+class _MenuButton extends StatelessWidget {
+  const _MenuButton();
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: 'Open navigation',
+    onPressed: () => Scaffold.of(context).openDrawer(),
+    icon: const Icon(Icons.menu, color: AppColors.textMuted),
+  );
 }
 
 class _ExportDataButton extends ConsumerStatefulWidget {
-  const _ExportDataButton();
+  const _ExportDataButton({this.iconOnly = false});
+
+  /// The export glyph alone, where the bar is narrow.
+  final bool iconOnly;
 
   @override
   ConsumerState<_ExportDataButton> createState() => _ExportDataButtonState();
@@ -142,10 +211,27 @@ class _ExportDataButtonState extends ConsumerState<_ExportDataButton> {
   @override
   Widget build(BuildContext context) {
     final range = ref.watch(analyticsRangeProvider);
+    final message =
+        'Download reports for the Analytics period '
+        '(${range.label.toLowerCase()}) as a CSV file';
+    if (widget.iconOnly) {
+      return IconButton(
+        tooltip:
+            'Export Data: ${message[0].toLowerCase()}${message.substring(1)}',
+        onPressed: _busy ? null : _export,
+        icon: SvgPicture.asset(
+          'assets/icons/topbar_export.svg',
+          width: 14,
+          height: 14,
+          colorFilter: const ColorFilter.mode(
+            AppColors.primary,
+            BlendMode.srcIn,
+          ),
+        ),
+      );
+    }
     return Tooltip(
-      message:
-          'Download reports for the Analytics period '
-          '(${range.label.toLowerCase()}) as a CSV file',
+      message: message,
       child: OutlinedButton.icon(
         onPressed: _busy ? null : _export,
         icon: SvgPicture.asset(

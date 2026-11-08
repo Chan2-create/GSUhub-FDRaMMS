@@ -101,6 +101,21 @@ class WorkOrderDetailController {
         ),
   );
 
+  /// Takes a completed work order off the board, or back (2026-11-08).
+  /// Work orders are archived, never deleted.
+  Future<Result<void>> setArchived(
+    String workOrderId, {
+    required bool archived,
+  }) => _act(
+    (actor) => _ref
+        .read(workOrderRepositoryProvider)
+        .setArchived(
+          workOrderId: workOrderId,
+          archived: archived,
+          actor: actor,
+        ),
+  );
+
   Future<Result<void>> _act(
     Future<Result<void>> Function(AuditActor actor) action,
   ) async {
