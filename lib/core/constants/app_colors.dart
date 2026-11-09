@@ -45,6 +45,10 @@ abstract final class AppColors {
   /// Hairline rules inside tables.
   static const Color borderSubtle = Color(0xFFF1F5F9);
 
+  /// The faint shadow under the top bar's white card (Figma 196:743),
+  /// the only edge it shows against the white header.
+  static const Color topBarShadow = Color(0x1F0F172A);
+
   /// Track behind a progress bar.
   static const Color trackBackground = Color(0xFFF1F5F9);
 

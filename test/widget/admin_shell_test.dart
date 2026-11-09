@@ -6,6 +6,8 @@ import 'package:gsuhub/core/routing/route_guards.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/shells/admin/admin_shell.dart';
 import 'package:gsuhub/shells/admin/widgets/admin_nav_items.dart';
+import 'package:gsuhub/shells/admin/widgets/admin_sidebar.dart';
+import 'package:gsuhub/shells/admin/widgets/admin_top_bar.dart';
 
 import '../support/fake_admin_backend.dart';
 
@@ -139,6 +141,19 @@ void main() {
   });
 
   group('top bar', () {
+    testWidgets('runs the full width, the logo over the sidebar, as drawn', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      final bar = tester.getRect(find.byType(AdminTopBar));
+      expect(bar.width, 1440);
+      expect(bar.height, AdminTopBar.height);
+      expect(find.bySemanticsLabel('GSUhub'), findsOneWidget);
+      // The 13px gold rule sits between the header and the sidebar.
+      expect(tester.getRect(find.byType(AdminSidebar)).top, bar.bottom + 13);
+    });
+
     testWidgets('names the current page once', (tester) async {
       await pumpShell(tester);
 
