@@ -1589,9 +1589,18 @@ widths:
   the low-stock count as a bubble.
 - Below 720: the sidebar in a drawer behind a menu button in the top bar;
   pages keep a 16 px margin instead of 32.
-- The top bar, narrower than 900, keeps the title, a page's own control,
-  Export Data as an icon, and the bell; the date, the disabled Report New
-  Damage and Help buttons, and the plain avatar return with the room.
+- The top bar's card, narrower than 640, keeps the title, a page's own
+  control, Export Data as an icon, and the bell; the date, the disabled
+  Report New Damage and Help buttons return with the room. On a phone
+  the bar is a single row (menu, title, export, bell) without the logo
+  or the avatar.
+- The header (2026-11-09, matched to the dashboard frame): 80 px of
+  white across the whole window, the GSUhub logo over the sidebar's
+  column (150 px beside the icon rail), the controls in a white card
+  with a soft bottom shadow that starts where the sidebar ends, the
+  section name in grey after the divider, and the avatar on its own at
+  the right. The 13 px gold rule runs full width under it, and the
+  sidebar starts below the rule.
 - Tables keep their columns and scroll sideways inside their card when
   narrower than the columns need (`core/widgets/scroll_when_narrow.dart`,
   used by `AppDataTable` and the custom tables). The page itself never

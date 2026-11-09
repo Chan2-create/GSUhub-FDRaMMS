@@ -6,12 +6,17 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../features/analytics/presentation/analytics_export.dart';
 import '../../../features/analytics/presentation/analytics_providers.dart';
 
-/// Top app bar (Figma node `196:743`): page title, live date, primary
-/// actions, notification bell, help, avatar.
+/// Top app bar (Figma node `196:743`, placed as in the dashboard frame):
+/// a white header across the whole window, the GSUhub logo over the
+/// sidebar's column, a white card with a soft shadow holding the section
+/// name, live date, primary actions, bell and help, and the avatar on its
+/// own at the right. The shell draws the gold rule under it, full width,
+/// and the sidebar below that.
 ///
 /// Export Data downloads the Analytics CSV from any page (2.C). Report New
 /// Damage renders disabled with a tooltip: filing a report is a faculty and
@@ -28,6 +33,7 @@ class AdminTopBar extends StatelessWidget {
     super.key,
     this.pageControls,
     this.showMenuButton = false,
+    this.brandWidth,
   });
 
   final String pageTitle;
@@ -35,19 +41,31 @@ class AdminTopBar extends StatelessWidget {
   /// Drives the red dot on the bell. Zero hides it.
   final int unreadNotifications;
 
-  /// A page's own control, between the title and the date.
+  /// A page's own control, between the section name and the date.
   final Widget? pageControls;
 
   /// On a phone the sidebar is a drawer, opened from here.
   final bool showMenuButton;
 
-  /// Room the page title keeps before the actions start to scale down.
-  static const double _minTitleWidth = 120;
+  /// The logo's column: the sidebar's width beneath it, so the card
+  /// starts where the sidebar ends. Null on a phone, where the bar is a
+  /// single row behind the menu button and the logo gives way to the
+  /// page's name.
+  final double? brandWidth;
 
-  /// Below this the bar keeps the title, the page's control, Export Data
-  /// as an icon, and the bell. The date, the disabled Report New Damage
-  /// and Help, and the plain avatar come back with the room.
-  static const double _compactWidth = 900;
+  /// The header's height, as drawn: the card and the white below it.
+  static const double height = 80;
+
+  /// The card's controls row, the original 52px bar.
+  static const double _barHeight = 52;
+
+  /// White above the controls row inside the card.
+  static const double _cardInset = 17;
+
+  /// Inside a card narrower than this, the bar keeps the page's name, its
+  /// control, Export Data as an icon, and the bell. The date, the
+  /// disabled Report New Damage and Help come back with the room.
+  static const double _compactWidth = 640;
 
   @override
   Widget build(BuildContext context) {
@@ -55,94 +73,123 @@ class AdminTopBar extends StatelessWidget {
     // real date.
     final today = DateFormat('MMMM d, y').format(DateTime.now());
 
-    return Container(
-      height: 52,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      padding: EdgeInsets.only(
-        left: showMenuButton ? 4 : 32,
-        right: showMenuButton ? 8 : 32,
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < _compactWidth) {
-            return _compact(context, constraints.maxWidth);
-          }
-          final trailing = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 1, height: 16, color: const Color(0xFFCBD5E1)),
-              const SizedBox(width: 16),
-              if (pageControls case final controls?) ...[
-                controls,
-                const SizedBox(width: 16),
-              ],
-              SvgPicture.asset(
-                'assets/icons/topbar_calendar.svg',
-                width: 18,
-                height: 20,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.textMuted,
-                  BlendMode.srcIn,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(today, style: AppTextStyles.topBarMeta),
-              const SizedBox(width: 24),
-              const _ExportDataButton(),
-              const SizedBox(width: 12),
-              const _ReportNewDamageButton(),
-              const SizedBox(width: 12),
-              _NotificationBell(unreadCount: unreadNotifications),
-              const _HelpButton(),
-              const SizedBox(width: 8),
-              const _Avatar(),
-            ],
-          );
+    final brand = brandWidth;
+    if (brand == null) {
+      return Container(
+        height: _barHeight,
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        padding: EdgeInsets.only(left: showMenuButton ? 4 : 24, right: 8),
+        child: LayoutBuilder(
+          builder: (context, constraints) =>
+              _compact(context, constraints.maxWidth),
+        ),
+      );
+    }
 
-          return Row(
-            children: [
-              if (showMenuButton) const _MenuButton(),
-              // The design's leading title slot is an empty frame, followed
-              // by a divider and the section name. The empty frame is
-              // omitted — filling it with the route title too would print
-              // the same word twice and, at the design's own 1440px width,
-              // overflow the row by 69px once the 305px sidebar is
-              // accounted for.
-              Expanded(
-                child: Text(
-                  pageTitle,
-                  style: AppTextStyles.topBarTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 16),
-              // At the design's width everything fits and this does
-              // nothing. In a narrower window — or with a page control
-              // added, as Analytics adds its period selector — the actions
-              // scale down together instead of overflowing the bar.
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: (constraints.maxWidth - 16 - _minTitleWidth).clamp(
-                    0,
-                    double.infinity,
-                  ),
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: trailing,
-                ),
-              ),
-            ],
-          );
-        },
+    // At the design's 1440 the card ends 96px short of the avatar; the
+    // gap closes first as the window narrows.
+    final avatarGap =
+        ((Breakpoints.widthOf(context) - Breakpoints.expanded) * 0.3 + 24)
+            .clamp(24.0, 96.0);
+
+    return Container(
+      height: height,
+      color: AppColors.surface,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Brand(width: brand),
+          Expanded(child: _card(context, today)),
+          SizedBox(width: avatarGap),
+          const Padding(
+            padding: EdgeInsets.only(top: _cardInset),
+            child: SizedBox(
+              height: _barHeight,
+              child: Center(child: _Avatar()),
+            ),
+          ),
+          const SizedBox(width: 25),
+        ],
       ),
     );
   }
+
+  /// The white card: flush with the top of the window, so only its
+  /// rounded bottom edge and soft shadow show against the white header.
+  Widget _card(BuildContext context, String today) => Container(
+    height: _cardInset + _barHeight,
+    padding: const EdgeInsets.only(top: _cardInset, left: 24, right: 8),
+    decoration: const BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.topBarShadow,
+          offset: Offset(0, 2),
+          blurRadius: 3,
+          spreadRadius: -1,
+        ),
+      ],
+    ),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < _compactWidth) {
+          return _compact(context, constraints.maxWidth);
+        }
+        // The card's left part is the design's empty title frame; the
+        // section name follows the divider, in the date's grey.
+        final trailing = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 1, height: 16, color: const Color(0xFFCBD5E1)),
+            const SizedBox(width: 16),
+            Semantics(
+              header: true,
+              child: Text(pageTitle, style: AppTextStyles.topBarMeta),
+            ),
+            const SizedBox(width: 16),
+            if (pageControls case final controls?) ...[
+              controls,
+              const SizedBox(width: 16),
+            ],
+            SvgPicture.asset(
+              'assets/icons/topbar_calendar.svg',
+              width: 18,
+              height: 20,
+              colorFilter: const ColorFilter.mode(
+                AppColors.textMuted,
+                BlendMode.srcIn,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(today, style: AppTextStyles.topBarMeta),
+            const SizedBox(width: 24),
+            const _ExportDataButton(),
+            const SizedBox(width: 12),
+            const _ReportNewDamageButton(),
+            const SizedBox(width: 12),
+            _NotificationBell(unreadCount: unreadNotifications),
+            const _HelpButton(),
+          ],
+        );
+        // At the design's width everything fits and this does nothing.
+        // In a narrower window — or with a page control added, as
+        // Analytics adds its period selector — the row scales down
+        // together instead of overflowing the card.
+        return Align(
+          alignment: Alignment.centerRight,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: trailing,
+          ),
+        );
+      },
+    ),
+  );
 
   Widget _compact(BuildContext context, double width) => Row(
     children: [
@@ -180,6 +227,40 @@ class AdminTopBar extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+/// The GSUhub logo over the sidebar's column, its mark spanning 126 x 42
+/// and centred on the header's middle, as drawn.
+class _Brand extends StatelessWidget {
+  const _Brand({required this.width});
+
+  final double width;
+
+  /// The exported PNG is square with wide transparent margins: the mark
+  /// fills its middle 85% across and 28% down, centred at 48% of its
+  /// height.
+  static const double _box = 148;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    height: AdminTopBar.height,
+    child: const Stack(
+      children: [
+        Positioned(
+          left: -1,
+          top: AdminTopBar.height / 2 - _box * 0.482,
+          width: _box,
+          height: _box,
+          child: Image(
+            image: AssetImage('assets/images/gsuhub_logo.png'),
+            fit: BoxFit.contain,
+            semanticLabel: 'GSUhub',
+          ),
+        ),
+      ],
+    ),
   );
 }
 

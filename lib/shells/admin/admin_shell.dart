@@ -23,6 +23,9 @@ class AdminShell extends ConsumerWidget {
 
   final Widget child;
 
+  /// The logo's column beside the icon rail: the logo's own width.
+  static const double _railBrandWidth = 150;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).matchedLocation;
@@ -40,6 +43,7 @@ class AdminShell extends ConsumerWidget {
     // small laptop; a drawer behind the top bar's menu button on a phone.
     final width = Breakpoints.widthOf(context);
     final drawer = width < Breakpoints.compact;
+    final rail = !drawer && width < Breakpoints.expanded;
     AdminSidebar sidebar({bool rail = false}) => AdminSidebar(
       currentLocation: location,
       user: user,
@@ -63,23 +67,32 @@ class AdminShell extends ConsumerWidget {
               child: sidebar(),
             )
           : null,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      // As in the dashboard frame: the header and its gold rule run the
+      // full width of the window, the logo over the sidebar's column, and
+      // the sidebar starts beneath them.
+      body: Column(
         children: [
-          if (!drawer) sidebar(rail: width < Breakpoints.expanded),
+          AdminTopBar(
+            pageTitle: titleFor(location),
+            unreadNotifications: unread,
+            showMenuButton: drawer,
+            // The logo needs 150px; the icon rail is narrower than that.
+            brandWidth: drawer
+                ? null
+                : rail
+                ? _railBrandWidth
+                : AdminSidebar.width,
+            pageControls: location.startsWith(RoutePaths.adminAnalytics)
+                ? const AnalyticsRangeSelect()
+                : null,
+          ),
+          // The gold rule the design runs beneath the top bar.
+          Container(height: 13, color: AppColors.accentGold),
           Expanded(
-            child: Column(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                AdminTopBar(
-                  pageTitle: titleFor(location),
-                  unreadNotifications: unread,
-                  showMenuButton: drawer,
-                  pageControls: location.startsWith(RoutePaths.adminAnalytics)
-                      ? const AnalyticsRangeSelect()
-                      : null,
-                ),
-                // The gold rule the design runs beneath the top bar.
-                Container(height: 13, color: AppColors.accentGold),
+                if (!drawer) sidebar(rail: rail),
                 // A container of its own, so the page route's modal
                 // barrier hides nothing outside it: without one, screen
                 // readers lost the sidebar and the top bar.
