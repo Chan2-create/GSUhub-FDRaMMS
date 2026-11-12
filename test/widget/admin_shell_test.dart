@@ -85,8 +85,8 @@ void main() {
     ) async {
       await pumpShell(tester);
 
-      // Map View alone stays disabled: drawn in the design, but not in the
-      // manuscript's feature list, so it waits for the adviser's word.
+      // Every destination is built: Map View, the last, on 2026-11-12,
+      // scoped to what the manuscript says geo-tags are for.
       final enabled = [
         for (final group in adminNavGroups)
           for (final item in group.items)
@@ -100,6 +100,7 @@ void main() {
         'Personnel', // 2.C
         'Task Assignment', // 2.B
         'Work Order Management', // 2.B
+        'Map View', // geo-tagged reports, 2026-11-12
         'Analytics', // 2.C
         'User Accounts', // 2.C
         'Facilities & Equipment', // 6.C
@@ -118,13 +119,19 @@ void main() {
       expect(find.text('Work Order Management'), findsWidgets);
     });
 
-    testWidgets('a disabled destination does not navigate', (tester) async {
+    testWidgets('Map View opens from the sidebar', (tester) async {
       await pumpShell(tester);
 
-      await tester.tap(find.text('Map View').first, warnIfMissed: false);
+      await tester.tap(find.text('Map View').first);
       await tester.pumpAndSettle();
 
-      expect(currentPath(), RoutePaths.adminDashboard);
+      expect(currentPath(), RoutePaths.adminMapView);
+      // The fixture's reports carry no geo-tag, so the page says so
+      // rather than drawing an empty map.
+      expect(
+        find.text('No open report has a geo-tag to show.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('signs out through the auth service', (tester) async {

@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
+import '../../../../core/routing/route_paths.dart';
+import '../../../../core/widgets/async_value_view.dart';
+import '../map/report_map.dart';
+import '../map/report_map_providers.dart';
 
-/// "Campus View" (Figma `198:2968`), as a placeholder.
+/// "Campus View" (Figma `198:2968`): a still preview of Map View.
 ///
 /// The design shows an interactive campus map with per-building density
-/// bars. Neither exists yet: the project has no map dependency, and
-/// "density" is not a figure anything in the data model produces. Adding a
-/// map library is a decision with licensing, API-key and offline
-/// consequences, so the panel keeps its place in the layout and says what
-/// it is waiting for rather than drawing invented data.
-class CampusViewCard extends StatelessWidget {
+/// bars. "Density" is not a figure the data model or the manuscript
+/// produces, so the panel draws what Map View draws, the open reports'
+/// geo-tags, and leads there for the rest (2026-11-12; until then it was
+/// a placeholder waiting on a mapping library, which the faculty and
+/// staff app's geo-tag preview has since settled).
+class CampusViewCard extends ConsumerWidget {
   const CampusViewCard({super.key});
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context, WidgetRef ref) => Container(
     height: 422,
     decoration: BoxDecoration(
       color: AppColors.surface,
@@ -32,42 +38,41 @@ class CampusViewCard extends StatelessWidget {
             border: Border(right: BorderSide(color: AppColors.borderStrong)),
           ),
           padding: const EdgeInsets.all(24),
-          child: const Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Campus View', style: AppTextStyles.panelHeading),
-              SizedBox(height: 4),
-              Text(
-                'Detailed overview of campus buildings and facilities for '
-                'rapid navigation.',
+              const Text('Campus View', style: AppTextStyles.panelHeading),
+              const SizedBox(height: 4),
+              const Text(
+                'Where the open geo-tagged reports were filed on campus.',
                 style: AppTextStyles.bodyText,
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: () => context.go(RoutePaths.adminMapView),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                child: const Text('Open Map View'),
               ),
             ],
           ),
         ),
-        const Expanded(
+        Expanded(
           child: ColoredBox(
-            color: Color(0xFFEFF4FF),
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.map_outlined,
-                      size: 40,
-                      color: AppColors.textFaint,
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Campus map pending a decision on a mapping library.',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
+            color: const Color(0xFFEFF4FF),
+            child: AsyncValueView<ReportMapData>(
+              value: ref.watch(openReportMapProvider),
+              isEmpty: (data) => data.located.isEmpty,
+              emptyIcon: Icons.map_outlined,
+              emptyMessage: 'No open report has a geo-tag to show.',
+              loadingHeight: 420,
+              data: (data) =>
+                  ReportMap(reports: data.located, interactive: false),
             ),
           ),
         ),

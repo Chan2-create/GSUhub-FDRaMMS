@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
@@ -167,6 +168,9 @@ class FirestoreHarness {
     String? workOrderId,
     String reporterId = 'faculty-1',
     DateTime? submittedAt,
+    String title = 'Flickering lights',
+    String? locationDescription,
+    GeoCoordinates? coordinates,
   }) => firestore
       .collection(FirestorePaths.damageReports)
       .doc(id)
@@ -175,7 +179,7 @@ class FirestoreHarness {
           id: id,
           reporterId: reporterId,
           reporterName: 'Maria Santos',
-          title: 'Flickering lights',
+          title: title,
           description: 'Lights in Room 101 flicker constantly.',
           requestorPriority: PriorityLevel.high,
           status: status,
@@ -183,6 +187,8 @@ class FirestoreHarness {
           officialPriority: officialPriority,
           facilityId: 'fac-engineering',
           facilityName: 'Engineering Building',
+          locationDescription: locationDescription,
+          coordinates: coordinates,
           workOrderId: workOrderId,
           submittedAt: submittedAt ?? DateTime.utc(2026, 9),
           updatedAt: DateTime.utc(2026, 9),

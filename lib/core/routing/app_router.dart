@@ -15,6 +15,7 @@ import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/inventory/presentation/personnel/material_request_screen.dart';
 import '../../features/notifications/presentation/admin_notifications_screen.dart';
 import '../../features/notifications/presentation/alerts_screen.dart';
+import '../../features/reporting/presentation/map/report_map_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_report_detail_screen.dart';
 import '../../features/reporting/presentation/my_reports/my_reports_screen.dart';
 import '../../features/reporting/presentation/report_detail_screen.dart';
@@ -36,7 +37,6 @@ import '../../shells/personnel/personnel_shell.dart';
 import '../../shells/requestor/requestor_shell.dart';
 import 'route_guards.dart';
 import 'route_paths.dart';
-import 'route_placeholder_screen.dart';
 
 /// Builds the single, path-prefixed [GoRouter] shared by all three shells
 /// (`/admin/*`, `/staff/*`, `/personnel/*`).
@@ -131,13 +131,11 @@ GoRouter buildAppRouter({
           path: RoutePaths.adminNotifications,
           builder: (context, state) => const AdminNotificationsScreen(),
         ),
-        // Reachable by URL but not from the sidebar, which disables it.
-        for (final placeholder in _adminPlaceholders)
-          GoRoute(
-            path: placeholder.$1,
-            builder: (context, state) =>
-                RoutePlaceholderScreen(routeName: placeholder.$2),
-          ),
+        // Geo-tagged reports on the campus map (2026-11-12).
+        GoRoute(
+          path: RoutePaths.adminMapView,
+          builder: (context, state) => const ReportMapScreen(),
+        ),
       ],
     ),
 
@@ -260,11 +258,3 @@ GoRouter buildAppRouter({
     ),
   ],
 );
-
-/// Admin routes with no screen. Map View is drawn in the Figma file but is
-/// not in the manuscript's feature list, so it waits for the adviser's
-/// word (Chris's decision). Kept as a list so adding one is a single line
-/// rather than a copied `GoRoute` block.
-const List<(String, String)> _adminPlaceholders = [
-  (RoutePaths.adminMapView, 'Map View — pending confirmation'),
-];
