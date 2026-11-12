@@ -572,29 +572,36 @@ class _HistoryRow extends StatelessWidget {
   final String timestamp;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 6, right: 12),
-          child: Icon(Icons.circle, size: 8, color: AppColors.textFaint),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: AppTextStyles.fieldValue),
-              if (subtitle != null)
-                Text(subtitle!, style: AppTextStyles.bodySmall),
-            ],
+  Widget build(BuildContext context) {
+    // On a phone the time goes under the entry: beside it, a long stamp
+    // ("Nov 12, 2026 · 10:42 PM") left the entry no room at all.
+    final compact = Breakpoints.isCompact(context);
+    final stamp = Text(timestamp, style: AppTextStyles.bodySmall);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 6, right: 12),
+            child: Icon(Icons.circle, size: 8, color: AppColors.textFaint),
           ),
-        ),
-        Text(timestamp, style: AppTextStyles.bodySmall),
-      ],
-    ),
-  );
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTextStyles.fieldValue),
+                if (subtitle != null)
+                  Text(subtitle!, style: AppTextStyles.bodySmall),
+                if (compact) stamp,
+              ],
+            ),
+          ),
+          if (!compact) stamp,
+        ],
+      ),
+    );
+  }
 }
 
 class _Field extends StatelessWidget {
