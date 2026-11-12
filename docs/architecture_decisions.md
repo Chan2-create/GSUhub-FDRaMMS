@@ -1731,3 +1731,49 @@ Tests: `test/widget/map_view_test.dart`,
 `test/unit/presentation/report_map_data_test.dart`,
 `test/widget/admin_shell_test.dart` (the sidebar item),
 `test/widget/responsive_console_test.dart` (360, 768, 1024, 1440).
+
+## 26. The phone apps keep their design on every phone (2026-11-12)
+
+The mobile screens were drawn at 390 px wide, with sizes and type fixed
+to that width. On a real phone 360 wide with the system font size one
+step up (about 115%), the sign-in page read as zoomed in: the card's
+contents had 230 px instead of the design's 260, so LOGIN TO DASHBOARD
+wrapped onto two lines, the email hint was cut, and the note and the
+subtitle ran a line longer each. The same squeeze reached every page: at
+320 the bottom bar's "Materials" broke in two and building names broke
+mid-word, and at 130% text the home screens' tiles overflowed.
+
+One place fixes it for both phone apps, `shells/mobile/phone_viewport.dart`,
+set around the app in `app.dart`:
+
+- **Width.** On a phone narrower than 390, a `/staff/*` or
+  `/personnel/*` page is laid out at 390 and scaled down to fit. The page
+  is told the design's measurements throughout (window, notch and gesture
+  areas, keyboard), so every screen keeps the proportions it was drawn
+  with. At 390 or wider nothing is scaled.
+- **Text size.** On those pages the phone's font-size setting cannot make
+  text larger than drawn; smaller is honoured. The fixed-height cards,
+  tiles and buttons have no room for larger text. This is a trade: a
+  reader who has set a large system font gets the design's sizes, not
+  larger ones. Making every screen reflow for large text is the
+  alternative, and is not done.
+- **The console is untouched.** `/admin/*` has its own layout for every
+  width (§24) and follows the browser's text size.
+
+The wrapper keeps the same widgets around the app on every page (a scale
+of 1 where nothing is fitted), so moving between a phone page and the
+console, or turning the phone, does not rebuild the open page.
+
+Fixed alongside:
+
+- The sign-in and sign-up buttons' labels stay on one line whatever the
+  room (`AuthButton`).
+- A recent report with no photo shows a faint picture mark instead of an
+  empty square (faculty and staff home).
+- The console's report page, on a phone: a History entry's time goes
+  under the entry instead of beside it, where a long stamp left the
+  entry no room. (This was the test that failed at some times of day.)
+
+Checked in a browser with the real fonts at 360x811 (the phone it was
+found on), 320x640 and 412x915, at 115% and 130% system text: both apps,
+every page, no overflow. Tests: `test/widget/phone_viewport_test.dart`.

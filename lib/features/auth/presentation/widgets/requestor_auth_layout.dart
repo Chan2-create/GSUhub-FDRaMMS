@@ -288,7 +288,16 @@ class AuthButton extends StatelessWidget {
                   color: Colors.white,
                 ),
               )
-            : Text(label, style: AppTextStyles.authButton),
+            // One line, whatever the room: a label that wrapped ran out
+            // of the button's 52px.
+            : FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: AppTextStyles.authButton,
+                ),
+              ),
       ),
     ),
   );

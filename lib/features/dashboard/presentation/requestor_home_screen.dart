@@ -372,7 +372,14 @@ class _Thumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const placeholder = ColoredBox(color: AppColors.reportThumbPlaceholder);
+    // A faint picture mark, so a report with no photo (or one still
+    // loading) does not read as a blank hole in the row.
+    const placeholder = ColoredBox(
+      color: AppColors.reportThumbPlaceholder,
+      child: Center(
+        child: Icon(Icons.image_outlined, size: 20, color: AppColors.textFaint),
+      ),
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: SizedBox.square(
