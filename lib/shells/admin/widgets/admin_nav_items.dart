@@ -47,10 +47,11 @@ class AdminNavGroup {
 /// Items resolve to a real screen as their objective landed: Dashboard in
 /// 2.A; Damage Reports, Task Assignment and Work Order Management in 2.B;
 /// Personnel, Analytics and User Accounts in 2.C; Inventory Management and
-/// Facilities & Equipment in 6; Notifications in 7.A. Map View alone stays
-/// disabled, with a tooltip saying why: it is drawn but not in the
-/// manuscript's feature list. A tile that goes nowhere reads as broken; a
-/// tile that says why reads as a decision.
+/// Facilities & Equipment in 6; Notifications in 7.A; Map View last
+/// (2026-11-12), once it was scoped to what the manuscript says geo-tags
+/// are for. An item that is not built stays disabled with a tooltip
+/// saying why: a tile that goes nowhere reads as broken; a tile that says
+/// why reads as a decision.
 const List<AdminNavGroup> adminNavGroups = [
   AdminNavGroup(
     label: 'Overview',
@@ -103,14 +104,13 @@ const List<AdminNavGroup> adminNavGroups = [
       // The Figma node for this item carries no glyph (an empty 24px
       // frame at y=500), so there is no asset to export. Falls back to a
       // Material location pin — see docs and the fidelity report.
+      // Built 2026-11-12 from the manuscript's geo-tagging passages
+      // (docs/architecture_decisions.md §25).
       AdminNavItem(
         label: 'Map View',
         iconAsset: null,
         path: RoutePaths.adminMapView,
-        isEnabled: false,
-        disabledReason:
-            'Campus map view is designed but not in the manuscript feature '
-            'list — pending adviser confirmation.',
+        isEnabled: true,
       ),
       AdminNavItem(
         label: 'Analytics',

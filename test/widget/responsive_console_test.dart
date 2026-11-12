@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/notification_type.dart';
@@ -63,6 +64,17 @@ void main() {
         status: status,
         workOrderId: workOrder,
         submittedAt: DateTime.now().subtract(Duration(hours: i * 7)),
+        // Every other report is geo-tagged, so Map View and the Damage
+        // Reports preview draw pins, and count reports without one.
+        locationDescription: i.isEven
+            ? 'Second floor, beside the stairs near the faculty room'
+            : null,
+        coordinates: i.isEven
+            ? GeoCoordinates(
+                latitude: 7.2048 + i * 0.0004,
+                longitude: 126.5354 + i * 0.0003,
+              )
+            : null,
       );
     }
     for (final (id, report, status) in [
@@ -139,6 +151,7 @@ void main() {
     'Work Orders': RoutePaths.adminWorkOrders,
     'Work order detail': '/admin/work-orders/wo-2',
     'Task Assignment': RoutePaths.adminTaskAssignment,
+    'Map View': RoutePaths.adminMapView,
     'Inventory': RoutePaths.adminInventory,
     'Facilities': RoutePaths.adminFacilities,
     'Personnel': RoutePaths.adminPersonnel,

@@ -68,6 +68,7 @@ repositories against the real stack.
 |---|---|
 | Log in with an administrator account | `widget/login_screen_test.dart`, `unit/routing/route_guard_test.dart`, `unit/core/app_router_test.dart` |
 | View and manage every report | `widget/reports_screen_test.dart`, `widget/admin_report_detail_test.dart`, `widget/dashboard_screen_test.dart`, `widget/dashboard_links_test.dart` |
+| Locate a report by its geo-tag, read with the facility, location description and photos (Map View) | `widget/map_view_test.dart`, `unit/presentation/report_map_data_test.dart` |
 | See the classification and the system's priority | `unit/classification/keyword_classifier_test.dart`, `unit/classification/priority_scorer_test.dart`, `widget/admin_report_detail_test.dart` |
 | Change priorities and assignments | `widget/admin_report_detail_test.dart` (the official priority); `reassign_work_order.test.sql`, `widget/work_order_detail_test.dart` (reassigning, 7.A) |
 | Detect, review, merge or dismiss duplicates | `unit/classification/duplicate_detector_test.dart`, `unit/repositories/classification_review_test.dart`; `report_functions.test.sql` |

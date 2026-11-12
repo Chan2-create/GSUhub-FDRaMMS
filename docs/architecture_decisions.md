@@ -343,6 +343,9 @@ in this codebase right now would mean this objective had crossed into
 
 ## 10. UI: strictly no design decisions (carried forward)
 
+(Historical: every route now has its screen, and the placeholder was
+removed on 2026-11-12, §25.)
+
 Every route resolves to one shared `RoutePlaceholderScreen` (`Scaffold` +
 centered route-name `Text`). `app_colors.dart` / `app_text_styles.dart`
 hold Material-default placeholders with `// TODO: pending design
@@ -1517,7 +1520,8 @@ The board follows the same rules:
   Functions, on the Blaze plan. Not built, by the brief's rule (§16).
 - The six notice events are derived; confirm them with the adviser.
 - Map View (Figma `202:5356`) is not in the manuscript; its sidebar item
-  stays disabled.
+  stays disabled. (Built on 2026-11-12 from the manuscript's geo-tagging
+  passages: §25.)
 - The Settings frame's system information card is not a manuscript
   feature, and is not built.
 - Usability testing with users, and the camera, GPS, scanning and
@@ -1663,3 +1667,67 @@ Migrations `20261108141827_console_delete_and_archive.sql`; tests
 `supabase/tests/console_delete_archive.test.sql`,
 `test/widget/console_delete_test.dart`,
 `test/widget/responsive_console_test.dart`.
+
+## 25. Map View, from the manuscript's geo-tagging passages (2026-11-12)
+
+The sidebar's Map View item was drawn in the design (Figma `202:5356`)
+and left disabled since 2.A, because the manuscript has no Map View
+section. It still has none. The page is built from what the manuscript
+does say a geo-tag is for, and from nothing else:
+
+- §1.5 lists "facility damage reporting with descriptions, photo
+  evidence, facility or location details, and geo-tagged coordinates" and
+  "web-based monitoring and management of facility damage reports".
+- Chapter II, "Geo-Tagging and Location-Based Reporting": the system
+  "captures approximate device coordinates at submission, helping
+  administrators and personnel pinpoint concerns across large campus
+  areas or when a written description is unclear"; coordinates "are
+  combined with the facility name, location description, photo evidence,
+  and QR code identification so personnel can cross-check and locate
+  concerns more quickly"; geo-tagging "serves only as a supplementary
+  reference for verification and response".
+- §1.5's limitation: the coordinates' accuracy depends on the phone's
+  location services.
+
+**What it does.** `/admin/map`
+(`features/reporting/presentation/map/`): one pin per geo-tagged damage
+report, at the coordinates stored with it at submission, on the same
+OpenStreetMap tiles the faculty and staff app already shows a geo-tag on
+(no API key, no billing). The reports are listed beside the map, newest
+first. Choosing a pin or a row shows what the manuscript reads a geo-tag
+together with: the facility (and whether it was identified by QR code),
+the requestor's location description, the photo evidence, with the
+status, priority and category, and **Open report** leads to the report
+page, where review and assignment already happen. Open reports by
+default ("for verification and response"); the **Finished reports**
+filter adds the completed, closed and rejected ones. A note under the
+map says, in the manuscript's terms, how far to trust a pin, and counts
+the reports filed without a geo-tag (the geo-tag is optional, so they
+are named rather than silently missing). Archived reports stay off the
+map, as off every console list (§24). The feed is the live one behind
+the reports table, so a new report's pin appears without a reload.
+
+**What it does not do, on purpose.** No density or heat map, no building
+outlines, no routes or directions, no live position of personnel, no
+map of facilities or equipment, no editing of a geo-tag. None is in the
+manuscript. The design's "Campus View" card on Damage Reports (Figma
+`198:2968`) showed per-building density bars; it is now a still preview
+of the same pins with a link to Map View, without the bars.
+
+**No new data, no new permissions.** The coordinates have been stored
+since 3.A (`damage_reports.latitude`/`longitude`), and administrators
+already read every report. No migration.
+
+**Layout.** The Figma frame was not consulted (the team's Figma quota);
+the page is built from the console's shared widgets (`PageHeader`,
+`SectionCard`, `AsyncValueView`, the chips) and is listed for the GUI
+pass. Side by side from 1000 px, the reports under the map below that.
+
+**Removed with it.** `core/routing/route_placeholder_screen.dart`, the
+bare screen every route once resolved to (§10): Map View was its last
+user.
+
+Tests: `test/widget/map_view_test.dart`,
+`test/unit/presentation/report_map_data_test.dart`,
+`test/widget/admin_shell_test.dart` (the sidebar item),
+`test/widget/responsive_console_test.dart` (360, 768, 1024, 1440).

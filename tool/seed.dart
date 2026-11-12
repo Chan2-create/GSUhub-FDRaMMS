@@ -328,35 +328,42 @@ Future<void> _seedFacilities() async {
   // Several rooms per building, so the report form's Room select (3.C)
   // has a real choice to make. The first id in each building is the one
   // the seeded reports point at.
+  //
+  // The coordinates are points inside the main campus's outline on
+  // OpenStreetMap (Guang-guang, Mati: 6.9295-6.9338 N, 126.2527-126.2567
+  // E), spread out so Map View's pins sit on the campus. They are not
+  // each building's surveyed position: the registry's real coordinates
+  // are entered in Facilities & Equipment. (The design mock-up's
+  // 7.2048, 126.5354, used until 2026-11-12, is in the sea.)
   final facilities = [
-    ('fac-engineering', 'Engineering Building', 'Room 101', 7.2048, 126.5354),
+    ('fac-engineering', 'Engineering Building', 'Room 101', 6.9312, 126.2541),
     (
       'fac-engineering-203',
       'Engineering Building',
       'Room 203',
-      7.2048,
-      126.5354,
+      6.9312,
+      126.2541,
     ),
     (
       'fac-engineering-cl2',
       'Engineering Building',
       'Computer Laboratory 2',
-      7.2048,
-      126.5354,
+      6.9312,
+      126.2541,
     ),
-    ('fac-library', 'Main Library', 'Level 2', 7.2051, 126.5359),
-    ('fac-library-reading', 'Main Library', 'Reading Area', 7.2051, 126.5359),
-    ('fac-admin', 'Administration Building', 'Office 12', 7.2044, 126.5348),
+    ('fac-library', 'Main Library', 'Level 2', 6.9318, 126.2548),
+    ('fac-library-reading', 'Main Library', 'Reading Area', 6.9318, 126.2548),
+    ('fac-admin', 'Administration Building', 'Office 12', 6.9322, 126.2543),
     (
       'fac-admin-records',
       'Administration Building',
       'Records Room',
-      7.2044,
-      126.5348,
+      6.9322,
+      126.2543,
     ),
-    ('fac-science', 'Science Building', 'Laboratory 3', 7.2056, 126.5362),
-    ('fac-science-lab1', 'Science Building', 'Laboratory 1', 7.2056, 126.5362),
-    ('fac-gym', 'Gymnasium', 'Main Court', 7.2041, 126.5365),
+    ('fac-science', 'Science Building', 'Laboratory 3', 6.9309, 126.2552),
+    ('fac-science-lab1', 'Science Building', 'Laboratory 1', 6.9309, 126.2552),
+    ('fac-gym', 'Gymnasium', 'Main Court', 6.9326, 126.2553),
   ];
 
   for (final (id, building, room, lat, lng) in facilities) {
@@ -724,6 +731,19 @@ class _SeededReport {
   bool get isReviewed => status != 'submitted' && status != 'underReview';
 }
 
+/// The geo-tag a phone would have attached, on the reports that have one:
+/// a few metres from their building's seeded point, so Map View has pins
+/// to show in a demo. The rest were filed without one, as the manuscript
+/// allows (the geo-tag is supplementary), and Map View counts them.
+const Map<String, (double, double)> _seededGeoTags = {
+  'rep-0001': (6.93123, 126.25415), // Engineering Building, under review
+  'rep-0002': (6.93092, 126.25517), // Science Building, assigned
+  'rep-0003': (6.93178, 126.25484), // Main Library, in progress
+  'rep-0006': (6.93222, 126.25426), // Administration Building, approved
+  'rep-0009': (6.93086, 126.25528), // Science Building, for review
+  'rep-0005': (6.93116, 126.25406), // Engineering Building, completed
+};
+
 const List<_SeededReport> _seededReports = [
   _SeededReport(
     id: 'rep-0001',
@@ -968,7 +988,12 @@ Future<void> _seedDamageReports() async {
       // seeded reports invisible to the dashboard, whose queue filters on
       // `duplicateOf == null` — a document missing the field does not match.
       'assetId': _null(),
-      'coordinates': _null(),
+      'coordinates': switch (_seededGeoTags[report.id]) {
+        (final lat, final lng) => {
+          'geoPointValue': {'latitude': lat, 'longitude': lng},
+        },
+        null => _null(),
+      },
       // Rated by an administrator in review (Objective 4.B), on the
       // reports whose official priority is set; null on the rest.
       'severityRating': ratings == null ? _null() : _int(ratings.$1),
