@@ -85,16 +85,16 @@ class _RequestorLoginScreenState extends ConsumerState<RequestorLoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text('Welcome back', style: AppTextStyles.authWelcome),
-            const SizedBox(height: 8),
+            const AuthGap(8),
             const Text(
               'Please enter your credentials to access the system.',
               style: AppTextStyles.authSubtitle,
             ),
             if (login.errorMessage case final message?) ...[
-              const SizedBox(height: 20),
+              const AuthGap(20),
               AuthNotice(message: message),
             ] else if (widget.justRegistered) ...[
-              const SizedBox(height: 20),
+              const AuthGap(20),
               const AuthNotice(
                 isError: false,
                 message:
@@ -102,7 +102,7 @@ class _RequestorLoginScreenState extends ConsumerState<RequestorLoginScreen> {
                     'before you can sign in.',
               ),
             ],
-            const SizedBox(height: 40),
+            const AuthGap(40),
             AuthTextField(
               label: 'Email',
               labelStyle: AppTextStyles.authLabel,
@@ -115,7 +115,7 @@ class _RequestorLoginScreenState extends ConsumerState<RequestorLoginScreen> {
               autofillHints: const [AutofillHints.email],
               textInputAction: TextInputAction.next,
             ),
-            const SizedBox(height: 20),
+            const AuthGap(20),
             AuthTextField(
               label: 'Password',
               labelStyle: AppTextStyles.authLabel,
@@ -129,14 +129,14 @@ class _RequestorLoginScreenState extends ConsumerState<RequestorLoginScreen> {
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _signIn(),
             ),
-            const SizedBox(height: 28),
+            const AuthGap(28),
             AuthButton(
               label: 'LOGIN TO DASHBOARD',
               color: AppColors.authSignInButton,
               busy: busy,
               onPressed: _signIn,
             ),
-            const SizedBox(height: 20),
+            const AuthGap(20),
             AuthButton(
               label: 'CREATE ACCOUNT',
               color: AppColors.accentGold,
@@ -149,7 +149,7 @@ class _RequestorLoginScreenState extends ConsumerState<RequestorLoginScreen> {
                       context.go(RoutePaths.staffSignUp);
                     },
             ),
-            const SizedBox(height: 16),
+            const AuthGap(16),
             // Personnel sign in here too (Objective 5); their accounts come
             // from the console (2.C), so Create Account is not theirs.
             const Text(

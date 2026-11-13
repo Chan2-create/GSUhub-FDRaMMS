@@ -308,7 +308,12 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
                   field(_opening, 'Opening stock', numeric: true),
                 ),
               const SizedBox(height: 12),
-              Row(
+              // Wraps: on a 320px phone the button is as wide as the
+              // dialog, and the file name goes under it.
+              Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   OutlinedButton.icon(
                     onPressed: _busy ? null : _pickPhoto,
@@ -319,14 +324,12 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
                           : 'Add a photo (optional)',
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _photo?.fileName ??
-                          (currentPhoto == null ? '' : 'Photo on file'),
-                      style: AppTextStyles.inventoryStatNote,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Text(
+                    _photo?.fileName ??
+                        (currentPhoto == null ? '' : 'Photo on file'),
+                    style: AppTextStyles.inventoryStatNote,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

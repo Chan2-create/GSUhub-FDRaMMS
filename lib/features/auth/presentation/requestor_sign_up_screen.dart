@@ -109,23 +109,23 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 16),
+            const AuthGap(16),
             const Text(
               'Create Account',
               textAlign: TextAlign.center,
               style: AppTextStyles.signUpTitle,
             ),
-            const SizedBox(height: 8),
+            const AuthGap(8),
             const Text(
               'Create An Account and Report',
               textAlign: TextAlign.center,
               style: AppTextStyles.signUpText,
             ),
             if (form.errorMessage case final message?) ...[
-              const SizedBox(height: 20),
+              const AuthGap(20),
               AuthNotice(message: message),
             ],
-            const SizedBox(height: 32),
+            const AuthGap(32),
             field(
               SignUpField.fullName,
               'FULL NAME',
@@ -134,7 +134,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
               autofillHints: const [AutofillHints.name],
               capitalization: TextCapitalization.words,
             ),
-            const SizedBox(height: 24),
+            const AuthGap(24),
             field(
               SignUpField.email,
               'EMAIL',
@@ -143,7 +143,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
             ),
-            const SizedBox(height: 24),
+            const AuthGap(24),
             field(
               SignUpField.password,
               'PASSWORD',
@@ -152,7 +152,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
               obscure: true,
               autofillHints: const [AutofillHints.newPassword],
             ),
-            const SizedBox(height: 24),
+            const AuthGap(24),
             field(
               SignUpField.confirmPassword,
               'CONFIRM PASSWORD',
@@ -163,7 +163,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
               action: TextInputAction.done,
               onSubmitted: (_) => _register(),
             ),
-            const SizedBox(height: 40),
+            const AuthGap(40),
             AuthButton(
               label: 'REGISTER',
               color: AppColors.primary,
@@ -171,9 +171,9 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
               busy: busy,
               onPressed: _register,
             ),
-            const SizedBox(height: 32),
+            const AuthGap(32),
             const Divider(color: AppColors.signUpDivider, height: 1),
-            const SizedBox(height: 24),
+            const AuthGap(24),
             Text.rich(
               TextSpan(
                 style: AppTextStyles.signUpText,

@@ -13,6 +13,7 @@ import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/features/facilities/data/models/facility_draft.dart';
 import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
 
+import '../support/app_fonts.dart';
 import '../support/fake_firestore_repositories.dart';
 import '../support/fake_personnel_app.dart';
 import '../support/firestore_backend/core/data/firestore_records.dart';
@@ -21,6 +22,9 @@ import '../support/firestore_backend/core/data/firestore_records.dart';
 /// design's width (360, 768, 1024, 1440): nothing overflows, nothing
 /// throws, and the page itself never scrolls sideways.
 void main() {
+  // The app's real fonts, so the room text takes is the browser's.
+  setUpAll(loadAppFonts);
+
   Future<PersonnelHarness> console() async {
     final app = PersonnelHarness(signedIn: fakeAdministrator);
     final data = app.data;
@@ -77,6 +81,16 @@ void main() {
             : null,
       );
     }
+    // Not yet reviewed, with no damage type: the review panel at its
+    // widest, with its longest button (a 320px phone found it running
+    // off the card).
+    await data.addReport(
+      'rep-new',
+      status: ReportStatus.submitted,
+      category: null,
+      officialPriority: null,
+      title: 'Air conditioner leaking water onto the projector',
+    );
     for (final (id, report, status) in [
       ('wo-1', 'rep-4', WorkOrderStatus.pending),
       ('wo-2', 'rep-5', WorkOrderStatus.inProgress),
@@ -148,6 +162,7 @@ void main() {
     'Dashboard': RoutePaths.adminDashboard,
     'Reports': RoutePaths.adminReports,
     'Report detail': '/admin/reports/rep-2',
+    'Report to review': '/admin/reports/rep-new',
     'Work Orders': RoutePaths.adminWorkOrders,
     'Work order detail': '/admin/work-orders/wo-2',
     'Task Assignment': RoutePaths.adminTaskAssignment,
@@ -160,7 +175,9 @@ void main() {
     'Notifications': RoutePaths.adminNotifications,
     'Settings': RoutePaths.adminSettings,
   };
-  const widths = [360.0, 768.0, 1024.0, 1440.0];
+  // Small, compact, common, modern and large phones; a tablet, a laptop
+  // and the design's own width.
+  const widths = [320.0, 360.0, 375.0, 390.0, 430.0, 768.0, 1024.0, 1440.0];
 
   for (final MapEntry(key: name, value: path) in pages.entries) {
     group(name, () {

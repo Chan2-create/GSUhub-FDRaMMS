@@ -1777,3 +1777,62 @@ Fixed alongside:
 Checked in a browser with the real fonts at 360x811 (the phone it was
 found on), 320x640 and 412x915, at 115% and 130% system text: both apps,
 every page, no overflow. Tests: `test/widget/phone_viewport_test.dart`.
+
+## 27. Every phone size, sign-in that fits, and the dead dropdowns (2026-11-13)
+
+**The Building and Room dropdowns that could not be pressed.** In the
+faculty and staff report form they are disabled while there is nothing
+to choose. On the live system the only registered room had been deleted
+(§24), so the form showed two greyed boxes that ignored every press, and
+because a report needs a registered room, no report could be filed at
+all. Nothing covered or blocked the controls. Three changes:
+
+- A select that cannot open says why when it is pressed: the buildings
+  are still loading, could not be loaded, none are registered, the
+  building has not been chosen yet, or the building has no rooms.
+- With no room registered the form says so in words under the selects,
+  with **Check again**, rather than leaving it to a greyed box.
+- Deleting the only active room warns the administrator, in the
+  confirmation, that faculty and staff cannot file a report until
+  another is added (Facilities & Equipment).
+
+The data is the administrator's to restore: rooms are added in
+Facilities & Equipment. A chosen value may now take two lines in the
+form's half-width selects, where "Engineering Building" was cut short.
+
+**Sign-in and sign-up fit the screen.** As drawn they are 905 and 1046
+px tall, more than most phones, so both scrolled. `RequestorAuthLayout`
+now fits the page to the phone in two steps: the vertical spacing
+(`AuthGap`s, the card's padding, the mark) tightens to no less than 35%
+of the design's; then, only if needed, the page is scaled to no less
+than 85%. It measures itself after layout (height is linear in the
+spacing, so one measurement solves it) and re-fits when an error line
+appears. With the keyboard up the fit is left alone and the page
+scrolls, so the focused field comes into view instead of the page
+shrinking. A phone too short even for the tightest fit scrolls, as
+before.
+
+**The console at 320 px.** Four places ran off a 320-wide screen and
+now stack or wrap there: the four rating buttons under each criterion
+and the confirm button in a report's review panel; a damage type above
+its keywords in Settings; the photo button in the material dialog. Every
+form dropdown fills its width, so a long choice is cut with an ellipsis
+rather than pushing past the field (the personnel dialog's
+Specialization). The Reassign dialog's list shrinks on a short phone.
+
+**How it is checked now.** `test/support/app_fonts.dart` loads the
+app's real fonts into a test; without it a test draws every letter as a
+square about twice as wide, so "does it fit" was measured wrong (the
+cause of the test that failed at some times of day, §26). With them:
+
+- `test/widget/responsive_phone_test.dart`: both phone apps, every
+  page, at 320x568, 360x640, 375x667, 390x844, 430x932 and a tablet.
+- `test/widget/responsive_console_test.dart`: every console page at
+  320, 360, 375, 390, 430, 768, 1024 and 1440.
+- `test/widget/auth_fit_test.dart`: sign-in and sign-up need no
+  scrolling on seven phone sizes, and the keyboard case.
+
+And in a browser against the local demo data, which reaches states the
+tests' sample data does not: the console's pages at 320, 375, 390 and
+430, eight of its dialogs at 320x640, and the two dropdowns opened and
+chosen from at phone and desktop sizes.

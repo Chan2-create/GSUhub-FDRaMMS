@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
@@ -7,9 +9,23 @@ import '../../../../core/constants/app_text_styles.dart';
 /// `193:310`, `194:455`): the GSUhub mark, "DAVAO ORIENTAL STATE
 /// UNIVERSITY", a rounded card holding the form, and a footer line.
 ///
-/// Laid out in a scroll view centred at the design's 342px card width, so
-/// a short phone scrolls and a tablet does not stretch the form.
-class RequestorAuthLayout extends StatelessWidget {
+/// **Fitted to the phone.** As drawn the two pages are taller than most
+/// phones (sign-up runs to 1046px), so they used to scroll. Now the page
+/// is fitted to the screen it is on (2026-11-13), in two steps and in
+/// this order:
+///
+/// 1. the vertical spacing ([AuthGap]s, the card's top and bottom
+///    padding, the mark's size) is tightened, as far as [_minDensity] of
+///    what the design draws;
+/// 2. if that is not enough, the whole page is made a little smaller,
+///    never below [_minScale], so type and fields stay usable.
+///
+/// A phone too short even for that scrolls, as before. With the keyboard
+/// up the fit is left as it was and the page scrolls, so the field being
+/// typed in comes into view rather than the page shrinking under the
+/// thumb. On a tall phone or a tablet nothing changes: the page is as
+/// drawn, centred at the design's 342px card width.
+class RequestorAuthLayout extends StatefulWidget {
   const RequestorAuthLayout({
     required this.logoTop,
     required this.cardGap,
@@ -30,70 +46,244 @@ class RequestorAuthLayout extends StatelessWidget {
   /// The line under the card; each page sets its own type.
   final Widget footer;
 
-  /// The card's contents.
+  /// The card's contents. Its vertical spacing is given as [AuthGap]s,
+  /// so it can be tightened with the rest.
   final Widget child;
 
   /// The card's width in the design.
   static const double cardWidth = 342;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.mobilePageBackground,
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: cardWidth),
-            child: Column(
-              children: [
-                SizedBox(height: logoTop),
-                // The exported mark carries transparent margins: its 148px
-                // box runs under the university line, which the design
-                // places 114px below the box's top.
-                const SizedBox(
-                  height: 114,
-                  child: OverflowBox(
-                    maxHeight: 148,
+  State<RequestorAuthLayout> createState() => _RequestorAuthLayoutState();
+}
+
+class _RequestorAuthLayoutState extends State<RequestorAuthLayout> {
+  /// How much of the design's vertical spacing is kept: 1 is as drawn.
+  double _density = 1;
+
+  /// The page's size once its spacing is as tight as it goes: 1 is full.
+  double _scale = 1;
+
+  final _content = GlobalKey();
+
+  /// Spacing is never tightened past this share of the design's.
+  static const double _minDensity = 0.35;
+
+  /// The page is never made smaller than this.
+  static const double _minScale = 0.85;
+
+  /// Fits the page to a screen [viewport] tall, from what was just laid
+  /// out: its height, and how much of that height is spacing.
+  void _fit(double viewport) {
+    if (!mounted) return;
+    final box = _content.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return;
+
+    var spacing = 0.0;
+    void visit(RenderObject node) {
+      if (node is _RenderAuthGap) spacing += node.designHeight;
+      node.visitChildren(visit);
+    }
+
+    visit(box);
+    if (spacing <= 0) return;
+
+    // Height is linear in the density, so one measurement solves it.
+    final fixed = box.size.height - _density * spacing;
+    final density = ((viewport - fixed) / spacing).clamp(_minDensity, 1.0);
+    final height = fixed + density * spacing;
+    final scale = height <= viewport
+        ? 1.0
+        : (viewport / height).clamp(_minScale, 1.0);
+    if ((density - _density).abs() < 0.002 && (scale - _scale).abs() < 0.002) {
+      return;
+    }
+    setState(() {
+      _density = density;
+      _scale = scale;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Read above the Scaffold, which hides the keyboard from its body.
+    final keyboardUp = MediaQuery.viewInsetsOf(context).bottom > 0;
+
+    return Scaffold(
+      backgroundColor: AppColors.mobilePageBackground,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (!keyboardUp && constraints.hasBoundedHeight) {
+              // A pixel spare, so rounding never leaves a hair to scroll.
+              final viewport = constraints.maxHeight - 1;
+              SchedulerBinding.instance.addPostFrameCallback(
+                (_) => _fit(viewport),
+              );
+            }
+            return Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                // Takes the scaled page's height, so nothing is left to
+                // scroll below it.
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: _scale,
+                  child: Transform.scale(
+                    scale: _scale,
                     alignment: Alignment.topCenter,
-                    child: Image(
-                      image: AssetImage('assets/images/gsuhub_logo.png'),
-                      width: 148,
-                      height: 148,
-                      semanticLabel: 'GSUhub',
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: RequestorAuthLayout.cardWidth,
+                      ),
+                      child: AuthDensity(
+                        value: _density,
+                        child: Column(
+                          key: _content,
+                          children: [
+                            AuthGap(widget.logoTop),
+                            const _Mark(),
+                            const Text(
+                              'DAVAO ORIENTAL STATE UNIVERSITY',
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.authUniversity,
+                            ),
+                            AuthGap(widget.cardGap),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: AppColors.authCard,
+                                borderRadius: BorderRadius.circular(32),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x141E1B4B),
+                                    blurRadius: 40,
+                                    offset: Offset(0, 20),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  left: widget.cardPadding.left,
+                                  right: widget.cardPadding.right,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    AuthGap(widget.cardPadding.top),
+                                    widget.child,
+                                    AuthGap(widget.cardPadding.bottom),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const AuthGap(40),
+                            widget.footer,
+                            const AuthGap(24),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                const Text(
-                  'DAVAO ORIENTAL STATE UNIVERSITY',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.authUniversity,
-                ),
-                SizedBox(height: cardGap),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.authCard,
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x141E1B4B),
-                        blurRadius: 40,
-                        offset: Offset(0, 20),
-                      ),
-                    ],
-                  ),
-                  child: Padding(padding: cardPadding, child: child),
-                ),
-                const SizedBox(height: 40),
-                footer,
-                const SizedBox(height: 24),
-              ],
-            ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// How much of the design's vertical spacing the sign-in and sign-up
+/// pages keep on this screen: 1 as drawn, less on a short phone. Set by
+/// [RequestorAuthLayout]; read by [AuthGap].
+class AuthDensity extends InheritedWidget {
+  const AuthDensity({required this.value, required super.child, super.key});
+
+  final double value;
+
+  /// The density here, or 1 outside a fitted page.
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AuthDensity>()?.value ?? 1;
+
+  @override
+  bool updateShouldNotify(AuthDensity old) => old.value != value;
+}
+
+/// A vertical space on the sign-in and sign-up pages: [height] as the
+/// design draws it, less where the phone is too short for the page.
+class AuthGap extends StatelessWidget {
+  const AuthGap(this.height, {super.key});
+
+  /// The space in the design.
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => _AuthGapMarker(
+    designHeight: height,
+    child: SizedBox(height: height * AuthDensity.of(context)),
+  );
+}
+
+/// The GSUhub mark. The exported image carries transparent margins: its
+/// 148px box runs under the university line, which the design places
+/// 114px below the box's top. On a short phone it is drawn smaller, down
+/// to 70px of the 114.
+class _Mark extends StatelessWidget {
+  const _Mark();
+
+  static const double _designHeight = 114;
+  static const double _compactHeight = 70;
+  static const double _designBox = 148;
+
+  @override
+  Widget build(BuildContext context) {
+    final height =
+        _compactHeight +
+        (_designHeight - _compactHeight) * AuthDensity.of(context);
+    final box = _designBox * height / _designHeight;
+    return _AuthGapMarker(
+      designHeight: _designHeight - _compactHeight,
+      child: SizedBox(
+        height: height,
+        child: OverflowBox(
+          maxHeight: box,
+          alignment: Alignment.topCenter,
+          child: Image(
+            image: const AssetImage('assets/images/gsuhub_logo.png'),
+            width: box,
+            height: box,
+            semanticLabel: 'GSUhub',
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+/// Marks [designHeight] of its child's height as spacing the page may
+/// tighten, for [RequestorAuthLayout] to add up after layout.
+class _AuthGapMarker extends SingleChildRenderObjectWidget {
+  const _AuthGapMarker({required this.designHeight, super.child});
+
+  final double designHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderAuthGap(designHeight);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderAuthGap renderObject) {
+    renderObject.designHeight = designHeight;
+  }
+}
+
+class _RenderAuthGap extends RenderProxyBox {
+  _RenderAuthGap(this.designHeight);
+
+  double designHeight;
 }
 
 /// A labelled input on either card. The two cards draw their boxes

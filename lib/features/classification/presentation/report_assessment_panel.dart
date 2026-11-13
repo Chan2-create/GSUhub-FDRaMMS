@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/enums/priority_level.dart';
 import '../../../core/utils/result.dart';
@@ -288,7 +289,12 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm> {
             ),
           ),
         const SizedBox(height: 20),
-        Row(
+        // Wraps: on a 320px phone the button alone is as wide as the
+        // card, and its hint goes under it.
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             FilledButton(
               onPressed: assessment == null || saved || _saving
@@ -308,15 +314,12 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm> {
                           : 'Confirm classification and priority',
                     ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(switch ((assessment, saved)) {
-                (null, _) when category == null => 'Choose the damage type.',
-                (null, _) => 'Rate all four criteria.',
-                (_, true) => 'Saved.',
-                _ => '',
-              }, style: AppTextStyles.bodySmall),
-            ),
+            Text(switch ((assessment, saved)) {
+              (null, _) when category == null => 'Choose the damage type.',
+              (null, _) => 'Rate all four criteria.',
+              (_, true) => 'Saved.',
+              _ => '',
+            }, style: AppTextStyles.bodySmall),
           ],
         ),
       ],
@@ -420,67 +423,78 @@ class _CriterionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final (name, meaning) = describe(criterion);
     final rating = value;
+    // On a phone the four rating buttons go under the criterion: beside
+    // it they ran off a 320px screen.
+    final compact = Breakpoints.isCompact(context);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(text: name, style: AppTextStyles.fieldValue),
-                      TextSpan(
-                        text: '  × ${weight.toStringAsFixed(2)}',
-                        style: AppTextStyles.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                Text(meaning, style: AppTextStyles.bodySmall),
-                ?footnote,
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+    final what = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          TextSpan(
             children: [
-              Semantics(
-                label: '$name rating',
-                child: SegmentedButton<int>(
-                  key: ValueKey('rating-${criterion.id}'),
-                  segments: [
-                    for (var r = minRating; r <= maxRating; r++)
-                      ButtonSegment(
-                        value: r,
-                        label: Text('$r'),
-                        tooltip: ratingLabel(r),
-                      ),
-                  ],
-                  selected: {?rating},
-                  emptySelectionAllowed: true,
-                  showSelectedIcon: false,
-                  onSelectionChanged: enabled
-                      ? (selection) {
-                          if (selection.isNotEmpty) onChanged(selection.single);
-                        }
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                rating == null ? 'Not rated' : ratingLabel(rating),
+              TextSpan(text: name, style: AppTextStyles.fieldValue),
+              TextSpan(
+                text: '  × ${weight.toStringAsFixed(2)}',
                 style: AppTextStyles.bodySmall,
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        Text(meaning, style: AppTextStyles.bodySmall),
+        ?footnote,
+      ],
+    );
+    final rate = Column(
+      crossAxisAlignment: compact
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.end,
+      children: [
+        Semantics(
+          label: '$name rating',
+          child: SegmentedButton<int>(
+            key: ValueKey('rating-${criterion.id}'),
+            segments: [
+              for (var r = minRating; r <= maxRating; r++)
+                ButtonSegment(
+                  value: r,
+                  label: Text('$r'),
+                  tooltip: ratingLabel(r),
+                ),
+            ],
+            selected: {?rating},
+            emptySelectionAllowed: true,
+            showSelectedIcon: false,
+            onSelectionChanged: enabled
+                ? (selection) {
+                    if (selection.isNotEmpty) onChanged(selection.single);
+                  }
+                : null,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          rating == null ? 'Not rated' : ratingLabel(rating),
+          style: AppTextStyles.bodySmall,
+        ),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [what, const SizedBox(height: 8), rate],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: what),
+                const SizedBox(width: 16),
+                rate,
+              ],
+            ),
     );
   }
 }

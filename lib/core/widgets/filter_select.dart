@@ -101,7 +101,10 @@ class FilterSelect<T> extends StatelessWidget {
                     fontWeight: hasValue ? FontWeight.w600 : null,
                   ),
             overflow: TextOverflow.ellipsis,
-            maxLines: isForm ? 1 : null,
+            // Two lines on the report form: half the form's width cut
+            // "Engineering Building" to "Engineering B…", and the 56px
+            // box has room for both.
+            maxLines: isForm ? 2 : null,
           ),
         ),
         const SizedBox(width: 8),

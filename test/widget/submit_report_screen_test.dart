@@ -273,6 +273,60 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
   });
 
+  // The Building and Room selects (2026-11-13): a select that cannot open
+  // says why when it is pressed. On the live system the only room had
+  // been deleted, and two greyed boxes that ignored every press read as
+  // broken.
+  group('building and room', () {
+    testWidgets('with no room registered, the form says so and each select '
+        'explains itself', (tester) async {
+      facilities = FakeFacilityRepository(facilities: const []);
+      await pumpScreen(tester);
+
+      const none =
+          'No buildings or rooms are registered yet, so a report cannot be '
+          'filed. Please ask the GSU office to add them.';
+      expect(find.text('None registered'), findsOneWidget);
+      expect(find.text(none), findsOneWidget);
+      expect(find.text('Check again'), findsOneWidget);
+
+      await tapVisible(tester, find.text('None registered'));
+      expect(find.widgetWithText(SnackBar, none), findsOneWidget);
+
+      await tapVisible(tester, find.text('Select Room'));
+      expect(find.widgetWithText(SnackBar, none), findsOneWidget);
+    });
+
+    testWidgets('Room asks for the building first, then lists that '
+        "building's rooms only", (tester) async {
+      await pumpScreen(tester);
+
+      await tapVisible(tester, find.text('Select Room'));
+      expect(
+        find.widgetWithText(SnackBar, 'Choose the building first.'),
+        findsOneWidget,
+      );
+      // Nothing opened.
+      expect(find.text('Room 101'), findsNothing);
+
+      await choose(tester, 'Select Building', 'Engineering Building');
+      await tapVisible(tester, find.text('Select Room'));
+      expect(find.text('Room 101'), findsOneWidget);
+      expect(find.text('Room 203'), findsOneWidget);
+      expect(find.text('Level 2'), findsNothing, reason: 'the library');
+      await tester.tap(find.text('Room 203').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Room 203'), findsOneWidget);
+
+      // Another building: its own room, and the old choice is dropped.
+      await choose(tester, 'Engineering Building', 'Main Library');
+      expect(find.text('Room 203'), findsNothing);
+      await tapVisible(tester, find.text('Select Room'));
+      expect(find.text('Level 2'), findsOneWidget);
+      expect(find.text('Room 101'), findsNothing);
+    });
+  });
+
   testWidgets('a failed filing is shown and can be retried', (tester) async {
     reports.submitResult = const Result.failure(
       NetworkFailure('The request timed out.'),

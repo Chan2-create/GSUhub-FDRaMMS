@@ -136,6 +136,10 @@ class _FacilitySelects extends StatelessWidget {
   final ValueChanged<Facility> onRoom;
   final VoidCallback onRetry;
 
+  static const String _noneRegistered =
+      'No buildings or rooms are registered yet, so a report cannot be '
+      'filed. Please ask the GSU office to add them.';
+
   @override
   Widget build(BuildContext context) {
     // Loading, failed, empty and ready all keep the two selects in place,
@@ -163,6 +167,27 @@ class _FacilitySelects extends StatelessWidget {
     final rooms = loaded == null || building == null
         ? const <Facility>[]
         : loaded.roomsIn(building);
+    final noneRegistered = loaded != null && loaded.isEmpty;
+
+    // Why a select will not open, said when it is pressed: a control
+    // that ignored the press read as broken (2026-11-13, when the live
+    // system's only room had been deleted). Null while it works, and
+    // while the form is sending.
+    final buildingBlocked = !enabled
+        ? null
+        : isLoading
+        ? 'The buildings are still loading.'
+        : failed != null
+        ? "The buildings couldn't be loaded. Try again below."
+        : noneRegistered
+        ? _noneRegistered
+        : null;
+    final roomBlocked = !enabled || rooms.isNotEmpty
+        ? null
+        : buildingBlocked ??
+              (building == null
+                  ? 'Choose the building first.'
+                  : 'No rooms are registered for $building.');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -173,20 +198,24 @@ class _FacilitySelects extends StatelessWidget {
             labelColor: Colors.black,
             errorColor: AppColors.errorOnGold,
             error: form.errorFor(ReportField.building),
-            field: FilterSelect<String>(
-              style: FilterSelectStyle.form,
-              placeholder: buildingHint,
-              enabled: enabled && loaded != null && !loaded.isEmpty,
-              value: building,
-              options: [
-                // A building a QR scan chose is kept even when the list has
-                // not loaded, so the field never shows less than is known.
-                for (final name in {...?loaded?.buildings, ?building})
-                  FilterOption(value: name, label: name),
-              ],
-              onChanged: (name) {
-                if (name != null) onBuilding(name);
-              },
+            field: _SaysWhyWhenBlocked(
+              reason: buildingBlocked,
+              child: FilterSelect<String>(
+                style: FilterSelectStyle.form,
+                placeholder: buildingHint,
+                enabled: enabled && loaded != null && !loaded.isEmpty,
+                value: building,
+                options: [
+                  // A building a QR scan chose is kept even when the list
+                  // has not loaded, so the field never shows less than is
+                  // known.
+                  for (final name in {...?loaded?.buildings, ?building})
+                    FilterOption(value: name, label: name),
+                ],
+                onChanged: (name) {
+                  if (name != null) onBuilding(name);
+                },
+              ),
             ),
           ),
           right: LabelledField(
@@ -194,24 +223,37 @@ class _FacilitySelects extends StatelessWidget {
             labelColor: Colors.black,
             errorColor: AppColors.errorOnGold,
             error: form.errorFor(ReportField.room),
-            field: FilterSelect<Facility>(
-              style: FilterSelectStyle.form,
-              placeholder: 'Select Room',
-              enabled: enabled && rooms.isNotEmpty,
-              value: form.facility,
-              options: [
-                for (final room in {...rooms, ?form.facility})
-                  FilterOption(
-                    value: room,
-                    label: FacilityDirectory.roomLabelOf(room),
-                  ),
-              ],
-              onChanged: (room) {
-                if (room != null) onRoom(room);
-              },
+            field: _SaysWhyWhenBlocked(
+              reason: roomBlocked,
+              child: FilterSelect<Facility>(
+                style: FilterSelectStyle.form,
+                placeholder: 'Select Room',
+                enabled: enabled && rooms.isNotEmpty,
+                value: form.facility,
+                options: [
+                  for (final room in {...rooms, ?form.facility})
+                    FilterOption(
+                      value: room,
+                      label: FacilityDirectory.roomLabelOf(room),
+                    ),
+                ],
+                onChanged: (room) {
+                  if (room != null) onRoom(room);
+                },
+              ),
             ),
           ),
         ),
+        // A report needs a registered room, so with none there is nothing
+        // the requestor can do here: said plainly, not left to a greyed
+        // box.
+        if (noneRegistered) ...[
+          const FieldError(_noneRegistered, color: AppColors.errorOnGold),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _Link(label: 'Check again', onTap: onRetry),
+          ),
+        ],
         if (failed != null) ...[
           FieldError(failed, color: AppColors.errorOnGold),
           Align(
@@ -228,6 +270,32 @@ class _FacilitySelects extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// A select that cannot open says why when it is pressed. With no
+/// [reason] the select works, and this adds nothing.
+class _SaysWhyWhenBlocked extends StatelessWidget {
+  const _SaysWhyWhenBlocked({required this.reason, required this.child});
+
+  final String? reason;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final why = reason;
+    if (why == null) return child;
+    return Semantics(
+      button: true,
+      hint: why,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(why))),
+        child: child,
+      ),
     );
   }
 }

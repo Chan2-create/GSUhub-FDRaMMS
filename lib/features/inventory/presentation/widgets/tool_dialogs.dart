@@ -191,6 +191,7 @@ class _ToolFormDialogState extends ConsumerState<_ToolFormDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<ItemCondition>(
+                isExpanded: true,
                 initialValue: _condition,
                 decoration: InputDecoration(
                   labelText: 'Condition',
@@ -547,6 +548,7 @@ class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<ItemCondition>(
+            isExpanded: true,
             initialValue: _condition,
             decoration: const InputDecoration(
               labelText: 'Condition now',
