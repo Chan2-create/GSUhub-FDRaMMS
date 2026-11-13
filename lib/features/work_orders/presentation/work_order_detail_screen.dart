@@ -373,28 +373,32 @@ class _ReassignDialogState extends ConsumerState<_ReassignDialog> {
                 style: AppTextStyles.bodySmall,
               ),
               const SizedBox(height: 12),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 360),
-                child: RadioGroup<String>(
-                  groupValue: _chosen,
-                  onChanged: (id) => setState(() => _chosen = id),
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: [
-                      for (final person in people)
-                        RadioListTile<String>(
-                          value: person.id,
-                          title: Text(person.fullName),
-                          subtitle: Text(
-                            [
-                              person.specialization?.label ?? 'No trade set',
-                              _availability(person.availability),
-                              '${person.activeTaskCount} open '
-                                  'work order${person.activeTaskCount == 1 ? '' : 's'}',
-                            ].join(' · '),
+              // Up to 360 tall, and less on a short phone, where a fixed
+              // 360 ran past the bottom of the dialog: the list scrolls.
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  child: RadioGroup<String>(
+                    groupValue: _chosen,
+                    onChanged: (id) => setState(() => _chosen = id),
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final person in people)
+                          RadioListTile<String>(
+                            value: person.id,
+                            title: Text(person.fullName),
+                            subtitle: Text(
+                              [
+                                person.specialization?.label ?? 'No trade set',
+                                _availability(person.availability),
+                                '${person.activeTaskCount} open '
+                                    'work order${person.activeTaskCount == 1 ? '' : 's'}',
+                              ].join(' · '),
+                            ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

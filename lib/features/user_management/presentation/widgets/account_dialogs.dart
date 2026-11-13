@@ -336,6 +336,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
                 if (_isEdit) ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<UserRole>(
+                    isExpanded: true,
                     initialValue: _role,
                     decoration: InputDecoration(
                       labelText: 'Role',
@@ -354,6 +355,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
                 if (isPersonnel) ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<DamageCategory>(
+                    isExpanded: true,
                     initialValue: _specialization,
                     decoration: const InputDecoration(
                       labelText: 'Specialization',

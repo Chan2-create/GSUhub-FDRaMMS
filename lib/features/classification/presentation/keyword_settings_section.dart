@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/section_card.dart';
@@ -243,99 +244,103 @@ class _CategoryKeywordsState extends State<_CategoryKeywords> {
     final category = widget.category;
     final keywords = widget.draft.keywordsOf(category);
 
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(category.label, style: AppTextStyles.fieldValue),
+        const SizedBox(height: 2),
+        Text(
+          keywords.length == 1 ? '1 keyword' : '${keywords.length} keywords',
+          style: AppTextStyles.bodySmall,
+        ),
+      ],
+    );
+    final editor = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (keywords.isEmpty)
+          const Text(
+            'No keywords. A report gets this type only when an '
+            'administrator chooses it.',
+            style: AppTextStyles.bodySmall,
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final keyword in keywords)
+                InputChip(
+                  label: Text(keyword),
+                  onDeleted: widget.enabled
+                      ? () => widget.onChanged(
+                          widget.draft.removing(category, keyword),
+                        )
+                      : null,
+                  deleteButtonTooltipMessage: 'Remove "$keyword"',
+                ),
+            ],
+          ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: TextField(
+                  controller: _input,
+                  focusNode: _focus,
+                  enabled: widget.enabled,
+                  maxLength: KeywordDraft.maxLength,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _add(),
+                  onChanged: (_) {
+                    if (_problem != null) setState(() => _problem = null);
+                  },
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Add a keyword or phrase',
+                    counterText: '',
+                    errorText: _problem,
+                    errorMaxLines: 3,
+                    border: const OutlineInputBorder(),
+                  ),
+                  style: AppTextStyles.inputText,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Tooltip(
+                message: 'Add to ${category.label}',
+                child: TextButton.icon(
+                  onPressed: widget.enabled ? _add : null,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    // On a phone the damage type goes above its keywords: beside them,
+    // its 160px left the keywords and the Add field no room at 320.
+    if (Breakpoints.isCompact(context)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [heading, const SizedBox(height: 10), editor],
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 160,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(category.label, style: AppTextStyles.fieldValue),
-              const SizedBox(height: 2),
-              Text(
-                keywords.length == 1
-                    ? '1 keyword'
-                    : '${keywords.length} keywords',
-                style: AppTextStyles.bodySmall,
-              ),
-            ],
-          ),
-        ),
+        SizedBox(width: 160, child: heading),
         const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (keywords.isEmpty)
-                const Text(
-                  'No keywords. A report gets this type only when an '
-                  'administrator chooses it.',
-                  style: AppTextStyles.bodySmall,
-                )
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final keyword in keywords)
-                      InputChip(
-                        label: Text(keyword),
-                        onDeleted: widget.enabled
-                            ? () => widget.onChanged(
-                                widget.draft.removing(category, keyword),
-                              )
-                            : null,
-                        deleteButtonTooltipMessage: 'Remove "$keyword"',
-                      ),
-                  ],
-                ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Flexible(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
-                      child: TextField(
-                        controller: _input,
-                        focusNode: _focus,
-                        enabled: widget.enabled,
-                        maxLength: KeywordDraft.maxLength,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _add(),
-                        onChanged: (_) {
-                          if (_problem != null) setState(() => _problem = null);
-                        },
-                        decoration: InputDecoration(
-                          isDense: true,
-                          hintText: 'Add a keyword or phrase',
-                          counterText: '',
-                          errorText: _problem,
-                          errorMaxLines: 3,
-                          border: const OutlineInputBorder(),
-                        ),
-                        style: AppTextStyles.inputText,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Tooltip(
-                      message: 'Add to ${category.label}',
-                      child: TextButton.icon(
-                        onPressed: widget.enabled ? _add : null,
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+        Expanded(child: editor),
       ],
     );
   }

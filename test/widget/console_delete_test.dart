@@ -157,6 +157,41 @@ void main() {
     expect(find.text('Laboratory 1'), findsNothing);
   });
 
+  testWidgets('deleting the only active room warns that no report can then '
+      'be filed', (tester) async {
+    // A report needs a registered room. On the live system the last one
+    // was deleted, and the report form's Building and Room went dead
+    // (2026-11-13).
+    final app = await console();
+    Future<void> addRoom(String room, String code) =>
+        app.data.facilities.createFacility(
+          draft: FacilityDraft(
+            buildingName: 'Science Building',
+            roomIdentifier: room,
+            qrCode: code,
+          ),
+          actor: FirestoreHarness.admin,
+        );
+    await addRoom('Laboratory 1', 'FAC-SCI-LAB1');
+    await open(app, tester, RoutePaths.adminFacilities);
+
+    const warning =
+        'This is the only active room. Until another is added, faculty and '
+        'staff cannot file a report.';
+    await tester.tap(find.byTooltip('Delete Science Building, Laboratory 1'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining(warning), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+
+    // With a second room, deleting one is nothing to warn about.
+    await addRoom('Laboratory 2', 'FAC-SCI-LAB2');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Delete Science Building, Laboratory 1'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining(warning), findsNothing);
+  });
+
   group('accounts', () {
     Future<void> openMenu(WidgetTester tester, String name) async {
       final row = find.ancestor(

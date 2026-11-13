@@ -256,6 +256,15 @@ class _RoomsTable extends ConsumerWidget {
             context,
             name: [room.buildingName, ?room.roomIdentifier].join(', '),
             kind: 'room',
+            // A report needs a registered room: with the last one gone
+            // the report form has nothing to choose, and no report can
+            // be filed (it happened on the live system, 2026-11-13).
+            warning:
+                room.isActive &&
+                    rooms.where((other) => other.isActive).length == 1
+                ? 'This is the only active room. Until another is added, '
+                      'faculty and staff cannot file a report.'
+                : null,
             delete: () =>
                 ref.read(inventoryControllerProvider).deleteFacility(room.id),
           ),
@@ -406,12 +415,14 @@ Future<bool> _confirmDelete(
   required String name,
   required String kind,
   required Future<Result<void>> Function() delete,
+  String? warning,
 }) => showConfirmDeleteDialog(
   context: context,
   title: 'Delete $name?',
   message:
       'It leaves the $kind list, the report form and the scanner. Reports '
-      'about it keep its name, and its code can go on another $kind.',
+      'about it keep its name, and its code can go on another $kind.'
+      '${warning == null ? '' : '\n\n$warning'}',
   doneMessage: 'Deleted $name.',
   onConfirm: delete,
 );
@@ -786,6 +797,7 @@ class _AssetFormDialogState extends ConsumerState<_AssetFormDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<ItemCondition>(
+                isExpanded: true,
                 initialValue: _condition,
                 decoration: const InputDecoration(
                   labelText: 'Condition',

@@ -98,6 +98,35 @@ void main() {
     );
   });
 
+  testWidgets('a dropdown opens where it is pressed on a fitted phone: '
+      'Building, then Room', (tester) async {
+    const phone = Size(320, 640);
+    final app = RequestorHarness();
+    await app.pump(tester, start: RoutePaths.staffSubmitReport);
+    tester.view.physicalSize = phone;
+    await tester.pumpAndSettle();
+
+    Future<void> choose(String current, String choice) async {
+      await tester.ensureVisible(find.text(current));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(current));
+      await tester.pumpAndSettle();
+      // The menu is on the glass, where a finger can reach it.
+      final item = tester.getRect(find.text(choice).last);
+      expect(item.left, greaterThanOrEqualTo(0));
+      expect(item.right, lessThanOrEqualTo(phone.width));
+      expect(item.top, greaterThanOrEqualTo(0));
+      expect(item.bottom, lessThanOrEqualTo(phone.height));
+      await tester.tap(find.text(choice).last);
+      await tester.pumpAndSettle();
+    }
+
+    await choose('Select Building', 'Main Library');
+    await choose('Select Room', 'Level 2');
+    expect(find.text('Main Library'), findsOneWidget);
+    expect(find.text('Level 2'), findsOneWidget);
+  });
+
   testWidgets('the administrator console is left as it is', (tester) async {
     phoneTextSize(tester, 1.1);
     final app = PersonnelHarness(signedIn: fakeAdministrator);
