@@ -2097,3 +2097,47 @@ any tap, mouse movement or key clearing it, the sign-out and the notice
 on the phone and in the console, a phone waking past the limit, the
 database's refusal, the once-a-minute touch, and returning to the page
 after signing in again).
+
+## 32. The header as one bar, and the account button (2026-11-15)
+
+**The direction (Chris, 2026-11-15).** The Figma stays the visual
+reference: no redesign, a refinement. "Formal, professional, clean,
+organized"; keep the sidebar, the logo, the purple, gold and white;
+remove decoration that does not earn its place. Two concrete items came
+with it: the header's inset white card, which read as a second bar
+floating inside the first, and the plain gold circle, which did not read
+as a button.
+
+**One bar.** `AdminTopBar` (§24) drew the design's controls in a white
+card with its own shadow, inside the white header, with the avatar
+outside it. The card is gone: the header is one 64 px white bar (was 80
+with the card's inset), the logo over the sidebar's column, a hairline,
+the page's name in the title weight, the date, and at the right Export
+Data, Report New Damage, the bell, Help, a hairline and the account
+button. The 13 px gold rule still runs under it, full width, and the
+sidebar still starts beneath the rule. What the page's name used to
+share with the date at the right of the card now sits at the left, where
+a title belongs. Narrower windows drop the date (below 940 px of header)
+and the disabled Report New Damage (below 820), then fall back to the
+compact row (title, a page's control, Export as an icon, the bell) as
+before; the phone's bar is unchanged.
+
+**The account button.** The gold circle now carries the signed-in
+person's initials (the generic figure until the profile is read), with a
+chevron that says it opens and a tinted pill under the pointer. The menu
+gained the person's avatar and a role pill in its heading, and a
+**Settings** entry, which opens the system's Settings page the sidebar
+also opens. There is still no *Account* Settings: the system has none
+(§28). Logout still asks first; sign-out is unchanged.
+
+**Also fixed on the way.** The shell's phone drawer was sized with
+`AdminSidebar.width.clamp(0, width - 56)`, which throws for a window
+narrower than 56 px. Headless Edge reports such a width for a frame
+while resizing, and the console threw an `ArgumentError` on every frame
+until the size settled. The drawer is now `(width - 56).clamp(0,
+AdminSidebar.width)`.
+
+Checked in Edge at 1440, 1280, 1024, 900, 768 and 390 px, the account
+button under the pointer and the menu open (screenshots), and by
+`test/widget/admin_shell_test.dart` and
+`test/widget/responsive_console_test.dart`.

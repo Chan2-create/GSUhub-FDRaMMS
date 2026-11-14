@@ -63,7 +63,10 @@ class AdminShell extends ConsumerWidget {
       backgroundColor: AppColors.pageBackground,
       drawer: drawer
           ? Drawer(
-              width: AdminSidebar.width.clamp(0, width - 56),
+              // Never wider than the window less a strip to close it on;
+              // a window narrower than that strip (seen for a frame while
+              // a browser resizes) gets a zero-width drawer, not an error.
+              width: (width - 56).clamp(0.0, AdminSidebar.width),
               shape: const RoundedRectangleBorder(),
               child: sidebar(),
             )
