@@ -383,6 +383,15 @@ class _SignInCard extends StatelessWidget {
               ),
               const SizedBox(height: 16),
             ],
+            if (state.sessionNotice != null) ...[
+              _Banner(
+                message: state.sessionNotice!,
+                background: AppColors.statusNeutralBackground,
+                foreground: AppColors.statusNeutralForeground,
+                icon: Icons.timer_off_outlined,
+              ),
+              const SizedBox(height: 16),
+            ],
             if (state.infoMessage != null) ...[
               _Banner(
                 message: state.infoMessage!,

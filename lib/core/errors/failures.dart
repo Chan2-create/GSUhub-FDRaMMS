@@ -39,6 +39,13 @@ final class UnknownFailure extends Failure {
   const UnknownFailure(super.message);
 }
 
+/// The sign-in ended: idle for longer than a session allows, and the
+/// database said so (PT401). `SessionWatch` signs the person out on it,
+/// wherever it surfaced.
+final class SessionExpiredFailure extends Failure {
+  const SessionExpiredFailure(super.message);
+}
+
 /// Translates a caught [AppException] into its corresponding [Failure].
 Failure failureFromException(AppException exception) => switch (exception) {
   NetworkException() => NetworkFailure(exception.message),

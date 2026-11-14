@@ -875,6 +875,14 @@ from that `users` row on every request. **A deactivated or pending
 account reads only its own `users` row and changes nothing**, whatever
 its role; a request with no signed-in user is refused outright.
 
+**A session ends after 30 minutes of inactivity** (2026-11-14,
+docs/architecture_decisions.md §31). The token carries the sign-in time
+(`auth_time`), and `app.user_activity` (schema `app`, not exposed) holds
+when each account last did something, written by `touch_session` while
+the app is in use. `app.active_role()` requires one or the other within
+30 minutes; past that the account is treated like a deactivated one, and
+the functions refuse with `PT401`. A fresh sign-in starts a new session.
+
 ### Reading
 
 | Table | Administrator | Requestor | Maintenance personnel |
@@ -901,6 +909,7 @@ its role; a request with no signed-in user is refused outright.
 | | `create_account`, `update_account`, `set_account_status` | administrator; never their own role or status, never the role of someone holding work |
 | | `set_fcm_token` | the account itself |
 | | `delete_account` | administrator; never their own, never one with open work or a tool on loan, never one any record names (deactivate that one); removes the profile and its notifications (2026-11-08) |
+| `app.user_activity` | `touch_session` | the signed-in account itself: records that it is active now, at most once a minute; refused with `PT401` once 30 idle minutes have ended the session (2026-11-14) |
 | `facilities`, `assets` | `create_facility`, `update_facility`, `set_facility_active`, `create_asset`, `update_asset`, `set_asset_active` | administrator; a code is unique across rooms, equipment, materials and tools still in use |
 | | `delete_facility`, `delete_asset` | administrator, unless open reports (or, for a room, open work orders or equipment) depend on it; marks it deleted (2026-11-08) |
 | `damage_reports` | `submit_report` | an active requestor, as themselves (3.C) |

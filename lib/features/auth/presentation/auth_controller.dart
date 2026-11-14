@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/session_policy.dart';
 import '../../../core/di/service_providers.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/services/auth_service.dart';
@@ -12,6 +13,7 @@ class LoginState {
     this.isSubmitting = false,
     this.errorMessage,
     this.infoMessage,
+    this.sessionNotice,
   });
 
   final bool isSubmitting;
@@ -22,14 +24,21 @@ class LoginState {
   /// Confirmation copy, e.g. after a password-reset email is sent.
   final String? infoMessage;
 
+  /// Why the person is back on the sign-in page without asking to be: the
+  /// session ended after 30 minutes of inactivity (2026-11-14). Neither an
+  /// error of theirs nor good news, so it gets its own quiet banner.
+  final String? sessionNotice;
+
   LoginState copyWith({
     bool? isSubmitting,
     String? errorMessage,
     String? infoMessage,
+    String? sessionNotice,
   }) => LoginState(
     isSubmitting: isSubmitting ?? this.isSubmitting,
     errorMessage: errorMessage,
     infoMessage: infoMessage,
+    sessionNotice: sessionNotice,
   );
 }
 
@@ -107,6 +116,14 @@ class AuthController extends Notifier<LoginState> {
   Future<void> signOut() async {
     await _auth.signOut();
     state = const LoginState();
+  }
+
+  /// Signs out a session that ended on its own, idle for 30 minutes or
+  /// refused as such by the database (`SessionWatch`), and leaves the
+  /// sign-in page a line saying why.
+  Future<void> signOutExpired() async {
+    await _auth.signOut();
+    state = const LoginState(sessionNotice: SessionPolicy.endedMessage);
   }
 
   void clearMessages() => state = LoginState(isSubmitting: state.isSubmitting);

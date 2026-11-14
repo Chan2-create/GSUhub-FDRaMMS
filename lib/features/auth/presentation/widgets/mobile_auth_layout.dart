@@ -493,33 +493,46 @@ class AuthButton extends StatelessWidget {
   );
 }
 
-/// An inline notice above a form — an error, or the confirmation after
-/// signing up. Not in the design; plain, and flagged.
+/// An inline notice above a form — an error, the confirmation after
+/// signing up, or ([neutral]) why the session ended. Not in the design;
+/// plain, and flagged.
 class AuthNotice extends StatelessWidget {
-  const AuthNotice({required this.message, super.key, this.isError = true});
+  const AuthNotice({
+    required this.message,
+    super.key,
+    this.isError = true,
+    this.neutral = false,
+  });
 
   final String message;
   final bool isError;
 
+  /// Neither an error nor good news: grey, as a sign-out notice reads.
+  final bool neutral;
+
   @override
-  Widget build(BuildContext context) => Semantics(
-    liveRegion: true,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: isError
-            ? AppColors.statusPendingBackground
-            : AppColors.statusResolvedBackground,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        message,
-        style: AppTextStyles.signUpText.copyWith(
-          color: isError
-              ? AppColors.statusPendingForeground
-              : AppColors.statusResolvedForeground,
+  Widget build(BuildContext context) {
+    final (background, foreground) = neutral
+        ? (AppColors.statusNeutralBackground, AppColors.statusNeutralForeground)
+        : isError
+        ? (AppColors.statusPendingBackground, AppColors.statusPendingForeground)
+        : (
+            AppColors.statusResolvedBackground,
+            AppColors.statusResolvedForeground,
+          );
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          message,
+          style: AppTextStyles.signUpText.copyWith(color: foreground),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

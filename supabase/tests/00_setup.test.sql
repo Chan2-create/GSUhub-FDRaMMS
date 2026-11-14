@@ -223,6 +223,27 @@ exception when others then
 end;
 $$;
 
+-- Like query_as(), with the token's claims given whole: for a claim the
+-- others do not set, such as the sign-in time the session check reads.
+create or replace function tests.query_with_claims(claims text, query text)
+returns text
+language plpgsql
+set search_path = ''
+as $$
+declare
+  result text;
+begin
+  perform set_config('request.jwt.claims', claims, true);
+  perform set_config('role', 'authenticated', true);
+  execute query into result;
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '', true);
+  return coalesce(result, '');
+exception when others then
+  return 'ERROR ' || sqlstate;
+end;
+$$;
+
 -- Like attempt(), with the token's claims given whole: for a claim the
 -- others do not set, such as the email signing up needs.
 create or replace function tests.attempt_with_claims(claims text, statement text)

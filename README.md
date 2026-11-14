@@ -81,7 +81,7 @@ What was built, objective by objective, and why each decision was made:
 | State management | Riverpod |
 | Navigation | go_router: one router for all three apps, each under its own URL prefix |
 | Database | Supabase Postgres: row level security, and every change made by a database function that checks who is asking |
-| Sign-in | Firebase Authentication (email and password); a Supabase Edge Function trades its token for a database token |
+| Sign-in | Firebase Authentication (email and password); a Supabase Edge Function trades its token for a database token. A session ends after 30 minutes without activity, enforced by the database |
 | Photos | Supabase Storage (a private bucket, signed links) |
 | Live updates | Supabase Realtime |
 | Push notifications | Firebase Cloud Messaging |
@@ -296,6 +296,9 @@ How a signed-in request reaches the data:
    the token exchange function
    ([`supabase/functions/firebase-token-exchange/`](supabase/functions/firebase-token-exchange/)),
    through [`supabase_session.dart`](lib/core/services/supabase/supabase_session.dart).
+   The token carries when the person signed in; the database ends a
+   session idle for 30 minutes, and the app warns two minutes before
+   ([`lib/core/session/`](lib/core/session/)).
 3. Every read goes through row level security, which limits each person
    to what their role may see
    ([`20261016130005_row_level_security.sql`](supabase/migrations/20261016130005_row_level_security.sql)).

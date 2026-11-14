@@ -11,6 +11,7 @@ import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/firebase/firebase_call_guard.dart';
+import 'package:gsuhub/core/session/inactivity_monitor.dart';
 import 'package:gsuhub/features/map_view/presentation/widgets/geo_tag_map.dart';
 import 'package:gsuhub/features/qr_codes/presentation/qr_scanner_screen.dart';
 
@@ -20,6 +21,7 @@ import 'fake_firestore_repositories.dart';
 import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
 import 'fake_requestor_app.dart';
+import 'fake_session.dart';
 import 'firestore_backend/core/services/firebase/firestore_service_impl.dart';
 import 'firestore_backend/features/audit/data/repositories/audit_log_repository_firestore.dart';
 import 'firestore_backend/features/notifications/data/repositories/notification_repository_firestore.dart';
@@ -44,13 +46,19 @@ const fakeAdministrator = AuthUser(
 
 /// The fakes one test works with.
 class PersonnelHarness {
-  PersonnelHarness({AuthUser signedIn = fakeTechnician})
+  PersonnelHarness({AuthUser signedIn = fakeTechnician, this.monitor})
     : auth = ScriptedAuthService(signedIn: signedIn);
 
   /// The in-memory Firestore and the real repositories over it, for
   /// seeding and for reading back what the app wrote.
   final data = FirestoreHarness();
   final ScriptedAuthService auth;
+
+  /// The session's clock, when a test needs to move it (2026-11-14).
+  final InactivityMonitor? monitor;
+
+  /// What the app told the database about the session.
+  final sessions = FakeSessionRepository();
   final push = FakeNotificationService();
   final picker = FakePhotoPicker();
   final storage = FakeStorageService();
@@ -154,6 +162,9 @@ class PersonnelHarness {
             return nextScan;
           }),
           fileDownloadServiceProvider.overrideWithValue(downloads),
+          sessionRepositoryProvider.overrideWithValue(sessions),
+          if (monitor case final monitor?)
+            inactivityMonitorProvider.overrideWithValue(monitor),
         ],
         child: const GsuhubApp(),
       ),
