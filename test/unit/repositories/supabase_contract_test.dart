@@ -20,6 +20,7 @@ import 'package:gsuhub/features/accomplishment/data/models/material_usage.dart';
 import 'package:gsuhub/features/accomplishment/data/repositories/accomplishment_report_repository_impl.dart';
 import 'package:gsuhub/features/accomplishment/data/repositories/material_usage_repository_impl.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
+import 'package:gsuhub/features/auth/data/repositories/session_repository_impl.dart';
 import 'package:gsuhub/features/classification/data/models/classification_rules_config.dart';
 import 'package:gsuhub/features/classification/data/models/duplicate_detection_config.dart';
 import 'package:gsuhub/features/classification/data/models/prioritization_config.dart';
@@ -142,6 +143,8 @@ void main() {
 
   /// Every write each repository makes, called once.
   Future<void> exerciseEveryWrite() async {
+    await SessionRepositoryImpl(client: client, guard: guard).touch();
+
     final users = UserRepositoryImpl(client: client, guard: guard);
     await users.createSelfRegistration(user);
     await users.createAccount(user: user, actor: actor);
@@ -444,7 +447,7 @@ void main() {
   test('every write calls a database function that exists, with the '
       'parameters it takes', () async {
     await exerciseEveryWrite();
-    expect(calls, hasLength(55));
+    expect(calls, hasLength(56));
     for (final (function, params) in calls) {
       final signature = signatures[function];
       expect(

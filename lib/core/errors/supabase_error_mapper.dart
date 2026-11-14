@@ -12,10 +12,10 @@ import 'failures.dart';
 /// exception may leave `core/services/` or `data/repositories/`.
 ///
 /// The database's own functions raise with SQLSTATE `PTxxx`, which the API
-/// turns into HTTP status xxx (supabase/migrations): PT403 for "not yours",
-/// PT404 for "not there", PT409 and PT422 for a request the data refuses.
-/// Their messages are written for the person using the app, so they are
-/// shown as they come.
+/// turns into HTTP status xxx (supabase/migrations): PT401 for a session
+/// that ended, PT403 for "not yours", PT404 for "not there", PT409 and
+/// PT422 for a request the data refuses. Their messages are written for
+/// the person using the app, so they are shown as they come.
 abstract final class SupabaseErrorMapper {
   static const _offline = NetworkFailure(
     'Cannot reach the server. Check your internet connection and try '
@@ -86,6 +86,8 @@ abstract final class SupabaseErrorMapper {
   static Failure _fromPostgrest(PostgrestException error) {
     final code = error.code ?? '';
     return switch (code) {
+      // Idle past the limit: the database ended the session.
+      'PT401' => SessionExpiredFailure(error.message),
       'PT403' => PermissionFailure(error.message),
       'PT404' => NotFoundFailure(error.message),
       'PT409' || 'PT422' || 'P0001' => ValidationFailure(error.message),

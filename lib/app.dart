@@ -8,6 +8,9 @@ import 'core/di/service_providers.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
 import 'core/routing/route_paths.dart';
+import 'core/session/session_activity_listener.dart';
+import 'core/session/session_warning_overlay.dart';
+import 'core/session/session_watch.dart';
 import 'features/notifications/presentation/push_coordinator.dart';
 import 'shells/app_viewport.dart';
 
@@ -73,6 +76,8 @@ class GsuhubApp extends ConsumerWidget {
     // Lives as long as the app: notifications for whoever is signed in,
     // and a tapped one opens its report through the router (3.B).
     ref.watch(pushCoordinatorProvider).attach(router.go);
+    // And the session: signed out after 30 minutes without activity.
+    ref.watch(sessionWatchProvider);
 
     return MaterialApp.router(
       title: config.appName,
@@ -81,10 +86,17 @@ class GsuhubApp extends ConsumerWidget {
       routerConfig: router,
       builder: (context, child) => _EmulatorBanner(
         enabled: config.useEmulator,
-        // The phone apps at their 390-wide design; the console at 90%.
-        child: AppViewport(
+        // Outermost, so it hears every pointer event, including those on
+        // the warning it shows.
+        child: SessionActivityListener(
           router: router,
-          child: child ?? const SizedBox.shrink(),
+          child: SessionWarningOverlay(
+            // The phone apps at their 390-wide design; the console at 90%.
+            child: AppViewport(
+              router: router,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         ),
       ),
     );

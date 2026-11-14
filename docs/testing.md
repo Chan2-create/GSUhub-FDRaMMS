@@ -16,9 +16,9 @@ sessions with real users.
 |---|---|---|---|
 | App: unit and widget | `test/unit`, `test/widget` | `flutter test --exclude-tags e2e` | 769 passed (2026-11-05) |
 | App: end to end | `test/e2e` | local stack running, then `$env:SUPABASE_E2E='1'; flutter test test/e2e` | 3 passed |
-| Database (pgTAP) | `supabase/tests` | `npx supabase test db` (Docker), or `cd tool/sql_tests; node run.mjs` and `node run.mjs --seed` (PGlite, no Docker) | 716 passed (2026-11-05), on Postgres 17 and in PGlite, empty and seeded |
+| Database (pgTAP) | `supabase/tests` | `npx supabase test db` (Docker), or `cd tool/sql_tests; node run.mjs` and `node run.mjs --seed` (PGlite, no Docker) | 778 passed in PGlite, empty and seeded (2026-11-14); 716 on Postgres 17 (2026-11-05) |
 | Photos (real uploads) | `tool/storage_api_test.mjs` | local stack running, `node tool/storage_api_test.mjs` | 14 checks passed |
-| Token exchange | `supabase/functions/tests` | see `supabase/README.md` (Deno) | 25 passed |
+| Token exchange | `supabase/functions/tests` | see `supabase/README.md` (Deno) | 27 passed (2026-11-14) |
 | Data move | `tool/migrate/migrate.test.mjs` | `cd tool/migrate; npm test` | 8 passed |
 | Release builds | `scripts/check_release_output.ps1` | after a release build: `-WebDir build\web` or `-Apk <file>` | passes |
 | Static checks | the whole project | `flutter analyze`, `dart format --set-exit-if-changed lib test tool` | clean |
@@ -103,6 +103,7 @@ repositories against the real stack.
 | Tool borrowing, return, condition and accountability | `tool_functions.test.sql`, `widget/personnel_app_test.dart`, `widget/inventory_screen_test.dart` |
 | Automatic low-stock alerts | `widget/inventory_screen_test.dart` (on screen); `admin_notifications.test.sql` (the notice) |
 | Security: authentication and role-based access | `permission_matrix.test.sql` (every role, every table), `function_privileges.test.sql`, `storage_policies.test.sql`, the token exchange's tests, `unit/routing/route_guard_test.dart` |
+| Security: a session ends after 30 minutes of inactivity, warned at 28, enforced by the database (2026-11-14) | `session_inactivity.test.sql`, the token exchange's `auth_time` tests, `unit/core/inactivity_monitor_test.dart`, `unit/core/session_backend_test.dart`, `widget/session_expiry_test.dart` (phone and console) |
 | Auditability | the audit assertions in every `*_functions.test.sql` |
 | Reliability: a refused change leaves nothing half-done | the refusal tests in `report_functions.test.sql` and `accomplishment_functions.test.sql` (a refused call changes nothing; a repeated one deducts nothing twice); `stock_ledger.test.sql` (the ledger and the audit trail cannot be edited) |
 | Portability: Android 8.0 and up | `minSdk 26` (`android/app/build.gradle.kts`); a phone test is the team's (below) |

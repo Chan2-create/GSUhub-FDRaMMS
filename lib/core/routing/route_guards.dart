@@ -48,14 +48,7 @@ class AppRouteGuard {
       // Preserve where they were headed so sign-in can forward them
       // there. Uses the full URI, so query parameters on a deep link
       // survive the round trip.
-      final intended = state.uri.toString();
-      final login = _loginFor(location);
-      return Uri(
-        path: login,
-        queryParameters: intended == _defaultAfterLogin(login)
-            ? null
-            : {_redirectQueryParam: intended},
-      ).toString();
+      return signedOutLocationFor(location, intended: state.uri.toString());
     }
 
     final role = user!.role;
@@ -85,6 +78,25 @@ class AppRouteGuard {
 
     return null;
   }
+
+  /// Where someone signed out while on [location] goes: that area's
+  /// sign-in page, remembering [intended] (the full location, by default
+  /// [location] itself) so that signing in again returns them there. A
+  /// session that ended as idle sends the person here (`SessionWatch`).
+  static String signedOutLocationFor(String location, {String? intended}) {
+    final target = intended ?? location;
+    final login = _loginFor(location);
+    return Uri(
+      path: login,
+      queryParameters: target == _defaultAfterLogin(login)
+          ? null
+          : {_redirectQueryParam: target},
+    ).toString();
+  }
+
+  /// The sign-in page of [location]'s area, with nothing remembered: a
+  /// chosen Logout.
+  static String loginPageFor(String location) => _loginFor(location);
 
   /// Pages for getting in: both sign-in pages, and the faculty and staff
   /// sign-up (3.A). Open to anyone signed out; a signed-in user is moved on

@@ -17,6 +17,7 @@ import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/services/account_provisioning_service.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/file_download_service.dart';
+import 'package:gsuhub/core/session/inactivity_monitor.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
@@ -31,6 +32,7 @@ import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository.dart';
 
 import 'fake_config_repository.dart';
+import 'fake_session.dart';
 import 'test_app_config.dart';
 
 /// Stand-ins for the auth service and the three repositories the admin
@@ -59,7 +61,7 @@ const fakeAdminUser = AuthUser(
 ProviderScope fakeAdminScope({
   required Widget child,
   AuthUser? user = fakeAdminUser,
-  FakeAuthService? authService,
+  AuthService? authService,
   Result<List<DamageReport>> reports = const Result.success(<DamageReport>[]),
   Result<List<AuditLogEntry>> activity = const Result.success(
     <AuditLogEntry>[],
@@ -74,10 +76,17 @@ ProviderScope fakeAdminScope({
   FakeUserRepository? userRepository,
   FakeAccountProvisioningService? provisioning,
   FakeFileDownloadService? downloads,
+  FakeSessionRepository? sessions,
+  // A monitor with a clock the test controls, for the session's expiry.
+  InactivityMonitor? monitor,
   bool useEmulator = false,
   String? startLocation,
 }) => ProviderScope(
   overrides: [
+    sessionRepositoryProvider.overrideWithValue(
+      sessions ?? FakeSessionRepository(),
+    ),
+    if (monitor != null) inactivityMonitorProvider.overrideWithValue(monitor),
     appConfigProvider.overrideWithValue(
       testAppConfig(useEmulator: useEmulator),
     ),

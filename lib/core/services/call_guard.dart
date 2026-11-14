@@ -21,11 +21,22 @@ class CallGuard {
     this._config, {
     required this._map,
     required this._isRetryable,
+    this._onFailure,
   });
 
   final AppConfig _config;
   final Failure Function(Object error) _map;
   final bool Function(Object error) _isRetryable;
+
+  /// Told of every failure this guard returns, once mapped: how a session
+  /// the database has ended is noticed wherever the refusal surfaces.
+  final void Function(Failure failure)? _onFailure;
+
+  Failure _fail(Object error) {
+    final failure = _map(error);
+    _onFailure?.call(failure);
+    return failure;
+  }
 
   /// Runs [operation], returning [Result.success] or a mapped
   /// [Result.failure].
@@ -45,7 +56,7 @@ class CallGuard {
             attempt < _config.maxRetryAttempts && _isRetryable(error);
 
         if (!canRetry) {
-          return Result.failure(_map(error));
+          return Result.failure(_fail(error));
         }
 
         attempt++;
@@ -64,7 +75,7 @@ class CallGuard {
     try {
       return Result.success(await operation().timeout(_config.requestTimeout));
     } on Object catch (error) {
-      return Result.failure(_map(error));
+      return Result.failure(_fail(error));
     }
   }
 
@@ -82,7 +93,7 @@ class CallGuard {
           // letting it terminate the subscription, so a transient failure
           // does not permanently kill a live listener.
           handleError: (error, stackTrace, sink) =>
-              sink.add(Result<T>.failure(_map(error))),
+              sink.add(Result<T>.failure(_fail(error))),
         ),
       );
 

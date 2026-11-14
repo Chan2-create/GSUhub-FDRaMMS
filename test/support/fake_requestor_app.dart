@@ -17,6 +17,7 @@ import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/connectivity_service.dart';
+import 'package:gsuhub/core/session/inactivity_monitor.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/damage_reports/data/models/report_submission.dart';
@@ -31,6 +32,7 @@ import 'fake_config_repository.dart';
 import 'fake_feedback.dart';
 import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
+import 'fake_session.dart';
 import 'test_app_config.dart';
 
 /// Stands up the faculty and staff app (Objective 3.A) without Firebase:
@@ -358,12 +360,20 @@ class RequestorHarness {
     List<DamageReport>? reports,
     AppUser? profile,
     List<AppNotification> notices = const [],
+    this.monitor,
   }) : auth = ScriptedAuthService(signedIn: signedIn),
        reports = FakeRequestorReportRepository(reports: reports),
        users = FakeRequestorUserRepository(profile: profile),
        notifications = FakeNotificationRepository(notices);
 
   final ScriptedAuthService auth;
+
+  /// The session's clock, when a test needs to move it (2026-11-14); the
+  /// app's own otherwise.
+  final InactivityMonitor? monitor;
+
+  /// What the app told the database about the session.
+  final sessions = FakeSessionRepository();
   final FakeRequestorReportRepository reports;
   final FakeRequestorUserRepository users;
   final FakeNotificationRepository notifications;
@@ -425,6 +435,9 @@ class RequestorHarness {
           mapTileLayerProvider.overrideWithValue(const SizedBox.shrink()),
           qrScanLauncherProvider.overrideWithValue((_) async => null),
           mapPinLauncherProvider.overrideWithValue((_, _) async => null),
+          sessionRepositoryProvider.overrideWithValue(sessions),
+          if (monitor case final monitor?)
+            inactivityMonitorProvider.overrideWithValue(monitor),
         ],
         child: const GsuhubApp(),
       ),

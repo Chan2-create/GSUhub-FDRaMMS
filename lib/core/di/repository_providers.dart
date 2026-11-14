@@ -6,6 +6,8 @@ import '../../features/accomplishment/data/repositories/material_usage_repositor
 import '../../features/accomplishment/data/repositories/material_usage_repository_impl.dart';
 import '../../features/audit/data/repositories/audit_log_repository.dart';
 import '../../features/audit/data/repositories/audit_log_repository_impl.dart';
+import '../../features/auth/data/repositories/session_repository.dart';
+import '../../features/auth/data/repositories/session_repository_impl.dart';
 import '../../features/classification/data/repositories/config_repository.dart';
 import '../../features/classification/data/repositories/config_repository_impl.dart';
 import '../../features/damage_reports/data/repositories/damage_report_repository.dart';
@@ -42,6 +44,15 @@ import 'service_providers.dart';
 
 final userRepositoryProvider = Provider<UserRepository>(
   (ref) => UserRepositoryImpl(
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
+  ),
+);
+
+/// The session's keep-alive (2026-11-14): tells the database the signed-in
+/// person is active, so it does not end their session as idle.
+final sessionRepositoryProvider = Provider<SessionRepository>(
+  (ref) => SessionRepositoryImpl(
     client: ref.watch(supabaseClientProvider),
     guard: ref.watch(supabaseCallGuardProvider),
   ),

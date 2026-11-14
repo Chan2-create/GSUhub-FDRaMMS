@@ -94,6 +94,9 @@ class _MobileLoginScreenState extends ConsumerState<MobileLoginScreen> {
             if (login.errorMessage case final message?) ...[
               const AuthGap(20),
               AuthNotice(message: message),
+            ] else if (login.sessionNotice case final notice?) ...[
+              const AuthGap(20),
+              AuthNotice(message: notice, neutral: true),
             ] else if (widget.justRegistered) ...[
               const AuthGap(20),
               const AuthNotice(

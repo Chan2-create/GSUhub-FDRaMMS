@@ -2004,3 +2004,96 @@ database function and tests.
   migration, documented and tested, never needed because the live
   Firestore held no data), `firebase/` and `test/rules/` (the Firestore
   rules, until Firestore is locked), and `docs/diagrams/`, untouched.
+
+## 31. Sessions end after 30 minutes of inactivity (2026-11-14)
+
+**The brief (Chris, 2026-11-14).** Sign people out after 30 minutes
+without activity, on the web console and on both phone apps alike.
+Activity is mouse movement, clicks and keys on the web, taps and other
+touches on the phone, and moving between pages. Warn at 28 minutes with
+a countdown; any interaction during the warning resets it; at 30 minutes
+end the session and show the sign-in page. And: "handled securely by the
+backend, not just through frontend timers." Never sign out someone who
+is using the app.
+
+**Two clocks, and the database's is the one that counts.** A timer in
+the app can warn and sign out politely, but a client that ignores its
+timer (a tampered build, a browser tab with scripts paused) would keep a
+working token. So the database decides, in the one place every policy
+and every function already pass through:
+
+- The token exchange now copies Firebase's `auth_time` — when the
+  password was last typed — into the Supabase token. A fresh sign-in is
+  activity in itself, which is how an idle account comes back without
+  any record having to change first.
+- `app.user_activity` (schema `app`, not exposed by the API) holds when
+  each account last did something. The app records it through
+  `touch_session` while it is being used, at most once a minute
+  (`SessionPolicy.touchInterval`): one small upsert per active user per
+  minute, not a write on every request.
+- `app.active_role()` requires activity, or a sign-in, within
+  `app.inactivity_limit()` (30 minutes), besides an active account. Past
+  it the caller is nobody: reads see no rows, Realtime delivers nothing,
+  and `require_active` / `require_admin` refuse with a new code,
+  **PT401**, whose message says the session ended. `touch_session`
+  checks the same thing first, so touching late revives nothing.
+- A token without `auth_time` and an account with no record count as
+  alive. Only the exchange can mint tokens, and it has always set the
+  claim since this change; the tests' own tokens set `sub` alone.
+
+Why not simply shorten the token's life to 30 minutes: the app renews a
+token a minute before it expires whether or not the person is active,
+and a token minted at minute 29 of activity would be good for 30 more
+idle minutes. The activity record is exact to the minute.
+
+Why RLS stays silent (no rows) rather than raising PT401 too: policies
+are also evaluated by Realtime for every change it considers delivering,
+and an exception there is noise at best. The functions raise; the app's
+own timer is what the person normally meets; and the first function call
+or `touch_session` after an idle gap surfaces PT401 if the timer somehow
+did not fire.
+
+**In the app** (`lib/core/session/`):
+
+- `InactivityMonitor` keeps the time of the last activity and compares
+  it with the wall clock every second — not by counting ticks, so a
+  laptop closed for an hour or a phone app left in the background wakes
+  to a session that has ended. Phases: active, warning (28:00 on), expired.
+- `SessionActivityListener` wraps the whole app, outside the router: a
+  translucent `Listener` for presses, drags, mouse movement and scrolling,
+  a `HardwareKeyboard` handler for keys, the router's delegate for page
+  changes, and `AppLifecycleListener.onResume` so a phone app checks the
+  clock the moment it returns to the foreground. It consumes nothing.
+- `SessionWarningOverlay` draws the warning and its countdown over the
+  page, in the tree rather than as a dialog route: it sits above the
+  router, so it shows over any page and over any dialog a page has open,
+  and it needs no Navigator. The brief counts mouse movement as activity,
+  so the warning disappears the moment the person does anything; its
+  buttons ("Stay signed in", "Sign out now") say so in words.
+- `SessionWatch` ties them together: starts and stops the monitor with
+  the sign-in, throttles the touches, and on expiry retires the phone's
+  push token, signs out through the same `AuthController`, and sends the
+  person to their area's sign-in page with the page remembered
+  (`AppRouteGuard.signedOutLocationFor`), so signing in again returns
+  them to where they were. The sign-in page shows a neutral notice
+  (`LoginState.sessionNotice`): "You were signed out after 30 minutes of
+  inactivity." A PT401 from any call, caught by the Supabase call guard's
+  new `onFailure` hook, ends the session the same way.
+- `SessionPolicy` holds the numbers; a unit test reads the migration and
+  checks they match the database's.
+
+**Deploying it, in this order:** the Edge Function first
+(`npx supabase functions deploy firebase-token-exchange`), then the
+migration (`npx supabase db push`). The other way round, a person whose
+last recorded activity is older than 30 minutes could not sign back in
+until the function was issuing `auth_time`, because nothing would prove
+their sign-in was fresh.
+
+Tests: `supabase/tests/session_inactivity.test.sql` (25), the exchange's
+`auth_time` tests, `test/unit/core/inactivity_monitor_test.dart`,
+`test/unit/core/session_backend_test.dart`, and
+`test/widget/session_expiry_test.dart` (the warning and the countdown,
+any tap, mouse movement or key clearing it, the sign-out and the notice
+on the phone and in the console, a phone waking past the limit, the
+database's refusal, the once-a-minute touch, and returning to the page
+after signing in again).

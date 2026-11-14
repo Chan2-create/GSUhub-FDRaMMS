@@ -140,6 +140,26 @@ Deno.test("a valid Firebase token is traded for a Supabase token for the same ui
   assertEquals(payload.iat, now);
 });
 
+Deno.test("the token says when the person signed in, for the database's inactivity check", async () => {
+  const { body } = await exchange(await setup(), {
+    idToken: await firebaseToken(),
+  });
+  const { payload } = await jwtVerify(body.access_token, secretKey, {
+    currentDate: new Date(now * 1000),
+  });
+  assertEquals(payload.auth_time, now - 600);
+});
+
+Deno.test("a Firebase token without a sign-in time counts its issue time as one", async () => {
+  const { body } = await exchange(await setup(), {
+    idToken: await firebaseToken({ auth_time: undefined }),
+  });
+  const { payload } = await jwtVerify(body.access_token, secretKey, {
+    currentDate: new Date(now * 1000),
+  });
+  assertEquals(payload.auth_time, now - 60);
+});
+
 Deno.test("a Firebase token with no email gives a token with none", async () => {
   const { status, body } = await exchange(await setup(), {
     idToken: await firebaseToken({ email: undefined }),

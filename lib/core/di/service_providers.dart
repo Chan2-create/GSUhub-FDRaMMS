@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase/supabase.dart' show SupabaseClient;
 
 import '../config/app_config.dart';
+import '../errors/failures.dart';
 import '../services/account_provisioning_service.dart';
 import '../services/auth_service.dart';
 import '../services/connectivity_service.dart';
@@ -23,6 +24,7 @@ import '../services/supabase/supabase_call_guard.dart';
 import '../services/supabase/supabase_connectivity_service.dart';
 import '../services/supabase/supabase_session.dart';
 import '../services/supabase/supabase_storage_service.dart';
+import '../session/inactivity_monitor.dart';
 
 /// The app-wide [AppConfig]. Overridden in `main.dart`.
 final appConfigProvider = Provider<AppConfig>(
@@ -82,7 +84,16 @@ final supabaseClientProvider = Provider<SupabaseClient>((ref) {
 });
 
 final supabaseCallGuardProvider = Provider<SupabaseCallGuard>(
-  (ref) => SupabaseCallGuard(ref.watch(appConfigProvider)),
+  (ref) => SupabaseCallGuard(
+    ref.watch(appConfigProvider),
+    // The database ended the session as idle (PT401): the app signs out,
+    // whichever call the refusal came back on.
+    onFailure: (failure) {
+      if (failure is SessionExpiredFailure) {
+        ref.read(inactivityMonitorProvider).expire();
+      }
+    },
+  ),
 );
 
 /// Authentication. Features depend on the [AuthService] abstraction, never
