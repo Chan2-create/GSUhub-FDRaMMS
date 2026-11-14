@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/notification_type.dart';
@@ -10,8 +10,8 @@ import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/utils/display_id.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/notifications/data/models/personnel_notice.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/tasks/data/models/maintenance_task.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
@@ -20,8 +20,8 @@ import 'package:gsuhub/features/work_orders/data/repositories/work_order_reposit
 import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
+import '../../../damage_reports/data/repositories/status_history_writes.dart';
 import '../../../notifications/data/repositories/notification_writes.dart';
-import '../../../reporting/data/repositories/status_history_writes.dart';
 import 'work_order_moves.dart';
 
 /// Firestore-backed [WorkOrderRepository]. Persistence only.
@@ -32,7 +32,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
     implements WorkOrderRepository {
   const FirestoreWorkOrderRepository({required super.db, required super.guard});
 
-  static const String _path = FirestorePaths.workOrders;
+  static const String _path = TableNames.workOrders;
 
   @override
   Future<Result<WorkOrder>> getById(String id) =>
@@ -95,9 +95,8 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
     required AuditActor actor,
     DateTime? scheduledFor,
   }) => db.runTransaction<String>((transaction) async {
-    final reportReference = collection(FirestorePaths.damageReports)
-        .doc(reportId);
-    final personReference = collection(FirestorePaths.users).doc(personnelId);
+    final reportReference = collection(TableNames.damageReports).doc(reportId);
+    final personReference = collection(TableNames.users).doc(personnelId);
 
     // Firestore transactions require every read before any write.
     final reportSnapshot = await transaction.get(reportReference);
@@ -147,7 +146,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
     }
 
     final workOrderReference = collection(_path).doc();
-    final taskReference = collection(FirestorePaths.tasks).doc();
+    final taskReference = collection(TableNames.tasks).doc();
     final now = DateTime.now().toUtc();
 
     // Built through the model so its validation and field names stay the
@@ -234,7 +233,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
       db.raw,
       actor: actor,
       action: AuditAction.assigned,
-      entityType: FirestorePaths.damageReports,
+      entityType: TableNames.damageReports,
       entityId: reportId,
       description: 'Assigned to ${person.fullName}',
       changes: {
@@ -249,7 +248,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
       db.raw,
       actor: actor,
       action: AuditAction.created,
-      entityType: FirestorePaths.workOrders,
+      entityType: TableNames.workOrders,
       entityId: workOrderReference.id,
       description: 'Work order created from report $reportId',
       changes: {
@@ -273,7 +272,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
   }) async {
     // Firestore transactions cannot query: the work's unfinished tasks are
     // found first, then read again inside the transaction.
-    final open = await collection(FirestorePaths.tasks)
+    final open = await collection(TableNames.tasks)
         .where('workOrderId', isEqualTo: workOrderId)
         .get();
     return db.runTransaction<void>((transaction) async {
@@ -281,7 +280,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
       final snapshot = await transaction.get(reference);
       if (!snapshot.exists) throw _notFound('No work order $workOrderId');
       final personSnapshot = await transaction.get(
-        collection(FirestorePaths.users).doc(personnelId),
+        collection(TableNames.users).doc(personnelId),
       );
       if (!personSnapshot.exists) throw _notFound('No user $personnelId');
 
@@ -311,14 +310,14 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
       for (final id in previous) {
         if (id == personnelId) continue;
         final former = await transaction.get(
-          collection(FirestorePaths.users).doc(id),
+          collection(TableNames.users).doc(id),
         );
         if (former.exists) formers.add(fromDoc(AppUser.fromRecord)(former));
       }
       final reports = <DamageReport>[];
       for (final id in workOrder.reportIds) {
         final report = await transaction.get(
-          collection(FirestorePaths.damageReports).doc(id),
+          collection(TableNames.damageReports).doc(id),
         );
         if (report.exists) {
           reports.add(fromDoc(DamageReport.fromRecord)(report));
@@ -330,7 +329,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
       }
 
       for (final former in formers) {
-        transaction.update(collection(FirestorePaths.users).doc(former.id), {
+        transaction.update(collection(TableNames.users).doc(former.id), {
           'activeTaskCount': former.activeTaskCount > 0
               ? former.activeTaskCount - 1
               : 0,
@@ -338,7 +337,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
         });
       }
       if (!previous.contains(personnelId)) {
-        transaction.update(collection(FirestorePaths.users).doc(personnelId), {
+        transaction.update(collection(TableNames.users).doc(personnelId), {
           'activeTaskCount': FieldValue.increment(1),
           'updatedAt': FirestoreRepository.serverNow,
         });
@@ -376,7 +375,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
           type: NotificationType.statusUpdate,
           title: 'New technician assigned',
           body: 'Your report "${report.title}" is now with ${person.fullName}.',
-          relatedEntityType: FirestorePaths.damageReports,
+          relatedEntityType: TableNames.damageReports,
           relatedEntityId: report.id,
         );
       }
@@ -400,7 +399,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
           body:
               '${DisplayId.workOrder(workOrderId)} ("${workOrder.title}") was '
               'reassigned to ${person.fullName}. It is off your list.',
-          relatedEntityType: FirestorePaths.workOrders,
+          relatedEntityType: TableNames.workOrders,
           relatedEntityId: workOrderId,
         );
       }
@@ -412,7 +411,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
         db.raw,
         actor: actor,
         action: AuditAction.assigned,
-        entityType: FirestorePaths.workOrders,
+        entityType: TableNames.workOrders,
         entityId: workOrderId,
         description:
             'Reassigned to ${person.fullName}'
@@ -473,7 +472,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
       db.raw,
       actor: actor,
       action: AuditAction.updated,
-      entityType: FirestorePaths.workOrders,
+      entityType: TableNames.workOrders,
       entityId: workOrderId,
       description: note == null
           ? 'Note to the technician removed'
@@ -509,7 +508,7 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
       db.raw,
       actor: actor,
       action: AuditAction.updated,
-      entityType: FirestorePaths.workOrders,
+      entityType: TableNames.workOrders,
       entityId: workOrderId,
       description: archived
           ? 'Archived work order $label'

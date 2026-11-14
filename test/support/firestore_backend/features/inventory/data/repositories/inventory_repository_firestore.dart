@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/inventory_transaction_type.dart';
 import 'package:gsuhub/core/errors/failures.dart';
@@ -28,8 +28,8 @@ class FirestoreInventoryRepository extends FirestoreRepository
     implements InventoryRepository {
   const FirestoreInventoryRepository({required super.db, required super.guard});
 
-  static const String _items = FirestorePaths.inventoryItems;
-  static const String _transactions = FirestorePaths.inventoryTransactions;
+  static const String _items = TableNames.inventoryItems;
+  static const String _transactions = TableNames.inventoryTransactions;
 
   /// The longest reason a stock count may give.
   static const int reasonLimit = 200;

@@ -8,15 +8,15 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
-import '../../../core/constants/firestore_paths.dart';
+import '../../../core/constants/table_names.dart';
 import '../../../core/enums/notification_type.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/relative_time.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/priority_chip.dart';
-import '../../reporting/data/models/damage_report.dart';
-import '../../reporting/presentation/report_providers.dart';
+import '../../damage_reports/data/models/damage_report.dart';
+import '../../damage_reports/presentation/report_providers.dart';
 import '../data/models/app_notification.dart';
 import 'notification_providers.dart';
 
@@ -76,8 +76,8 @@ class _AdminNotificationsScreenState
   }
 
   static bool _isAboutReports(AppNotification notice) =>
-      notice.relatedEntityType == FirestorePaths.damageReports ||
-      notice.relatedEntityType == FirestorePaths.workOrders;
+      notice.relatedEntityType == TableNames.damageReports ||
+      notice.relatedEntityType == TableNames.workOrders;
 
   Future<void> _pickRange() async {
     final now = clock.now();
@@ -370,7 +370,7 @@ class _List extends StatelessWidget {
         for (final notice in notices) ...[
           _NoticeRow(
             notice: notice,
-            report: notice.relatedEntityType == FirestorePaths.damageReports
+            report: notice.relatedEntityType == TableNames.damageReports
                 ? reports[notice.relatedEntityId]
                 : null,
           ),
@@ -494,13 +494,13 @@ class _NoticeRow extends ConsumerWidget {
     final id = notice.relatedEntityId;
     final router = GoRouter.of(context);
     switch (notice.relatedEntityType) {
-      case FirestorePaths.damageReports when id != null:
+      case TableNames.damageReports when id != null:
         router.go(RoutePaths.adminReportDetailFor(id));
-      case FirestorePaths.workOrders when id != null:
+      case TableNames.workOrders when id != null:
         router.go(RoutePaths.adminWorkOrderDetailFor(id));
-      case FirestorePaths.materialRequests || FirestorePaths.inventoryItems:
+      case TableNames.materialRequests || TableNames.inventoryItems:
         router.go(RoutePaths.adminInventory);
-      case FirestorePaths.users:
+      case TableNames.users:
         router.go(RoutePaths.adminUsers);
     }
   }

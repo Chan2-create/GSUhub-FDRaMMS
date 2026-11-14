@@ -8,7 +8,7 @@
 /// accomplishment and task photos under the uploader's uid, which the
 /// policies require, so the paths here do not carry it.
 ///
-/// Lives beside `FirestorePaths` rather than inside the storage service so
+/// Lives beside `TableNames` rather than inside the storage service so
 /// a screen can name where its upload goes without importing a backend.
 abstract final class StoragePaths {
   /// Photo evidence attached to a damage report (manuscript §1.5).

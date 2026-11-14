@@ -1,17 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/feedback/data/models/service_feedback.dart';
 import 'package:gsuhub/features/feedback/data/repositories/feedback_repository.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 
 import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
-import '../../../reporting/data/repositories/status_history_writes.dart';
+import '../../../damage_reports/data/repositories/status_history_writes.dart';
 
 /// Firestore-backed [FeedbackRepository]. Persistence only — no averaging
 /// of the three ratings, which stay independent by design (§1.5).
@@ -22,7 +22,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
     implements FeedbackRepository {
   const FirestoreFeedbackRepository({required super.db, required super.guard});
 
-  static const String _path = FirestorePaths.feedback;
+  static const String _path = TableNames.feedback;
 
   @override
   Future<Result<ServiceFeedback>> getById(String id) =>
@@ -91,8 +91,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
     required int overallSatisfaction,
     String? comments,
   }) => db.runTransaction<void>((transaction) async {
-    final reportReference = collection(FirestorePaths.damageReports)
-        .doc(reportId);
+    final reportReference = collection(TableNames.damageReports).doc(reportId);
     final feedbackReference = collection(_path).doc(reportId);
 
     // Every read before any write, as transactions require.
@@ -170,7 +169,7 @@ class FirestoreFeedbackRepository extends FirestoreRepository
       db.raw,
       actor: rater,
       action: AuditAction.statusChanged,
-      entityType: FirestorePaths.damageReports,
+      entityType: TableNames.damageReports,
       entityId: reportId,
       description: 'Rated the service and closed the report',
       changes: {

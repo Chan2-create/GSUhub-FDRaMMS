@@ -6,12 +6,12 @@ import 'package:gsuhub/core/services/location_service.dart';
 import 'package:gsuhub/core/services/photo_picker_service.dart';
 import 'package:gsuhub/core/services/storage_service.dart';
 import 'package:gsuhub/core/utils/result.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_submission.dart';
+import 'package:gsuhub/features/damage_reports/data/repositories/damage_report_repository.dart';
 import 'package:gsuhub/features/facilities/data/models/asset.dart';
 import 'package:gsuhub/features/facilities/data/models/facility.dart';
 import 'package:gsuhub/features/facilities/data/repositories/facility_repository.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
-import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
-import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository.dart';
 
 /// Stand-ins for everything the damage report form talks to (3.C): the
 /// camera, the GPS, Storage, the facility registry and the report

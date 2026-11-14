@@ -65,7 +65,7 @@ class AuditLogEntry {
   final AuditAction action;
 
   /// Collection name of the affected document — a value from
-  /// `FirestorePaths`.
+  /// `TableNames`.
   final String entityType;
 
   final String entityId;

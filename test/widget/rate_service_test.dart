@@ -4,8 +4,8 @@ import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
+import 'package:gsuhub/features/damage_reports/data/models/status_change.dart';
 import 'package:gsuhub/features/feedback/data/models/service_feedback.dart';
-import 'package:gsuhub/features/reporting/data/models/status_change.dart';
 
 import '../support/fake_requestor_app.dart';
 

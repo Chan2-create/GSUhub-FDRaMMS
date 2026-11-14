@@ -8,7 +8,7 @@ import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/utils/result.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/work_orders/presentation/task_assignment_screen.dart';
 

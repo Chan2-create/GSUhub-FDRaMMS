@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/features/facilities/data/models/facility_draft.dart';
@@ -57,7 +57,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final rooms = await app.data.firestore
-        .collection(FirestorePaths.facilities)
+        .collection(TableNames.facilities)
         .where('roomIdentifier', isEqualTo: 'Room 305')
         .get();
     final room = rooms.docs.single;

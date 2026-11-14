@@ -13,7 +13,7 @@ import '../../../core/widgets/category_donut.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_chip.dart';
-import '../../reporting/data/models/damage_report.dart';
+import '../../damage_reports/data/models/damage_report.dart';
 import 'dashboard_providers.dart';
 import 'widgets/activity_feed.dart';
 import 'widgets/building_volume_chart.dart';

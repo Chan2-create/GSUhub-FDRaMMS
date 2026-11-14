@@ -8,8 +8,10 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/routing/route_paths.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../features/analytics/presentation/analytics_export.dart';
 import '../../../features/analytics/presentation/analytics_providers.dart';
+import 'admin_profile_menu.dart';
 
 /// Top app bar (Figma node `196:743`, placed as in the dashboard frame):
 /// a white header across the whole window, the GSUhub logo over the
@@ -30,6 +32,8 @@ class AdminTopBar extends StatelessWidget {
   const AdminTopBar({
     required this.pageTitle,
     required this.unreadNotifications,
+    required this.user,
+    required this.onSignOut,
     super.key,
     this.pageControls,
     this.showMenuButton = false,
@@ -40,6 +44,12 @@ class AdminTopBar extends StatelessWidget {
 
   /// Drives the red dot on the bell. Zero hides it.
   final int unreadNotifications;
+
+  /// Who is signed in, for the account menu behind the gold circle.
+  final AuthUser? user;
+
+  /// Ends the session, once Logout in the account menu is confirmed.
+  final Future<void> Function() onSignOut;
 
   /// A page's own control, between the section name and the date.
   final Widget? pageControls;
@@ -84,7 +94,7 @@ class AdminTopBar extends StatelessWidget {
         padding: EdgeInsets.only(left: showMenuButton ? 4 : 24, right: 8),
         child: LayoutBuilder(
           builder: (context, constraints) =>
-              _compact(context, constraints.maxWidth),
+              _compact(context, constraints.maxWidth, withAccount: true),
         ),
       );
     }
@@ -104,11 +114,13 @@ class AdminTopBar extends StatelessWidget {
           _Brand(width: brand),
           Expanded(child: _card(context, today)),
           SizedBox(width: avatarGap),
-          const Padding(
-            padding: EdgeInsets.only(top: _cardInset),
+          Padding(
+            padding: const EdgeInsets.only(top: _cardInset),
             child: SizedBox(
               height: _barHeight,
-              child: Center(child: _Avatar()),
+              child: Center(
+                child: AdminProfileMenu(user: user, onSignOut: onSignOut),
+              ),
             ),
           ),
           const SizedBox(width: 25),
@@ -191,7 +203,11 @@ class AdminTopBar extends StatelessWidget {
     ),
   );
 
-  Widget _compact(BuildContext context, double width) => Row(
+  Widget _compact(
+    BuildContext context,
+    double width, {
+    bool withAccount = false,
+  }) => Row(
     children: [
       if (showMenuButton) const _MenuButton(),
       Expanded(
@@ -222,6 +238,11 @@ class AdminTopBar extends StatelessWidget {
               ],
               const _ExportDataButton(iconOnly: true),
               _NotificationBell(unreadCount: unreadNotifications),
+              // On a phone the account menu, with Logout, is here: the
+              // bar has no room for it outside. In the card it is not,
+              // since the gold circle stands beside the card already.
+              if (withAccount)
+                AdminProfileMenu(user: user, onSignOut: onSignOut, size: 30),
             ],
           ),
         ),
@@ -433,20 +454,6 @@ class _HelpButton extends StatelessWidget {
       width: 20,
       height: 20,
       colorFilter: const ColorFilter.mode(AppColors.textMuted, BlendMode.srcIn),
-    ),
-  );
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 44,
-    height: 36,
-    decoration: const BoxDecoration(
-      color: AppColors.accentGold,
-      shape: BoxShape.circle,
     ),
   );
 }

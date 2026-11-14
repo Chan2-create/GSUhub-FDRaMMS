@@ -5,7 +5,7 @@ import 'package:gsuhub/core/utils/result.dart';
 /// Backend Contract" in docs/architecture_decisions.md, rules 1 and 3.
 ///
 /// Deliberately generic and collection-path-based (paths come from
-/// `constants/firestore_paths.dart`) rather than typed per entity —
+/// `constants/table_names.dart`) rather than typed per entity —
 /// document *shapes* (field names, models) are Objective 1.B's
 /// responsibility. `fromMap`/`toMap` are supplied by the caller so this
 /// interface never needs to know what a `damage_reports` document looks

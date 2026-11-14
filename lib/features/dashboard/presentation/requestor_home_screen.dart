@@ -10,9 +10,9 @@ import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../shells/requestor/requestor_shell.dart';
-import '../../reporting/data/models/damage_report.dart';
-import '../../reporting/presentation/my_reports/my_reports_providers.dart';
-import '../../reporting/presentation/my_reports/widgets/report_pills.dart';
+import '../../damage_reports/data/models/damage_report.dart';
+import '../../damage_reports/presentation/my_reports/my_reports_providers.dart';
+import '../../damage_reports/presentation/my_reports/widgets/report_pills.dart';
 import '../../user_management/presentation/profile_providers.dart';
 
 /// The faculty and staff home screen (Figma `170:2050`, Objective 3.A):

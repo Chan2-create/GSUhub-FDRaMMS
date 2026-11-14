@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/enums/date_range_filter.dart';
 import '../../../core/utils/result.dart';
-import '../../reporting/presentation/report_providers.dart';
+import '../../damage_reports/presentation/report_providers.dart';
 import '../../work_orders/presentation/work_order_providers.dart';
 import 'analytics_summary.dart';
 

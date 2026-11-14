@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
@@ -38,9 +38,9 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
     FirebaseFirestore firestore,
     String workOrderId,
   ) => firestore
-      .collection(FirestorePaths.workOrders)
+      .collection(TableNames.workOrders)
       .doc(workOrderId)
-      .collection(FirestorePaths.materialsAllocated);
+      .collection(TableNames.materialsAllocated);
 
   /// Reads [workOrderId] in [transaction] and refuses unless it can still
   /// take materials: pending or in progress.
@@ -50,7 +50,7 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
     String workOrderId,
   ) async {
     final snapshot = await transaction.get(
-      firestore.collection(FirestorePaths.workOrders).doc(workOrderId),
+      firestore.collection(TableNames.workOrders).doc(workOrderId),
     );
     if (!snapshot.exists) {
       throw FirestoreRepository.notFound('No work order $workOrderId');
@@ -101,7 +101,7 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
     return db.runTransaction<void>((transaction) async {
       await readOpenWorkOrder(transaction, db.raw, workOrderId);
       final itemSnapshot = await transaction.get(
-        collection(FirestorePaths.inventoryItems).doc(inventoryItemId),
+        collection(TableNames.inventoryItems).doc(inventoryItemId),
       );
       if (!itemSnapshot.exists) {
         throw FirestoreRepository.notFound(
@@ -135,7 +135,7 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
         db.raw,
         actor: actor,
         action: AuditAction.updated,
-        entityType: FirestorePaths.workOrders,
+        entityType: TableNames.workOrders,
         entityId: workOrderId,
         description:
             'Pre-assigned '
@@ -164,7 +164,7 @@ class FirestoreMaterialAllocationRepository extends FirestoreRepository
       db.raw,
       actor: actor,
       action: AuditAction.updated,
-      entityType: FirestorePaths.workOrders,
+      entityType: TableNames.workOrders,
       entityId: workOrderId,
       description:
           'Took ${allocated.line.itemName} off '

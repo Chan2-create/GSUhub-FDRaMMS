@@ -10,8 +10,8 @@ import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/status_chip.dart';
-import '../../reporting/data/models/damage_report.dart';
-import '../../reporting/presentation/report_review_controller.dart';
+import '../../damage_reports/data/models/damage_report.dart';
+import '../../damage_reports/presentation/report_review_controller.dart';
 import '../domain/duplicate_detector.dart';
 import 'classification_providers.dart';
 

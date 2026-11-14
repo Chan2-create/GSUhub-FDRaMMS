@@ -11,13 +11,13 @@ import '../../../core/utils/display_id.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/person_avatar.dart';
+import '../../../shells/mobile/mobile_title_row.dart';
 import '../../../shells/requestor/requestor_shell.dart';
-import '../../../shells/requestor/requestor_title_row.dart';
-import '../../reporting/data/models/damage_report.dart';
-import '../../reporting/data/models/status_change.dart';
-import '../../reporting/presentation/my_reports/my_reports_providers.dart';
-import '../../reporting/presentation/my_reports/report_timeline.dart';
-import '../../reporting/presentation/my_reports/widgets/report_pills.dart';
+import '../../damage_reports/data/models/damage_report.dart';
+import '../../damage_reports/data/models/status_change.dart';
+import '../../damage_reports/presentation/my_reports/my_reports_providers.dart';
+import '../../damage_reports/presentation/my_reports/report_timeline.dart';
+import '../../damage_reports/presentation/my_reports/widgets/report_pills.dart';
 import '../data/models/service_feedback.dart';
 import 'rating_controller.dart';
 import 'widgets/rating_summary.dart';
@@ -63,7 +63,7 @@ class RateServiceScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        RequestorTitleRow(title: 'Ratings', onBack: () => _leave(context)),
+        MobileTitleRow(title: 'Ratings', onBack: () => _leave(context)),
         Expanded(
           child: ListView(
             padding: EdgeInsets.fromLTRB(

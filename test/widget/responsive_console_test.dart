@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
@@ -137,7 +137,7 @@ void main() {
       NotificationType.statusUpdate,
     ].indexed) {
       await data.firestore
-          .collection(FirestorePaths.notifications)
+          .collection(TableNames.notifications)
           .doc('n-$i')
           .set(
             AppNotification(
@@ -150,7 +150,7 @@ void main() {
                   'delivery when stock arrives.',
               isRead: false,
               createdAt: DateTime.now().subtract(Duration(minutes: i * 90)),
-              relatedEntityType: FirestorePaths.inventoryItems,
+              relatedEntityType: TableNames.inventoryItems,
               relatedEntityId: 'inv-wire',
             ).toFields().forFirestore,
           );
@@ -174,6 +174,7 @@ void main() {
     'User Accounts': RoutePaths.adminUsers,
     'Notifications': RoutePaths.adminNotifications,
     'Settings': RoutePaths.adminSettings,
+    'My Profile': RoutePaths.adminProfile,
   };
   // Small, compact, common, modern and large phones; a tablet, a laptop
   // and the design's own width.
@@ -190,8 +191,11 @@ void main() {
 
           // The page never scrolls sideways: whatever is wider than the
           // window scrolls inside its own card.
-          final shell = tester.getSize(find.byType(Scaffold).first);
-          expect(shell.width, width);
+          // Measured on the glass: the console is drawn at 90% on
+          // anything wider than a phone, in a window that much larger.
+          final shell = tester.getRect(find.byType(Scaffold).first);
+          expect(shell.left, closeTo(0, 0.01));
+          expect(shell.width, closeTo(width, 0.01));
         });
       }
     });

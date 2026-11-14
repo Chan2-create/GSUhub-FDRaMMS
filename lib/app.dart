@@ -9,7 +9,7 @@ import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
 import 'core/routing/route_paths.dart';
 import 'features/notifications/presentation/push_coordinator.dart';
-import 'shells/mobile/phone_viewport.dart';
+import 'shells/app_viewport.dart';
 
 /// Where the app opens, or null for the router's default (the admin
 /// dashboard).
@@ -81,8 +81,8 @@ class GsuhubApp extends ConsumerWidget {
       routerConfig: router,
       builder: (context, child) => _EmulatorBanner(
         enabled: config.useEmulator,
-        // The phone apps keep their 390-wide design on every phone.
-        child: PhoneViewport(
+        // The phone apps at their 390-wide design; the console at 90%.
+        child: AppViewport(
           router: router,
           child: child ?? const SizedBox.shrink(),
         ),

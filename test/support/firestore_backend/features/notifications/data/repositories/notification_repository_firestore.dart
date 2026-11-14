@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
 import 'package:gsuhub/features/notifications/data/repositories/notification_repository.dart';
@@ -19,7 +19,7 @@ class FirestoreNotificationRepository extends FirestoreRepository
     required super.guard,
   });
 
-  static const String _path = FirestorePaths.notifications;
+  static const String _path = TableNames.notifications;
 
   @override
   Stream<Result<List<AppNotification>>> watchForUser(

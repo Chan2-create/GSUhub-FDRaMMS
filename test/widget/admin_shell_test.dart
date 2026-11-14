@@ -134,16 +134,110 @@ void main() {
       );
     });
 
-    testWidgets('signs out through the auth service', (tester) async {
+    testWidgets('no longer carries Logout: it is in the account menu', (
+      tester,
+    ) async {
       await pumpShell(tester);
 
-      await tester.tap(find.byTooltip('Sign out'));
+      expect(find.byTooltip('Sign out'), findsNothing);
+      expect(find.byIcon(Icons.logout), findsNothing);
+    });
+  });
+
+  // The header's gold circle (2026-11-13): who is signed in, My Profile
+  // and Logout, which asks first.
+  group('account menu', () {
+    Future<void> openMenu(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Account'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('opens under the gold circle, with who is signed in', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+      await openMenu(tester);
+
+      expect(find.text(fakeAdminUser.email), findsOneWidget);
+      expect(find.text('GSU Administrator'), findsOneWidget);
+      expect(find.text('My Profile'), findsOneWidget);
+      expect(find.text('Logout'), findsOneWidget);
+      // Below the circle, not over it.
+      expect(
+        tester.getTopLeft(find.text('My Profile')).dy,
+        greaterThan(tester.getBottomLeft(find.byTooltip('Account')).dy),
+      );
+    });
+
+    testWidgets('Logout asks first, then signs out through the auth service', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+      await openMenu(tester);
+      await tester.tap(find.text('Logout'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Log out of GSUhub?'), findsOneWidget);
+      expect(auth.signOutCallCount, 0, reason: 'not before it is confirmed');
+      await tester.tap(find.widgetWithText(FilledButton, 'Logout'));
       await tester.pumpAndSettle();
 
       // The service call is the assertion, not the resulting route: in the
       // app the router is rebuilt by `appRouterProvider` when auth state
       // changes, whereas this test pins one guard for the whole run.
       expect(auth.signOutCallCount, 1);
+    });
+
+    testWidgets('Cancel keeps the session', (tester) async {
+      await pumpShell(tester);
+      await openMenu(tester);
+      await tester.tap(find.text('Logout'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(auth.signOutCallCount, 0);
+      expect(currentPath(), RoutePaths.adminDashboard);
+    });
+
+    testWidgets('My Profile opens the administrator\'s own account', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+      await openMenu(tester);
+      await tester.tap(find.text('My Profile'));
+      await tester.pumpAndSettle();
+
+      expect(currentPath(), RoutePaths.adminProfile);
+      // Named in the header, though the sidebar has no entry for it.
+      expect(AdminShell.titleFor(RoutePaths.adminProfile), 'My Profile');
+    });
+
+    testWidgets('is in the phone\'s bar too, where the sidebar is a drawer', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+      tester.view.physicalSize = const Size(360, 800);
+      await tester.pumpAndSettle();
+
+      await openMenu(tester);
+      expect(find.text('Logout'), findsOneWidget);
+    });
+
+    testWidgets('is drawn once at every width', (tester) async {
+      await pumpShell(tester);
+      // A phone's bar, a tablet's narrow card, a laptop's full card: the
+      // tablet once showed two gold circles, one in the card and one
+      // beside it.
+      for (final width in [360.0, 800.0, 1100.0, 1440.0]) {
+        tester.view.physicalSize = Size(width, 900);
+        await tester.pumpAndSettle();
+        expect(
+          find.byTooltip('Account'),
+          findsOneWidget,
+          reason: 'at $width wide',
+        );
+      }
     });
   });
 

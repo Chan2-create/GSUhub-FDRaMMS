@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
@@ -20,13 +20,13 @@ import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
 import 'package:gsuhub/features/classification/data/models/classification_rules_config.dart';
 import 'package:gsuhub/features/classification/data/models/duplicate_detection_config.dart';
 import 'package:gsuhub/features/classification/data/models/prioritization_config.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/facilities/data/models/asset.dart';
 import 'package:gsuhub/features/facilities/data/models/facility.dart';
 import 'package:gsuhub/features/feedback/data/models/service_feedback.dart';
 import 'package:gsuhub/features/inventory/data/models/inventory_item.dart';
 import 'package:gsuhub/features/inventory/data/models/inventory_transaction.dart';
 import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/tasks/data/models/maintenance_task.dart';
 import 'package:gsuhub/features/tools/data/models/tool.dart';
 import 'package:gsuhub/features/tools/data/models/tool_loan.dart';
@@ -65,7 +65,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.users,
+        TableNames.users,
         original.id,
         original.toFields(),
       );
@@ -91,7 +91,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.facilities,
+        TableNames.facilities,
         original.id,
         original.toFields(),
       );
@@ -120,7 +120,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.assets,
+        TableNames.assets,
         original.id,
         original.toFields(),
       );
@@ -164,7 +164,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.damageReports,
+        TableNames.damageReports,
         original.id,
         original.toFields(),
       );
@@ -186,7 +186,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.damageReports,
+        TableNames.damageReports,
         original.id,
         original.toFields(),
       );
@@ -220,7 +220,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.workOrders,
+        TableNames.workOrders,
         original.id,
         original.toFields(),
       );
@@ -246,7 +246,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.tasks,
+        TableNames.tasks,
         original.id,
         original.toFields(),
       );
@@ -279,7 +279,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.accomplishmentReports,
+        TableNames.accomplishmentReports,
         original.id,
         original.toFields(),
       );
@@ -307,7 +307,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.inventoryItems,
+        TableNames.inventoryItems,
         original.id,
         original.toFields(),
       );
@@ -334,7 +334,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.inventoryTransactions,
+        TableNames.inventoryTransactions,
         original.id,
         original.toFields(),
       );
@@ -359,7 +359,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.tools,
+        TableNames.tools,
         original.id,
         original.toFields(),
       );
@@ -380,7 +380,7 @@ void main() {
       );
 
       final openDoc = await roundTrip(
-        FirestorePaths.toolLoans,
+        TableNames.toolLoans,
         open.id,
         open.toFields(),
       );
@@ -392,7 +392,7 @@ void main() {
         conditionOnReturn: ItemCondition.good,
       );
       final closedDoc = await roundTrip(
-        FirestorePaths.toolLoans,
+        TableNames.toolLoans,
         closed.id,
         closed.toFields(),
       );
@@ -417,7 +417,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.feedback,
+        TableNames.feedback,
         original.id,
         original.toFields(),
       );
@@ -436,7 +436,7 @@ void main() {
         type: NotificationType.workOrderAssigned,
         title: 'Work order assigned',
         body: 'You have been assigned WO-2024-0905.',
-        relatedEntityType: FirestorePaths.workOrders,
+        relatedEntityType: TableNames.workOrders,
         relatedEntityId: 'wo-1',
         isRead: true,
         readAt: updatedAt,
@@ -444,7 +444,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.notifications,
+        TableNames.notifications,
         original.id,
         original.toFields(),
       );
@@ -458,7 +458,7 @@ void main() {
         actorId: 'admin-1',
         actorName: 'GSU Administrator',
         action: AuditAction.statusChanged,
-        entityType: FirestorePaths.damageReports,
+        entityType: TableNames.damageReports,
         entityId: 'rep-1',
         description: 'Official priority changed from High to Critical',
         changes: const {'officialPriority': 'critical'},
@@ -466,7 +466,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.auditLogs,
+        TableNames.auditLogs,
         original.id,
         original.toFields(),
       );
@@ -481,7 +481,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.config,
+        TableNames.config,
         'prioritization',
         original.toFields(),
       );
@@ -501,7 +501,7 @@ void main() {
       ).copyWith(frequencyWindowDays: 14, frequencyBands: const [3, 6, 10]);
 
       final doc = await roundTrip(
-        FirestorePaths.config,
+        TableNames.config,
         'prioritization',
         original.toFields(),
       );
@@ -522,11 +522,7 @@ void main() {
             ..remove('frequencyWindowDays')
             ..remove('frequencyBands');
 
-      final doc = await roundTrip(
-        FirestorePaths.config,
-        'prioritization',
-        data,
-      );
+      final doc = await roundTrip(TableNames.config, 'prioritization', data);
       final restored = PrioritizationConfig.fromRecord(doc);
 
       expect(restored.frequencyWindowDays, 30);
@@ -540,7 +536,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.config,
+        TableNames.config,
         'classification_rules',
         original.toFields(),
       );
@@ -564,7 +560,7 @@ void main() {
       );
 
       final doc = await roundTrip(
-        FirestorePaths.config,
+        TableNames.config,
         'duplicate_detection',
         original.toFields(),
       );

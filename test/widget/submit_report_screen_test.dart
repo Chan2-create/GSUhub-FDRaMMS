@@ -10,9 +10,9 @@ import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/location_service.dart';
 import 'package:gsuhub/core/utils/result.dart';
-import 'package:gsuhub/features/reporting/presentation/submission/qr_scanner_screen.dart';
-import 'package:gsuhub/features/reporting/presentation/submission/submit_report_screen.dart';
-import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_tag_map.dart';
+import 'package:gsuhub/features/damage_reports/presentation/submission/submit_report_screen.dart';
+import 'package:gsuhub/features/map_view/presentation/widgets/geo_tag_map.dart';
+import 'package:gsuhub/features/qr_codes/presentation/qr_scanner_screen.dart';
 
 import '../support/fake_admin_backend.dart';
 import '../support/fake_config_repository.dart';

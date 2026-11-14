@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
@@ -59,7 +59,7 @@ void main() {
     await tester.tap(find.text('Add task'));
     await tester.pumpAndSettle();
 
-    expect(await app.data.count(FirestorePaths.tasks), 2);
+    expect(await app.data.count(TableNames.tasks), 2);
     expect(find.text('Replace the switch cover'), findsOneWidget);
     expect(
       find.text('Task added. The technician has been told.'),
@@ -88,10 +88,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(await app.workOrderStatus(), WorkOrderStatus.completed.id);
-    final report = await app.read(
-      FirestorePaths.accomplishmentReports,
-      'acc-1',
-    );
+    final report = await app.read(TableNames.accomplishmentReports, 'acc-1');
     expect(report['reviewedBy'], fakeAdministrator.uid);
     expect(
       find.text('Signed off. The work order is completed.'),
@@ -120,7 +117,7 @@ void main() {
     await tester.tap(find.text('Send back'));
     await tester.pumpAndSettle();
 
-    final workOrder = await app.read(FirestorePaths.workOrders, 'wo-1');
+    final workOrder = await app.read(TableNames.workOrders, 'wo-1');
     expect(workOrder['status'], WorkOrderStatus.inProgress.id);
     expect(
       workOrder['adminNotes'],
@@ -153,9 +150,9 @@ void main() {
       find.text('Reassigned to Juan Luna. They have been told.'),
       findsOneWidget,
     );
-    final workOrder = await app.read(FirestorePaths.workOrders, 'wo-1');
+    final workOrder = await app.read(TableNames.workOrders, 'wo-1');
     expect(workOrder['assignedPersonnelIds'], ['personnel-2']);
-    final task = await app.read(FirestorePaths.tasks, 'task-1');
+    final task = await app.read(TableNames.tasks, 'task-1');
     expect(
       task['assignedTo'],
       'personnel-2',

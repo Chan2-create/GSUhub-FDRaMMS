@@ -55,7 +55,7 @@ repositories against the real stack.
 |---|---|
 | Register and log in | `widget/requestor_auth_test.dart`, `unit/presentation/sign_up_controller_test.dart`; `account_functions.test.sql` (signing up files a pending profile under the signed-in email); the token exchange's tests |
 | Submit a report with description, photos, location and geo-tag | `widget/submit_report_screen_test.dart`, `unit/presentation/report_form_controller_test.dart`, `unit/repositories/report_submission_test.dart`; `report_functions.test.sql`; `storage_policies.test.sql`, `tool/storage_api_test.mjs`; e2e flow 1 |
-| Scan a QR code to fill in the facility or asset | `unit/facilities/qr_lookup_test.dart`, `widget/submit_report_screen_test.dart` |
+| Scan a QR code to fill in the facility or asset | `unit/qr_codes/qr_lookup_test.dart`, `widget/submit_report_screen_test.dart` |
 | See the classified damage type and the priority | `widget/report_detail_test.dart`, `unit/presentation/report_pills_test.dart` |
 | Track the status in real time | `widget/report_detail_test.dart`, `unit/presentation/report_timeline_test.dart`; e2e flow 2 (the approval reaches the requestor's open stream) |
 | Notifications for acknowledgment, assignment, status and completion | `widget/alerts_test.dart`, `widget/push_test.dart`, `unit/notifications/report_notice_test.dart`; `report_functions.test.sql`, `work_order_functions.test.sql`. A phone with the app fully closed: **blocked**, see below |
@@ -66,9 +66,9 @@ repositories against the real stack.
 
 | Requirement | Tests |
 |---|---|
-| Log in with an administrator account | `widget/login_screen_test.dart`, `unit/routing/route_guard_test.dart`, `unit/core/app_router_test.dart` |
+| Log in with an administrator account | `widget/admin_login_screen_test.dart`, `unit/routing/route_guard_test.dart`, `unit/core/app_router_test.dart` |
 | View and manage every report | `widget/reports_screen_test.dart`, `widget/admin_report_detail_test.dart`, `widget/dashboard_screen_test.dart`, `widget/dashboard_links_test.dart` |
-| Locate a report by its geo-tag, read with the facility, location description and photos (Map View) | `widget/map_view_test.dart`, `unit/presentation/report_map_data_test.dart` |
+| Locate a report by its geo-tag, read with the facility, location description and photos (Map View) | `widget/map_view_test.dart`, `unit/map_view/report_map_data_test.dart` |
 | See the classification and the system's priority | `unit/classification/keyword_classifier_test.dart`, `unit/classification/priority_scorer_test.dart`, `widget/admin_report_detail_test.dart` |
 | Change priorities and assignments | `widget/admin_report_detail_test.dart` (the official priority); `reassign_work_order.test.sql`, `widget/work_order_detail_test.dart` (reassigning, 7.A) |
 | Detect, review, merge or dismiss duplicates | `unit/classification/duplicate_detector_test.dart`, `unit/repositories/classification_review_test.dart`; `report_functions.test.sql` |
@@ -88,7 +88,7 @@ repositories against the real stack.
 | Log in | `unit/routing/route_guard_test.dart` (one sign-in page for the phone; a technician's role opens the personnel app), `widget/personnel_app_test.dart` |
 | Notified of work and tasks assigned | `work_order_functions.test.sql`, `task_functions.test.sql`, `reassign_work_order.test.sql`; `widget/work_order_detail_test.dart` |
 | See assigned work orders and the day's tasks | `widget/personnel_app_test.dart`, `unit/personnel/task_day_test.dart` |
-| Scan a QR code to reach a room or asset and its work | `unit/personnel/scan_resolver_test.dart`, `widget/personnel_app_test.dart` |
+| Scan a QR code to reach a room or asset and its work | `unit/qr_codes/scan_resolver_test.dart`, `widget/personnel_app_test.dart` |
 | Update task and work-order status | `unit/repositories/personnel_work_test.dart`; `task_functions.test.sql`, `work_order_functions.test.sql` |
 | Completion notes and photos | `widget/personnel_app_test.dart`; `accomplishment_functions.test.sql`; e2e flow 3 |
 | Request and monitor materials | `widget/material_requests_test.dart`; `material_functions.test.sql` |

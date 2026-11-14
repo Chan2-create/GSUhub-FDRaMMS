@@ -8,7 +8,7 @@ import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/analytics/presentation/analytics_export.dart';
 import 'package:gsuhub/features/analytics/presentation/analytics_screen.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
 import '../support/fake_admin_backend.dart';

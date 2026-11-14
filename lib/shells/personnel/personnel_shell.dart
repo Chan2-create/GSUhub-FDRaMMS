@@ -7,7 +7,7 @@ import '../../core/routing/route_paths.dart';
 import '../../core/utils/result.dart';
 import '../../core/widgets/offline_banner.dart';
 import '../../features/notifications/presentation/notification_providers.dart';
-import '../../features/reporting/presentation/submission/qr_scanner_screen.dart';
+import '../../features/qr_codes/presentation/qr_scanner_screen.dart';
 import '../mobile/mobile_bottom_bar.dart';
 import '../mobile/mobile_header.dart';
 

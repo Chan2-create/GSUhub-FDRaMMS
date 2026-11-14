@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/material_request_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
@@ -31,7 +31,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
     required super.guard,
   });
 
-  static const String _requests = FirestorePaths.materialRequests;
+  static const String _requests = TableNames.materialRequests;
 
   /// The longest note either side may write.
   static const int noteLimit = 300;
@@ -124,7 +124,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
       final lines = <MaterialLine>[];
       for (final MapEntry(key: itemId, value: quantity) in wanted.entries) {
         final snapshot = await transaction.get(
-          collection(FirestorePaths.inventoryItems).doc(itemId),
+          collection(TableNames.inventoryItems).doc(itemId),
         );
         if (!snapshot.exists) {
           throw FirestoreRepository.notFound(
@@ -201,7 +201,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
       final already = <String, double>{};
       for (final line in request.items) {
         final snapshot = await transaction.get(
-          collection(FirestorePaths.inventoryItems).doc(line.inventoryItemId),
+          collection(TableNames.inventoryItems).doc(line.inventoryItemId),
         );
         if (!snapshot.exists) {
           throw FirestoreRepository.notFound(
@@ -283,7 +283,7 @@ class FirestoreMaterialRequestRepository extends FirestoreRepository
     return db.runTransaction<void>((transaction) async {
       final request = await _readPending(transaction, requestId);
       final workOrderSnapshot = await transaction.get(
-        collection(FirestorePaths.workOrders).doc(request.workOrderId),
+        collection(TableNames.workOrders).doc(request.workOrderId),
       );
       final title =
           workOrderSnapshot.data()?['title'] as String? ??

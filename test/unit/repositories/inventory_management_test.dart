@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/tool_status.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
@@ -33,15 +33,15 @@ void main() {
   ];
 
   Future<List<Map<String, dynamic>>> ledgerFor(String itemId) async => [
-    for (final entry in await all(FirestorePaths.inventoryTransactions))
+    for (final entry in await all(TableNames.inventoryTransactions))
       if (entry['inventoryItemId'] == itemId) entry,
   ];
 
   CollectionReference<Map<String, dynamic>> allocated(String workOrderId) => h
       .firestore
-      .collection(FirestorePaths.workOrders)
+      .collection(TableNames.workOrders)
       .doc(workOrderId)
-      .collection(FirestorePaths.materialsAllocated);
+      .collection(TableNames.materialsAllocated);
 
   InventoryItemDraft material({
     String name = 'Wall Socket Plate (Double)',
@@ -69,7 +69,7 @@ void main() {
         );
         final id = result.fold((id) => id, (f) => fail(f.message));
 
-        final item = await h.doc(FirestorePaths.inventoryItems, id);
+        final item = await h.doc(TableNames.inventoryItems, id);
         expect(item['name'], 'Wall Socket Plate (Double)');
         expect(item['specification'], 'Double');
         expect(item['unitCost'], 85);
@@ -97,7 +97,7 @@ void main() {
 
       expect(await ledgerFor(id), isEmpty);
       expect(
-        (await h.doc(FirestorePaths.inventoryItems, id))['quantityAvailable'],
+        (await h.doc(TableNames.inventoryItems, id))['quantityAvailable'],
         0,
       );
     });
@@ -136,7 +136,7 @@ void main() {
         ),
         'Enter the material’s name.',
       );
-      expect(await h.count(FirestorePaths.inventoryItems), 1);
+      expect(await h.count(TableNames.inventoryItems), 1);
     });
 
     test('editing details never touches the stock, and is audited', () async {
@@ -149,7 +149,7 @@ void main() {
       );
       expect(saved.isSuccess, isTrue);
 
-      final item = await h.doc(FirestorePaths.inventoryItems, 'inv-1');
+      final item = await h.doc(TableNames.inventoryItems, 'inv-1');
       expect(item['name'], 'LED Bulbs (60W Eq)');
       expect(item['quantityAvailable'], 10);
       final audit = (await h.auditEntries()).single;
@@ -181,10 +181,7 @@ void main() {
 
       expect(entry.quantityAfter, 15);
       expect(
-        (await h.doc(
-          FirestorePaths.inventoryItems,
-          'inv-1',
-        ))['quantityAvailable'],
+        (await h.doc(TableNames.inventoryItems, 'inv-1'))['quantityAvailable'],
         15,
       );
       final ledger = (await ledgerFor('inv-1')).single;
@@ -226,7 +223,7 @@ void main() {
         expect(up.change, 2);
         expect(
           (await h.doc(
-            FirestorePaths.inventoryItems,
+            TableNames.inventoryItems,
             'inv-1',
           ))['quantityAvailable'],
           9,
@@ -306,7 +303,7 @@ void main() {
         ],
       );
 
-      final request = await h.doc(FirestorePaths.materialRequests, id);
+      final request = await h.doc(TableNames.materialRequests, id);
       expect(request['status'], 'pending');
       expect(request['requestedBy'], technician.id);
       expect(request['requestedByName'], technician.name);
@@ -339,7 +336,7 @@ void main() {
           actor: technician,
         );
       }
-      expect(await h.count(FirestorePaths.materialRequests), 1);
+      expect(await h.count(TableNames.materialRequests), 1);
     });
 
     test('not for work assigned to someone else, or no longer open', () async {
@@ -384,7 +381,7 @@ void main() {
         ),
         'Add the materials you need.',
       );
-      expect(await h.count(FirestorePaths.materialRequests), 0);
+      expect(await h.count(TableNames.materialRequests), 0);
     });
 
     test(
@@ -409,14 +406,14 @@ void main() {
         final plate = (await allocated('w1').doc('inv-plate').get()).data()!;
         expect(plate['quantity'], 5);
         expect(plate['itemName'], 'Socket Plate');
-        final request = await h.doc(FirestorePaths.materialRequests, id);
+        final request = await h.doc(TableNames.materialRequests, id);
         expect(request['status'], 'approved');
         expect(request['adminNote'], 'Collect them from Shelf B.');
         expect(request['reviewedBy'], admin.id);
         // Nothing moves on the shelf until the report is filed.
         expect(
           (await h.doc(
-            FirestorePaths.inventoryItems,
+            TableNames.inventoryItems,
             'inv-plate',
           ))['quantityAvailable'],
           10,
@@ -444,7 +441,7 @@ void main() {
         'Only 2 units of Insulation Tape in stock.',
       );
       expect(
-        (await h.doc(FirestorePaths.materialRequests, id))['status'],
+        (await h.doc(TableNames.materialRequests, id))['status'],
         'pending',
       );
       expect((await allocated('w1').get()).docs, isEmpty);
@@ -467,7 +464,7 @@ void main() {
       );
       expect(failureMessage(declined), isNull);
 
-      final request = await h.doc(FirestorePaths.materialRequests, id);
+      final request = await h.doc(TableNames.materialRequests, id);
       expect(request['status'], 'declined');
       final notice = (await h.notifications()).single;
       expect(notice['title'], 'Materials request declined');
@@ -554,7 +551,7 @@ void main() {
         actor: admin,
       )).fold((id) => id, (f) => fail(f.message));
 
-      final tool = await h.doc(FirestorePaths.tools, id);
+      final tool = await h.doc(TableNames.tools, id);
       expect(tool['toolCode'], 'TL-0755');
       expect(tool['qrCode'], 'TOOL-TL-0755');
       expect(tool['status'], 'available');
@@ -589,10 +586,7 @@ void main() {
         );
 
         expect(await move(ToolStatus.inRepair), isNull);
-        expect(
-          (await h.doc(FirestorePaths.tools, 'tool-1'))['status'],
-          'inRepair',
-        );
+        expect((await h.doc(TableNames.tools, 'tool-1'))['status'], 'inRepair');
         expect(await move(ToolStatus.available), isNull);
         expect(
           (await h.auditEntries()).last['description'],
@@ -631,7 +625,7 @@ void main() {
       )).fold((loan) => loan, (f) => fail(f.message));
 
       expect(loan.borrowedBy, technician.id);
-      final tool = await h.doc(FirestorePaths.tools, 'tool-1');
+      final tool = await h.doc(TableNames.tools, 'tool-1');
       expect(tool['status'], 'borrowed');
       expect(tool['currentHolderId'], technician.id);
       final audit = (await h.auditEntries()).single;
@@ -656,7 +650,7 @@ void main() {
         actor: admin,
       );
 
-      final tool = await h.doc(FirestorePaths.tools, 'tool-1');
+      final tool = await h.doc(TableNames.tools, 'tool-1');
       expect(tool['name'], 'Fluke 179 Multimeter');
       expect(tool['condition'], 'good');
       expect(tool['status'], 'borrowed');
@@ -677,7 +671,7 @@ void main() {
           actor: admin,
         )).fold((id) => id, (f) => fail(f.message));
 
-        final room = await h.doc(FirestorePaths.facilities, id);
+        final room = await h.doc(TableNames.facilities, id);
         expect(room['name'], 'Engineering Building');
         expect(room['buildingName'], 'Engineering Building');
         expect(room['locationDescription'], 'Engineering Building, Room 305');
@@ -708,7 +702,7 @@ void main() {
         ),
         actor: admin,
       );
-      var room = await h.doc(FirestorePaths.facilities, id);
+      var room = await h.doc(TableNames.facilities, id);
       expect(room['roomIdentifier'], 'Main Court');
       // Left empty, the code stays as it was.
       expect(room['qrCode'], 'FAC-GYM');
@@ -718,7 +712,7 @@ void main() {
         active: false,
         actor: admin,
       );
-      room = await h.doc(FirestorePaths.facilities, id);
+      room = await h.doc(TableNames.facilities, id);
       expect(room['isActive'], isFalse);
       expect(
         (await h.facilities.getFacilities()).fold(
@@ -765,7 +759,7 @@ void main() {
         ),
         actor: admin,
       )).fold((id) => id, (f) => fail(f.message));
-      final asset = await h.doc(FirestorePaths.assets, assetId);
+      final asset = await h.doc(TableNames.assets, assetId);
       expect(asset['qrCode'], 'AST-${assetId.toUpperCase()}');
       expect(asset['facilityId'], roomId);
 

@@ -3,7 +3,7 @@ import '../../../core/enums/date_range_filter.dart';
 import '../../../core/enums/report_status.dart';
 import '../../../core/enums/work_order_status.dart';
 import '../../../core/widgets/category_donut.dart';
-import '../../reporting/data/models/damage_report.dart';
+import '../../damage_reports/data/models/damage_report.dart';
 import '../../work_orders/data/models/work_order.dart';
 
 /// One month's bar or point on the Analytics trend charts.

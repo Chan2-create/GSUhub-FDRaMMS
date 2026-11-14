@@ -2,8 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
-import 'package:gsuhub/features/reporting/presentation/my_reports/my_reports_providers.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/presentation/my_reports/my_reports_providers.dart';
 
 /// The faculty and staff app's view of its own reports (Objective 3.A):
 /// the three stages, the home screen's counts, and My Reports' filter and

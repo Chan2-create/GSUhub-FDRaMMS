@@ -124,7 +124,7 @@ a compile error project-wide.
    `Uint8List` bytes rather than a platform-specific file type, precisely
    so it stays callable from both the web and mobile shells.
 3. **Collection path strings live in exactly one file** —
-   `lib/core/constants/firestore_paths.dart`. No collection name should
+   `lib/core/constants/table_names.dart`. No collection name should
    ever appear as a string literal anywhere else in the codebase.
 4. **One shared lifecycle enum.** All three shells and every feature
    import the same `ReportStatus` (and `WorkOrderStatus`, `PriorityLevel`,
@@ -324,7 +324,7 @@ Table 3.5.
 > Since Objective 1 these are Postgres tables (§21,
 > docs/data_dictionary.md).
 
-The fifteen collection names in `firestore_paths.dart` (`users`,
+The fifteen collection names in `table_names.dart` (`users`,
 `facilities`, `assets`, `damage_reports`, `work_orders`, `tasks`,
 `accomplishment_reports`, `inventory_items`, `inventory_transactions`,
 `tools`, `tool_loans`, `feedback`, `notifications`, `audit_logs`,
@@ -1690,7 +1690,7 @@ does say a geo-tag is for, and from nothing else:
   location services.
 
 **What it does.** `/admin/map`
-(`features/reporting/presentation/map/`): one pin per geo-tagged damage
+(`features/map_view/presentation/`): one pin per geo-tagged damage
 report, at the coordinates stored with it at submission, on the same
 OpenStreetMap tiles the faculty and staff app already shows a geo-tag on
 (no API key, no billing). The reports are listed beside the map, newest
@@ -1728,7 +1728,7 @@ bare screen every route once resolved to (§10): Map View was its last
 user.
 
 Tests: `test/widget/map_view_test.dart`,
-`test/unit/presentation/report_map_data_test.dart`,
+`test/unit/map_view/report_map_data_test.dart`,
 `test/widget/admin_shell_test.dart` (the sidebar item),
 `test/widget/responsive_console_test.dart` (360, 768, 1024, 1440).
 
@@ -1743,7 +1743,7 @@ subtitle ran a line longer each. The same squeeze reached every page: at
 320 the bottom bar's "Materials" broke in two and building names broke
 mid-word, and at 130% text the home screens' tiles overflowed.
 
-One place fixes it for both phone apps, `shells/mobile/phone_viewport.dart`,
+One place fixes it for both phone apps, `shells/app_viewport.dart` (renamed from `shells/mobile/phone_viewport.dart` in §28),
 set around the app in `app.dart`:
 
 - **Width.** On a phone narrower than 390, a `/staff/*` or
@@ -1776,7 +1776,7 @@ Fixed alongside:
 
 Checked in a browser with the real fonts at 360x811 (the phone it was
 found on), 320x640 and 412x915, at 115% and 130% system text: both apps,
-every page, no overflow. Tests: `test/widget/phone_viewport_test.dart`.
+every page, no overflow. Tests: `test/widget/app_viewport_test.dart`.
 
 ## 27. Every phone size, sign-in that fits, and the dead dropdowns (2026-11-13)
 
@@ -1801,7 +1801,7 @@ Facilities & Equipment. A chosen value may now take two lines in the
 form's half-width selects, where "Engineering Building" was cut short.
 
 **Sign-in and sign-up fit the screen.** As drawn they are 905 and 1046
-px tall, more than most phones, so both scrolled. `RequestorAuthLayout`
+px tall, more than most phones, so both scrolled. `MobileAuthLayout`
 now fits the page to the phone in two steps: the vertical spacing
 (`AuthGap`s, the card's padding, the mark) tightens to no less than 35%
 of the design's; then, only if needed, the page is scaled to no less
@@ -1836,3 +1836,171 @@ And in a browser against the local demo data, which reaches states the
 tests' sample data does not: the console's pages at 320, 375, 390 and
 430, eight of its dialogs at 320x640, and the two dropdowns opened and
 chosen from at phone and desktop sizes.
+
+## 28. The console at 90%, the account menu, and the profile pages (2026-11-13)
+
+**The console's size.** At the Figma sizes the console read as zoomed in
+on a laptop: a 305 px sidebar and an 80 px header leave little of a
+1536 px screen for the work. The reference the team supplied was the
+same screen with everything nine tenths the size (the sidebar 343 px
+against 381 on a 125% display). `shells/app_viewport.dart` (the phone
+apps' `PhoneViewport` of §26, renamed and widened) now draws the console
+that way itself: on a window 720 wide or more, every `/admin/*` page is
+laid out in a window 1/0.9 times larger and scaled to fit, so each page
+is the same design at 90% with more of it on screen. One constant,
+`AppViewport.consoleScale`, sets it. A phone-width window keeps the
+console's phone layout at full size, where the type is already small.
+
+This is a uniform scale, on purpose: the reference is exactly that, and
+retuning every size, padding and type style by hand would have been
+hundreds of edits for the same picture. The breakpoints (§24) are
+unchanged; they now see the larger layout window, so the full sidebar
+arrives at a 1080 px window instead of 1200.
+
+**The account menu.** The header's gold circle (Figma `196:743`) is the
+account menu: who is signed in, **My Profile**, and **Logout**, which
+asks first (`core/widgets/sign_out_dialog.dart`, shared with the phone).
+It opens under the circle, with a ring on hover. The sidebar footer no
+longer has a logout button; it still says who is signed in. On a phone
+the circle is in the top bar, since the sidebar is a drawer there.
+There is no Account Settings entry: the system has no account settings
+to open. Sign-out itself is unchanged.
+
+**My Profile** (`/admin/profile`) and the **Profile tab** of both phone
+apps share `user_management/presentation/widgets/profile_cards.dart`: a
+header card (initials on gold, name, email, role, account status), then
+Contact, Work (maintenance personnel only: specialization, availability,
+open work orders) and Account. The phone's Logout also asks first. What
+the pages do not have, because the system does not: a photo (`users`
+has no photo field), an assigned building or room (accounts are not
+tied to one), and an Edit Profile button (the manuscript gives account
+management to the GSU administrator, §1.5; the page says who to ask).
+
+No design draws the menu, My Profile or the Profile tab; they are built
+from shared widgets and listed for the GUI pass.
+
+Tests: `test/widget/app_viewport_test.dart` (the scale),
+`test/widget/admin_shell_test.dart` (the menu, at every width),
+`test/widget/profile_test.dart`, and the two responsive sweeps.
+
+## 29. Settings in tabs (2026-11-14)
+
+The Settings page had grown into one page about five screens long:
+the keywords card at part of the width with the try box beside it, then
+priority scoring and duplicate detection at full width, each ending in
+its own save button with its own name, sixteen number boxes in four rows,
+switches a screen's width from their labels, and wording written for the
+team ("manuscript §3.4, Table 3.3"). Rearranged, with what the settings
+do and how they are stored unchanged:
+
+- **Three tabs**, Keywords, Priority scoring and Duplicate detection:
+  one topic on screen at a time, each in a column no wider than reads
+  well (`SettingsTab.maxWidth`). Every tab stays built while another is
+  open, so nothing typed is lost by looking at another, and a tab with
+  edits that are not saved carries a gold dot.
+- **One save bar**, the same on every tab
+  (`settings/presentation/widgets/settings_parts.dart`): where the
+  settings stand (unsaved, saved, or the defaults still in use), then
+  Discard changes and Save changes.
+- **Keywords.** The box for a new keyword opens on Add keyword, after
+  the last chip, instead of an empty box under each of the seven damage
+  types.
+- **Priority scoring.** The worked example first, then three named
+  groups: Weights (only the set in use is shown; the other is kept and
+  shows when chosen), Priority levels, Frequency.
+- **Duplicate detection.** The switch with what turning it off does;
+  tick boxes before their labels under "Compare on"; the slider with
+  its value beside it; the window as a small box marked in hours.
+- **Plain wording.** The manuscript's section and table numbers are out
+  of what the administrator reads. The two weight sets are "Formula
+  weights" and "Table weights".
+
+The second set of weights is still there only because the manuscript's
+Table 3.2 disagrees with its formula (§22). Once the table is corrected
+the choice can go, and the Weights group becomes four boxes.
+
+Tests: `test/widget/settings_screen_test.dart` (the tabs, the dot, the
+save bar, and every tab at 320 and 768 wide with the real fonts).
+
+## 30. The project reorganized for finding things (2026-11-14)
+
+The team asked for a folder structure where any feature can be found
+quickly during the defense, with a README and a code guide. The project
+was already arranged by feature (`lib/features/<feature>/` with `data`,
+`domain` and `presentation`), so it was not rebuilt. What made features
+hard to find was fixed: three features were scattered across other
+features' folders, one folder name was ambiguous, and several shared
+files were named for one app. Nothing in what the system does changed:
+no screen, rule, database function, table or migration.
+
+**Moved and renamed** (every move a `git mv`, so each file's history
+follows it; every import was recomputed from the file's new place):
+
+| Was | Now | Why |
+|---|---|---|
+| `lib/features/reporting/` | `lib/features/damage_reports/` | "reporting" could be read as report generation (that is Analytics) |
+| `reporting/presentation/map/` (3 files), `reporting/presentation/submission/widgets/geo_tag_map.dart` | `lib/features/map_view/presentation/` | Map View and geo-tagging had no folder of their own |
+| `lib/features/qr_labels/` (3 files), `lib/features/scanning/` (2 files), `reporting/presentation/submission/qr_scanner_screen.dart`, `facilities/presentation/qr_lookup.dart` | `lib/features/qr_codes/` (`domain/`, `presentation/`) | QR generation and scanning were spread over four folders |
+| `inventory/presentation/widgets/tool_dialogs.dart` | `lib/features/tools/presentation/widgets/tool_dialogs.dart` | The tools' screens lived in the inventory feature |
+| `auth/presentation/login_screen.dart` (`LoginScreen`) | `admin_login_screen.dart` (`AdminLoginScreen`) | Pairs with the phone sign-in |
+| `auth/presentation/requestor_login_screen.dart` (`RequestorLoginScreen`) | `mobile_login_screen.dart` (`MobileLoginScreen`) | Maintenance personnel sign in there too |
+| `auth/presentation/widgets/requestor_auth_layout.dart` (`RequestorAuthLayout`) | `mobile_auth_layout.dart` (`MobileAuthLayout`) | Laid out the shared sign-in |
+| `user_management/presentation/requestor_profile_screen.dart` (`RequestorProfileScreen`) | `mobile_profile_screen.dart` (`MobileProfileScreen`) | Both phone apps' Profile tab |
+| `notifications/presentation/alerts_screen.dart` (`AlertsScreen`) | `mobile_alerts_screen.dart` (`MobileAlertsScreen`) | Both phone apps' Alerts tab |
+| `shells/requestor/requestor_title_row.dart` (`RequestorTitleRow`) | `shells/mobile/mobile_title_row.dart` (`MobileTitleRow`) | Used by pages of both phone apps |
+| `core/constants/firestore_paths.dart` (`FirestorePaths`) | `core/constants/table_names.dart` (`TableNames`) | The names are the Supabase tables'; the old name dated from before Objective 1 |
+| `test/support/firestore_backend/features/reporting/` | `.../features/damage_reports/` | Mirrors the feature's new name |
+| `test/widget_test.dart` | `test/widget/app_test.dart` | The template's name, for the app-level tests |
+| `test/widget/login_screen_test.dart` | `test/widget/admin_login_screen_test.dart` | Follows its screen |
+| `test/unit/facilities/qr_lookup_test.dart`, `test/unit/personnel/scan_resolver_test.dart` | `test/unit/qr_codes/` | Follow the QR code |
+| `test/unit/presentation/report_map_data_test.dart` | `test/unit/map_view/` | Follows Map View |
+
+**Code moved between files**, unchanged otherwise:
+
+- The console's "Tool Assets & Tracking" table (`_ToolsSection`,
+  `_ToolTable`, `_TableFooter`) left
+  `inventory/presentation/inventory_screen.dart` for
+  `tools/presentation/tools_section.dart`, as the public `ToolsSection`;
+  the Inventory page still shows it in the same place.
+- `allToolsProvider`, `toolProvider`, `openLoansProvider` and
+  `toolLoanHistoryProvider` left `inventory/presentation/inventory_providers.dart`
+  for `tools/presentation/tool_providers.dart`.
+- `consoleScanLauncherProvider` left the inventory screen for
+  `qr_codes/presentation/qr_scanner_screen.dart`, beside the other two
+  scan launchers.
+
+**Corrected:** doc comments that described a shared file as one app's
+own (the title row, the phone sign-in, the Alerts tab, the scan
+resolver); the Alerts tab's also still said it reads Firestore.
+
+**Removed, then put back:** the `cupertino_icons` dependency. Nothing in
+GSUhub's own code uses it (the app draws Material icons only), but with
+it gone the release builds warned that the compiled app still refers to
+its font, from code in Flutter or a package rather than ours. It went
+back in, unchanged, rather than risk icons drawn as empty boxes. No
+files were deleted by the reorganization.
+
+**Written:** the README, rewritten around what a reader needs (overview,
+technologies, structure, setup, running the console, backend and phone
+apps, the database connection, the main modules), and `CODE_GUIDE.md`, a
+feature-by-feature map from each screen to its controller, repository,
+database function and tests.
+
+**Left as it was, on purpose:**
+
+- Tests stay arranged by kind (`unit/`, `widget/`, `e2e/`), with
+  `docs/testing.md` mapping each requirement to its tests.
+- Rooms and equipment stay one feature (`facilities/`): equipment
+  belongs to a room, and one page manages both.
+- Maintenance management stays three features (`work_orders/`,
+  `tasks/`, `accomplishment/`), each with its own tables; the code guide
+  groups them.
+- Screens are not split into `admin/` and `mobile/` subfolders: the file
+  names say which app (the naming conventions in `CODE_GUIDE.md`), and
+  the split would have moved a hundred more files for the same answer.
+- `scripts/` and `tool/` keep their names and contents: the team runs
+  `.\scripts\deploy_web.ps1` and `tool\run_local.cmd` as they are.
+- Kept although rarely used: `tool/migrate/` (the Firestore → Supabase
+  migration, documented and tested, never needed because the live
+  Firestore held no data), `firebase/` and `test/rules/` (the Firestore
+  rules, until Firestore is locked), and `docs/diagrams/`, untouched.

@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
-import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
-import 'package:gsuhub/features/reporting/data/models/status_change.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_submission.dart';
+import 'package:gsuhub/features/damage_reports/data/models/status_change.dart';
 
 import '../../support/fake_firestore_repositories.dart';
 import '../../support/firestore_backend/core/data/firestore_records.dart';
@@ -147,9 +147,9 @@ void main() {
 
   test('the history streams oldest first', () async {
     final entries = h.firestore
-        .collection(FirestorePaths.damageReports)
+        .collection(TableNames.damageReports)
         .doc('r1')
-        .collection(FirestorePaths.statusHistory);
+        .collection(TableNames.statusHistory);
     await h.addReport('r1');
     for (final (status, day) in [
       (ReportStatus.approved, 3),

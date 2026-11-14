@@ -5,7 +5,7 @@ import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/features/analytics/presentation/analytics_summary.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
 /// The Analytics figures, each against its stated definition, at a pinned

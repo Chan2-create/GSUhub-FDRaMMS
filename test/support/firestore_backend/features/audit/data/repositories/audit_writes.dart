@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
@@ -40,7 +40,7 @@ void stageAuditEntry(
     changes: changes,
   );
 
-  transaction.set(firestore.collection(FirestorePaths.auditLogs).doc(), {
+  transaction.set(firestore.collection(TableNames.auditLogs).doc(), {
     ...entry.toFields().forFirestore,
     'timestamp': FirestoreRepository.serverNow,
   });

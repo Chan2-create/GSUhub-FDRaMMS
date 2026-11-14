@@ -5,7 +5,7 @@ import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/features/classification/data/models/prioritization_config.dart';
 import 'package:gsuhub/features/classification/domain/priority_scorer.dart';
 import 'package:gsuhub/features/classification/presentation/assessment_draft.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 
 /// The review panel's working state (Objectives 4.A–4.C).
 void main() {

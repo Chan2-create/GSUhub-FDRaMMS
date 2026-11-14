@@ -8,6 +8,8 @@ import '../../features/audit/data/repositories/audit_log_repository.dart';
 import '../../features/audit/data/repositories/audit_log_repository_impl.dart';
 import '../../features/classification/data/repositories/config_repository.dart';
 import '../../features/classification/data/repositories/config_repository_impl.dart';
+import '../../features/damage_reports/data/repositories/damage_report_repository.dart';
+import '../../features/damage_reports/data/repositories/damage_report_repository_impl.dart';
 import '../../features/facilities/data/repositories/facility_repository.dart';
 import '../../features/facilities/data/repositories/facility_repository_impl.dart';
 import '../../features/feedback/data/repositories/feedback_repository.dart';
@@ -20,8 +22,6 @@ import '../../features/inventory/data/repositories/material_request_repository.d
 import '../../features/inventory/data/repositories/material_request_repository_impl.dart';
 import '../../features/notifications/data/repositories/notification_repository.dart';
 import '../../features/notifications/data/repositories/notification_repository_impl.dart';
-import '../../features/reporting/data/repositories/damage_report_repository.dart';
-import '../../features/reporting/data/repositories/damage_report_repository_impl.dart';
 import '../../features/tasks/data/repositories/task_repository.dart';
 import '../../features/tasks/data/repositories/task_repository_impl.dart';
 import '../../features/tools/data/repositories/tool_repository.dart';

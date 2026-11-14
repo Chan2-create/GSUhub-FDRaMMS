@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/personnel_availability.dart';
@@ -23,7 +23,7 @@ class FirestoreUserRepository extends FirestoreRepository
     implements UserRepository {
   const FirestoreUserRepository({required super.db, required super.guard});
 
-  static const String _path = FirestorePaths.users;
+  static const String _path = TableNames.users;
 
   @override
   Future<Result<AppUser>> getById(String uid) =>
@@ -281,7 +281,7 @@ class FirestoreUserRepository extends FirestoreRepository
     final raw = db.raw;
     final references = await guard.call(() async {
       final work = await raw
-          .collection(FirestorePaths.workOrders)
+          .collection(TableNames.workOrders)
           .where('assignedPersonnelIds', arrayContains: uid)
           .get();
       final open = work.docs
@@ -289,10 +289,10 @@ class FirestoreUserRepository extends FirestoreRepository
           .length;
       var records = work.size;
       for (final (path, field) in [
-        (FirestorePaths.damageReports, 'reporterId'),
-        (FirestorePaths.tasks, 'assignedTo'),
-        (FirestorePaths.toolLoans, 'borrowedBy'),
-        (FirestorePaths.accomplishmentReports, 'submittedBy'),
+        (TableNames.damageReports, 'reporterId'),
+        (TableNames.tasks, 'assignedTo'),
+        (TableNames.toolLoans, 'borrowedBy'),
+        (TableNames.accomplishmentReports, 'submittedBy'),
       ]) {
         records +=
             (await raw
@@ -329,7 +329,7 @@ class FirestoreUserRepository extends FirestoreRepository
 
     final notices = await guard.call(
       () => raw
-          .collection(FirestorePaths.notifications)
+          .collection(TableNames.notifications)
           .where('recipientId', isEqualTo: uid)
           .get(),
     );

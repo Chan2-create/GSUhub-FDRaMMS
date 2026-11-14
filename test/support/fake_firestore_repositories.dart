@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
@@ -13,8 +13,8 @@ import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/services/firebase/firebase_call_guard.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/inventory/data/models/inventory_item.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 import 'package:gsuhub/features/tasks/data/models/maintenance_task.dart';
 import 'package:gsuhub/features/tools/data/models/tool.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
@@ -24,12 +24,12 @@ import 'firestore_backend/core/data/firestore_records.dart';
 import 'firestore_backend/core/services/firebase/firestore_service_impl.dart';
 import 'firestore_backend/features/accomplishment/data/repositories/accomplishment_report_repository_firestore.dart';
 import 'firestore_backend/features/accomplishment/data/repositories/material_usage_repository_firestore.dart';
+import 'firestore_backend/features/damage_reports/data/repositories/damage_report_repository_firestore.dart';
 import 'firestore_backend/features/facilities/data/repositories/facility_repository_firestore.dart';
 import 'firestore_backend/features/feedback/data/repositories/feedback_repository_firestore.dart';
 import 'firestore_backend/features/inventory/data/repositories/inventory_repository_firestore.dart';
 import 'firestore_backend/features/inventory/data/repositories/material_allocation_repository_firestore.dart';
 import 'firestore_backend/features/inventory/data/repositories/material_request_repository_firestore.dart';
-import 'firestore_backend/features/reporting/data/repositories/damage_report_repository_firestore.dart';
 import 'firestore_backend/features/tasks/data/repositories/task_repository_firestore.dart';
 import 'firestore_backend/features/tools/data/repositories/tool_repository_firestore.dart';
 import 'firestore_backend/features/user_management/data/repositories/user_repository_firestore.dart';
@@ -94,7 +94,7 @@ class FirestoreHarness {
     double minimum = 2,
     double? unitCost,
   }) => firestore
-      .collection(FirestorePaths.inventoryItems)
+      .collection(TableNames.inventoryItems)
       .doc(id)
       .set(
         InventoryItem(
@@ -118,7 +118,7 @@ class FirestoreHarness {
     ToolStatus status = ToolStatus.available,
     ItemCondition condition = ItemCondition.good,
   }) => firestore
-      .collection(FirestorePaths.tools)
+      .collection(TableNames.tools)
       .doc(id)
       .set(
         Tool(
@@ -142,7 +142,7 @@ class FirestoreHarness {
     String assignedTo = 'personnel-1',
     DateTime? dueDate,
   }) => firestore
-      .collection(FirestorePaths.tasks)
+      .collection(TableNames.tasks)
       .doc(id)
       .set(
         MaintenanceTask(
@@ -172,7 +172,7 @@ class FirestoreHarness {
     String? locationDescription,
     GeoCoordinates? coordinates,
   }) => firestore
-      .collection(FirestorePaths.damageReports)
+      .collection(TableNames.damageReports)
       .doc(id)
       .set(
         DamageReport(
@@ -202,7 +202,7 @@ class FirestoreHarness {
     int activeTaskCount = 0,
     String fullName = 'Marcus Wright',
   }) => firestore
-      .collection(FirestorePaths.users)
+      .collection(TableNames.users)
       .doc(id)
       .set(
         AppUser(
@@ -224,7 +224,7 @@ class FirestoreHarness {
     required WorkOrderStatus status,
     List<String> assignedPersonnelIds = const ['personnel-1'],
   }) => firestore
-      .collection(FirestorePaths.workOrders)
+      .collection(TableNames.workOrders)
       .doc(id)
       .set(
         WorkOrder(
@@ -246,22 +246,22 @@ class FirestoreHarness {
       (await firestore.collection(collection).doc(id).get()).data() ?? {};
 
   Future<List<Map<String, dynamic>>> auditEntries() async =>
-      (await firestore.collection(FirestorePaths.auditLogs).get()).docs
+      (await firestore.collection(TableNames.auditLogs).get()).docs
           .map((doc) => doc.data())
           .toList();
 
   /// Every notification written, in no particular order.
   Future<List<Map<String, dynamic>>> notifications() async =>
-      (await firestore.collection(FirestorePaths.notifications).get()).docs
+      (await firestore.collection(TableNames.notifications).get()).docs
           .map((doc) => doc.data())
           .toList();
 
   /// A report's status history entries, in no particular order.
   Future<List<Map<String, dynamic>>> history(String reportId) async =>
       (await firestore
-              .collection(FirestorePaths.damageReports)
+              .collection(TableNames.damageReports)
               .doc(reportId)
-              .collection(FirestorePaths.statusHistory)
+              .collection(TableNames.statusHistory)
               .get())
           .docs
           .map((doc) => doc.data())

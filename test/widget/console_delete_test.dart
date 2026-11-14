@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
@@ -52,7 +52,7 @@ void main() {
       expect(find.text('Delete Fluke Multimeter (TL-0001)?'), findsOneWidget);
       await confirm(tester, 'Delete');
 
-      final tool = await app.read(FirestorePaths.tools, 'tool-1');
+      final tool = await app.read(TableNames.tools, 'tool-1');
       expect(tool['deletedAt'], isNotNull);
       expect(find.text('Deleted Fluke Multimeter.'), findsOneWidget);
       expect(find.text('TL-0001'), findsNothing);
@@ -80,10 +80,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Delete Fluke Multimeter (TL-0001)?'), findsOneWidget);
-      expect(
-        (await app.read(FirestorePaths.tools, 'tool-1'))['deletedAt'],
-        isNull,
-      );
+      expect((await app.read(TableNames.tools, 'tool-1'))['deletedAt'], isNull);
     });
 
     testWidgets('a material is deleted from the corner of its card', (
@@ -98,7 +95,7 @@ void main() {
       await confirm(tester, 'Delete');
 
       expect(
-        (await app.read(FirestorePaths.inventoryItems, 'inv-led'))['deletedAt'],
+        (await app.read(TableNames.inventoryItems, 'inv-led'))['deletedAt'],
         isNotNull,
       );
       expect(find.text('LED Bulbs'), findsNothing);
@@ -151,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
     await confirm(tester, 'Delete');
     expect(
-      (await app.read(FirestorePaths.facilities, roomId))['deletedAt'],
+      (await app.read(TableNames.facilities, roomId))['deletedAt'],
       isNotNull,
     );
     expect(find.text('Laboratory 1'), findsNothing);
@@ -223,7 +220,7 @@ void main() {
       expect(find.text('Delete the account of Liza Tan?'), findsOneWidget);
       await confirm(tester, 'Delete');
 
-      expect(await app.read(FirestorePaths.users, 'pending-1'), isEmpty);
+      expect(await app.read(TableNames.users, 'pending-1'), isEmpty);
       expect(find.text('Deleted the account of Liza Tan.'), findsOneWidget);
       expect(find.text('Liza Tan'), findsNothing);
     });
@@ -253,7 +250,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(await app.read(FirestorePaths.users, 'faculty-1'), isNotEmpty);
+      expect(await app.read(TableNames.users, 'faculty-1'), isNotEmpty);
     });
 
     testWidgets('your own account cannot be deleted', (tester) async {
@@ -291,11 +288,11 @@ void main() {
     await confirm(tester, 'Archive');
 
     expect(
-      (await app.read(FirestorePaths.damageReports, 'rep-1'))['archivedAt'],
+      (await app.read(TableNames.damageReports, 'rep-1'))['archivedAt'],
       isNotNull,
     );
     expect(
-      (await app.read(FirestorePaths.damageReports, 'rep-1'))['status'],
+      (await app.read(TableNames.damageReports, 'rep-1'))['status'],
       ReportStatus.closed.id,
     );
     expect(find.text('Archived report #REP-1.'), findsOneWidget);
@@ -311,7 +308,7 @@ void main() {
     await tester.pumpAndSettle();
     await confirm(tester, 'Restore');
     expect(
-      (await app.read(FirestorePaths.damageReports, 'rep-1'))['archivedAt'],
+      (await app.read(TableNames.damageReports, 'rep-1'))['archivedAt'],
       isNull,
     );
     expect(find.text('#REP-1'), findsNothing, reason: 'out of the archive');
@@ -334,7 +331,7 @@ void main() {
     );
     // Finished today, inside the board's default "Last 30 Days".
     await app.data.firestore
-        .collection(FirestorePaths.workOrders)
+        .collection(TableNames.workOrders)
         .doc('wo-1')
         .update({'completedAt': Timestamp.now()});
     await open(app, tester, RoutePaths.adminWorkOrders);
@@ -351,7 +348,7 @@ void main() {
     await confirm(tester, 'Archive');
 
     expect(
-      (await app.read(FirestorePaths.workOrders, 'wo-1'))['archivedAt'],
+      (await app.read(TableNames.workOrders, 'wo-1'))['archivedAt'],
       isNotNull,
     );
     expect(find.text('Flickering lights'), findsNothing);

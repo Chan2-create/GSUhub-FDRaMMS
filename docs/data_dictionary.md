@@ -655,7 +655,7 @@ Model: `AppNotification`. **Document shape is DERIVED** — the manuscript
 says when notifications fire (§1.5), not how they are stored.
 
 `recipientId`, `type` (`NotificationType`), `title`, `body`,
-`relatedEntityType` (a `FirestorePaths` collection name, for deep links),
+`relatedEntityType` (a `TableNames` collection name, for deep links),
 `relatedEntityId`, `isRead`, `readAt`, `createdAt`.
 
 *Invariant:* `isRead == true` requires a `readAt`.

@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
@@ -19,7 +19,7 @@ class FirestoreAuditLogRepository extends FirestoreRepository
     implements AuditLogRepository {
   const FirestoreAuditLogRepository({required super.db, required super.guard});
 
-  static const String _path = FirestorePaths.auditLogs;
+  static const String _path = TableNames.auditLogs;
 
   @override
   Future<Result<String>> record(AuditLogEntry entry) =>

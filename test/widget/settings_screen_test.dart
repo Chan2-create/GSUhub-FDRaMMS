@@ -7,6 +7,7 @@ import 'package:gsuhub/features/classification/presentation/keyword_settings_sec
 import 'package:gsuhub/features/classification/presentation/scoring_settings_section.dart';
 import 'package:gsuhub/features/settings/presentation/settings_screen.dart';
 
+import '../support/app_fonts.dart';
 import '../support/fake_admin_backend.dart';
 import '../support/fake_config_repository.dart';
 
@@ -17,6 +18,10 @@ Finder inKeywords(Finder finder) =>
     find.descendant(of: find.byType(KeywordSettingsSection), matching: finder);
 
 void main() {
+  // The app's real fonts, so whether a tab fits is measured as a browser
+  // would draw it.
+  setUpAll(loadAppFonts);
+
   Future<FakeConfigRepository> pump(
     WidgetTester tester, {
     FakeConfigRepository? config,
@@ -38,17 +43,29 @@ void main() {
     return repository;
   }
 
-  /// The add field of the [index]th damage type, in DamageCategory order.
-  Finder addField(DamageCategory category) => find
-      .widgetWithText(TextField, 'Add a keyword or phrase')
-      .at(DamageCategory.values.indexOf(category));
+  /// Opens the tab named [label].
+  Future<void> openTab(WidgetTester tester, String label) async {
+    // On a phone the tab row scrolls sideways.
+    await tester.ensureVisible(find.text(label).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(label).first);
+    await tester.pumpAndSettle();
+  }
 
+  /// Adds [keyword] to [category]: Add keyword opens the box for it.
   Future<void> add(
     WidgetTester tester,
     DamageCategory category,
     String keyword,
   ) async {
-    await tester.enterText(addField(category), keyword);
+    final open = find.byTooltip('Add a keyword to ${category.label}');
+    await tester.ensureVisible(open);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Add a keyword or phrase'),
+      keyword,
+    );
     await tester.ensureVisible(find.byTooltip('Add to ${category.label}'));
     await tester.tap(find.byTooltip('Add to ${category.label}'));
     await tester.pumpAndSettle();
@@ -78,6 +95,24 @@ void main() {
       );
     });
 
+    testWidgets('every tab, on a phone and on a tablet', (tester) async {
+      for (final size in const [Size(320, 2600), Size(768, 2600)]) {
+        await pump(tester, size: size);
+        for (final tab in [
+          'Priority scoring',
+          'Duplicate detection',
+          'Keywords',
+        ]) {
+          await openTab(tester, tab);
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: '$tab at ${size.width.toInt()} wide',
+          );
+        }
+      }
+    });
+
     testWidgets('a narrow window, the try box below', (tester) async {
       await pump(tester, size: const Size(700, 3600));
 
@@ -102,7 +137,7 @@ void main() {
     expect(inKeywords(find.text('All changes saved.')), findsOneWidget);
 
     final save = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Save keywords'),
+      inKeywords(find.widgetWithText(FilledButton, 'Save changes')),
     );
     expect(save.onPressed, isNull, reason: 'nothing to save');
   });
@@ -119,7 +154,7 @@ void main() {
 
     await tapVisible(
       tester,
-      find.widgetWithText(FilledButton, 'Save keywords'),
+      inKeywords(find.widgetWithText(FilledButton, 'Save changes')),
     );
 
     final saved = config.savedKeywordLists.single;
@@ -186,7 +221,7 @@ void main() {
 
     expect(inKeywords(find.text('Not saved yet')), findsOneWidget);
     expect(
-      find.textContaining("These are the manuscript's keywords"),
+      find.textContaining('These are the default keywords'),
       findsOneWidget,
     );
     expect(find.widgetWithText(InputChip, 'exposed wire'), findsOneWidget);
@@ -194,7 +229,7 @@ void main() {
     // Saving the list unchanged is allowed: it keeps it in the project.
     await tapVisible(
       tester,
-      find.widgetWithText(FilledButton, 'Save keywords'),
+      inKeywords(find.widgetWithText(FilledButton, 'Save changes')),
     );
 
     expect(config.savedKeywordLists, hasLength(1));
@@ -217,7 +252,7 @@ void main() {
     await add(tester, DamageCategory.plumbing, 'burst pipe');
     await tapVisible(
       tester,
-      find.widgetWithText(FilledButton, 'Save keywords'),
+      inKeywords(find.widgetWithText(FilledButton, 'Save changes')),
     );
 
     expect(find.text('You do not have permission to do that.'), findsOneWidget);
@@ -263,25 +298,35 @@ void main() {
     matching: finder,
   );
 
-  testWidgets("priority scoring flags the manuscript's two sets of weights", (
-    tester,
-  ) async {
+  testWidgets('priority scoring keeps both sets of weights and shows the one '
+      'in use', (tester) async {
     await pump(tester);
+    await openTab(tester, 'Priority scoring');
 
     expect(
-      inPriority(find.textContaining('two sets of weights that disagree')),
+      inPriority(find.textContaining('The study gives two sets')),
       findsOneWidget,
     );
-    expect(inPriority(find.text("The §3.4 formula's weights")), findsOneWidget);
-    expect(inPriority(find.text("Table 3.2's weights")), findsOneWidget);
+    expect(inPriority(find.text('Formula weights')), findsOneWidget);
+    expect(inPriority(find.text('Table weights')), findsOneWidget);
     // The sample score reads with the saved settings.
     expect(inPriority(find.textContaining('would score 2.70')), findsOneWidget);
+
+    // Four boxes, the formula's: the other set shows when it is chosen.
+    final severity = inPriority(find.widgetWithText(TextField, 'Severity'));
+    expect(severity, findsOneWidget);
+    expect(tester.widget<TextField>(severity).controller!.text, '0.4');
+    await tester.tap(inPriority(find.text('Table weights')));
+    await tester.pumpAndSettle();
+    expect(severity, findsOneWidget);
+    expect(tester.widget<TextField>(severity).controller!.text, '3');
   });
 
   testWidgets('score bands out of order are refused before saving', (
     tester,
   ) async {
     final config = await pump(tester);
+    await openTab(tester, 'Priority scoring');
 
     await tester.enterText(
       inPriority(find.widgetWithText(TextField, 'CRITICAL')),
@@ -293,24 +338,21 @@ void main() {
       inPriority(find.text('The score bands must fall from Critical to Low.')),
       findsOneWidget,
     );
-    final save = inPriority(
-      find.widgetWithText(FilledButton, 'Save priority scoring'),
-    );
+    final save = inPriority(find.widgetWithText(FilledButton, 'Save changes'));
     expect(tester.widget<FilledButton>(save).onPressed, isNull);
     expect(config.savedPrioritizations, isEmpty);
   });
 
-  testWidgets("choosing Table 3.2's weights and saving keeps them", (
+  testWidgets('choosing the table weights and saving keeps them', (
     tester,
   ) async {
     final config = await pump(tester);
+    await openTab(tester, 'Priority scoring');
 
-    await tester.ensureVisible(inPriority(find.text("Table 3.2's weights")));
-    await tester.tap(inPriority(find.text("Table 3.2's weights")));
+    await tester.ensureVisible(inPriority(find.text('Table weights')));
+    await tester.tap(inPriority(find.text('Table weights')));
     await tester.pumpAndSettle();
-    final save = inPriority(
-      find.widgetWithText(FilledButton, 'Save priority scoring'),
-    );
+    final save = inPriority(find.widgetWithText(FilledButton, 'Save changes'));
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
@@ -327,6 +369,7 @@ void main() {
     tester,
   ) async {
     final config = await pump(tester);
+    await openTab(tester, 'Duplicate detection');
 
     final hours = inDuplicates(
       find.widgetWithText(TextField, 'Window, in hours'),
@@ -335,12 +378,93 @@ void main() {
     await tester.enterText(hours, '48');
     await tester.pumpAndSettle();
     final save = inDuplicates(
-      find.widgetWithText(FilledButton, 'Save duplicate detection'),
+      find.widgetWithText(FilledButton, 'Save changes'),
     );
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
 
     expect(config.savedDuplicateSettings.single.timeWindowHours, 48);
+  });
+
+  // ------------------------------------------------- the tabs (2026-11-14)
+
+  group('tabs', () {
+    testWidgets('one topic at a time, opening on Keywords', (tester) async {
+      await pump(tester);
+
+      expect(find.text('Classification keywords'), findsOneWidget);
+      expect(find.text('Priority levels'), findsNothing);
+      expect(find.text('Compare on'), findsNothing);
+
+      await openTab(tester, 'Priority scoring');
+      expect(find.text('Priority levels'), findsOneWidget);
+      expect(find.text('Classification keywords'), findsNothing);
+
+      await openTab(tester, 'Duplicate detection');
+      expect(find.text('Compare on'), findsOneWidget);
+      expect(find.text('Priority levels'), findsNothing);
+    });
+
+    testWidgets('every tab ends in the same two buttons', (tester) async {
+      await pump(tester);
+
+      for (final tab in [
+        'Keywords',
+        'Priority scoring',
+        'Duplicate detection',
+      ]) {
+        await openTab(tester, tab);
+        expect(
+          find.widgetWithText(OutlinedButton, 'Discard changes'),
+          findsOneWidget,
+          reason: tab,
+        );
+        expect(
+          find.widgetWithText(FilledButton, 'Save changes'),
+          findsOneWidget,
+          reason: tab,
+        );
+      }
+    });
+
+    testWidgets('a tab with unsaved edits is marked, and keeps them while '
+        'another is open', (tester) async {
+      await pump(tester);
+      expect(find.byTooltip('Unsaved changes'), findsNothing);
+
+      await add(tester, DamageCategory.plumbing, 'burst pipe');
+      expect(find.byTooltip('Unsaved changes'), findsOneWidget);
+
+      // A look at another tab loses nothing.
+      await openTab(tester, 'Duplicate detection');
+      expect(find.widgetWithText(InputChip, 'burst pipe'), findsNothing);
+      expect(find.byTooltip('Unsaved changes'), findsOneWidget);
+      await openTab(tester, 'Keywords');
+      expect(find.widgetWithText(InputChip, 'burst pipe'), findsOneWidget);
+
+      // Discarded, the mark goes.
+      await tapVisible(
+        tester,
+        inKeywords(find.widgetWithText(OutlinedButton, 'Discard changes')),
+      );
+      expect(find.byTooltip('Unsaved changes'), findsNothing);
+    });
+
+    testWidgets('the box for a new keyword opens on Add keyword, and closes', (
+      tester,
+    ) async {
+      await pump(tester);
+
+      // No empty box under every damage type.
+      final box = find.widgetWithText(TextField, 'Add a keyword or phrase');
+      expect(box, findsNothing);
+
+      await tapVisible(tester, find.byTooltip('Add a keyword to Plumbing'));
+      expect(box, findsOneWidget);
+
+      await tapVisible(tester, find.byTooltip('Done adding to Plumbing'));
+      expect(box, findsNothing);
+    });
   });
 }

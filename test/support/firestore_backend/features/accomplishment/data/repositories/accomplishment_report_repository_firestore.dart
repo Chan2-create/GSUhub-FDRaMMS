@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/inventory_transaction_type.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
@@ -34,9 +34,9 @@ class FirestoreAccomplishmentReportRepository extends FirestoreRepository
     required super.guard,
   });
 
-  static const String _path = FirestorePaths.accomplishmentReports;
-  static const String _items = FirestorePaths.inventoryItems;
-  static const String _transactions = FirestorePaths.inventoryTransactions;
+  static const String _path = TableNames.accomplishmentReports;
+  static const String _items = TableNames.inventoryItems;
+  static const String _transactions = TableNames.inventoryTransactions;
 
   /// The longest completion note accepted.
   static const int notesLimit = 2000;
@@ -277,10 +277,9 @@ class FirestoreAccomplishmentReportRepository extends FirestoreRepository
     });
     if (!approve && reason != null && reason.isNotEmpty) {
       // Shown at the top of the work order on the technician's phone.
-      transaction.update(
-        collection(FirestorePaths.workOrders).doc(workOrder.id),
-        {'adminNotes': reason},
-      );
+      transaction.update(collection(TableNames.workOrders).doc(workOrder.id), {
+        'adminNotes': reason,
+      });
     }
     move.stage(transaction, db.raw, actor: actor);
 
@@ -318,14 +317,14 @@ class FirestoreAccomplishmentReportRepository extends FirestoreRepository
     String workOrderId,
     String inventoryItemId,
   ) =>
-      collection(FirestorePaths.workOrders)
+      collection(TableNames.workOrders)
           .doc(workOrderId)
-          .collection(FirestorePaths.materialsUsed)
+          .collection(TableNames.materialsUsed)
           .doc(inventoryItemId);
 
   Future<WorkOrder> _readWorkOrder(Transaction transaction, String id) async {
     final snapshot = await transaction.get(
-      collection(FirestorePaths.workOrders).doc(id),
+      collection(TableNames.workOrders).doc(id),
     );
     if (!snapshot.exists) {
       throw FirestoreRepository.notFound('No work order $id');
