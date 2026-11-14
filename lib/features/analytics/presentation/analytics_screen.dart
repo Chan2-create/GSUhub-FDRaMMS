@@ -7,7 +7,7 @@ import '../../../core/constants/breakpoints.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/category_donut.dart';
 import '../../../core/widgets/section_card.dart';
-import '../../reporting/presentation/report_providers.dart';
+import '../../damage_reports/presentation/report_providers.dart';
 import '../../work_orders/presentation/work_order_providers.dart';
 import 'analytics_providers.dart';
 import 'analytics_summary.dart';

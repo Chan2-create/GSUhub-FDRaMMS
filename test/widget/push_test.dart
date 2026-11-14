@@ -17,12 +17,7 @@ void main() {
     notices: [for (final id in unread) fakeNotice(id)],
   );
 
-  Future<void> signOut(WidgetTester tester) async {
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign out'));
-    await tester.pumpAndSettle();
-  }
+  Future<void> signOut(WidgetTester tester) => logOutFromProfile(tester);
 
   group('token', () {
     testWidgets('signing in saves the device token on the account', (

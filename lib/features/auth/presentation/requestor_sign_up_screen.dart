@@ -6,9 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/routing/route_paths.dart';
-import 'requestor_login_screen.dart';
+import 'mobile_login_screen.dart';
 import 'sign_up_controller.dart';
-import 'widgets/requestor_auth_layout.dart';
+import 'widgets/mobile_auth_layout.dart';
 
 /// Create Account — faculty and staff self-registration (Figma `194:455`,
 /// Objective 3.A).
@@ -58,7 +58,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
     context.go(
       Uri(
         path: RoutePaths.staffLogin,
-        queryParameters: {RequestorLoginScreen.registeredParam: '1'},
+        queryParameters: {MobileLoginScreen.registeredParam: '1'},
       ).toString(),
     );
   }
@@ -96,7 +96,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
       onSubmitted: onSubmitted,
     );
 
-    return RequestorAuthLayout(
+    return MobileAuthLayout(
       logoTop: 49,
       cardGap: 28,
       cardPadding: const EdgeInsets.fromLTRB(33, 33, 33, 33),

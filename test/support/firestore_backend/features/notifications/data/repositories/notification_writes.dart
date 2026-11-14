@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/notification_type.dart';
 import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
 import 'package:gsuhub/features/notifications/data/models/personnel_notice.dart';
@@ -29,7 +29,7 @@ void stageReportNotice(
   type: notice.type,
   title: notice.title,
   body: notice.body,
-  relatedEntityType: FirestorePaths.damageReports,
+  relatedEntityType: TableNames.damageReports,
   relatedEntityId: reportId,
 );
 
@@ -50,7 +50,7 @@ void stagePersonnelNotice(
   type: notice.type,
   title: notice.title,
   body: notice.body,
-  relatedEntityType: FirestorePaths.workOrders,
+  relatedEntityType: TableNames.workOrders,
   relatedEntityId: workOrderId,
 );
 
@@ -77,7 +77,7 @@ void stageNotification(
     createdAt: DateTime.now().toUtc(),
   );
 
-  transaction.set(firestore.collection(FirestorePaths.notifications).doc(), {
+  transaction.set(firestore.collection(TableNames.notifications).doc(), {
     ...notification.toFields().forFirestore,
     'createdAt': FirestoreRepository.serverNow,
   });

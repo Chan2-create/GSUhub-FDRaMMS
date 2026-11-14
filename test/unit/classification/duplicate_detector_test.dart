@@ -4,7 +4,7 @@ import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/features/classification/data/models/duplicate_detection_config.dart';
 import 'package:gsuhub/features/classification/domain/duplicate_detector.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 
 /// Duplicate report detection (manuscript §3.4; Objective 4.C).
 void main() {

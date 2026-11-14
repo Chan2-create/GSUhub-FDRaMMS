@@ -72,7 +72,7 @@ class AppNotification {
   final String body;
 
   /// Collection name of the thing this notification is about — a value
-  /// from `FirestorePaths`, so tapping the notification can deep-link.
+  /// from `TableNames`, so tapping the notification can deep-link.
   /// Kept as a string because it names a collection, not a domain concept.
   final String? relatedEntityType;
 

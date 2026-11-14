@@ -4,7 +4,7 @@ import '../../../core/constants/damage_categories.dart';
 import '../../../core/di/repository_providers.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/utils/result.dart';
-import '../../reporting/presentation/report_providers.dart';
+import '../../damage_reports/presentation/report_providers.dart';
 import '../data/models/classification_rules_config.dart';
 import '../data/models/duplicate_detection_config.dart';
 import '../data/models/prioritization_config.dart';

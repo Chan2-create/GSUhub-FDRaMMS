@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/personnel_availability.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
@@ -44,7 +44,7 @@ void main() {
   );
 
   Future<void> store(AppUser user) => harness.firestore
-      .collection(FirestorePaths.users)
+      .collection(TableNames.users)
       .doc(user.id)
       .set(user.toFields().forFirestore);
 
@@ -59,7 +59,7 @@ void main() {
       );
 
       expect(result.isSuccess, isTrue);
-      final saved = await harness.doc(FirestorePaths.users, 'personnel-1');
+      final saved = await harness.doc(TableNames.users, 'personnel-1');
       expect(saved['fullName'], 'Juan Luna');
       expect(saved['role'], 'maintenancePersonnel');
       expect(isTimestamp(saved['createdAt']), isTrue);
@@ -80,7 +80,7 @@ void main() {
       );
 
       expect(failureOf(result), isA<ValidationFailure>());
-      final stored = await harness.doc(FirestorePaths.users, 'personnel-1');
+      final stored = await harness.doc(TableNames.users, 'personnel-1');
       expect(stored['fullName'], 'Juan Luna');
       expect(await harness.auditEntries(), isEmpty);
     });
@@ -96,7 +96,7 @@ void main() {
       );
 
       expect(result.isSuccess, isTrue);
-      final stored = await harness.doc(FirestorePaths.users, 'personnel-1');
+      final stored = await harness.doc(TableNames.users, 'personnel-1');
       expect(stored['department'], 'Physical Plant Division');
 
       final audit = await harness.auditEntries();
@@ -140,7 +140,7 @@ void main() {
       );
 
       expect(failureOf(result).message, contains('your own role'));
-      final stored = await harness.doc(FirestorePaths.users, admin.id);
+      final stored = await harness.doc(TableNames.users, admin.id);
       expect(stored['role'], 'admin');
     });
 
@@ -165,7 +165,7 @@ void main() {
       );
 
       expect(result.isSuccess, isTrue);
-      final stored = await harness.doc(FirestorePaths.users, 'personnel-1');
+      final stored = await harness.doc(TableNames.users, 'personnel-1');
       expect(stored['role'], 'admin');
       expect(stored['specialization'], isNull);
       expect(stored['availability'], isNull);
@@ -186,7 +186,7 @@ void main() {
       );
 
       expect(result.isSuccess, isTrue);
-      final stored = await harness.doc(FirestorePaths.users, 'personnel-1');
+      final stored = await harness.doc(TableNames.users, 'personnel-1');
       expect(stored['accountStatus'], 'inactive');
 
       final audit = await harness.auditEntries();
@@ -211,7 +211,7 @@ void main() {
       );
 
       expect(failureOf(result).message, contains('your own account'));
-      final stored = await harness.doc(FirestorePaths.users, admin.id);
+      final stored = await harness.doc(TableNames.users, admin.id);
       expect(stored['accountStatus'], 'active');
     });
 
@@ -234,7 +234,7 @@ void main() {
         );
 
         expect(result.isSuccess, isTrue);
-        final stored = await harness.doc(FirestorePaths.users, 'faculty-9');
+        final stored = await harness.doc(TableNames.users, 'faculty-9');
         expect(stored['accountStatus'], 'active');
         final audit = await harness.auditEntries();
         expect(audit.single['description'], startsWith('Approved the account'));
@@ -258,7 +258,7 @@ void main() {
         actor: admin,
       );
 
-      final stored = await harness.doc(FirestorePaths.users, 'faculty-9');
+      final stored = await harness.doc(TableNames.users, 'faculty-9');
       expect(stored['accountStatus'], 'inactive');
       final audit = await harness.auditEntries();
       expect(audit.single['description'], startsWith('Declined the account'));
@@ -296,7 +296,7 @@ void main() {
         );
 
         expect(result.isSuccess, isTrue);
-        final stored = await harness.doc(FirestorePaths.users, 'new-faculty');
+        final stored = await harness.doc(TableNames.users, 'new-faculty');
         expect(stored['role'], 'requestor');
         expect(stored['accountStatus'], 'pending');
         expect(stored['email'], 'liza.tan@dorsu.edu.ph');

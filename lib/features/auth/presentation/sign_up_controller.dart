@@ -7,7 +7,7 @@ import '../../../core/enums/account_status.dart';
 import '../../../core/enums/user_role.dart';
 import '../../../core/utils/result.dart';
 import '../../user_management/data/models/app_user.dart';
-import 'login_screen.dart' show validateEmail;
+import 'admin_login_screen.dart' show validateEmail;
 
 /// The sign-up form's fields, by name, for its per-field errors.
 enum SignUpField { fullName, email, password, confirmPassword }

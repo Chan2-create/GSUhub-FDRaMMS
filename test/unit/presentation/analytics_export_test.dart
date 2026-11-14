@@ -5,7 +5,7 @@ import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/features/analytics/presentation/analytics_export.dart';
 import 'package:gsuhub/features/analytics/presentation/analytics_summary.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 
 /// The Export Data file (Objective 2.C).
 void main() {

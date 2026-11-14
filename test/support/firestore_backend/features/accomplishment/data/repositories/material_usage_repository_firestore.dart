@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/utils/result.dart';
@@ -26,9 +26,9 @@ class FirestoreMaterialUsageRepository extends FirestoreRepository
   });
 
   CollectionReference<Map<String, dynamic>> _recorded(String workOrderId) =>
-      collection(FirestorePaths.workOrders)
+      collection(TableNames.workOrders)
           .doc(workOrderId)
-          .collection(FirestorePaths.materialsUsed);
+          .collection(TableNames.materialsUsed);
 
   @override
   Stream<Result<List<RecordedMaterial>>> watchForWorkOrder(
@@ -63,7 +63,7 @@ class FirestoreMaterialUsageRepository extends FirestoreRepository
 
     return db.runTransaction<void>((transaction) async {
       final workOrderSnapshot = await transaction.get(
-        collection(FirestorePaths.workOrders).doc(workOrderId),
+        collection(TableNames.workOrders).doc(workOrderId),
       );
       if (!workOrderSnapshot.exists) {
         throw FirestoreRepository.notFound('No work order $workOrderId');
@@ -83,7 +83,7 @@ class FirestoreMaterialUsageRepository extends FirestoreRepository
       }
 
       final itemSnapshot = await transaction.get(
-        collection(FirestorePaths.inventoryItems).doc(inventoryItemId),
+        collection(TableNames.inventoryItems).doc(inventoryItemId),
       );
       if (!itemSnapshot.exists) {
         throw FirestoreRepository.notFound(

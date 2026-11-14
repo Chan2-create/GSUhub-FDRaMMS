@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/utils/result.dart';
-import 'package:gsuhub/features/reporting/data/models/report_assessment.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_assessment.dart';
 
 import '../../support/fake_firestore_repositories.dart';
-import '../../support/firestore_backend/features/reporting/data/repositories/damage_report_repository_firestore.dart';
+import '../../support/firestore_backend/features/damage_reports/data/repositories/damage_report_repository_firestore.dart';
 
 /// The administrator's review of a report (Objectives 4.A–4.C), against
 /// the real repository over an in-memory Firestore: the classification
@@ -22,12 +22,10 @@ void main() {
       result.fold((_) => null, (failure) => failure.message);
 
   Future<Map<String, dynamic>> report(String id) =>
-      h.doc(FirestorePaths.damageReports, id);
+      h.doc(TableNames.damageReports, id);
 
-  Future<void> setFields(String id, Map<String, Object?> fields) => h.firestore
-      .collection(FirestorePaths.damageReports)
-      .doc(id)
-      .update(fields);
+  Future<void> setFields(String id, Map<String, Object?> fields) =>
+      h.firestore.collection(TableNames.damageReports).doc(id).update(fields);
 
   ReportAssessment assessment({
     DamageCategory category = DamageCategory.plumbing,
@@ -93,7 +91,7 @@ void main() {
 
       final audit = (await h.auditEntries()).single;
       expect(audit['action'], 'updated');
-      expect(audit['entityType'], FirestorePaths.damageReports);
+      expect(audit['entityType'], TableNames.damageReports);
       expect(audit['entityId'], 'r1');
       expect(audit['actorId'], admin.id);
       expect(

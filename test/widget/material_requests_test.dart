@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
@@ -48,7 +48,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final requests = await app.data.firestore
-          .collection(FirestorePaths.materialRequests)
+          .collection(TableNames.materialRequests)
           .get();
       final request = requests.docs.single.data();
       expect(request['status'], 'pending');
@@ -105,9 +105,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final allocated = await app.data.firestore
-          .collection(FirestorePaths.workOrders)
+          .collection(TableNames.workOrders)
           .doc('wo-1')
-          .collection(FirestorePaths.materialsAllocated)
+          .collection(TableNames.materialsAllocated)
           .doc('inv-led')
           .get();
       expect(allocated.data()?['quantity'], 5);

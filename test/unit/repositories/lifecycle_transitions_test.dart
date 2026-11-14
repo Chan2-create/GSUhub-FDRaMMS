@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
@@ -38,7 +38,7 @@ void main() {
 
       expect(result.isSuccess, isTrue);
       expect(
-        (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await h.doc(TableNames.damageReports, 'r1'))['status'],
         'underReview',
       );
 
@@ -63,7 +63,7 @@ void main() {
         actor: admin,
       );
 
-      final report = await h.doc(FirestorePaths.damageReports, 'r1');
+      final report = await h.doc(TableNames.damageReports, 'r1');
       expect(report['status'], 'approved');
       expect(report['reviewedBy'], admin.id);
       expect(isTimestamp(report['reviewedAt']), isTrue);
@@ -82,7 +82,7 @@ void main() {
       expect(result.isFailure, isTrue);
       expect(result.fold((_) => null, (f) => f), isA<ValidationFailure>());
       expect(
-        (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await h.doc(TableNames.damageReports, 'r1'))['status'],
         'underReview',
       );
       expect(await h.auditEntries(), isEmpty);
@@ -98,7 +98,7 @@ void main() {
         reason: '  Out of GSU scope  ',
       );
 
-      final report = await h.doc(FirestorePaths.damageReports, 'r1');
+      final report = await h.doc(TableNames.damageReports, 'r1');
       expect(report['status'], 'rejected');
       expect(report['rejectionReason'], 'Out of GSU scope');
       expect(
@@ -121,7 +121,7 @@ void main() {
         'A report cannot move from PENDING to APPROVED.',
       );
       expect(
-        (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await h.doc(TableNames.damageReports, 'r1'))['status'],
         'submitted',
       );
       expect(await h.auditEntries(), isEmpty);
@@ -138,7 +138,7 @@ void main() {
 
       expect(failureMessage(result), contains('with its work order'));
       expect(
-        (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await h.doc(TableNames.damageReports, 'r1'))['status'],
         'approved',
       );
     });
@@ -177,7 +177,7 @@ void main() {
         );
 
         final workOrderId = result.fold((id) => id, (f) => fail(f.message));
-        final workOrder = await h.doc(FirestorePaths.workOrders, workOrderId);
+        final workOrder = await h.doc(TableNames.workOrders, workOrderId);
         expect(workOrder['status'], 'pending');
         expect(workOrder['reportIds'], ['r1']);
         expect(workOrder['assignedPersonnelIds'], ['p1']);
@@ -192,11 +192,11 @@ void main() {
           target,
         );
 
-        final report = await h.doc(FirestorePaths.damageReports, 'r1');
+        final report = await h.doc(TableNames.damageReports, 'r1');
         expect(report['status'], 'assigned');
         expect(report['workOrderId'], workOrderId);
 
-        expect((await h.doc(FirestorePaths.users, 'p1'))['activeTaskCount'], 3);
+        expect((await h.doc(TableNames.users, 'p1'))['activeTaskCount'], 3);
 
         final audit = await h.auditEntries();
         expect(
@@ -218,14 +218,11 @@ void main() {
       );
 
       final id = withoutDate.fold((id) => id, (f) => fail(f.message));
-      expect(
-        (await h.doc(FirestorePaths.workOrders, id))['scheduledFor'],
-        isNull,
-      );
+      expect((await h.doc(TableNames.workOrders, id))['scheduledFor'], isNull);
     });
 
     Future<void> expectNothingWritten() async {
-      expect(await h.count(FirestorePaths.workOrders), 0);
+      expect(await h.count(TableNames.workOrders), 0);
       expect(await h.auditEntries(), isEmpty);
     }
 
@@ -242,7 +239,7 @@ void main() {
       expect(failureMessage(result), contains('Only approved reports'));
       expect(failureMessage(result), contains('UNDER REVIEW'));
       await expectNothingWritten();
-      expect((await h.doc(FirestorePaths.users, 'p1'))['activeTaskCount'], 0);
+      expect((await h.doc(TableNames.users, 'p1'))['activeTaskCount'], 0);
     });
 
     test(
@@ -281,7 +278,7 @@ void main() {
           contains('official priority has not been confirmed'),
         );
         await expectNothingWritten();
-        expect((await h.doc(FirestorePaths.users, 'p1'))['activeTaskCount'], 0);
+        expect((await h.doc(TableNames.users, 'p1'))['activeTaskCount'], 0);
       },
     );
 
@@ -300,7 +297,7 @@ void main() {
 
         final id = result.fold((id) => id, (f) => fail(f.message));
         expect(
-          (await h.doc(FirestorePaths.workOrders, id))['priority'],
+          (await h.doc(TableNames.workOrders, id))['priority'],
           'critical',
         );
       },
@@ -333,7 +330,7 @@ void main() {
       expect(failureMessage(result), contains('inactive'));
       await expectNothingWritten();
       expect(
-        (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await h.doc(TableNames.damageReports, 'r1'))['status'],
         'approved',
       );
     });
@@ -369,11 +366,11 @@ void main() {
       );
 
       expect(result.isSuccess, isTrue);
-      final workOrder = await h.doc(FirestorePaths.workOrders, 'w1');
+      final workOrder = await h.doc(TableNames.workOrders, 'w1');
       expect(workOrder['status'], 'inProgress');
       expect(isTimestamp(workOrder['startedAt']), isTrue);
       expect(
-        (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await h.doc(TableNames.damageReports, 'r1'))['status'],
         'inProgress',
       );
       expect((await h.auditEntries()).single['actorId'], admin.id);
@@ -397,12 +394,9 @@ void main() {
         failureMessage(result),
         'A work order cannot move from Pending to Completed.',
       );
+      expect((await h.doc(TableNames.workOrders, 'w1'))['status'], 'pending');
       expect(
-        (await h.doc(FirestorePaths.workOrders, 'w1'))['status'],
-        'pending',
-      );
-      expect(
-        (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await h.doc(TableNames.damageReports, 'r1'))['status'],
         'assigned',
       );
       expect(await h.auditEntries(), isEmpty);
@@ -428,15 +422,13 @@ void main() {
         actor: admin,
       );
 
-      expect((await h.doc(FirestorePaths.users, 'p1'))['activeTaskCount'], 1);
+      expect((await h.doc(TableNames.users, 'p1'))['activeTaskCount'], 1);
       expect(
-        (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await h.doc(TableNames.damageReports, 'r1'))['status'],
         'completed',
       );
       expect(
-        isTimestamp(
-          (await h.doc(FirestorePaths.workOrders, 'w1'))['completedAt'],
-        ),
+        isTimestamp((await h.doc(TableNames.workOrders, 'w1'))['completedAt']),
         isTrue,
       );
     });
@@ -463,7 +455,7 @@ void main() {
         actor: admin,
       );
 
-      expect((await h.doc(FirestorePaths.users, 'p1'))['activeTaskCount'], 0);
+      expect((await h.doc(TableNames.users, 'p1'))['activeTaskCount'], 0);
     });
 
     test('rework sends the order and its report back to in progress', () async {
@@ -486,7 +478,7 @@ void main() {
 
       expect(result.isSuccess, isTrue);
       expect(
-        (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await h.doc(TableNames.damageReports, 'r1'))['status'],
         'inProgress',
       );
     });
@@ -508,10 +500,7 @@ void main() {
       );
 
       expect(failureMessage(result), contains('cannot move to IN PROGRESS'));
-      expect(
-        (await h.doc(FirestorePaths.workOrders, 'w1'))['status'],
-        'pending',
-      );
+      expect((await h.doc(TableNames.workOrders, 'w1'))['status'], 'pending');
       expect(await h.auditEntries(), isEmpty);
     });
   });

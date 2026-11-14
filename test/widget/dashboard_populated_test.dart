@@ -5,8 +5,8 @@ import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/core/widgets/stat_card.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/dashboard/presentation/dashboard_screen.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
 
 import '../support/fake_admin_backend.dart';
 

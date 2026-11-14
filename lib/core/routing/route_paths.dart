@@ -73,6 +73,10 @@ abstract final class RoutePaths {
   /// Settings: the classification keywords (Objective 4.A).
   static const String adminSettings = '/admin/settings';
 
+  /// The signed-in administrator's own account, from the header's
+  /// account menu (2026-11-13).
+  static const String adminProfile = '/admin/profile';
+
   // --- Requestor (Faculty/Staff, mobile) — WBS Objective 3 ---
 
   /// Faculty and staff sign-in (Objective 3.A, Figma `193:310`).

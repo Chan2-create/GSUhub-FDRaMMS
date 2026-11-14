@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../core/enums/report_status.dart';
-import '../../reporting/data/models/damage_report.dart';
+import '../../damage_reports/data/models/damage_report.dart';
 import '../data/models/duplicate_detection_config.dart';
 import 'keyword_classifier.dart';
 

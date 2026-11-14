@@ -13,9 +13,9 @@ import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/photo_picker_service.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/classification/data/models/classification_rules_config.dart';
+import 'package:gsuhub/features/damage_reports/presentation/submission/report_form_controller.dart';
+import 'package:gsuhub/features/damage_reports/presentation/submission/report_form_state.dart';
 import 'package:gsuhub/features/facilities/data/models/asset.dart';
-import 'package:gsuhub/features/reporting/presentation/submission/report_form_controller.dart';
-import 'package:gsuhub/features/reporting/presentation/submission/report_form_state.dart';
 
 import '../../support/fake_admin_backend.dart';
 import '../../support/fake_config_repository.dart';

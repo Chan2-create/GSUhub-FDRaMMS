@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
-import 'package:gsuhub/features/reporting/data/models/status_change.dart';
-import 'package:gsuhub/features/reporting/presentation/my_reports/report_timeline.dart';
+import 'package:gsuhub/features/damage_reports/data/models/status_change.dart';
+import 'package:gsuhub/features/damage_reports/presentation/my_reports/report_timeline.dart';
 
 import '../../support/fake_requestor_app.dart';
 

@@ -1,14 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 
 /// The collections whose documents carry a printed code (§3.4): one
 /// scanner reads them all, so a code may belong to one thing only.
 const List<String> _labelled = [
-  FirestorePaths.inventoryItems,
-  FirestorePaths.tools,
-  FirestorePaths.facilities,
-  FirestorePaths.assets,
+  TableNames.inventoryItems,
+  TableNames.tools,
+  TableNames.facilities,
+  TableNames.assets,
 ];
 
 /// What already carries [code], as "a material", "a tool", "a room" or
@@ -33,9 +33,9 @@ Future<String?> qrCodeOwner(
       (doc) => doc.id != exceptId && doc.data()['deletedAt'] == null,
     )) {
       return switch (path) {
-        FirestorePaths.inventoryItems => 'a material',
-        FirestorePaths.tools => 'a tool',
-        FirestorePaths.facilities => 'a room',
+        TableNames.inventoryItems => 'a material',
+        TableNames.tools => 'a tool',
+        TableNames.facilities => 'a room',
         _ => 'equipment',
       };
     }

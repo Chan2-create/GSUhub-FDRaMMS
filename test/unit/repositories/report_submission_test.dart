@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/services/location_service.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
-import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_submission.dart';
 
 import '../../support/fake_firestore_repositories.dart';
 import '../../support/firestore_backend/core/data/firestore_records.dart';
@@ -52,7 +52,7 @@ void main() {
     final second = harness.reports.newReportId();
 
     expect(first, isNot(second));
-    expect(await harness.count(FirestorePaths.damageReports), 0);
+    expect(await harness.count(TableNames.damageReports), 0);
   });
 
   test('files the report as submitted, stamped with server time', () async {
@@ -64,7 +64,7 @@ void main() {
     );
 
     expect(result.isSuccess, isTrue);
-    final saved = await harness.doc(FirestorePaths.damageReports, id);
+    final saved = await harness.doc(TableNames.damageReports, id);
     expect(saved['status'], 'submitted');
     expect(saved['reporterId'], 'faculty-1');
     expect(saved['reporterName'], 'Maria Santos');
@@ -109,7 +109,7 @@ void main() {
       submission: submission(classifiedCategory: DamageCategory.structural),
     );
 
-    final saved = await harness.doc(FirestorePaths.damageReports, id);
+    final saved = await harness.doc(TableNames.damageReports, id);
     expect(saved['category'], 'structural');
     expect(saved['classifiedAutomatically'], isTrue);
     // Beside, not instead of, what the requestor suggested.
@@ -131,7 +131,7 @@ void main() {
 
     await harness.reports.submit(reportId: id, submission: submission());
 
-    final saved = await harness.doc(FirestorePaths.damageReports, id);
+    final saved = await harness.doc(TableNames.damageReports, id);
     expect(saved['category'], isNull);
     expect(saved['classifiedAutomatically'], isFalse);
   });
@@ -144,7 +144,7 @@ void main() {
       submission: submission(coordinates: null),
     );
 
-    final saved = await harness.doc(FirestorePaths.damageReports, id);
+    final saved = await harness.doc(TableNames.damageReports, id);
     expect(saved.containsKey('coordinates'), isTrue);
     expect(saved['coordinates'], isNull);
   });
@@ -157,7 +157,7 @@ void main() {
     final audit = await harness.auditEntries();
     expect(audit, hasLength(1));
     expect(audit.single['action'], 'created');
-    expect(audit.single['entityType'], FirestorePaths.damageReports);
+    expect(audit.single['entityType'], TableNames.damageReports);
     expect(audit.single['entityId'], id);
     expect(audit.single['actorId'], 'faculty-1');
     expect(audit.single['description'], 'Submitted "Cracked window pane"');
@@ -175,7 +175,7 @@ void main() {
     );
 
     expect(retry.isSuccess, isTrue);
-    expect(await harness.count(FirestorePaths.damageReports), 1);
+    expect(await harness.count(TableNames.damageReports), 1);
     expect(await harness.auditEntries(), hasLength(1));
   });
 
@@ -192,7 +192,7 @@ void main() {
     expect(result.isFailure, isTrue);
     final kept = fromDoc(DamageReport.fromRecord)(
       await harness.firestore
-          .collection(FirestorePaths.damageReports)
+          .collection(TableNames.damageReports)
           .doc('rep-existing')
           .get(),
     );

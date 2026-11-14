@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/firestore_paths.dart';
+import '../../../core/constants/table_names.dart';
 import '../../../core/di/repository_providers.dart';
 import '../../../core/di/service_providers.dart';
 import '../../../core/enums/user_role.dart';
@@ -185,10 +185,10 @@ class PushCoordinator {
           payload: {
             'notificationId': notice.id,
             'recipientId': notice.recipientId,
-            if (notice.relatedEntityType == FirestorePaths.damageReports &&
+            if (notice.relatedEntityType == TableNames.damageReports &&
                 notice.relatedEntityId != null)
               'reportId': notice.relatedEntityId!,
-            if (notice.relatedEntityType == FirestorePaths.workOrders &&
+            if (notice.relatedEntityType == TableNames.workOrders &&
                 notice.relatedEntityId != null)
               'workOrderId': notice.relatedEntityId!,
           },

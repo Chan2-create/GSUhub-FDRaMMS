@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/tool_status.dart';
@@ -30,8 +30,8 @@ class FirestoreToolRepository extends FirestoreRepository
     implements ToolRepository {
   const FirestoreToolRepository({required super.db, required super.guard});
 
-  static const String _tools = FirestorePaths.tools;
-  static const String _loans = FirestorePaths.toolLoans;
+  static const String _tools = TableNames.tools;
+  static const String _loans = TableNames.toolLoans;
 
   @override
   Future<Result<Tool>> getToolById(String id) async => _present(

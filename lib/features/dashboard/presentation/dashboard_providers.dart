@@ -7,8 +7,8 @@ import '../../../core/enums/report_status.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/category_donut.dart';
 import '../../audit/data/models/audit_log_entry.dart';
-import '../../reporting/data/models/damage_report.dart';
-import '../../reporting/presentation/report_providers.dart';
+import '../../damage_reports/data/models/damage_report.dart';
+import '../../damage_reports/presentation/report_providers.dart';
 
 /// The four summary counts shown on the stat cards.
 ///

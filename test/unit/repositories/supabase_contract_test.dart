@@ -24,6 +24,9 @@ import 'package:gsuhub/features/classification/data/models/classification_rules_
 import 'package:gsuhub/features/classification/data/models/duplicate_detection_config.dart';
 import 'package:gsuhub/features/classification/data/models/prioritization_config.dart';
 import 'package:gsuhub/features/classification/data/repositories/config_repository_impl.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_assessment.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_submission.dart';
+import 'package:gsuhub/features/damage_reports/data/repositories/damage_report_repository_impl.dart';
 import 'package:gsuhub/features/facilities/data/models/facility_draft.dart';
 import 'package:gsuhub/features/facilities/data/repositories/facility_repository_impl.dart';
 import 'package:gsuhub/features/feedback/data/repositories/feedback_repository_impl.dart';
@@ -33,9 +36,6 @@ import 'package:gsuhub/features/inventory/data/repositories/inventory_repository
 import 'package:gsuhub/features/inventory/data/repositories/material_allocation_repository_impl.dart';
 import 'package:gsuhub/features/inventory/data/repositories/material_request_repository_impl.dart';
 import 'package:gsuhub/features/notifications/data/repositories/notification_repository_impl.dart';
-import 'package:gsuhub/features/reporting/data/models/report_assessment.dart';
-import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
-import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_impl.dart';
 import 'package:gsuhub/features/tasks/data/repositories/task_repository_impl.dart';
 import 'package:gsuhub/features/tools/data/models/tool_draft.dart';
 import 'package:gsuhub/features/tools/data/repositories/tool_repository_impl.dart';

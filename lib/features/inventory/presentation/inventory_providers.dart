@@ -2,15 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/repository_providers.dart';
 import '../../../core/utils/result.dart';
-import '../../tools/data/models/tool.dart';
-import '../../tools/data/models/tool_loan.dart';
 import '../data/models/allocated_material.dart';
 import '../data/models/inventory_item.dart';
 import '../data/models/inventory_transaction.dart';
 import '../data/models/material_request.dart';
 
-/// What the console's Inventory Management page reads (Objective 6), all
-/// live.
+/// What the console's Inventory Management page reads for materials and
+/// requests (Objective 6), all live. The tools' providers are in
+/// `features/tools/presentation/tool_providers.dart`.
 
 /// Every material, by name.
 final inventoryItemsProvider =
@@ -40,27 +39,6 @@ final lowStockCountProvider = Provider.autoDispose<int>(
     _ => 0,
   },
 );
-
-/// Every tool, by tool ID.
-final allToolsProvider = StreamProvider.autoDispose<Result<List<Tool>>>(
-  (ref) => ref.watch(toolRepositoryProvider).watchTools(),
-);
-
-/// One tool, for its details dialog.
-final toolProvider = StreamProvider.autoDispose.family<Result<Tool>, String>(
-  (ref, id) => ref.watch(toolRepositoryProvider).watchTool(id),
-);
-
-/// Loans not yet returned, newest first.
-final openLoansProvider = StreamProvider.autoDispose<Result<List<ToolLoan>>>(
-  (ref) => ref.watch(toolRepositoryProvider).watchOpenLoans(),
-);
-
-/// One tool's loans, newest first, for its details dialog.
-final toolLoanHistoryProvider = StreamProvider.autoDispose
-    .family<Result<List<ToolLoan>>, String>(
-      (ref, id) => ref.watch(toolRepositoryProvider).watchLoanHistory(id),
-    );
 
 /// The newest material requests across all work orders.
 final recentMaterialRequestsProvider =

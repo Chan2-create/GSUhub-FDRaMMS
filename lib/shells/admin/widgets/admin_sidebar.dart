@@ -18,7 +18,6 @@ class AdminSidebar extends StatelessWidget {
   const AdminSidebar({
     required this.currentLocation,
     required this.user,
-    required this.onSignOut,
     this.badges = const {},
     this.rail = false,
     super.key,
@@ -35,7 +34,6 @@ class AdminSidebar extends StatelessWidget {
 
   final String currentLocation;
   final AuthUser? user;
-  final VoidCallback onSignOut;
 
   /// Icons only.
   final bool rail;
@@ -89,7 +87,7 @@ class AdminSidebar extends StatelessWidget {
               ),
             ),
           ),
-          _UserFooter(user: user, onSignOut: onSignOut, rail: rail),
+          _UserFooter(user: user, rail: rail),
         ],
       ),
     ),
@@ -282,15 +280,12 @@ class _NavTile extends StatelessWidget {
   }
 }
 
+/// Who is signed in, pinned under the menu. Logout is no longer here: it
+/// is in the header's account menu (2026-11-13).
 class _UserFooter extends StatelessWidget {
-  const _UserFooter({
-    required this.user,
-    required this.onSignOut,
-    this.rail = false,
-  });
+  const _UserFooter({required this.user, this.rail = false});
 
   final AuthUser? user;
-  final VoidCallback onSignOut;
   final bool rail;
 
   @override
@@ -305,33 +300,26 @@ class _UserFooter extends StatelessWidget {
           color: AppColors.surface,
           border: Border(top: BorderSide(color: Color(0xB8000000))),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          children: [
-            Tooltip(
-              message: '$displayName · System Administrator',
-              child: Container(
-                width: 34,
-                height: 31,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: AppColors.sidebarBackground,
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  _initials(displayName),
-                  style: AppTextStyles.sidebarFooterName.copyWith(
-                    color: AppColors.accentGold,
-                  ),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Center(
+          child: Tooltip(
+            message: '$displayName · System Administrator',
+            child: Container(
+              width: 34,
+              height: 31,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.sidebarBackground,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                _initials(displayName),
+                style: AppTextStyles.sidebarFooterName.copyWith(
+                  color: AppColors.accentGold,
                 ),
               ),
             ),
-            IconButton(
-              onPressed: onSignOut,
-              tooltip: 'Sign out',
-              icon: const Icon(Icons.logout, size: 18),
-            ),
-          ],
+          ),
         ),
       );
     }
@@ -378,11 +366,6 @@ class _UserFooter extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          IconButton(
-            onPressed: onSignOut,
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout, size: 18),
           ),
         ],
       ),

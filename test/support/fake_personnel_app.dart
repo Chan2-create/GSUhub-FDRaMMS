@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/app.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/di/repository_providers.dart';
 import 'package:gsuhub/core/di/service_providers.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
@@ -11,9 +11,8 @@ import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/firebase/firebase_call_guard.dart';
-import 'package:gsuhub/features/inventory/presentation/inventory_screen.dart';
-import 'package:gsuhub/features/reporting/presentation/submission/qr_scanner_screen.dart';
-import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_tag_map.dart';
+import 'package:gsuhub/features/map_view/presentation/widgets/geo_tag_map.dart';
+import 'package:gsuhub/features/qr_codes/presentation/qr_scanner_screen.dart';
 
 import 'fake_admin_backend.dart' show FakeFileDownloadService;
 import 'fake_config_repository.dart';
@@ -90,7 +89,7 @@ class PersonnelHarness {
       data.doc(collection, id);
 
   Future<String?> workOrderStatus([String id = 'wo-1']) async =>
-      (await read(FirestorePaths.workOrders, id))['status'] as String?;
+      (await read(TableNames.workOrders, id))['status'] as String?;
 
   /// Boots the app at [start], phone-sized unless [size] says otherwise.
   Future<void> pump(

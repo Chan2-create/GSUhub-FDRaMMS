@@ -7,8 +7,8 @@ import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/utils/result.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
-import 'package:gsuhub/features/reporting/presentation/report_detail_screen.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/presentation/report_detail_screen.dart';
 
 import '../support/fake_admin_backend.dart';
 

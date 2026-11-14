@@ -4,7 +4,7 @@ import 'package:gsuhub/core/data/geo_coordinates.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
-import 'package:gsuhub/features/reporting/presentation/map/report_map.dart';
+import 'package:gsuhub/features/map_view/presentation/report_map.dart';
 
 import '../support/fake_personnel_app.dart';
 import '../support/fake_requestor_app.dart' show currentPath;

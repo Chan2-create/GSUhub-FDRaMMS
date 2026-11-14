@@ -353,10 +353,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(app.reports.openListeners, 1);
 
-      await tester.tap(find.text('Profile'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Sign out'));
-      await tester.pumpAndSettle();
+      await logOutFromProfile(tester);
       expect(app.reports.openListeners, 0);
     });
   });
@@ -378,8 +375,10 @@ void main() {
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
       expect(currentPath(tester), RoutePaths.staffProfile);
+      // The profile: who they are, and what their account is.
       expect(find.text('Maria Santos'), findsOneWidget);
-      expect(find.text('Sign out'), findsOneWidget);
+      expect(find.text('Faculty / Staff'), findsWidgets);
+      expect(find.text('Active account'), findsOneWidget);
 
       await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
@@ -399,13 +398,21 @@ void main() {
       expect(currentPath(tester), RoutePaths.staffHome);
     });
 
+    testWidgets('Logout asks first, and Cancel keeps the session', (
+      tester,
+    ) async {
+      await withHistory().pump(tester);
+
+      await logOutFromProfile(tester, confirm: false);
+
+      expect(find.text('Log out of GSUhub?'), findsNothing);
+      expect(currentPath(tester), RoutePaths.staffProfile);
+    });
+
     testWidgets('signing out returns to the staff sign-in', (tester) async {
       await withHistory().pump(tester);
-      await tester.tap(find.text('Profile'));
-      await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Sign out'));
-      await tester.pumpAndSettle();
+      await logOutFromProfile(tester);
 
       expect(currentPath(tester), RoutePaths.staffLogin);
       expect(find.text('LOGIN TO DASHBOARD'), findsOneWidget);

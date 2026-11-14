@@ -8,6 +8,7 @@ import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../settings/presentation/widgets/settings_parts.dart';
 import '../data/models/classification_rules_config.dart';
 import '../domain/keyword_classifier.dart';
 import 'classification_providers.dart';
@@ -19,30 +20,37 @@ import 'keyword_settings_controller.dart';
 /// removes, with a box to try a description against them before saving.
 ///
 /// Not in the Figma file; built in the console's existing style (Chris,
-/// 2026-10-12).
+/// 2026-10-12). The Keywords tab since 2026-11-14.
 class KeywordSettingsSection extends ConsumerWidget {
-  const KeywordSettingsSection({super.key});
+  const KeywordSettingsSection({super.key, this.onUnsavedChanged});
+
+  /// Told whether the tab holds edits that are not saved.
+  final ValueChanged<bool>? onUnsavedChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
       AsyncValueView<ClassificationRulesConfig>(
         value: ref.watch(keywordRulesProvider),
         onRetry: () => ref.invalidate(keywordRulesProvider),
-        data: (config) => _KeywordEditor(config: config),
+        data: (config) =>
+            _KeywordEditor(config: config, onUnsavedChanged: onUnsavedChanged),
       );
 }
 
 class _KeywordEditor extends ConsumerStatefulWidget {
-  const _KeywordEditor({required this.config});
+  const _KeywordEditor({required this.config, this.onUnsavedChanged});
 
   /// The saved dictionary, or Table 3.3's when none is saved.
   final ClassificationRulesConfig config;
+
+  final ValueChanged<bool>? onUnsavedChanged;
 
   @override
   ConsumerState<_KeywordEditor> createState() => _KeywordEditorState();
 }
 
-class _KeywordEditorState extends ConsumerState<_KeywordEditor> {
+class _KeywordEditorState extends ConsumerState<_KeywordEditor>
+    with ReportsUnsaved {
   late KeywordDraft _draft = KeywordDraft.of(widget.config);
   bool _saving = false;
 
@@ -92,14 +100,15 @@ class _KeywordEditorState extends ConsumerState<_KeywordEditor> {
 
   @override
   Widget build(BuildContext context) {
+    reportUnsaved(widget.onUnsavedChanged, unsaved: _hasChanges);
+
     final editor = SectionCard(
       title: 'Classification keywords',
       subtitle:
-          'A new report is matched against these keywords, title and '
-          'description both, and given the damage type with the most '
-          'matches. A report that matches none, or two types equally, '
-          'is left for an administrator to classify (manuscript §3.4, '
-          'Table 3.3).',
+          'A new report\'s title and description are checked against these '
+          'keywords, and it gets the damage type with the most matches. A '
+          'report that matches none, or two types equally, is left for an '
+          'administrator to classify.',
       trailing: Padding(
         padding: const EdgeInsets.only(left: 24),
         child: Text(
@@ -113,19 +122,15 @@ class _KeywordEditorState extends ConsumerState<_KeywordEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_isManuscriptList) ...[
-            const _Notice(
-              'These are the manuscript\'s keywords (Table 3.3). The app '
-              'uses them until a list is saved here; save once to keep '
-              'your changes.',
+            const SettingsNotice(
+              'These are the default keywords. The app uses them until a '
+              'list is saved here; save once to keep your changes.',
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
           ],
           for (final category in DamageCategory.values) ...[
-            if (category != DamageCategory.values.first) ...[
-              const SizedBox(height: 20),
-              const Divider(),
-              const SizedBox(height: 20),
-            ],
+            if (category != DamageCategory.values.first)
+              const Divider(height: 28),
             _CategoryKeywords(
               category: category,
               draft: _draft,
@@ -133,43 +138,19 @@ class _KeywordEditorState extends ConsumerState<_KeywordEditor> {
               onChanged: _edit,
             ),
           ],
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 16),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 16,
-            runSpacing: 12,
-            children: [
-              Text(
-                _hasChanges
-                    ? 'Unsaved changes. Reports are classified with the '
-                          'saved list until you save.'
-                    : _isManuscriptList
-                    ? 'No changes.'
-                    : 'All changes saved.',
-                style: AppTextStyles.bodySmall,
-              ),
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: _hasChanges && !_saving
-                        ? () => _edit(KeywordDraft.of(widget.config))
-                        : null,
-                    child: const Text('Discard changes'),
-                  ),
-                  FilledButton(
-                    onPressed: (_hasChanges || _isManuscriptList) && !_saving
-                        ? _save
-                        : null,
-                    child: Text(_saving ? 'Saving…' : 'Save keywords'),
-                  ),
-                ],
-              ),
-            ],
+          SettingsSaveBar(
+            state: _hasChanges
+                ? SettingsSaveState.unsaved
+                : _isManuscriptList
+                ? SettingsSaveState.defaults
+                : SettingsSaveState.saved,
+            unsavedNote:
+                'Reports are classified with the saved list until you save.',
+            canDiscard: _hasChanges && !_saving,
+            onDiscard: () => _edit(KeywordDraft.of(widget.config)),
+            canSave: (_hasChanges || _isManuscriptList) && !_saving,
+            onSave: _save,
+            saving: _saving,
           ),
         ],
       ),
@@ -197,7 +178,10 @@ class _KeywordEditorState extends ConsumerState<_KeywordEditor> {
   }
 }
 
-/// One damage type's keywords, each removable, and a field to add one.
+/// One damage type's keywords, each removable, with Add keyword after the
+/// last. The box to type one in opens on Add keyword and stays open for
+/// the next: seven empty boxes down the page, one per type, were most of
+/// what made it long.
 class _CategoryKeywords extends StatefulWidget {
   const _CategoryKeywords({
     required this.category,
@@ -219,6 +203,7 @@ class _CategoryKeywordsState extends State<_CategoryKeywords> {
   final _input = TextEditingController();
   final _focus = FocusNode();
   String? _problem;
+  bool _adding = false;
 
   @override
   void dispose() {
@@ -226,6 +211,20 @@ class _CategoryKeywordsState extends State<_CategoryKeywords> {
     _focus.dispose();
     super.dispose();
   }
+
+  void _open() {
+    setState(() => _adding = true);
+    // The box is built by this frame; the cursor goes in it after.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
+  }
+
+  void _close() => setState(() {
+    _adding = false;
+    _problem = null;
+    _input.clear();
+  });
 
   void _add() {
     final problem = widget.draft.problemWith(widget.category, _input.text);
@@ -258,77 +257,96 @@ class _CategoryKeywordsState extends State<_CategoryKeywords> {
     final editor = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (keywords.isEmpty)
+        if (keywords.isEmpty) ...[
           const Text(
             'No keywords. A report gets this type only when an '
             'administrator chooses it.',
             style: AppTextStyles.bodySmall,
-          )
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final keyword in keywords)
-                InputChip(
-                  label: Text(keyword),
-                  onDeleted: widget.enabled
-                      ? () => widget.onChanged(
-                          widget.draft.removing(category, keyword),
-                        )
-                      : null,
-                  deleteButtonTooltipMessage: 'Remove "$keyword"',
-                ),
-            ],
           ),
-        const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 8),
+        ],
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Flexible(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 320),
-                child: TextField(
-                  controller: _input,
-                  focusNode: _focus,
-                  enabled: widget.enabled,
-                  maxLength: KeywordDraft.maxLength,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _add(),
-                  onChanged: (_) {
-                    if (_problem != null) setState(() => _problem = null);
-                  },
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: 'Add a keyword or phrase',
-                    counterText: '',
-                    errorText: _problem,
-                    errorMaxLines: 3,
-                    border: const OutlineInputBorder(),
-                  ),
-                  style: AppTextStyles.inputText,
-                ),
+            for (final keyword in keywords)
+              InputChip(
+                label: Text(keyword),
+                onDeleted: widget.enabled
+                    ? () => widget.onChanged(
+                        widget.draft.removing(category, keyword),
+                      )
+                    : null,
+                deleteButtonTooltipMessage: 'Remove "$keyword"',
               ),
-            ),
-            const SizedBox(width: 8),
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Tooltip(
-                message: 'Add to ${category.label}',
-                child: TextButton.icon(
-                  onPressed: widget.enabled ? _add : null,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add'),
-                ),
+            if (!_adding)
+              ActionChip(
+                avatar: const Icon(Icons.add, size: 16),
+                label: const Text('Add keyword'),
+                tooltip: 'Add a keyword to ${category.label}',
+                onPressed: widget.enabled ? _open : null,
               ),
-            ),
           ],
         ),
+        if (_adding) ...[
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 300),
+                  child: TextField(
+                    controller: _input,
+                    focusNode: _focus,
+                    enabled: widget.enabled,
+                    maxLength: KeywordDraft.maxLength,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _add(),
+                    onChanged: (_) {
+                      if (_problem != null) setState(() => _problem = null);
+                    },
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Add a keyword or phrase',
+                      counterText: '',
+                      errorText: _problem,
+                      errorMaxLines: 3,
+                      border: const OutlineInputBorder(),
+                    ),
+                    style: AppTextStyles.inputText,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Tooltip(
+                  message: 'Add to ${category.label}',
+                  child: TextButton.icon(
+                    onPressed: widget.enabled ? _add : null,
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Add'),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: IconButton(
+                  tooltip: 'Done adding to ${category.label}',
+                  onPressed: _close,
+                  icon: const Icon(Icons.close, size: 18),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
 
     // On a phone the damage type goes above its keywords: beside them,
-    // its 160px left the keywords and the Add field no room at 320.
+    // its column left the keywords and the Add field no room at 320.
     if (Breakpoints.isCompact(context)) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -439,35 +457,4 @@ class _TryResult extends StatelessWidget {
       ],
     );
   }
-}
-
-/// A tinted note at the top of the editor.
-class _Notice extends StatelessWidget {
-  const _Notice(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: AppColors.surfaceMuted,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.info_outline,
-            size: 18,
-            color: AppColors.textSecondary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(message, style: AppTextStyles.bodySmall)),
-        ],
-      ),
-    ),
-  );
 }

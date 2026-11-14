@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
@@ -23,8 +23,8 @@ class FirestoreFacilityRepository extends FirestoreRepository
     implements FacilityRepository {
   const FirestoreFacilityRepository({required super.db, required super.guard});
 
-  static const String _facilities = FirestorePaths.facilities;
-  static const String _assets = FirestorePaths.assets;
+  static const String _facilities = TableNames.facilities;
+  static const String _assets = TableNames.assets;
 
   @override
   Future<Result<Facility>> getFacilityById(String id) =>
@@ -379,7 +379,7 @@ class FirestoreFacilityRepository extends FirestoreRepository
   Future<int?> _openReports(String field, String id) async {
     final reports = await guard.call(
       () => db.raw
-          .collection(FirestorePaths.damageReports)
+          .collection(TableNames.damageReports)
           .where(field, isEqualTo: id)
           .get(),
     );

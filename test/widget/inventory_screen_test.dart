@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/tool_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
@@ -78,10 +78,7 @@ void main() {
     await tester.tap(find.text('Record delivery'));
     await tester.pumpAndSettle();
 
-    expect(
-      stock(await app.read(FirestorePaths.inventoryItems, 'inv-tape')),
-      12,
-    );
+    expect(stock(await app.read(TableNames.inventoryItems, 'inv-tape')), 12);
     expect(
       find.text('Recorded 10 rolls of Insulation Tape received.'),
       findsOneWidget,
@@ -118,7 +115,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final items = await app.data.firestore
-        .collection(FirestorePaths.inventoryItems)
+        .collection(TableNames.inventoryItems)
         .where('name', isEqualTo: 'Wall Socket Plate')
         .get();
     final item = items.docs.single.data();
@@ -154,11 +151,11 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();
 
-    final tape = await app.read(FirestorePaths.inventoryItems, 'inv-tape');
+    final tape = await app.read(TableNames.inventoryItems, 'inv-tape');
     expect(tape['deletedAt'], isNotNull);
     expect(stock(tape), 2, reason: 'deleting moves no stock');
     final audit = await app.data.firestore
-        .collection(FirestorePaths.auditLogs)
+        .collection(TableNames.auditLogs)
         .where('action', isEqualTo: 'deleted')
         .get();
     expect(
@@ -189,7 +186,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      (await app.read(FirestorePaths.inventoryItems, 'inv-led'))['deletedAt'],
+      (await app.read(TableNames.inventoryItems, 'inv-led'))['deletedAt'],
       isNotNull,
     );
     expect(find.text('STOCK HISTORY'), findsNothing);
@@ -213,7 +210,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Check out'));
     await tester.pumpAndSettle();
 
-    var tool = await app.read(FirestorePaths.tools, 'tool-1');
+    var tool = await app.read(TableNames.tools, 'tool-1');
     expect(tool['status'], ToolStatus.borrowed.id);
     expect(tool['currentHolderId'], fakeTechnician.uid);
     expect(find.text('BORROWED'), findsOneWidget);
@@ -224,7 +221,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Check in'));
     await tester.pumpAndSettle();
 
-    tool = await app.read(FirestorePaths.tools, 'tool-1');
+    tool = await app.read(TableNames.tools, 'tool-1');
     expect(tool['status'], ToolStatus.available.id);
   });
 
@@ -261,12 +258,12 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Approve').last);
     await tester.pumpAndSettle();
 
-    final request = await app.read(FirestorePaths.materialRequests, 'rq-1');
+    final request = await app.read(TableNames.materialRequests, 'rq-1');
     expect(request['status'], 'approved');
     final allocated = await app.data.firestore
-        .collection(FirestorePaths.workOrders)
+        .collection(TableNames.workOrders)
         .doc('w1')
-        .collection(FirestorePaths.materialsAllocated)
+        .collection(TableNames.materialsAllocated)
         .doc('inv-led')
         .get();
     expect(allocated.data()?['quantity'], 4);

@@ -1,16 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 
 import '../../../../core/data/firestore_records.dart';
 import '../../../../core/data/firestore_repository.dart';
 import '../../../audit/data/repositories/audit_writes.dart';
-import '../../../reporting/data/repositories/status_history_writes.dart';
+import '../../../damage_reports/data/repositories/status_history_writes.dart';
 
 /// A work order's move to another status, with every report it carries
 /// moving beside it — prepared in a transaction's read phase, staged in
@@ -78,7 +78,7 @@ class WorkOrderMove {
     final reportsToMove = <DamageReport>[];
     for (final reportId in workOrder.reportIds) {
       final snapshot = await transaction.get(
-        firestore.collection(FirestorePaths.damageReports).doc(reportId),
+        firestore.collection(TableNames.damageReports).doc(reportId),
       );
       if (!snapshot.exists) continue;
       final linked = fromDoc(DamageReport.fromRecord)(snapshot);
@@ -102,7 +102,7 @@ class WorkOrderMove {
     if (to == WorkOrderStatus.completed) {
       for (final personnelId in workOrder.assignedPersonnelIds) {
         final personReference = firestore
-            .collection(FirestorePaths.users)
+            .collection(TableNames.users)
             .doc(personnelId);
         final personSnapshot = await transaction.get(personReference);
         if (!personSnapshot.exists) continue;
@@ -131,7 +131,7 @@ class WorkOrderMove {
   }) {
     final from = workOrder.status;
     transaction.update(
-      firestore.collection(FirestorePaths.workOrders).doc(workOrder.id),
+      firestore.collection(TableNames.workOrders).doc(workOrder.id),
       {
         'status': to.id,
         'updatedAt': FirestoreRepository.serverNow,
@@ -144,7 +144,7 @@ class WorkOrderMove {
 
     for (final linked in reportsToMove) {
       transaction.update(
-        firestore.collection(FirestorePaths.damageReports).doc(linked.id),
+        firestore.collection(TableNames.damageReports).doc(linked.id),
         {'status': reportTarget.id, 'updatedAt': FirestoreRepository.serverNow},
       );
       stageReportMove(
@@ -171,7 +171,7 @@ class WorkOrderMove {
       firestore,
       actor: actor,
       action: AuditAction.statusChanged,
-      entityType: FirestorePaths.workOrders,
+      entityType: TableNames.workOrders,
       entityId: workOrder.id,
       description: 'Status changed from ${from.title} to ${to.title}',
       changes: {'from': from.id, 'to': to.id},

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/task_status.dart';
@@ -63,7 +63,7 @@ void main() {
         );
         final workOrderId = result.fold((id) => id, (f) => fail(f.message));
 
-        final tasks = await h.firestore.collection(FirestorePaths.tasks).get();
+        final tasks = await h.firestore.collection(TableNames.tasks).get();
         final task = tasks.docs.single.data();
         expect(task['workOrderId'], workOrderId);
         expect(task['title'], 'Flickering lights');
@@ -87,7 +87,7 @@ void main() {
       );
       final id = result.fold((id) => id, (f) => fail(f.message));
 
-      final task = await doc(FirestorePaths.tasks, id);
+      final task = await doc(TableNames.tasks, id);
       expect(task['title'], 'Test every fixture');
       expect(task['assignedTo'], 'personnel-1');
       expect(task['status'], 'pending');
@@ -141,7 +141,7 @@ void main() {
         (await h.tasks.deleteTask(taskId: 't1', actor: admin)).isSuccess,
         isTrue,
       );
-      expect(await doc(FirestorePaths.tasks, 't1'), isEmpty);
+      expect(await doc(TableNames.tasks, 't1'), isEmpty);
       expect(
         failureMessage(await h.tasks.deleteTask(taskId: 't2', actor: admin)),
         contains('stays on the record'),
@@ -159,11 +159,11 @@ void main() {
       );
 
       expect(result.isSuccess, isTrue);
-      final task = await doc(FirestorePaths.tasks, 't1');
+      final task = await doc(TableNames.tasks, 't1');
       expect(task['status'], 'completed');
       expect(isTimestamp(task['completedAt']), isTrue);
       // Tasks leave the open-work count alone: it counts work orders.
-      expect(await doc(FirestorePaths.users, 'personnel-1'), isEmpty);
+      expect(await doc(TableNames.users, 'personnel-1'), isEmpty);
     });
 
     test('the first task touched starts a pending work order, and the '
@@ -177,11 +177,11 @@ void main() {
         actor: technician,
       );
 
-      final workOrder = await doc(FirestorePaths.workOrders, 'w1');
+      final workOrder = await doc(TableNames.workOrders, 'w1');
       expect(workOrder['status'], 'inProgress');
       expect(isTimestamp(workOrder['startedAt']), isTrue);
       expect(
-        (await doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await doc(TableNames.damageReports, 'r1'))['status'],
         'inProgress',
       );
       expect((await h.history('r1')).single['status'], 'inProgress');
@@ -199,7 +199,7 @@ void main() {
       );
 
       expect(failureMessage(result), contains('can no longer change'));
-      expect((await doc(FirestorePaths.tasks, 't1'))['status'], 'pending');
+      expect((await doc(TableNames.tasks, 't1'))['status'], 'pending');
     });
 
     test('proof photos are added, and put the task in progress', () async {
@@ -217,7 +217,7 @@ void main() {
         actor: technician,
       );
 
-      final task = await doc(FirestorePaths.tasks, 't1');
+      final task = await doc(TableNames.tasks, 't1');
       expect(task['proofPhotoUrls'], [
         'https://storage.test/a.jpg',
         'https://storage.test/b.jpg',
@@ -249,10 +249,7 @@ void main() {
       expect(recorded.single.recordedBy, 'personnel-1');
       // Stock is untouched until the report is filed.
       expect(
-        (await doc(
-          FirestorePaths.inventoryItems,
-          'inv-1',
-        ))['quantityAvailable'],
+        (await doc(TableNames.inventoryItems, 'inv-1'))['quantityAvailable'],
         10,
       );
     });
@@ -341,21 +338,18 @@ void main() {
       final result = await submit(materials: [leds(4)]);
 
       expect(result.isSuccess, isTrue);
-      final report = await doc(FirestorePaths.accomplishmentReports, 'acc-1');
+      final report = await doc(TableNames.accomplishmentReports, 'acc-1');
       expect(report['submittedBy'], 'personnel-1');
       expect(report['inventoryDeducted'], isTrue);
       expect(report['materialsUsed'], hasLength(1));
       expect(isTimestamp(report['submittedAt']), isTrue);
 
       expect(
-        (await doc(
-          FirestorePaths.inventoryItems,
-          'inv-1',
-        ))['quantityAvailable'],
+        (await doc(TableNames.inventoryItems, 'inv-1'))['quantityAvailable'],
         6,
       );
       final ledger = await h.firestore
-          .collection(FirestorePaths.inventoryTransactions)
+          .collection(TableNames.inventoryTransactions)
           .get();
       final entry = ledger.docs.single.data();
       expect(entry['type'], 'consumption');
@@ -373,12 +367,9 @@ void main() {
         ),
         isEmpty,
       );
+      expect((await doc(TableNames.workOrders, 'w1'))['status'], 'forReview');
       expect(
-        (await doc(FirestorePaths.workOrders, 'w1'))['status'],
-        'forReview',
-      );
-      expect(
-        (await doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await doc(TableNames.damageReports, 'r1'))['status'],
         'forReview',
       );
       expect((await h.history('r1')).single['status'], 'forReview');
@@ -392,13 +383,10 @@ void main() {
       final retry = await submit(materials: [leds(4)]);
 
       expect(retry.isSuccess, isTrue);
-      expect(await h.count(FirestorePaths.accomplishmentReports), 1);
-      expect(await h.count(FirestorePaths.inventoryTransactions), 1);
+      expect(await h.count(TableNames.accomplishmentReports), 1);
+      expect(await h.count(TableNames.inventoryTransactions), 1);
       expect(
-        (await doc(
-          FirestorePaths.inventoryItems,
-          'inv-1',
-        ))['quantityAvailable'],
+        (await doc(TableNames.inventoryItems, 'inv-1'))['quantityAvailable'],
         6,
       );
     });
@@ -410,7 +398,7 @@ void main() {
         failureMessage(await submit()),
         'Start the work before marking it complete.',
       );
-      expect(await h.count(FirestorePaths.accomplishmentReports), 0);
+      expect(await h.count(TableNames.accomplishmentReports), 0);
     });
 
     test('refuses when a material is short, and deducts nothing', () async {
@@ -421,18 +409,12 @@ void main() {
         failureMessage(await submit(materials: [leds(4)])),
         contains('Not enough LED Bulbs in stock'),
       );
-      expect(await h.count(FirestorePaths.accomplishmentReports), 0);
+      expect(await h.count(TableNames.accomplishmentReports), 0);
       expect(
-        (await doc(
-          FirestorePaths.inventoryItems,
-          'inv-1',
-        ))['quantityAvailable'],
+        (await doc(TableNames.inventoryItems, 'inv-1'))['quantityAvailable'],
         2,
       );
-      expect(
-        (await doc(FirestorePaths.workOrders, 'w1'))['status'],
-        'inProgress',
-      );
+      expect((await doc(TableNames.workOrders, 'w1'))['status'], 'inProgress');
     });
 
     test('needs notes and a photo', () async {
@@ -460,18 +442,18 @@ void main() {
       );
 
       expect(result.isSuccess, isTrue);
-      final report = await doc(FirestorePaths.accomplishmentReports, 'acc-1');
+      final report = await doc(TableNames.accomplishmentReports, 'acc-1');
       expect(report['reviewedBy'], admin.id);
       expect(isTimestamp(report['reviewedAt']), isTrue);
-      final workOrder = await doc(FirestorePaths.workOrders, 'w1');
+      final workOrder = await doc(TableNames.workOrders, 'w1');
       expect(workOrder['status'], 'completed');
       expect(isTimestamp(workOrder['completedAt']), isTrue);
       expect(
-        (await doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await doc(TableNames.damageReports, 'r1'))['status'],
         'completed',
       );
       expect(
-        (await doc(FirestorePaths.users, 'personnel-1'))['activeTaskCount'],
+        (await doc(TableNames.users, 'personnel-1'))['activeTaskCount'],
         0,
       );
       expect((await notices('personnel-1')).single['title'], 'Work signed off');
@@ -488,11 +470,11 @@ void main() {
         actor: admin,
       );
 
-      final workOrder = await doc(FirestorePaths.workOrders, 'w1');
+      final workOrder = await doc(TableNames.workOrders, 'w1');
       expect(workOrder['status'], 'inProgress');
       expect(workOrder['adminNotes'], 'Two clips are loose.');
       expect(
-        (await doc(FirestorePaths.damageReports, 'r1'))['status'],
+        (await doc(TableNames.damageReports, 'r1'))['status'],
         'inProgress',
       );
       expect((await notices('personnel-1')).single['title'], 'Work sent back');
@@ -528,7 +510,7 @@ void main() {
       );
 
       final loan = result.fold((loan) => loan, (f) => fail(f.message));
-      final tool = await doc(FirestorePaths.tools, 'tool-1');
+      final tool = await doc(TableNames.tools, 'tool-1');
       expect(tool['status'], 'borrowed');
       expect(tool['currentHolderId'], 'personnel-1');
       expect(tool['currentLoanId'], loan.id);
@@ -572,7 +554,7 @@ void main() {
       );
 
       expect(result.isSuccess, isTrue);
-      final tool = await doc(FirestorePaths.tools, 'tool-1');
+      final tool = await doc(TableNames.tools, 'tool-1');
       expect(tool['status'], 'inRepair');
       expect(tool['condition'], 'poor');
       expect(tool['currentHolderId'], isNull);
@@ -597,7 +579,7 @@ void main() {
         actor: admin,
       );
       expect(
-        (await doc(FirestorePaths.workOrders, 'w1'))['adminNotes'],
+        (await doc(TableNames.workOrders, 'w1'))['adminNotes'],
         'Please finish before 2 PM.',
       );
 
@@ -606,10 +588,7 @@ void main() {
         notes: '',
         actor: admin,
       );
-      expect(
-        (await doc(FirestorePaths.workOrders, 'w1'))['adminNotes'],
-        isNull,
-      );
+      expect((await doc(TableNames.workOrders, 'w1'))['adminNotes'], isNull);
       expect(await h.auditEntries(), hasLength(2));
     },
   );

@@ -13,6 +13,7 @@ import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../audit/presentation/current_actor_provider.dart';
+import '../../settings/presentation/widgets/settings_parts.dart';
 import '../data/models/duplicate_detection_config.dart';
 import '../data/models/prioritization_config.dart';
 import '../domain/priority_scorer.dart';
@@ -91,27 +92,34 @@ String _savedLine(DateTime updatedAt, String updatedBy) =>
 /// the default; both are kept, so either can be used without a code change.
 /// No design covers it: built in the console's existing style.
 class PrioritySettingsSection extends ConsumerWidget {
-  const PrioritySettingsSection({super.key});
+  const PrioritySettingsSection({super.key, this.onUnsavedChanged});
+
+  /// Told whether the tab holds edits that are not saved.
+  final ValueChanged<bool>? onUnsavedChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
       AsyncValueView<PrioritizationConfig>(
         value: ref.watch(prioritizationConfigProvider),
         onRetry: () => ref.invalidate(prioritizationConfigProvider),
-        data: (config) => _PriorityEditor(config: config),
+        data: (config) =>
+            _PriorityEditor(config: config, onUnsavedChanged: onUnsavedChanged),
       );
 }
 
 class _PriorityEditor extends ConsumerStatefulWidget {
-  const _PriorityEditor({required this.config});
+  const _PriorityEditor({required this.config, this.onUnsavedChanged});
 
   final PrioritizationConfig config;
+
+  final ValueChanged<bool>? onUnsavedChanged;
 
   @override
   ConsumerState<_PriorityEditor> createState() => _PriorityEditorState();
 }
 
-class _PriorityEditorState extends ConsumerState<_PriorityEditor> {
+class _PriorityEditorState extends ConsumerState<_PriorityEditor>
+    with ReportsUnsaved {
   /// Table 3.5's order: Critical first. The enum runs the other way.
   static const List<PriorityLevel> _bandOrder = [
     PriorityLevel.critical,
@@ -288,13 +296,17 @@ class _PriorityEditorState extends ConsumerState<_PriorityEditor> {
       PrioritizationCriterion.locationImportance: 2,
     };
     final sampleScore = sample?.score(sampleRatings);
+    // Edits that do not read as a configuration yet are unsaved too.
+    reportUnsaved(widget.onUnsavedChanged, unsaved: changed || problem != null);
+
+    final usesFormula = _scheme == PrioritizationScheme.decimalWeights;
 
     return SectionCard(
       title: 'Priority scoring',
       subtitle:
-          'The recommended priority is Σ weight × rating ÷ Σ weights, each '
-          'criterion rated 1 to 4 (manuscript §3.4, Tables 3.4 and 3.5). '
-          'The administrator still sets the official priority (§1.5).',
+          'Each report is rated 1 to 4 on four criteria. The weights turn '
+          'the ratings into a score, and the score into a recommended '
+          'priority. The administrator still sets the official priority.',
       trailing: Padding(
         padding: const EdgeInsets.only(left: 24),
         child: Text(
@@ -305,110 +317,130 @@ class _PriorityEditorState extends ConsumerState<_PriorityEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _Notice(
-            'The manuscript gives two sets of weights that disagree: Table '
-            '3.2 lists Severity 3, Safety risk 4, Frequency 2, Location '
-            'importance 3; the §3.4 formula uses 0.40, 0.30, 0.20 and 0.10. '
-            'The formula\'s are the default (chosen 2026-10-12). Both are '
-            'kept here; pick the one the score uses once the manuscript is '
-            'settled.',
-          ),
-          const SizedBox(height: 20),
-          RadioGroup<PrioritizationScheme>(
-            groupValue: _scheme,
-            onChanged: (scheme) {
-              if (scheme != null && !_saving) setState(() => _scheme = scheme);
-            },
-            // The card is a coloured box: the tiles paint on a Material
-            // of their own.
-            child: const Material(
-              type: MaterialType.transparency,
-              child: Column(
+          // What the settings below add up to, first: the effect of a
+          // change shows here before it is saved.
+          if (problem != null)
+            _Outcome(
+              color: AppColors.statusPendingBackground,
+              child: Text(
+                problem,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.statusPendingForeground,
+                ),
+              ),
+            )
+          else if (sample != null && sampleScore != null)
+            _Outcome(
+              color: AppColors.surfaceSunken,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  RadioListTile(
-                    value: PrioritizationScheme.decimalWeights,
-                    title: Text('The §3.4 formula\'s weights'),
-                    contentPadding: EdgeInsets.zero,
+                  Text(
+                    'Example: a report rated Severity 3, Safety risk 3, '
+                    'Frequency 2, Location importance 2 would score '
+                    '${sampleScore.toStringAsFixed(2)}',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                  RadioListTile(
-                    value: PrioritizationScheme.integerWeights,
-                    title: Text('Table 3.2\'s weights'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
+                  PriorityChip(level: sample.levelFor(sampleScore)),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _FieldRow(
-            label: 'Formula weights',
-            fields: {
-              for (final MapEntry(:key, :value) in _decimal.entries)
-                _criterionLabel(key): value,
-            },
-            enabled: !_saving,
-          ),
-          const SizedBox(height: 16),
-          _FieldRow(
-            label: 'Table 3.2 weights',
-            fields: {
-              for (final MapEntry(:key, :value) in _integer.entries)
-                _criterionLabel(key): value,
-            },
-            enabled: !_saving,
-          ),
-          const SizedBox(height: 16),
-          _FieldRow(
-            label: 'Score bands: a level starts at (Table 3.5)',
-            fields: {
-              for (final MapEntry(:key, :value) in _bands.entries)
-                key.label: value,
-            },
-            enabled: !_saving,
-          ),
-          const SizedBox(height: 16),
-          _FieldRow(
-            label:
-                'Frequency hint: similar reports counted over this many '
-                'days, and the counts that rate it 2, 3 and 4',
-            fields: {
-              'Days': _window,
-              for (final (index, field) in _counts.indexed)
-                'Rating ${index + 2} from': field,
-            },
-            enabled: !_saving,
-          ),
-          const SizedBox(height: 16),
-          if (problem != null)
-            Text(
-              problem,
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
-            )
-          else if (sample != null && sampleScore != null)
-            Row(
+          const SizedBox(height: 24),
+          SettingsGroup(
+            title: 'Weights',
+            description:
+                'How much each criterion counts. The study gives two sets; '
+                'both are kept, and the score uses the one chosen here.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Flexible(
-                  child: Text(
-                    'A report rated Severity 3, Safety risk 3, Frequency 2, '
-                    'Location importance 2 would score '
-                    '${sampleScore.toStringAsFixed(2)}:',
-                    style: AppTextStyles.bodySmall,
+                RadioGroup<PrioritizationScheme>(
+                  groupValue: _scheme,
+                  onChanged: (scheme) {
+                    if (scheme != null && !_saving) {
+                      setState(() => _scheme = scheme);
+                    }
+                  },
+                  // The card is a coloured box: the tiles paint on a
+                  // Material of their own.
+                  child: const Material(
+                    type: MaterialType.transparency,
+                    child: Column(
+                      children: [
+                        RadioListTile(
+                          value: PrioritizationScheme.decimalWeights,
+                          title: Text('Formula weights'),
+                          subtitle: Text(
+                            'From the priority formula. The default.',
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        ),
+                        RadioListTile(
+                          value: PrioritizationScheme.integerWeights,
+                          title: Text('Table weights'),
+                          subtitle: Text('From the criteria table.'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                PriorityChip(level: sample.levelFor(sampleScore)),
+                const SizedBox(height: 12),
+                // Only the set in use: the other is kept as it was, and
+                // shows when it is chosen.
+                _FieldRow(
+                  fields: {
+                    for (final MapEntry(:key, :value)
+                        in (usesFormula ? _decimal : _integer).entries)
+                      _criterionLabel(key): value,
+                  },
+                  enabled: !_saving,
+                ),
               ],
             ),
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 16),
-          _SaveRow(
-            status: changed
-                ? 'Unsaved changes. Reports are scored with the saved '
-                      'settings until you save.'
+          ),
+          const Divider(height: 40),
+          SettingsGroup(
+            title: 'Priority levels',
+            description: 'The lowest score that earns each level.',
+            child: _FieldRow(
+              fields: {
+                for (final MapEntry(:key, :value) in _bands.entries)
+                  key.label: value,
+              },
+              enabled: !_saving,
+            ),
+          ),
+          const Divider(height: 40),
+          SettingsGroup(
+            title: 'Frequency',
+            description:
+                'Similar reports are counted over a number of days, and the '
+                'count suggests the Frequency rating: how many reports rate '
+                'it 2, 3 and 4.',
+            child: _FieldRow(
+              fields: {
+                'Days': _window,
+                for (final (index, field) in _counts.indexed)
+                  'Rating ${index + 2} from': field,
+              },
+              enabled: !_saving,
+            ),
+          ),
+          SettingsSaveBar(
+            state: changed || problem != null
+                ? SettingsSaveState.unsaved
                 : _isDefault
-                ? 'The manuscript\'s settings apply until these are saved.'
-                : 'All changes saved.',
+                ? SettingsSaveState.defaults
+                : SettingsSaveState.saved,
+            unsavedNote:
+                'Reports are scored with the saved settings until you save.',
             canDiscard: (changed || problem != null) && !_saving,
             onDiscard: () => setState(() {
               _dispose();
@@ -417,12 +449,30 @@ class _PriorityEditorState extends ConsumerState<_PriorityEditor> {
             canSave: (changed || _isDefault) && problem == null && !_saving,
             onSave: _save,
             saving: _saving,
-            saveLabel: 'Save priority scoring',
           ),
         ],
       ),
     );
   }
+}
+
+/// The tinted line at the top of the priority tab: the example score, or
+/// what is wrong with the numbers.
+class _Outcome extends StatelessWidget {
+  const _Outcome({required this.color, required this.child});
+
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: child,
+  );
 }
 
 // --------------------------------------------------------------- duplicates
@@ -432,27 +482,36 @@ class _PriorityEditorState extends ConsumerState<_PriorityEditor> {
 /// descriptions must be, and how far apart in time (manuscript §3.4,
 /// "Duplicate Report Detection Rules"). No design covers it.
 class DuplicateSettingsSection extends ConsumerWidget {
-  const DuplicateSettingsSection({super.key});
+  const DuplicateSettingsSection({super.key, this.onUnsavedChanged});
+
+  /// Told whether the tab holds edits that are not saved.
+  final ValueChanged<bool>? onUnsavedChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
       AsyncValueView<DuplicateDetectionConfig>(
         value: ref.watch(duplicateDetectionConfigProvider),
         onRetry: () => ref.invalidate(duplicateDetectionConfigProvider),
-        data: (config) => _DuplicateEditor(config: config),
+        data: (config) => _DuplicateEditor(
+          config: config,
+          onUnsavedChanged: onUnsavedChanged,
+        ),
       );
 }
 
 class _DuplicateEditor extends ConsumerStatefulWidget {
-  const _DuplicateEditor({required this.config});
+  const _DuplicateEditor({required this.config, this.onUnsavedChanged});
 
   final DuplicateDetectionConfig config;
+
+  final ValueChanged<bool>? onUnsavedChanged;
 
   @override
   ConsumerState<_DuplicateEditor> createState() => _DuplicateEditorState();
 }
 
-class _DuplicateEditorState extends ConsumerState<_DuplicateEditor> {
+class _DuplicateEditorState extends ConsumerState<_DuplicateEditor>
+    with ReportsUnsaved {
   late DuplicateDetectionConfig _draft = widget.config;
   late final TextEditingController _hours = TextEditingController(
     text: '${widget.config.timeWindowHours}',
@@ -510,13 +569,35 @@ class _DuplicateEditorState extends ConsumerState<_DuplicateEditor> {
   Widget build(BuildContext context) {
     final changed = _draft != widget.config;
     final enabled = !_saving;
+    final comparing = enabled && _draft.enabled;
+    final alike = (_draft.descriptionSimilarityThreshold * 100).round();
+    reportUnsaved(
+      widget.onUnsavedChanged,
+      unsaved: changed || _hoursProblem != null,
+    );
+
+    /// One thing two reports are compared on: a tick box before its name.
+    Widget compare(
+      String label,
+      bool value,
+      DuplicateDetectionConfig Function(bool on) set,
+    ) => CheckboxListTile(
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+      dense: true,
+      title: Text(label),
+      value: value,
+      onChanged: comparing
+          ? (on) => setState(() => _draft = set(on ?? false))
+          : null,
+    );
 
     return SectionCard(
       title: 'Duplicate detection',
       subtitle:
-          'Reports filed for the same place within the window are compared, '
-          'and a possible duplicate is flagged for an administrator to '
-          'merge or keep separate (manuscript §3.4).',
+          'Reports filed for the same place close together in time are '
+          'compared, and a likely repeat is flagged for an administrator '
+          'to merge or keep separate.',
       trailing: Padding(
         padding: const EdgeInsets.only(left: 24),
         child: Text(
@@ -534,92 +615,104 @@ class _DuplicateEditorState extends ConsumerState<_DuplicateEditor> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Flag possible duplicates'),
+              subtitle: const Text(
+                'Off, no report is compared and nothing below applies.',
+              ),
               value: _draft.enabled,
               onChanged: enabled
                   ? (value) =>
                         setState(() => _draft = _draft.copyWith(enabled: value))
                   : null,
             ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Compare the facility or asset (QR code)'),
-              value: _draft.matchOnFacilityIdentifier,
-              onChanged: enabled && _draft.enabled
-                  ? (value) => setState(
-                      () => _draft = _draft.copyWith(
-                        matchOnFacilityIdentifier: value ?? false,
-                      ),
-                    )
-                  : null,
+            const Divider(height: 32),
+            SettingsGroup(
+              title: 'Compare on',
+              description:
+                  'Two reports are a possible duplicate when these match.',
+              child: Column(
+                children: [
+                  compare(
+                    'Compare the facility or asset (QR code)',
+                    _draft.matchOnFacilityIdentifier,
+                    (on) => _draft.copyWith(matchOnFacilityIdentifier: on),
+                  ),
+                  compare(
+                    'Compare the stated location',
+                    _draft.matchOnLocation,
+                    (on) => _draft.copyWith(matchOnLocation: on),
+                  ),
+                  compare(
+                    'Compare the damage type',
+                    _draft.matchOnCategory,
+                    (on) => _draft.copyWith(matchOnCategory: on),
+                  ),
+                ],
+              ),
             ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Compare the stated location'),
-              value: _draft.matchOnLocation,
-              onChanged: enabled && _draft.enabled
-                  ? (value) => setState(
-                      () => _draft = _draft.copyWith(
-                        matchOnLocation: value ?? false,
-                      ),
-                    )
-                  : null,
+            const Divider(height: 32),
+            SettingsGroup(
+              title: 'How alike the descriptions must be',
+              description:
+                  'The share of words two descriptions have in common.',
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Slider(
+                      value: _draft.descriptionSimilarityThreshold,
+                      divisions: 20,
+                      label: '$alike%',
+                      onChanged: comparing
+                          ? (value) => setState(
+                              () => _draft = _draft.copyWith(
+                                descriptionSimilarityThreshold: value,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 48,
+                    child: Text(
+                      '$alike%',
+                      textAlign: TextAlign.end,
+                      style: AppTextStyles.fieldValue,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Compare the damage type'),
-              value: _draft.matchOnCategory,
-              onChanged: enabled && _draft.enabled
-                  ? (value) => setState(
-                      () => _draft = _draft.copyWith(
-                        matchOnCategory: value ?? false,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'How alike two descriptions must be: '
-              '${(_draft.descriptionSimilarityThreshold * 100).round()}% of '
-              'their words in common',
-              style: AppTextStyles.bodySmall,
-            ),
-            Slider(
-              value: _draft.descriptionSimilarityThreshold,
-              divisions: 20,
-              label:
-                  '${(_draft.descriptionSimilarityThreshold * 100).round()}%',
-              onChanged: enabled && _draft.enabled
-                  ? (value) => setState(
-                      () => _draft = _draft.copyWith(
-                        descriptionSimilarityThreshold: value,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: 220,
-              child: TextField(
-                controller: _hours,
-                enabled: enabled && _draft.enabled,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Window, in hours',
-                  border: const OutlineInputBorder(),
-                  errorText: _hoursProblem,
-                  errorMaxLines: 3,
+            const Divider(height: 32),
+            SettingsGroup(
+              title: 'Time window',
+              description:
+                  'Reports filed further apart than this are not compared.',
+              child: SizedBox(
+                width: 200,
+                child: TextField(
+                  controller: _hours,
+                  enabled: comparing,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Window, in hours',
+                    suffixText: 'hours',
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    errorText: _hoursProblem,
+                    errorMaxLines: 3,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-            _SaveRow(
-              status: changed
-                  ? 'Unsaved changes.'
+            SettingsSaveBar(
+              state: changed || _hoursProblem != null
+                  ? SettingsSaveState.unsaved
                   : _isDefault
-                  ? 'The default settings apply until these are saved.'
-                  : 'All changes saved.',
+                  ? SettingsSaveState.defaults
+                  : SettingsSaveState.saved,
+              unsavedNote:
+                  'Reports are compared with the saved settings until you '
+                  'save.',
               canDiscard: (changed || _hoursProblem != null) && !_saving,
               onDiscard: () => setState(() {
                 _draft = widget.config;
@@ -629,7 +722,6 @@ class _DuplicateEditorState extends ConsumerState<_DuplicateEditor> {
                   (changed || _isDefault) && _hoursProblem == null && !_saving,
               onSave: _save,
               saving: _saving,
-              saveLabel: 'Save duplicate detection',
             ),
           ],
         ),
@@ -654,122 +746,32 @@ void _tell(BuildContext context, Result<void> result, String success) {
   );
 }
 
-/// A labelled row of small number fields.
+/// A row of small number fields, each named on its box.
 class _FieldRow extends StatelessWidget {
-  const _FieldRow({
-    required this.label,
-    required this.fields,
-    required this.enabled,
-  });
+  const _FieldRow({required this.fields, required this.enabled});
 
-  final String label;
   final Map<String, TextEditingController> fields;
   final bool enabled;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label, style: AppTextStyles.fieldLabel),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          for (final MapEntry(:key, :value) in fields.entries)
-            SizedBox(
-              width: 150,
-              child: TextField(
-                controller: value,
-                enabled: enabled,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: key,
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-            ),
-        ],
-      ),
-    ],
-  );
-}
-
-class _SaveRow extends StatelessWidget {
-  const _SaveRow({
-    required this.status,
-    required this.canDiscard,
-    required this.onDiscard,
-    required this.canSave,
-    required this.onSave,
-    required this.saving,
-    required this.saveLabel,
-  });
-
-  final String status;
-  final bool canDiscard;
-  final VoidCallback onDiscard;
-  final bool canSave;
-  final VoidCallback onSave;
-  final bool saving;
-  final String saveLabel;
-
-  @override
   Widget build(BuildContext context) => Wrap(
-    alignment: WrapAlignment.spaceBetween,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    spacing: 16,
+    spacing: 12,
     runSpacing: 12,
     children: [
-      Text(status, style: AppTextStyles.bodySmall),
-      // A Wrap, so the two buttons stack in a narrow window.
-      Wrap(
-        spacing: 12,
-        runSpacing: 8,
-        children: [
-          OutlinedButton(
-            onPressed: canDiscard ? onDiscard : null,
-            child: const Text('Discard changes'),
+      for (final MapEntry(:key, :value) in fields.entries)
+        SizedBox(
+          width: 150,
+          child: TextField(
+            controller: value,
+            enabled: enabled,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: key,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
           ),
-          FilledButton(
-            onPressed: canSave ? onSave : null,
-            child: Text(saving ? 'Saving…' : saveLabel),
-          ),
-        ],
-      ),
+        ),
     ],
-  );
-}
-
-class _Notice extends StatelessWidget {
-  const _Notice(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: AppColors.surfaceMuted,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.info_outline,
-            size: 18,
-            color: AppColors.textSecondary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(message, style: AppTextStyles.bodySmall)),
-        ],
-      ),
-    ),
   );
 }

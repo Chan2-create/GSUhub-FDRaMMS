@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/enums/priority_level.dart';
-import '../../reporting/data/models/damage_report.dart';
-import '../../reporting/data/models/report_assessment.dart';
+import '../../damage_reports/data/models/damage_report.dart';
+import '../../damage_reports/data/models/report_assessment.dart';
 import '../data/models/prioritization_config.dart';
 import '../domain/priority_scorer.dart';
 

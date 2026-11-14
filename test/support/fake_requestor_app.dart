@@ -18,12 +18,12 @@ import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/auth_service.dart';
 import 'package:gsuhub/core/services/connectivity_service.dart';
 import 'package:gsuhub/core/utils/result.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_submission.dart';
+import 'package:gsuhub/features/damage_reports/data/models/status_change.dart';
+import 'package:gsuhub/features/map_view/presentation/widgets/geo_tag_map.dart';
 import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
-import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
-import 'package:gsuhub/features/reporting/data/models/status_change.dart';
-import 'package:gsuhub/features/reporting/presentation/submission/qr_scanner_screen.dart';
-import 'package:gsuhub/features/reporting/presentation/submission/widgets/geo_tag_map.dart';
+import 'package:gsuhub/features/qr_codes/presentation/qr_scanner_screen.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository.dart';
 
@@ -431,6 +431,31 @@ class RequestorHarness {
     );
     await tester.pumpAndSettle();
   }
+}
+
+/// Opens the Profile tab and logs out, as a person would: Logout is at
+/// the foot of the profile, and asks before it ends the session.
+Future<void> logOutFromProfile(
+  WidgetTester tester, {
+  bool confirm = true,
+}) async {
+  await tester.tap(find.text('Profile'));
+  await tester.pumpAndSettle();
+  final logout = find.widgetWithText(OutlinedButton, 'Logout');
+  await tester.dragUntilVisible(
+    logout,
+    find.byType(ListView).first,
+    const Offset(0, -250),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(logout);
+  await tester.pumpAndSettle();
+  await tester.tap(
+    confirm
+        ? find.widgetWithText(FilledButton, 'Logout')
+        : find.widgetWithText(TextButton, 'Cancel'),
+  );
+  await tester.pumpAndSettle();
 }
 
 /// Where the app currently is — the page on top, pushed pages included.

@@ -52,11 +52,12 @@ class AdminShell extends ConsumerWidget {
         RoutePaths.adminInventory: ref.watch(lowStockCountProvider),
         RoutePaths.adminNotifications: unread,
       },
-      onSignOut: () async {
-        await ref.read(authControllerProvider.notifier).signOut();
-        if (context.mounted) context.go(RoutePaths.adminLogin);
-      },
     );
+    // Logout is in the header's account menu, which asks first.
+    Future<void> signOut() async {
+      await ref.read(authControllerProvider.notifier).signOut();
+      if (context.mounted) context.go(RoutePaths.adminLogin);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
@@ -75,6 +76,8 @@ class AdminShell extends ConsumerWidget {
           AdminTopBar(
             pageTitle: titleFor(location),
             unreadNotifications: unread,
+            user: user,
+            onSignOut: signOut,
             showMenuButton: drawer,
             // The logo needs 150px; the icon rail is narrower than that.
             brandWidth: drawer
@@ -113,6 +116,8 @@ class AdminShell extends ConsumerWidget {
         if (location.startsWith(item.path)) return item.label;
       }
     }
+    // Reached from the account menu, not the sidebar.
+    if (location.startsWith(RoutePaths.adminProfile)) return 'My Profile';
     return 'GSU Administration';
   }
 }

@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
-import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_submission.dart';
 
 import '../../support/fake_firestore_repositories.dart';
 
@@ -47,7 +47,7 @@ void main() {
     expect(notice['type'], 'reportAcknowledged');
     expect(notice['title'], 'Report received');
     expect(notice['body'], contains('"Cracked window pane"'));
-    expect(notice['relatedEntityType'], FirestorePaths.damageReports);
+    expect(notice['relatedEntityType'], TableNames.damageReports);
     expect(notice['relatedEntityId'], id);
     expect(notice['isRead'], isFalse);
     expect(isTimestamp(notice['createdAt']), isTrue);

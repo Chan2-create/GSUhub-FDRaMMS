@@ -8,11 +8,11 @@ import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
 import 'package:gsuhub/features/classification/data/models/classification_rules_config.dart';
+import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/status_change.dart';
 import 'package:gsuhub/features/facilities/data/models/facility.dart';
 import 'package:gsuhub/features/feedback/data/models/service_feedback.dart';
 import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
-import 'package:gsuhub/features/reporting/data/models/damage_report.dart';
-import 'package:gsuhub/features/reporting/data/models/status_change.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 

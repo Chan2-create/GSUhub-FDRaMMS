@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/task_status.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
@@ -31,7 +31,7 @@ class FirestoreTaskRepository extends FirestoreRepository
     implements TaskRepository {
   const FirestoreTaskRepository({required super.db, required super.guard});
 
-  static const String _path = FirestorePaths.tasks;
+  static const String _path = TableNames.tasks;
 
   /// Longest task title and description accepted.
   static const int titleLimit = 120;
@@ -265,7 +265,7 @@ class FirestoreTaskRepository extends FirestoreRepository
 
   Future<WorkOrder> _readWorkOrder(Transaction transaction, String id) async {
     final snapshot = await transaction.get(
-      collection(FirestorePaths.workOrders).doc(id),
+      collection(TableNames.workOrders).doc(id),
     );
     if (!snapshot.exists) {
       throw FirestoreRepository.notFound('No work order $id');

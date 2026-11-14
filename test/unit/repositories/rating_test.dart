@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
@@ -41,7 +41,7 @@ void main() {
     final result = await rate();
 
     expect(result.isSuccess, isTrue);
-    final feedback = await h.doc(FirestorePaths.feedback, 'r1');
+    final feedback = await h.doc(TableNames.feedback, 'r1');
     expect(feedback['reportId'], 'r1');
     expect(feedback['workOrderId'], 'w1');
     expect(feedback['submittedBy'], requestor.id);
@@ -52,10 +52,7 @@ void main() {
     expect(feedback['comments'], 'Quick and tidy.');
     expect(isTimestamp(feedback['submittedAt']), isTrue);
 
-    expect(
-      (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
-      'closed',
-    );
+    expect((await h.doc(TableNames.damageReports, 'r1'))['status'], 'closed');
   });
 
   test('closing is on the timeline and in the audit trail', () async {
@@ -84,7 +81,7 @@ void main() {
 
     await rate(comments: '   ');
 
-    expect((await h.doc(FirestorePaths.feedback, 'r1'))['comments'], isNull);
+    expect((await h.doc(TableNames.feedback, 'r1'))['comments'], isNull);
   });
 
   test('a report that is not completed cannot be rated', () async {
@@ -93,9 +90,9 @@ void main() {
     final result = await rate();
 
     expect(failureMessage(result), contains('Only completed work'));
-    expect(await h.count(FirestorePaths.feedback), 0);
+    expect(await h.count(TableNames.feedback), 0);
     expect(
-      (await h.doc(FirestorePaths.damageReports, 'r1'))['status'],
+      (await h.doc(TableNames.damageReports, 'r1'))['status'],
       'inProgress',
     );
   });
@@ -108,7 +105,7 @@ void main() {
     );
 
     expect(failureMessage(result), contains('Only the person who filed'));
-    expect(await h.count(FirestorePaths.feedback), 0);
+    expect(await h.count(TableNames.feedback), 0);
   });
 
   test(
@@ -120,7 +117,7 @@ void main() {
       final retry = await rate();
 
       expect(retry.isSuccess, isTrue);
-      expect(await h.count(FirestorePaths.feedback), 1);
+      expect(await h.count(TableNames.feedback), 1);
       expect(await h.history('r1'), hasLength(1));
       expect(await h.auditEntries(), hasLength(1));
     },
@@ -129,7 +126,7 @@ void main() {
   test('a report already rated by someone else is refused', () async {
     // Rated, but the report never closed — a state only a fault leaves.
     await completed();
-    await h.firestore.collection(FirestorePaths.feedback).doc('r1').set({
+    await h.firestore.collection(TableNames.feedback).doc('r1').set({
       'submittedBy': 'faculty-2',
     });
 

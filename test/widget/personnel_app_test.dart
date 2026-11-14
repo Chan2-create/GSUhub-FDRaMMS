@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gsuhub/core/constants/firestore_paths.dart';
+import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
-import 'package:gsuhub/features/scanning/domain/personnel_scan_resolver.dart';
+import 'package:gsuhub/features/qr_codes/domain/personnel_scan_resolver.dart';
 
 import '../support/fake_personnel_app.dart';
 import '../support/fake_requestor_app.dart' show currentPath;
@@ -36,7 +36,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Mark as done'));
       await tester.pumpAndSettle();
 
-      final task = await app.read(FirestorePaths.tasks, 'task-1');
+      final task = await app.read(TableNames.tasks, 'task-1');
       expect(task['status'], 'completed');
       expect(await app.workOrderStatus(), WorkOrderStatus.inProgress.id);
       expect(find.bySemanticsLabel('Mark as not done'), findsOneWidget);
@@ -147,7 +147,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(await app.workOrderStatus(), WorkOrderStatus.forReview.id);
-      expect(await app.data.count(FirestorePaths.accomplishmentReports), 1);
+      expect(await app.data.count(TableNames.accomplishmentReports), 1);
       expect(
         app.storage.uploadedPaths.single,
         startsWith('accomplishment_reports/'),
@@ -202,9 +202,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final used = await app.data.firestore
-          .collection(FirestorePaths.workOrders)
+          .collection(TableNames.workOrders)
           .doc('wo-1')
-          .collection(FirestorePaths.materialsUsed)
+          .collection(TableNames.materialsUsed)
           .doc('inv-led')
           .get();
       expect(used.data()?['quantityUsed'], 3);
@@ -223,7 +223,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        (await app.read(FirestorePaths.tools, 'tool-1'))['status'],
+        (await app.read(TableNames.tools, 'tool-1'))['status'],
         'borrowed',
       );
       // The page reads the tool again: it is now the technician's to return.
@@ -238,7 +238,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        (await app.read(FirestorePaths.tools, 'tool-1'))['status'],
+        (await app.read(TableNames.tools, 'tool-1'))['status'],
         'available',
       );
       expect(find.text('Borrow'), findsOneWidget);

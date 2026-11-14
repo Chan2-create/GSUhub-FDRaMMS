@@ -39,12 +39,12 @@ import 'package:gsuhub/features/accomplishment/data/repositories/accomplishment_
 import 'package:gsuhub/features/accomplishment/data/repositories/material_usage_repository_impl.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/audit/data/repositories/audit_log_repository_impl.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_assessment.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_submission.dart';
+import 'package:gsuhub/features/damage_reports/data/repositories/damage_report_repository_impl.dart';
 import 'package:gsuhub/features/feedback/data/repositories/feedback_repository_impl.dart';
 import 'package:gsuhub/features/inventory/data/repositories/inventory_repository_impl.dart';
 import 'package:gsuhub/features/notifications/data/repositories/notification_repository_impl.dart';
-import 'package:gsuhub/features/reporting/data/models/report_assessment.dart';
-import 'package:gsuhub/features/reporting/data/models/report_submission.dart';
-import 'package:gsuhub/features/reporting/data/repositories/damage_report_repository_impl.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository_impl.dart';
 import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository_impl.dart';
 import 'package:http/http.dart' as http;

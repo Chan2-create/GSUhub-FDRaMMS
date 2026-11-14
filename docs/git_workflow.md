@@ -67,7 +67,7 @@ test(core): cover ReportStatus terminal-state transitions
 
 ## Resolving conflicts in shared files
 
-`firestore_paths.dart`, the enums under `core/enums/`, and the service
+`table_names.dart`, the enums under `core/enums/`, and the service
 interfaces under `core/services/` are imported by all three shells (the
 "Shared Backend Contract" in `docs/architecture_decisions.md`). A change
 to any of them is more likely to conflict across parallel feature
