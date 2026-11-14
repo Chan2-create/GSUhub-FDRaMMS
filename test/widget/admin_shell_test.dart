@@ -213,6 +213,42 @@ void main() {
       expect(AdminShell.titleFor(RoutePaths.adminProfile), 'My Profile');
     });
 
+    // Refined 2026-11-15: initials on the gold circle, a chevron, and a
+    // Settings entry, which is the system's Settings page.
+    testWidgets('shows the administrator\'s initials and says it opens', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      final button = find.byTooltip('Account');
+      expect(
+        find.descendant(of: button, matching: find.text('RC')),
+        findsOneWidget,
+        reason: 'Ramon Dela Cruz',
+      );
+      expect(
+        find.descendant(of: button, matching: find.byIcon(Icons.expand_more)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Settings opens the Settings page', (tester) async {
+      await pumpShell(tester);
+      await openMenu(tester);
+      expect(find.text('Ramon Dela Cruz'), findsOneWidget);
+      // The sidebar has a Settings entry too; the menu's is the one in a
+      // menu item.
+      await tester.tap(
+        find.descendant(
+          of: find.byWidgetPredicate((widget) => widget is PopupMenuItem),
+          matching: find.text('Settings'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(currentPath(), RoutePaths.adminSettings);
+    });
+
     testWidgets('is in the phone\'s bar too, where the sidebar is a drawer', (
       tester,
     ) async {

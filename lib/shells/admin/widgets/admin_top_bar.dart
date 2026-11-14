@@ -6,19 +6,22 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
-import '../../../core/constants/breakpoints.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../features/analytics/presentation/analytics_export.dart';
 import '../../../features/analytics/presentation/analytics_providers.dart';
 import 'admin_profile_menu.dart';
 
-/// Top app bar (Figma node `196:743`, placed as in the dashboard frame):
-/// a white header across the whole window, the GSUhub logo over the
-/// sidebar's column, a white card with a soft shadow holding the section
-/// name, live date, primary actions, bell and help, and the avatar on its
-/// own at the right. The shell draws the gold rule under it, full width,
-/// and the sidebar below that.
+/// The console's header (Figma `196:743`, refined 2026-11-15): one white
+/// bar across the whole window. The GSUhub logo over the sidebar's
+/// column; after a hairline, the page's name and the date; at the right,
+/// Export Data, Report New Damage, the bell, Help, another hairline and
+/// the account button. The shell draws the gold rule under it, full
+/// width, and the sidebar below that.
+///
+/// The design's controls sat in a white card with its own shadow inside
+/// the white header, which read as a second, floating bar (Chris,
+/// 2026-11-15); the card is gone and its contents share the one bar.
 ///
 /// Export Data downloads the Analytics CSV from any page (2.C). Report New
 /// Damage renders disabled with a tooltip: filing a report is a faculty and
@@ -45,37 +48,37 @@ class AdminTopBar extends StatelessWidget {
   /// Drives the red dot on the bell. Zero hides it.
   final int unreadNotifications;
 
-  /// Who is signed in, for the account menu behind the gold circle.
+  /// Who is signed in, for the account menu at the right.
   final AuthUser? user;
 
   /// Ends the session, once Logout in the account menu is confirmed.
   final Future<void> Function() onSignOut;
 
-  /// A page's own control, between the section name and the date.
+  /// A page's own control, between the page's name and the date.
   final Widget? pageControls;
 
   /// On a phone the sidebar is a drawer, opened from here.
   final bool showMenuButton;
 
-  /// The logo's column: the sidebar's width beneath it, so the card
-  /// starts where the sidebar ends. Null on a phone, where the bar is a
-  /// single row behind the menu button and the logo gives way to the
-  /// page's name.
+  /// The logo's column: the sidebar's width beneath it, so the page's
+  /// name starts where the sidebar ends. Null on a phone, where the bar
+  /// is a single row behind the menu button and the logo gives way to
+  /// the page's name.
   final double? brandWidth;
 
-  /// The header's height, as drawn: the card and the white below it.
-  static const double height = 80;
+  /// The header's height.
+  static const double height = 64;
 
-  /// The card's controls row, the original 52px bar.
-  static const double _barHeight = 52;
+  /// The phone's bar.
+  static const double _phoneBarHeight = 56;
 
-  /// White above the controls row inside the card.
-  static const double _cardInset = 17;
-
-  /// Inside a card narrower than this, the bar keeps the page's name, its
-  /// control, Export Data as an icon, and the bell. The date, the
-  /// disabled Report New Damage and Help come back with the room.
+  /// Narrower than this, the bar keeps the page's name, its control,
+  /// Export Data as an icon, and the bell; the rest returns with the room.
   static const double _compactWidth = 640;
+
+  /// The date needs this much; the disabled Report New Damage a little less.
+  static const double _dateWidth = 940;
+  static const double _reportButtonWidth = 820;
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +89,7 @@ class AdminTopBar extends StatelessWidget {
     final brand = brandWidth;
     if (brand == null) {
       return Container(
-        height: _barHeight,
+        height: _phoneBarHeight,
         decoration: const BoxDecoration(
           color: AppColors.surface,
           border: Border(bottom: BorderSide(color: AppColors.border)),
@@ -99,108 +102,85 @@ class AdminTopBar extends StatelessWidget {
       );
     }
 
-    // At the design's 1440 the card ends 96px short of the avatar; the
-    // gap closes first as the window narrows.
-    final avatarGap =
-        ((Breakpoints.widthOf(context) - Breakpoints.expanded) * 0.3 + 24)
-            .clamp(24.0, 96.0);
-
     return Container(
       height: height,
       color: AppColors.surface,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _Brand(width: brand),
-          Expanded(child: _card(context, today)),
-          SizedBox(width: avatarGap),
-          Padding(
-            padding: const EdgeInsets.only(top: _cardInset),
-            child: SizedBox(
-              height: _barHeight,
-              child: Center(
-                child: AdminProfileMenu(user: user, onSignOut: onSignOut),
-              ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) =>
+                  constraints.maxWidth < _compactWidth
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: _compact(context, constraints.maxWidth - 16),
+                    )
+                  : _wide(context, constraints.maxWidth, today),
             ),
           ),
-          const SizedBox(width: 25),
+          const SizedBox(width: 8),
+          const _Hairline(),
+          const SizedBox(width: 12),
+          AdminProfileMenu(user: user, onSignOut: onSignOut),
+          const SizedBox(width: 16),
         ],
       ),
     );
   }
 
-  /// The white card: flush with the top of the window, so only its
-  /// rounded bottom edge and soft shadow show against the white header.
-  Widget _card(BuildContext context, String today) => Container(
-    height: _cardInset + _barHeight,
-    padding: const EdgeInsets.only(top: _cardInset, left: 24, right: 8),
-    decoration: const BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
-      boxShadow: [
-        BoxShadow(
-          color: AppColors.topBarShadow,
-          offset: Offset(0, 2),
-          blurRadius: 3,
-          spreadRadius: -1,
-        ),
+  /// The bar beside the logo: the page's name and the date at the left,
+  /// the actions at the right. The actions scale down together rather
+  /// than overflow in a window between the compact width and the full
+  /// one, or with a page control added, as Analytics adds its period
+  /// selector; at the design's width that does nothing.
+  Widget _wide(BuildContext context, double width, String today) => Row(
+    children: [
+      const _Hairline(),
+      const SizedBox(width: 20),
+      Semantics(
+        header: true,
+        child: Text(pageTitle, style: AppTextStyles.topBarTitle),
+      ),
+      if (pageControls case final controls?) ...[
+        const SizedBox(width: 16),
+        controls,
       ],
-    ),
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < _compactWidth) {
-          return _compact(context, constraints.maxWidth);
-        }
-        // The card's left part is the design's empty title frame; the
-        // section name follows the divider, in the date's grey.
-        final trailing = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 1, height: 16, color: const Color(0xFFCBD5E1)),
-            const SizedBox(width: 16),
-            Semantics(
-              header: true,
-              child: Text(pageTitle, style: AppTextStyles.topBarMeta),
-            ),
-            const SizedBox(width: 16),
-            if (pageControls case final controls?) ...[
-              controls,
-              const SizedBox(width: 16),
-            ],
-            SvgPicture.asset(
-              'assets/icons/topbar_calendar.svg',
-              width: 18,
-              height: 20,
-              colorFilter: const ColorFilter.mode(
-                AppColors.textMuted,
-                BlendMode.srcIn,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(today, style: AppTextStyles.topBarMeta),
-            const SizedBox(width: 24),
-            const _ExportDataButton(),
-            const SizedBox(width: 12),
-            const _ReportNewDamageButton(),
-            const SizedBox(width: 12),
-            _NotificationBell(unreadCount: unreadNotifications),
-            const _HelpButton(),
-          ],
-        );
-        // At the design's width everything fits and this does nothing.
-        // In a narrower window — or with a page control added, as
-        // Analytics adds its period selector — the row scales down
-        // together instead of overflowing the card.
-        return Align(
-          alignment: Alignment.centerRight,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
-            child: trailing,
+      if (width >= _dateWidth) ...[
+        const SizedBox(width: 20),
+        SvgPicture.asset(
+          'assets/icons/topbar_calendar.svg',
+          width: 16,
+          height: 18,
+          colorFilter: const ColorFilter.mode(
+            AppColors.textMuted,
+            BlendMode.srcIn,
           ),
-        );
-      },
-    ),
+        ),
+        const SizedBox(width: 8),
+        Text(today, style: AppTextStyles.topBarMeta),
+      ],
+      const SizedBox(width: 16),
+      Expanded(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _ExportDataButton(),
+              if (width >= _reportButtonWidth) ...[
+                const SizedBox(width: 10),
+                const _ReportNewDamageButton(),
+              ],
+              const SizedBox(width: 8),
+              _NotificationBell(unreadCount: unreadNotifications),
+              const _HelpButton(),
+            ],
+          ),
+        ),
+      ),
+    ],
   );
 
   Widget _compact(
@@ -239,16 +219,30 @@ class AdminTopBar extends StatelessWidget {
               const _ExportDataButton(iconOnly: true),
               _NotificationBell(unreadCount: unreadNotifications),
               // On a phone the account menu, with Logout, is here: the
-              // bar has no room for it outside. In the card it is not,
-              // since the gold circle stands beside the card already.
+              // bar has no room for it outside. Beside the logo it is
+              // not, since the account button stands at the right already.
               if (withAccount)
-                AdminProfileMenu(user: user, onSignOut: onSignOut, size: 30),
+                AdminProfileMenu(
+                  user: user,
+                  onSignOut: onSignOut,
+                  size: 30,
+                  compact: true,
+                ),
             ],
           ),
         ),
       ),
     ],
   );
+}
+
+/// A one-pixel vertical rule, the header's only separators.
+class _Hairline extends StatelessWidget {
+  const _Hairline();
+
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 24, color: AppColors.border);
 }
 
 /// The GSUhub logo over the sidebar's column, its mark spanning 126 x 42
