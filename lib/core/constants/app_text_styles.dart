@@ -413,24 +413,7 @@ abstract final class AppTextStyles {
     height: 24 / 16,
   );
 
-  static const TextStyle emergencyTitle = TextStyle(
-    fontFamily: _ui,
-    fontSize: 24,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textOnDark,
-    height: 31.2 / 24,
-  );
-
-  static const TextStyle emergencyBody = TextStyle(
-    fontFamily: _ui,
-    fontSize: 16,
-    fontWeight: FontWeight.w400,
-    color: Color(0xCCFFFFFF),
-    height: 24 / 16,
-  );
-
-  /// Large primary button labels: "Create Report", "Dispatch Emergency
-  /// Team".
+  /// Large primary button labels: "Create Report", "Report New Damage".
   static const TextStyle ctaLabel = TextStyle(
     fontFamily: _ui,
     fontSize: 16,

@@ -325,6 +325,7 @@ A report with a geo-tag also appears on Map View
 | Loading, empty and error states | [`async_value_view.dart`](lib/core/widgets/async_value_view.dart) |
 | Page title row | [`page_header.dart`](lib/core/widgets/page_header.dart) |
 | Tabs on a page (Settings, Inventory Management) | [`console_tabs.dart`](lib/core/widgets/console_tabs.dart) |
+| A table row's View button and ⋮ menu (Damage Reports, Work Orders) | [`row_menu.dart`](lib/core/widgets/row_menu.dart) |
 | Category donut chart | [`category_donut.dart`](lib/core/widgets/category_donut.dart) |
 | Initials avatar | [`person_avatar.dart`](lib/core/widgets/person_avatar.dart) |
 | Offline banner, startup error page | [`offline_banner.dart`](lib/core/widgets/offline_banner.dart), [`startup_error_screen.dart`](lib/core/widgets/startup_error_screen.dart) |

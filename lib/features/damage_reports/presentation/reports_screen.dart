@@ -14,6 +14,7 @@ import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/priority_chip.dart';
+import '../../../core/widgets/row_menu.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../core/widgets/table_pagination.dart';
@@ -36,40 +37,20 @@ class ReportsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
     padding: EdgeInsets.all(Breakpoints.gutter(context)),
-    child: Column(
+    child: const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _Header(),
-        const SizedBox(height: 24),
-        const _StatRow(),
-        const SizedBox(height: 48),
-        const ReportFilterBar(),
-        const _ReportsTableCard(),
-        const SizedBox(height: 48),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // The design puts the map beside the emergency card in a
-            // three-column grid; below ~1000px they stack instead of
-            // squeezing the map to an unreadable width.
-            if (constraints.maxWidth < 1000) {
-              return const Column(
-                children: [
-                  CampusViewCard(),
-                  SizedBox(height: 24),
-                  EmergencyCard(),
-                ],
-              );
-            }
-            return const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 2, child: CampusViewCard()),
-                SizedBox(width: 24),
-                Expanded(child: EmergencyCard()),
-              ],
-            );
-          },
-        ),
+        _Header(),
+        SizedBox(height: 24),
+        _StatRow(),
+        SizedBox(height: 48),
+        ReportFilterBar(),
+        _ReportsTableCard(),
+        SizedBox(height: 48),
+        // The design set the map beside a "Need urgent assistance?" card
+        // whose Dispatch Emergency Team button had nothing behind it; the
+        // card went on 2026-11-15 (§34) and the map has the row.
+        CampusViewCard(),
       ],
     ),
   );
@@ -298,7 +279,7 @@ class _ReportsTable extends StatelessWidget {
         ),
         const AppTableColumn(
           label: 'Actions',
-          width: 190,
+          width: 120,
           alignment: Alignment.centerRight,
           cell: _RowActions.new,
         ),
@@ -355,143 +336,78 @@ class _ReportIdCell extends ConsumerWidget {
   }
 }
 
+/// View, then one menu with what else the row can do.
+///
+/// The design (`196:1371`) drew View and four icons here: assign, edit,
+/// merge and delete. Edit and merge were never functions of the console
+/// (a submitted report is a record; merging duplicates has no objective
+/// behind it), and sat greyed out on every row. Since 2026-11-15 (§34)
+/// the two that are, Assign and Archive, are in the row's menu.
 class _RowActions extends StatelessWidget {
   const _RowActions(this.report);
 
   final DamageReport report;
 
   @override
-  Widget build(BuildContext context) {
-    final canAssign = report.isAssignable;
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      RowViewButton(
+        onPressed: () => context.go(RoutePaths.adminReportDetailFor(report.id)),
+      ),
+      const SizedBox(width: 4),
+      _RowMenu(report),
+    ],
+  );
+}
 
-    // Wraps rather than overflowing if the fixed cell is short of room.
-    return Wrap(
-      alignment: WrapAlignment.end,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        OutlinedButton(
-          onPressed: () =>
-              context.go(RoutePaths.adminReportDetailFor(report.id)),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.accentOlive,
-            side: const BorderSide(color: AppColors.accentOlive),
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(2),
+enum _RowAction { assign, archive }
+
+class _RowMenu extends StatelessWidget {
+  const _RowMenu(this.report);
+
+  final DamageReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final archivable = report.isArchived || report.canBeArchived;
+    return RowMenuButton<_RowAction>(
+      tooltip: 'Actions for ${DisplayId.report(report.id)}',
+      onSelected: (action) => switch (action) {
+        _RowAction.assign => context.go(
+          RoutePaths.adminTaskAssignmentFor(report.id),
+        ),
+        _RowAction.archive => confirmReportArchive(context, report),
+      },
+      items: [
+        // Offered once the report is approved and has no work order; until
+        // the damage type and official priority are confirmed on its page
+        // the repository would refuse, so the entry says so instead.
+        if (report.awaitsAssignment)
+          PopupMenuItem(
+            value: _RowAction.assign,
+            enabled: report.isAssignable,
+            child: RowMenuEntry(
+              'Assign',
+              reason: report.isAssignable
+                  ? null
+                  : 'Confirm the damage type and official priority on the '
+                        'report page first.',
             ),
           ),
-          child: const Text('View', style: AppTextStyles.rowActionText),
-        ),
-        const SizedBox(width: 4),
-        _IconAction(
-          asset: 'assets/icons/action_assign.svg',
-          width: 18.33,
-          height: 13.33,
-          tooltip: canAssign
-              ? 'Assign this report'
-              : report.awaitsAssignment
-              ? 'Confirm the damage type and official priority on the '
-                    'report page first.'
-              : 'Only an approved report that has no work order can be '
-                    'assigned.',
-          onPressed: canAssign
-              ? () => context.go(RoutePaths.adminTaskAssignmentFor(report.id))
-              : null,
-        ),
-        const _IconAction(
-          asset: 'assets/icons/action_edit.svg',
-          width: 15,
-          height: 15,
-          // Editing a submitted report is not in the manuscript's admin
-          // functions: a report is a record, and corrections go through
-          // GSU rather than being silently rewritten.
-          tooltip: 'Editing a submitted report is not an admin function.',
-          onPressed: null,
-        ),
-        const _IconAction(
-          asset: 'assets/icons/action_merge.svg',
-          width: 10,
-          height: 14.17,
-          // The glyph is Material's "merge" — this row action was drawn
-          // for merging duplicate reports, which has repository support
-          // from 1.B but no objective that surfaces it. See the report.
-          tooltip: 'Merging duplicate reports is not in the current WBS.',
-          onPressed: null,
-        ),
         // The console's delete for a report (2026-11-08): reports are
         // archived, never deleted.
-        Tooltip(
-          message: report.isArchived
-              ? 'Restore this report to the list'
-              : report.canBeArchived
-              ? 'Archive this report'
-              : 'Only a closed, merged or rejected report can be archived.',
-          child: InkWell(
-            onTap: report.isArchived || report.canBeArchived
-                ? () => confirmReportArchive(context, report)
-                : null,
-            borderRadius: BorderRadius.circular(4),
-            child: SizedBox(
-              width: 32,
-              height: 32,
-              child: Icon(
-                report.isArchived
-                    ? Icons.unarchive_outlined
-                    : Icons.archive_outlined,
-                size: 18,
-                color: report.isArchived || report.canBeArchived
-                    ? AppColors.iconMuted
-                    : AppColors.textFaint,
-              ),
-            ),
+        PopupMenuItem(
+          value: _RowAction.archive,
+          enabled: archivable,
+          child: RowMenuEntry(
+            report.isArchived ? 'Restore from archive' : 'Archive',
+            reason: archivable
+                ? null
+                : 'Only a closed, merged or rejected report can be archived.',
           ),
         ),
       ],
     );
   }
-}
-
-class _IconAction extends StatelessWidget {
-  const _IconAction({
-    required this.asset,
-    required this.width,
-    required this.height,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final String asset;
-  final double width;
-  final double height;
-  final String tooltip;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    // A plain sized target rather than IconButton: four controls share a
-    // fixed-width cell, and IconButton adds padding of its own that
-    // overflows it.
-    child: InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        width: 32,
-        height: 32,
-        child: Center(
-          child: SvgPicture.asset(
-            asset,
-            width: width,
-            height: height,
-            colorFilter: ColorFilter.mode(
-              onPressed == null ? AppColors.textFaint : AppColors.iconMuted,
-              BlendMode.srcIn,
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
 }

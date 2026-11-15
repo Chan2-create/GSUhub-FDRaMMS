@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
@@ -298,6 +299,86 @@ void main() {
       expect(find.text('OVERDUE'), findsOneWidget);
       // 3 total, 1 in progress, 1 overdue, 1 completed today.
       expect(find.text('3'), findsWidgets);
+    });
+  });
+
+  // Since 2026-11-15 (§34): the table's rows end in View and one menu with
+  // the board's moves and Archive, as the reports table's rows do.
+  group('table rows', () {
+    Future<void> table(WidgetTester tester) async {
+      await tester.tap(find.text('Table'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> openMenu(WidgetTester tester, String id) async {
+      await tester.tap(find.byTooltip('Actions for $id'));
+      await tester.pumpAndSettle();
+    }
+
+    bool enabled(WidgetTester tester, String label) => tester
+        .widget<PopupMenuItem<Object?>>(
+          find.ancestor(
+            of: find.text(label),
+            matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+          ),
+        )
+        .enabled;
+
+    testWidgets('pending work starts from its row, through the repository', (
+      tester,
+    ) async {
+      final repository = await pump(tester, [
+        order(id: 'w1', title: 'Window Gasket'),
+      ]);
+      await table(tester);
+
+      expect(find.widgetWithText(OutlinedButton, 'View'), findsOneWidget);
+      await openMenu(tester, '#WO-W1');
+      await tester.tap(find.text('Move to In Progress'));
+      await tester.pumpAndSettle();
+
+      expect(repository.moves.single.workOrderId, 'w1');
+      expect(repository.moves.single.status, WorkOrderStatus.inProgress);
+    });
+
+    testWidgets('work in progress has no move, and says when it can be '
+        'archived', (tester) async {
+      await pump(tester, [
+        order(
+          id: 'w1',
+          title: 'Window Gasket',
+          status: WorkOrderStatus.inProgress,
+        ),
+      ]);
+      await table(tester);
+      await openMenu(tester, '#WO-W1');
+
+      expect(find.textContaining('Move to'), findsNothing);
+      expect(enabled(tester, 'Archive'), isFalse);
+      expect(find.text('Only completed work can be archived.'), findsOneWidget);
+    });
+
+    testWidgets('finished work offers Archive; work for review, its report', (
+      tester,
+    ) async {
+      await pump(tester, [
+        order(
+          id: 'w1',
+          title: 'Light Fixture',
+          status: WorkOrderStatus.completed,
+          completedAt: DateTime.now().toUtc(),
+        ),
+        order(id: 'w2', title: 'Door Hinge', status: WorkOrderStatus.forReview),
+      ]);
+      await table(tester);
+
+      await openMenu(tester, '#WO-W1');
+      expect(enabled(tester, 'Archive'), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      await openMenu(tester, '#WO-W2');
+      expect(find.text('Review the accomplishment report'), findsOneWidget);
     });
   });
 }

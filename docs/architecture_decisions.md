@@ -2186,3 +2186,60 @@ Requests, and every earlier test on the tab its subject now lives on),
 `console_delete_test.dart`, `settings_screen_test.dart` and the page at
 every width in `responsive_console_test.dart`, and by rendering the page
 at 1440 and 390 px with the real fonts.
+
+## 34. One menu per table row, and the emergency card gone (2026-11-15)
+
+The second refinement under §32's direction.
+
+**The reports table's row.** The design (`196:1371`) ends each row with
+View and four icons: assign, edit, merge, delete. Two of the four were
+never functions of the console. Editing a submitted report is not an
+administrator's function (a report is a record; corrections go through
+GSU), and merging duplicates has repository support from 1.B but no
+objective that surfaces it. So every row carried two greyed-out icons
+whose tooltips explained why they did nothing, next to an assign icon
+that was grey on most rows too. The row now ends in **View** and one
+**⋮ menu**:
+
+- **Assign**, offered when the report is approved and has no work order.
+  Enabled when the damage type and official priority are confirmed; until
+  then the entry is there but disabled, with the reason under it, since
+  the repository would refuse (§18). Rows in any other state do not list
+  it: the way to assignment runs through the report's page.
+- **Archive**, or **Restore from archive**: the console's delete for a
+  report (§24). Disabled with the reason on a report that is not closed,
+  merged or rejected.
+- Edit and merge are gone. If merging is ever brought into scope it goes
+  here, as an entry, not as an icon on every row.
+
+**The work orders table's row.** It had no actions at all: the number
+was a link, and the board's cards had the moves and Archive in their
+menus. The row now ends in the same View and ⋮ as the reports table,
+and the menu offers what the board's card menu offers in that column
+(§22): *Move to In Progress* for pending work, *Review the
+accomplishment report* for work waiting for sign-off, and Archive or
+Restore for completed work, through the same controller and the same
+confirmations. Work in progress has no move, as on the board, and the
+entry says archiving waits for completion.
+
+**One pair of widgets** draws both (`lib/core/widgets/row_menu.dart`):
+`RowViewButton`, the design's olive View; `RowMenuButton`, the ⋮, whose
+tooltip names the row ("Actions for #REP-12") so screen readers and
+tests can tell one row's menu from another's; and `RowMenuEntry`, a menu
+line with the reason in a caption when the row cannot do it now. The
+Actions column narrowed from 190 to 120 px.
+
+**The emergency card.** "Need urgent assistance?" with Dispatch
+Emergency Team (`198:2991`) was drawn as designed with the button
+disabled, since emergency dispatch appears nowhere in the manuscript's
+requirements: no recipient, channel or record for it exists. A
+disabled call-to-action in the brand's amber, on every visit, read as
+something broken. The card is removed; the Campus View map has the row
+to itself. Its icon and two text styles went with it. Should emergency
+dispatch ever be specified, the card is one commit away in the history.
+
+Tests: `test/widget/reports_screen_test.dart` (the menu's entries and
+reasons by status; no emergency card), `work_orders_screen_test.dart`
+(the table's menu moves through the repository; reasons by status),
+`console_delete_test.dart` (archive and restore through the menu) and
+both pages at every width in `responsive_console_test.dart`.

@@ -10,13 +10,14 @@ import '../../../core/routing/route_paths.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/category_donut.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../damage_reports/data/models/damage_report.dart';
 import 'dashboard_providers.dart';
 import 'widgets/activity_feed.dart';
-import 'widgets/building_volume_chart.dart';
+import 'widgets/priority_chart.dart';
 
 /// Admin dashboard (Figma node `196:534`).
 ///
@@ -28,9 +29,7 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
-    padding: Breakpoints.isCompact(context)
-        ? const EdgeInsets.fromLTRB(16, 16, 16, 24)
-        : const EdgeInsets.fromLTRB(25, 24, 48, 48),
+    padding: EdgeInsets.all(Breakpoints.gutter(context)),
     child: LayoutBuilder(
       builder: (context, constraints) {
         // Below ~1100px the side column would squeeze the table past
@@ -40,8 +39,13 @@ class DashboardScreen extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const PageHeader(
+              title: 'Dashboard',
+              subtitle: 'What needs attention across campus right now.',
+            ),
+            const SizedBox(height: PageHeader.gapBelow),
             const _StatCardRow(),
-            const SizedBox(height: 28),
+            const SizedBox(height: 32),
             if (isWide)
               const IntrinsicHeight(
                 child: Row(
@@ -65,8 +69,8 @@ class DashboardScreen extends ConsumerWidget {
                   _SideColumn(),
                 ],
               ),
-            const SizedBox(height: 16),
-            const _VolumeCard(),
+            const SizedBox(height: 32),
+            const _PriorityCard(),
           ],
         );
       },
@@ -110,7 +114,7 @@ class _StatCardRow extends ConsumerWidget {
             : constraints.maxWidth >= 440
             ? 2
             : 1;
-        const gap = 18.0;
+        const gap = 24.0;
         final cardWidth =
             (constraints.maxWidth - gap * (columns - 1)) / columns;
 
@@ -270,24 +274,30 @@ class _ActivityCard extends ConsumerWidget {
   );
 }
 
-class _VolumeCard extends ConsumerWidget {
-  const _VolumeCard();
+/// The design's "Monthly Report Volume by Building" (`196:781`) read 0
+/// on every bar: it compared this month with last, per building, and a
+/// campus unit files a handful of reports a month. Replaced on
+/// 2026-11-15 (§35) by what an administrator opens the dashboard to see:
+/// how much is open at each priority, and how much of it still waits for
+/// a confirmed level.
+class _PriorityCard extends ConsumerWidget {
+  const _PriorityCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => SectionCard(
-    title: 'Monthly Report Volume by Building',
+    title: 'Open Reports by Priority',
     subtitle:
-        'Comparison of damage reports received across major university '
-        'facilities.',
-    trailing: const BuildingVolumeLegend(),
+        'Every report still open, by its priority level. The pale part of '
+        'a bar still waits for an administrator to confirm the level.',
+    trailing: const PriorityChartLegend(),
     contentPadding: const EdgeInsets.fromLTRB(33, 8, 33, 33),
-    child: AsyncValueView<List<BuildingVolume>>(
-      value: ref.watch(reportVolumeByBuildingProvider),
-      isEmpty: (volumes) => volumes.isEmpty,
-      emptyMessage: 'No reports recorded this month or last.',
+    child: AsyncValueView<List<PriorityCount>>(
+      value: ref.watch(openReportsByPriorityProvider),
+      isEmpty: (counts) => counts.every((count) => count.total == 0),
+      emptyMessage: 'No report is open right now.',
       emptyIcon: Icons.bar_chart_outlined,
       onRetry: () => refreshDashboard(ref),
-      data: (volumes) => BuildingVolumeChart(volumes: volumes),
+      data: (counts) => PriorityChart(counts: counts),
     ),
   );
 }

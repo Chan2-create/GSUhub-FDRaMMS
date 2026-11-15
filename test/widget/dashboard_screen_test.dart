@@ -48,10 +48,7 @@ void main() {
       );
       expect(find.text('No reports to categorize yet.'), findsOneWidget);
       expect(find.text('No recorded activity yet.'), findsOneWidget);
-      expect(
-        find.text('No reports recorded this month or last.'),
-        findsOneWidget,
-      );
+      expect(find.text('No report is open right now.'), findsOneWidget);
     });
 
     testWidgets('stat cards read zero, not a dash', (tester) async {

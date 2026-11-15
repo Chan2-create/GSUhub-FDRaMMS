@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/di/repository_providers.dart';
 import '../../../core/enums/audit_action.dart';
+import '../../../core/enums/priority_level.dart';
 import '../../../core/enums/report_status.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/category_donut.dart';
@@ -128,63 +129,60 @@ final reportsByCategoryProvider =
           ),
     );
 
-/// One bar in "Monthly Report Volume by Building".
-class BuildingVolume {
-  const BuildingVolume({
-    required this.facilityName,
-    required this.currentMonth,
-    required this.previousMonth,
+/// One bar in "Open Reports by Priority".
+class PriorityCount {
+  const PriorityCount({
+    required this.level,
+    required this.confirmed,
+    required this.unconfirmed,
   });
 
-  final String facilityName;
-  final int currentMonth;
-  final int previousMonth;
+  final PriorityLevel level;
 
-  int get total => currentMonth + previousMonth;
+  /// Open reports whose official priority an administrator has set to
+  /// [level].
+  final int confirmed;
+
+  /// Open reports at [level] by the system's recommendation or the
+  /// requestor's own choice, with no official priority yet.
+  final int unconfirmed;
+
+  int get total => confirmed + unconfirmed;
 }
 
-/// Report volume per facility, split into this month and last.
+/// Open reports at each priority level, Critical first (§35).
 ///
-/// Computed from the same stream rather than a dedicated aggregate query:
-/// Firestore cannot group-by, so either way the grouping happens client
-/// side, and reusing the stream avoids a second read of the same
-/// documents.
-final reportVolumeByBuildingProvider =
-    Provider<AsyncValue<Result<List<BuildingVolume>>>>(
+/// Counted from the same live stream as the stat cards, so the four bars
+/// add up to the Damage Reports page's TOTAL OPEN and move the moment a
+/// report does. Counted here rather than by a database aggregate because
+/// the level in force is `effectivePriority`, the administrator's decision
+/// falling back to the recommendation and then to the requestor's choice,
+/// which the model resolves in one place (§18); the stream is the whole
+/// table, not a page of it, so nothing is missed.
+final openReportsByPriorityProvider =
+    Provider<AsyncValue<Result<List<PriorityCount>>>>(
       (ref) => ref
           .watch(reportsStreamProvider)
           .whenData(
             (result) => result.map((reports) {
-              final now = DateTime.now().toUtc();
-              final currentMonthStart = DateTime.utc(now.year, now.month);
-              final previousMonthStart = DateTime.utc(now.year, now.month - 1);
-
-              final current = <String, int>{};
-              final previous = <String, int>{};
-
+              final confirmed = <PriorityLevel, int>{};
+              final unconfirmed = <PriorityLevel, int>{};
               for (final report in reports) {
-                final name = report.facilityName ?? 'Unspecified location';
-                final submitted = report.submittedAt;
-
-                if (!submitted.isBefore(currentMonthStart)) {
-                  current[name] = (current[name] ?? 0) + 1;
-                } else if (!submitted.isBefore(previousMonthStart)) {
-                  previous[name] = (previous[name] ?? 0) + 1;
-                }
+                if (!report.status.isOpen) continue;
+                final tally = report.isPriorityConfirmed
+                    ? confirmed
+                    : unconfirmed;
+                final level = report.effectivePriority;
+                tally[level] = (tally[level] ?? 0) + 1;
               }
-
-              final names = {...current.keys, ...previous.keys};
-              final volumes = [
-                for (final name in names)
-                  BuildingVolume(
-                    facilityName: name,
-                    currentMonth: current[name] ?? 0,
-                    previousMonth: previous[name] ?? 0,
+              return [
+                for (final level in PriorityLevel.values.reversed)
+                  PriorityCount(
+                    level: level,
+                    confirmed: confirmed[level] ?? 0,
+                    unconfirmed: unconfirmed[level] ?? 0,
                   ),
-              ]..sort((a, b) => b.currentMonth.compareTo(a.currentMonth));
-
-              // The design shows a short list, not every building on campus.
-              return volumes.take(5).toList();
+              ];
             }),
           ),
     );
