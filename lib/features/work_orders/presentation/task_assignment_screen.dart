@@ -12,6 +12,7 @@ import '../../../core/enums/account_status.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/person_avatar.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../damage_reports/data/models/damage_report.dart';
@@ -60,13 +61,11 @@ class _TaskAssignmentScreenState extends ConsumerState<TaskAssignmentScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Task Assignment', style: AppTextStyles.pageTitle),
-        const SizedBox(height: 4),
-        const Text(
-          'Assign validated reports to maintenance personnel',
-          style: AppTextStyles.pageSubtitle,
+        const PageHeader(
+          title: 'Task Assignment',
+          subtitle: 'Assign validated reports to maintenance personnel.',
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: PageHeader.gapBelow),
         LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 1000) {

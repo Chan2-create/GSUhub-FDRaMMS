@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/page_header.dart';
@@ -29,20 +28,10 @@ class AdminProfileScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const PageHeader(
-          heading: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('My Profile', style: AppTextStyles.pageTitle),
-              SizedBox(height: 4),
-              Text(
-                'Your administrator account, as GSUhub keeps it.',
-                style: AppTextStyles.pageSubtitle,
-              ),
-            ],
-          ),
-          action: SizedBox.shrink(),
+          title: 'My Profile',
+          subtitle: 'Your administrator account, as GSUhub keeps it.',
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: PageHeader.gapBelow),
         AsyncValueView<AppUser>(
           value: ref.watch(signedInProfileProvider),
           loadingHeight: 320,

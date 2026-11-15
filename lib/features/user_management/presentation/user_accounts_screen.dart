@@ -11,6 +11,7 @@ import '../../../core/enums/account_status.dart';
 import '../../../core/enums/user_role.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/filter_select.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/scroll_when_narrow.dart';
 import '../../../core/widgets/table_pagination.dart';
 import '../data/models/app_user.dart';
@@ -38,13 +39,13 @@ class UserAccountsScreen extends ConsumerWidget {
     child: const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('User Accounts', style: AppTextStyles.pageTitle),
-        SizedBox(height: 12),
-        Text(
-          'Manage university personnel access levels and system permissions.',
-          style: AppTextStyles.pageSubtitle,
+        PageHeader(
+          title: 'User Accounts',
+          subtitle:
+              'Manage university personnel access levels and system '
+              'permissions.',
         ),
-        SizedBox(height: 24),
+        SizedBox(height: PageHeader.gapBelow),
         _RoleTabs(),
         SizedBox(height: 24),
         _ActionBar(),

@@ -116,31 +116,17 @@ class _AdminNotificationsScreenState
     };
 
     return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(
-        horizontal: Breakpoints.gutter(context),
-        vertical: Breakpoints.gutter(context) * 1.5,
-      ),
+      padding: EdgeInsets.all(Breakpoints.gutter(context)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Figma 202:5643.
-          Padding(
-            padding: const EdgeInsets.only(bottom: 40),
-            child: PageHeader(
-              heading: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Notifications', style: AppTextStyles.pageTitle),
-                  SizedBox(height: 4),
-                  Text(
-                    'System-wide notification logs and alerts',
-                    style: AppTextStyles.pageSubtitle,
-                  ),
-                ],
-              ),
-              action: _MarkAllReadButton(onPressed: _markAllRead),
-            ),
+          PageHeader(
+            title: 'Notifications',
+            subtitle: 'System-wide notification logs and alerts.',
+            action: _MarkAllReadButton(onPressed: _markAllRead),
           ),
+          const SizedBox(height: PageHeader.gapBelow),
           _FilterBar(
             filter: _filter,
             onFilter: (filter) => setState(() => _filter = filter),
@@ -192,21 +178,11 @@ class _MarkAllReadButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => OutlinedButton(
+  Widget build(BuildContext context) => PageActionButton(
+    outlined: true,
+    icon: SvgPicture.asset('assets/icons/notification_mark_all_read.svg'),
+    label: 'Mark All as Read',
     onPressed: onPressed,
-    style: OutlinedButton.styleFrom(
-      side: const BorderSide(color: AppColors.primary),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SvgPicture.asset('assets/icons/notification_mark_all_read.svg'),
-        const SizedBox(width: 8),
-        const Text('Mark All as Read', style: AppTextStyles.notificationAction),
-      ],
-    ),
   );
 }
 

@@ -2243,3 +2243,96 @@ reasons by status; no emergency card), `work_orders_screen_test.dart`
 (the table's menu moves through the repository; reasons by status),
 `console_delete_test.dart` (archive and restore through the menu) and
 both pages at every width in `responsive_console_test.dart`.
+
+## 35. The dashboard's chart: open reports by priority (2026-11-15)
+
+The third refinement under §32's direction.
+
+**What was there.** "Monthly Report Volume by Building" (`196:781`)
+compared this month's reports with last month's, per building, five
+bars. The design's numbers were illustrative; the real ones were zero
+on nearly every bar, because a campus unit files a handful of reports a
+month and the chart split them by building and then by month. A chart
+that reads 0 on every visit is decoration, and the first thing on the
+dashboard below the table.
+
+**What is there.** "Open Reports by Priority": one bar per level,
+Critical first, in the level's own colour, the colour its chip carries
+in every table. The bars are scaled against the busiest level. The
+solid part of a bar is the reports whose level an administrator has
+confirmed; the pale part still carries the system's recommendation or
+the requestor's own choice, which the manuscript has confirmed before
+work-order assignment (§1.5, §18). So the chart answers the two
+questions the dashboard is opened for: how much is open, and how much
+of it still waits for a decision. The card's key says what solid and
+pale mean; each bar reads to a screen reader as "High: 3 open reports,
+1 awaiting confirmation".
+
+**Where the numbers come from.** The same live stream as the stat
+cards (`reportsStreamProvider`, every row of `damage_reports`, not a
+page of it), counted in `openReportsByPriorityProvider`: open statuses
+only, by `effectivePriority`, split on `isPriorityConfirmed`. The four
+totals add up to the Damage Reports page's TOTAL OPEN, and move the
+moment a report does. It is not a database aggregate, for one reason:
+the level in force is the administrator's decision, falling back to the
+recommendation and then to the requestor's choice, and the model
+resolves that in one place; an SQL `coalesce` would be a second copy of
+the rule. Nothing on the card is a constant: with no open report it
+says so instead of drawing four empty tracks.
+
+`building_volume_chart.dart` is gone; `priority_chart.dart` replaces
+it. Tests: `test/widget/dashboard_populated_test.dart` (the counts by
+level from a fixture with one confirmed and two recommended levels and
+one completed report, the key, and the card at 360 px) and
+`dashboard_screen_test.dart` (the empty state).
+
+## 36. One page header, one rhythm, one button (2026-11-15)
+
+The fourth and fifth refinements under §32's direction, in one commit
+because they edit the same lines: how each console page opens, and the
+spacing, type and buttons around it.
+
+**One header.** Thirteen pages opened thirteen ways: a `PageHeader`
+with a title column and an action (Damage Reports, Personnel, Map
+View, Notifications, My Profile), a bare title and subtitle (Work Order
+Management, Task Assignment, User Accounts, Settings), a title with no
+subtitle (Analytics), a `Wrap` of its own (Facilities & Equipment), and
+no title at all (Dashboard, Inventory Management), with the gap under
+the title anywhere from 20 to 48 px and the subtitle 4 or 12 px below
+the name. `PageHeader` now takes the page's name, one line of purpose
+and an optional action, and every page uses it: the name in the title
+style, the purpose line under it, the action at the right (under the
+title on a phone), and the first block of the page at
+`PageHeader.gapBelow` (24 px) on every page. Dashboard and Inventory
+Management gained a name and a purpose line like the rest; Analytics
+gained its purpose line; the two subtitles that ended without a full
+stop end with one.
+
+**One rhythm.** Every page's scroll padding is the gutter on all four
+sides (32 px, 16 on a phone); the dashboard's 25/24/48/48 and the
+inventory and notifications pages' 1.5× vertical padding are gone.
+Stat-card rows gap at 24 px on every page (the dashboard's was 18, the
+work orders' 16); a row of stat cards is followed by 32 px; the table
+and the map on Damage Reports are 32 apart (were 48); the dashboard's
+chart card sits 32 under the row above it (was 16, a grid gap). Inside
+a block, nothing moved.
+
+**One button.** The pages' primary actions were four hand-made
+buttons: Create Report (padding 24/12, 16 px label), Add Personnel (the
+same in another style constant), Print all labels (outlined, 20/14),
+Mark All as Read (outlined, 24/13, its own text style).
+`PageActionButton` draws all four: navy, square corners, the design's
+16 px label, filled or outlined, with or without an icon. Buttons inside
+pages that are a design's own (Figure 15's inventory buttons, the
+sign-in page, the save bar) are untouched: the pass is about the page's
+head, not about every button in the system.
+
+Not changed, on purpose: the top bar still names the page as well, as
+the Figma frames do (every page frame carries both); the phone apps
+share none of this and are not touched.
+
+Tests: `test/widget/admin_shell_test.dart` (the page name now appears
+three times on the dashboard: sidebar, bar, page),
+`admin_notifications_test.dart` (the subtitle's wording), and every
+page at every width in `responsive_console_test.dart`; the thirteen
+pages rendered with the real fonts at 1440 px and two at 390 px.

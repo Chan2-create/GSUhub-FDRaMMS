@@ -11,6 +11,7 @@ import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../../core/widgets/row_menu.dart';
 import '../../../core/widgets/stat_card.dart';
@@ -33,15 +34,14 @@ class WorkOrdersScreen extends ConsumerWidget {
     child: const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Work Order Management', style: AppTextStyles.pageTitle),
-        SizedBox(height: 4),
-        Text(
-          'Track and manage all maintenance tasks and staff assignments.',
-          style: AppTextStyles.pageSubtitle,
+        PageHeader(
+          title: 'Work Order Management',
+          subtitle:
+              'Track and manage all maintenance tasks and staff assignments.',
         ),
-        SizedBox(height: 24),
+        SizedBox(height: PageHeader.gapBelow),
         _StatRow(),
-        SizedBox(height: 24),
+        SizedBox(height: 32),
         WorkOrderFilterBar(),
         SizedBox(height: 24),
         _Body(),
@@ -106,7 +106,7 @@ class _StatRow extends ConsumerWidget {
             : constraints.maxWidth >= 440
             ? 2
             : 1;
-        const gap = 16.0;
+        const gap = 24.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
           spacing: gap,

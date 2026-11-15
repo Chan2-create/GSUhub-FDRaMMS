@@ -323,7 +323,7 @@ A report with a geo-tag also appears on Map View
 | Dialogs: confirm delete, confirm logout | [`confirm_delete_dialog.dart`](lib/core/widgets/confirm_delete_dialog.dart), [`sign_out_dialog.dart`](lib/core/widgets/sign_out_dialog.dart) |
 | Dropdowns used in filters and forms | [`filter_select.dart`](lib/core/widgets/filter_select.dart) |
 | Loading, empty and error states | [`async_value_view.dart`](lib/core/widgets/async_value_view.dart) |
-| Page title row | [`page_header.dart`](lib/core/widgets/page_header.dart) |
+| Page header (name, purpose line, primary action) and its button | [`page_header.dart`](lib/core/widgets/page_header.dart) |
 | Tabs on a page (Settings, Inventory Management) | [`console_tabs.dart`](lib/core/widgets/console_tabs.dart) |
 | A table row's View button and ⋮ menu (Damage Reports, Work Orders) | [`row_menu.dart`](lib/core/widgets/row_menu.dart) |
 | Category donut chart | [`category_donut.dart`](lib/core/widgets/category_donut.dart) |

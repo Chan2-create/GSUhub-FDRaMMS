@@ -10,6 +10,7 @@ import '../../../core/utils/quantity_format.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/console_tabs.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../tools/presentation/tool_providers.dart';
 import '../../tools/presentation/tools_section.dart';
 import '../../work_orders/presentation/work_order_providers.dart';
@@ -83,13 +84,17 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   Widget build(BuildContext context) {
     final pending = ref.watch(pendingMaterialRequestCountProvider);
     return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(
-        horizontal: Breakpoints.gutter(context),
-        vertical: Breakpoints.gutter(context) * 1.5,
-      ),
+      padding: EdgeInsets.all(Breakpoints.gutter(context)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const PageHeader(
+            title: 'Inventory Management',
+            subtitle:
+                'The GSU store: its materials and their stock, the requests '
+                'from the field, and the tools out on loan.',
+          ),
+          const SizedBox(height: PageHeader.gapBelow),
           const _StatRow(),
           const SizedBox(height: 32),
           ConsoleTabBar<InventoryTab>(

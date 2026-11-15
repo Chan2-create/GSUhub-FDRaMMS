@@ -41,12 +41,12 @@ class ReportsScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Header(),
-        SizedBox(height: 24),
+        SizedBox(height: PageHeader.gapBelow),
         _StatRow(),
-        SizedBox(height: 48),
+        SizedBox(height: 32),
         ReportFilterBar(),
         _ReportsTableCard(),
-        SizedBox(height: 48),
+        SizedBox(height: 32),
         // The design set the map beside a "Need urgent assistance?" card
         // whose Dispatch Emergency Team button had nothing behind it; the
         // card went on 2026-11-15 (§34) and the map has the row.
@@ -61,25 +61,16 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PageHeader(
-    heading: const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Damage Reports', style: AppTextStyles.pageTitle),
-        SizedBox(height: 4),
-        Text(
-          'Review and manage all incoming campus facility issues.',
-          style: AppTextStyles.pageSubtitle,
-        ),
-      ],
-    ),
+    title: 'Damage Reports',
+    subtitle: 'Review and manage all incoming campus facility issues.',
     action: Tooltip(
       // Filing a report is a faculty/staff function (manuscript §1.5);
       // the admin console has no documented path for creating one.
       message:
           'Reports are submitted by faculty and staff from the mobile '
           'app — not from the admin console.',
-      child: FilledButton.icon(
-        onPressed: null,
+      child: PageActionButton(
+        label: 'Create Report',
         icon: SvgPicture.asset(
           'assets/icons/create_add.svg',
           width: 12,
@@ -89,13 +80,7 @@ class _Header extends StatelessWidget {
             BlendMode.srcIn,
           ),
         ),
-        label: const Text('Create Report', style: AppTextStyles.ctaLabel),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.textOnDark,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        ),
+        onPressed: null,
       ),
     ),
   );
