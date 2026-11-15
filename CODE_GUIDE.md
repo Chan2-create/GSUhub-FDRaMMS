@@ -458,7 +458,7 @@ Each manuscript requirement and the tests that prove it:
 | [`assets/`](assets/) | Fonts, icons and images |
 | [`docs/`](docs/) | Architecture decisions, data dictionary, setup, deployment, testing, demo script |
 | [`docs/diagrams/`](docs/diagrams/) | System diagrams |
-| [`scripts/`](scripts/) | Release builds: [`deploy_web.ps1`](scripts/deploy_web.ps1) (website), [`build_apk.ps1`](scripts/build_apk.ps1) (Android) |
+| [`scripts/`](scripts/) | Release builds: [`deploy_web.ps1`](scripts/deploy_web.ps1) (website), [`build_apk.ps1`](scripts/build_apk.ps1) (Android); the app icons from the logo: [`generate_app_icons.ps1`](scripts/generate_app_icons.ps1) |
 | [`tool/`](tool/) | Developer tools: run everything locally, demo data, database tests without Docker, the Firestore → Supabase migration |
 | [`deploy/`](deploy/) | The website's hosting settings (Vercel) |
 | [`firebase/`](firebase/) | The old Firestore rules, kept until Firestore is locked |

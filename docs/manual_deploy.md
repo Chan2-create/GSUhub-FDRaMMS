@@ -39,6 +39,10 @@ All commands run in PowerShell from the repo root, `D:\Capstone System`.
 | `build_apk.ps1 -Universal` | one APK for every phone instead of one per CPU type |
 | `build_apk.ps1 -Clean` | `flutter clean` first |
 
+The app icons (the phone's launcher icon and the web console's install
+icons) are drawn from the logo by `.\scripts\generate_app_icons.ps1`.
+Run it again only when the logo changes, then build and deploy as usual.
+
 Both scripts stop at the first failing step and say which one. Both end
 (as does the automatic web deploy) with a **release check** (`scripts\check_release_output.ps1`) that fails
 the build if it still points at the emulators: `127.0.0.1`, `10.0.2.2`,

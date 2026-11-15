@@ -2482,3 +2482,42 @@ Tests: `test/widget/launch_splash_test.dart`, `skeleton_test.dart`,
 `press_scale_test.dart`, `reduced_motion_transitions_test.dart`, and
 every phone test that boots the app, which
 now waits through the logo.
+
+## 40. The app icon is the GSUhub gear (2026-11-16)
+
+The installed app still carried Flutter's default icon, and so did the
+web console's install icons (the tab icon was already the gear). Both
+now show the gear mark from the GSUhub logo, on white.
+
+**Why the gear and not the whole logo.** The logo is a wordmark: the
+gear "d", then "GSUhub". At launcher size, about 48 dp, the word would
+be a few pixels tall and unreadable, and Android prints the app's name,
+GSUhub, under the icon anyway. The gear is the part that survives being
+small, and it is what the tab icon already shows.
+
+**Android.** An adaptive icon for Android 8 and later
+(`mipmap-anydpi-v26/ic_launcher.xml`): a white back layer
+(`values/ic_launcher_background.xml`) and the gear on a transparent
+front layer (`mipmap-*/ic_launcher_foreground.png`), which the phone
+masks to its own shape, circle, squircle or rounded square. The gear is
+drawn about 50 dp across on the 108 dp layer, inside the 66 dp that is
+sure to show, with room around it as launcher logos have. Older phones
+get the classic `ic_launcher.png`: the gear on a white tile with rounded
+corners.
+
+**Web.** `web/icons/`: `Icon-192` and `Icon-512` (the gear on a white
+tile), the two maskable ones (white to the edges, the gear inside the
+middle 80 % the browser keeps) and `apple-touch-icon` (white to the
+edges, since iOS rounds the corners itself and fills transparency with
+black). The manifest already had GSUhub's name, colours and description.
+
+**How they are made.** `scripts/generate_app_icons.ps1` finds the gear
+in `assets/images/gsuhub_logo.png` (its first run of drawn columns) and
+draws every size from it, with Windows' own imaging, so nothing is added
+to the project. The gear in that file is only 141 px wide, so the
+largest sizes are drawn up from it and are a little soft. Exporting the
+logo larger from the Figma file (1024 px, say) and running the script
+with `-Logo` on that file would make them sharp.
+
+Not done: a monochrome layer for Android 13's themed icons. Phones that
+theme their icons show GSUhub's in its own colours.
