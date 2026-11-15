@@ -9,6 +9,7 @@ import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../shells/personnel/personnel_shell.dart';
 import '../../inventory/data/models/inventory_item.dart';
 import '../../tools/data/models/tool_loan.dart';
@@ -70,7 +71,7 @@ class PersonnelMaterialsScreen extends ConsumerWidget {
         const SizedBox(height: 12),
         AsyncValueView<List<WorkOrder>>(
           value: orders,
-          loadingHeight: 120,
+          loading: Skeleton.cards(count: 2, height: 72),
           onRetry: () => ref.invalidate(myWorkOrdersProvider),
           isEmpty: (list) => !list.any((order) => MyWork.isOpen(order.status)),
           emptyIcon: Icons.inventory_2_outlined,
@@ -100,7 +101,7 @@ class _ToolLoans extends ConsumerWidget {
     WidgetRef ref,
   ) => AsyncValueView<List<ToolLoan>>(
     value: ref.watch(myToolLoansProvider),
-    loadingHeight: 80,
+    loading: Skeleton.cards(count: 1, height: 72),
     onRetry: () => ref.invalidate(myToolLoansProvider),
     isEmpty: (loans) => loans.isEmpty,
     emptyIcon: Icons.handyman_outlined,

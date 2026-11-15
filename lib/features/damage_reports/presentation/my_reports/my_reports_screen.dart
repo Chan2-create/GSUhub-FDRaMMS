@@ -8,6 +8,7 @@ import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/enums/report_status.dart';
 import '../../../../core/routing/route_paths.dart';
 import '../../../../core/widgets/async_value_view.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../shells/mobile/mobile_title_row.dart';
 import '../../../../shells/requestor/requestor_shell.dart';
@@ -38,10 +39,11 @@ class MyReportsScreen extends ConsumerWidget {
         ),
         Expanded(
           child: ListView(
+            // The phone pages' one gutter, 16 (was 24 here alone; §39).
             padding: EdgeInsets.fromLTRB(
-              24,
+              16,
               22,
-              24,
+              16,
               requestorBottomInset(context),
             ),
             children: [
@@ -65,6 +67,7 @@ class MyReportsScreen extends ConsumerWidget {
                     'You have not filed any reports yet. Tap + to report '
                     'facility damage.',
                 onRetry: () => ref.invalidate(myReportsProvider),
+                loading: Skeleton.cards(height: 116),
                 data: (list) {
                   final shown = list.where(view.matches).toList();
                   if (shown.isEmpty) {

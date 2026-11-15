@@ -14,6 +14,7 @@ import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/async_value_view.dart';
 import '../../../../core/widgets/person_avatar.dart';
 import '../../../../core/widgets/priority_chip.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../../../../shells/mobile/mobile_title_row.dart';
 import '../../../../shells/requestor/requestor_shell.dart';
 import '../../../feedback/presentation/rating_controller.dart';
@@ -114,7 +115,10 @@ class _Tracking extends ConsumerWidget {
         _ReportCard(report: report),
         AsyncValueView<List<StatusChange>>(
           value: history,
-          loadingHeight: 120,
+          loading: Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Skeleton.lines(lines: 4),
+          ),
           onRetry: () => ref.invalidate(myReportHistoryProvider(report.id)),
           data: (changes) {
             final timeline = ReportTimeline.of(report, changes);

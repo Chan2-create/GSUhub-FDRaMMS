@@ -2007,6 +2007,9 @@ database function and tests.
 
 ## 31. Sessions end after 30 minutes of inactivity (2026-11-14)
 
+*The limit is 15 minutes since 2026-11-15 (§37); the design below is
+unchanged.*
+
 **The brief (Chris, 2026-11-14).** Sign people out after 30 minutes
 without activity, on the web console and on both phone apps alike.
 Activity is mouse movement, clicks and keys on the web, taps and other
@@ -2336,3 +2339,146 @@ three times on the dashboard: sidebar, bar, page),
 `admin_notifications_test.dart` (the subtitle's wording), and every
 page at every width in `responsive_console_test.dart`; the thirteen
 pages rendered with the real fonts at 1440 px and two at 390 px.
+
+## 37. The session limit is 15 minutes (2026-11-15)
+
+Chris's brief of 2026-11-15 shortens the inactivity limit of §31 from
+30 minutes to 15, with the same behaviour otherwise: the warning and its
+two-minute countdown now show at 13 minutes, any interaction during the
+warning resets the clock, and at 15 minutes the session ends and the
+person lands on the sign-in page with the reason. Nothing counts as
+activity that is not the person doing something; an app left open does
+not keep itself signed in (§31's listener and the database's record of
+activity are what they were).
+
+The number lives in two places and the change touches exactly those:
+`app.inactivity_limit()` and the words of `app.require_session()`'s
+refusal, replaced by `20261115093218_session_inactivity_15_minutes.sql`;
+and `SessionPolicy.inactivityLimit`, whose unit test reads the migration
+to keep the two equal. The token exchange carries no limit, so it is not
+redeployed for this; `supabase db push` is what puts the 15 minutes on
+the server, and until it runs the server still allows 30 while the app
+signs out at 15, which is safe in that direction. The pgTAP test's
+boundaries moved with the limit (14 minutes alive, 15 minutes and a
+second not).
+
+Tests: `supabase/tests/session_inactivity.test.sql`,
+`test/unit/core/inactivity_monitor_test.dart`,
+`test/unit/core/session_backend_test.dart`,
+`test/widget/session_expiry_test.dart`, all now written against the
+policy's constants rather than the number.
+
+## 38. The sign-in page's photograph and card (2026-11-15)
+
+Chris's brief of 2026-11-15, part 5: the console's sign-in page looked
+plain, the white box flat, the photograph "too zoomed in".
+
+**The photograph.** It is square, 474 × 474: the graduates' monument,
+sky above, plants below. Drawn with `BoxFit.cover` on a wide page it
+showed its top third at three times its size, which is the zoom Chris
+saw, and the softness with it. Now the whole photograph is drawn, as
+taken, as large as the page allows, its edges fading into the same
+picture stretched to fill and blurred behind it, under the same indigo
+wash: the page is still full-bleed, with no seam. Nothing is cropped, the monument is whole, and the upscaling is
+under two to one on a laptop. The brief asked for the image's aspect
+ratio to be kept and cropping avoided; this is the only way to do both
+with a square photograph on a wide page. A larger photograph would
+still look better than this one can.
+
+**The card.** It was drawn at 80% opacity as a whole, type included.
+Now only its fill is translucent (94%), with a hairline of white, a
+soft long shadow and a short one, and a 4 px gold rule along its top
+that draws in from the left as the card settles. The card fades in and
+rises 16 px after the page; the photograph fades in first. The fields
+tint faintly under the pointer and their border still animates to the
+focus colour; the button lifts a little under the pointer and swaps
+its label for the spinner with a short cross-fade.
+
+**Motion that respects the setting.** Every one of these is a
+`TweenAnimationBuilder` or an implicit animation: declarative, so
+nothing is left pending in tests, and all of them read
+`MediaQuery.disableAnimationsOf`, which on the web follows the
+browser's reduced-motion preference. With it on, the page appears as it
+ends up, and the photograph stands still.
+
+Tests: `test/widget/admin_login_screen_test.dart` (unchanged: the
+form, validation, errors and the reset dialog still pass through the
+animated card), `app_viewport_test.dart`, `session_expiry_test.dart`;
+rendered with the real fonts at 1440, 1024 and 390 px.
+
+## 39. Starting, loading and touching, on the phone (2026-11-15)
+
+Parts 2, 3 and 4 of the same brief: the phone apps' launch, their
+loading states, their transitions and their buttons' response, without
+redesigning them.
+
+**The logo at launch** (`lib/core/widgets/launch_splash.dart`). From
+the first frame until the session is known, Firebase is restoring the
+sign-in and the router holds still; that gap was a blank page on both
+the phone and the web. The GSUhub logo now fades in and settles over
+it, stays at least as long as its own entrance (900 ms), and fades out
+(350 ms) the moment the session is known, into the page the person was
+headed for. It is a real loading state, not a timer: with the session
+already known it is gone after one entrance; while Firebase is slow it
+stays, and nothing behind it takes a tap. Tickers, not timers, so it
+settles in tests. Under reduced motion the logo appears and goes
+without scaling. The page under it keeps its place in the tree
+when the logo leaves: a first version returned the page on its own once
+the logo had gone, which moved it, and Flutter rebuilt every page and
+listener under it (`report_detail_test` counted three listeners where
+two belong; `launch_splash_test` now checks the page is built once).
+
+**Skeletons in place of spinners** (`skeleton.dart`, and the
+`loading:` slot of `AsyncValueView`). A list that loaded behind a
+spinner was a blank area that jumped to its full height when the data
+landed. Now the eleven phone screens that load lists or records show
+the shape of what is coming, in grey, with a soft sheen moving across
+it: three cards where cards will be, four lines where a paragraph will
+be, the tiles and cards of the technician's home. Nothing is shown
+that is not loading; a screen whose data is already in hand draws it
+at once, as before. Drawn with the framework alone, one ticker per
+skeleton, still under reduced motion, and one thing to a screen reader
+("Loading"). The console keeps its spinners: its tables are read on a
+wired connection and its loading states were never the complaint.
+
+**Transitions.** Each platform keeps its own page transition. On
+Android that already is Material 3's fade-forwards, with the predictive
+back gesture on top, so it is not overridden: naming fade-forwards
+directly would only lose the gesture's preview. What changed is reduced
+motion. The framework's transitions ignore that setting, so
+`ReducedMotionTransitions` (`lib/core/widgets/`) wraps each
+platform's default: the same transition and durations as before, and
+under reduced motion the new page is simply there.
+
+**One gutter on the phone.** Every phone page now keeps 16 px from the
+screen's edges. The faculty home kept the frame's own offsets (9 and 11
+at the edges, then 3, 13 and 2 more per block), so its cards' edges sat
+a few pixels apart, and My Reports alone used 24. The home also has one
+vertical rhythm now: 16 between blocks, 8 within.
+
+**Starting on Android.** With the phone in dark mode, the native launch
+window and the window behind Flutter while it starts were black
+(`?android:colorBackground` under the night theme), and then the white
+logo screen appeared. Both are white now
+(`android/app/src/main/res/drawable-v21/launch_background.xml`,
+`values-night/styles.xml`); the app has no dark theme. On Android 12
+and later the system's own splash, the launcher icon, comes first and
+is Android's to draw.
+
+**Touch.** `PressScale` shrinks a control to 97% while a finger is on
+it, before the ripple has spread, and lets go on release or cancel. It
+is a listener, not a gesture, so the button underneath still gets its
+tap. On the sign-in and sign-up buttons, the home tiles, the gold +
+and Submit Report. Nothing moves under reduced motion.
+
+**Submitting a report** already showed its progress (the upload count
+and "Submitting…" across the button); it is unchanged.
+
+Not done, on purpose: no new package, no Lottie, no shimmer library;
+no spinner shown where data is already there; the phone's spacing and
+type are as the design has them, and only the pieces above changed.
+
+Tests: `test/widget/launch_splash_test.dart`, `skeleton_test.dart`,
+`press_scale_test.dart`, `reduced_motion_transitions_test.dart`, and
+every phone test that boots the app, which
+now waits through the logo.

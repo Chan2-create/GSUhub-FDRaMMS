@@ -9,6 +9,7 @@ import '../../../../core/enums/work_order_status.dart';
 import '../../../../core/routing/route_paths.dart';
 import '../../../../core/utils/display_id.dart';
 import '../../../../core/widgets/async_value_view.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../../../../shells/personnel/personnel_shell.dart';
 import '../../data/models/work_order.dart';
 import 'personnel_providers.dart';
@@ -66,6 +67,10 @@ class _MyWorkOrdersScreenState extends ConsumerState<MyWorkOrdersScreen> {
         child: AsyncValueView<List<WorkOrder>>(
           value: ref.watch(myWorkOrdersProvider),
           onRetry: () => ref.invalidate(myWorkOrdersProvider),
+          loading: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Skeleton.cards(height: 124),
+          ),
           isEmpty: (orders) => orders.isEmpty,
           emptyIcon: Icons.assignment_outlined,
           emptyMessage:

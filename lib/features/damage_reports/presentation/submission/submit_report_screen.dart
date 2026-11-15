@@ -10,6 +10,7 @@ import '../../../../core/services/photo_picker_service.dart';
 import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/filter_select.dart';
+import '../../../../core/widgets/press_scale.dart';
 import '../../../../shells/requestor/requestor_header.dart';
 import '../../../facilities/presentation/facility_directory.dart';
 import '../../../qr_codes/presentation/qr_scanner_screen.dart';
@@ -444,65 +445,67 @@ class _SubmitButton extends StatelessWidget {
         enabled: !busy,
         label: label,
         excludeSemantics: true,
-        child: Container(
-          height: 56,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: const [
-              BoxShadow(
-                color: AppColors.submitGlow,
-                offset: Offset(0, 8),
-                blurRadius: 8,
-              ),
-            ],
-          ),
-          child: Material(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(15),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: busy || phase is SubmissionDone ? null : onPressed,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (busy)
-                    FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: fraction,
-                      child: const ColoredBox(color: Color(0x33FFFFFF)),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (busy)
-                          const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.textOnDark,
+        child: PressScale(
+          child: Container(
+            height: 56,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: const [
+                BoxShadow(
+                  color: AppColors.submitGlow,
+                  offset: Offset(0, 8),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Material(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(15),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: busy || phase is SubmissionDone ? null : onPressed,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (busy)
+                      FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: fraction,
+                        child: const ColoredBox(color: Color(0x33FFFFFF)),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (busy)
+                            const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.textOnDark,
+                              ),
+                            )
+                          else
+                            SvgPicture.asset(
+                              'assets/icons/report_send.svg',
+                              width: 19,
+                              height: 16,
                             ),
-                          )
-                        else
-                          SvgPicture.asset(
-                            'assets/icons/report_send.svg',
-                            width: 19,
-                            height: 16,
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              label,
+                              style: AppTextStyles.submitLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            label,
-                            style: AppTextStyles.submitLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

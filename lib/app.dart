@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,8 @@ import 'core/routing/route_paths.dart';
 import 'core/session/session_activity_listener.dart';
 import 'core/session/session_warning_overlay.dart';
 import 'core/session/session_watch.dart';
+import 'core/widgets/launch_splash.dart';
+import 'core/widgets/reduced_motion_transitions.dart';
 import 'features/notifications/presentation/push_coordinator.dart';
 import 'shells/app_viewport.dart';
 
@@ -76,7 +79,7 @@ class GsuhubApp extends ConsumerWidget {
     // Lives as long as the app: notifications for whoever is signed in,
     // and a tapped one opens its report through the router (3.B).
     ref.watch(pushCoordinatorProvider).attach(router.go);
-    // And the session: signed out after 30 minutes without activity.
+    // And the session: signed out after 15 minutes without activity.
     ref.watch(sessionWatchProvider);
 
     return MaterialApp.router(
@@ -91,10 +94,14 @@ class GsuhubApp extends ConsumerWidget {
         child: SessionActivityListener(
           router: router,
           child: SessionWarningOverlay(
-            // The phone apps at their 390-wide design; the console at 90%.
-            child: AppViewport(
-              router: router,
-              child: child ?? const SizedBox.shrink(),
+            // The logo while the session is being restored (§38), over
+            // the phone apps at their 390-wide design or the console at
+            // 90%.
+            child: LaunchSplash(
+              child: AppViewport(
+                router: router,
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         ),
@@ -115,6 +122,32 @@ class GsuhubApp extends ConsumerWidget {
       // nav item and top-bar action that belongs to a later objective —
       // so their treatment is set once here rather than per widget.
       tooltipTheme: const TooltipThemeData(waitDuration: Duration.zero),
+      // Each platform's own page transition, as Flutter chooses it (on
+      // Android Material 3's fade-forwards, with predictive back), and
+      // none under reduced motion, which the framework does not do by
+      // itself (§39).
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: ReducedMotionTransitions(
+            PredictiveBackPageTransitionsBuilder(),
+          ),
+          TargetPlatform.iOS: ReducedMotionTransitions(
+            CupertinoPageTransitionsBuilder(),
+          ),
+          TargetPlatform.macOS: ReducedMotionTransitions(
+            CupertinoPageTransitionsBuilder(),
+          ),
+          TargetPlatform.windows: ReducedMotionTransitions(
+            ZoomPageTransitionsBuilder(),
+          ),
+          TargetPlatform.linux: ReducedMotionTransitions(
+            ZoomPageTransitionsBuilder(),
+          ),
+          TargetPlatform.fuchsia: ReducedMotionTransitions(
+            ZoomPageTransitionsBuilder(),
+          ),
+        },
+      ),
       dividerTheme: const DividerThemeData(
         color: AppColors.border,
         space: 1,
