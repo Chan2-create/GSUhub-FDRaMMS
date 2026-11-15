@@ -13,6 +13,7 @@ import '../../../core/services/notification_service.dart';
 import '../../../core/utils/relative_time.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../shells/mobile/mobile_title_row.dart';
 import '../../../shells/requestor/requestor_shell.dart';
 import '../data/models/app_notification.dart';
@@ -116,6 +117,7 @@ class _MobileAlertsScreenState extends ConsumerState<MobileAlertsScreen> {
                 emptyIcon: Icons.notifications_none,
                 emptyMessage: widget.emptyMessage,
                 onRetry: () => ref.invalidate(myNotificationsProvider),
+                loading: Skeleton.cards(count: 4, height: 88, gap: 10),
                 data: (list) => _Grouped(notifications: list),
               ),
             ],

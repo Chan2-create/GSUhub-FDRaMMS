@@ -875,13 +875,14 @@ from that `users` row on every request. **A deactivated or pending
 account reads only its own `users` row and changes nothing**, whatever
 its role; a request with no signed-in user is refused outright.
 
-**A session ends after 30 minutes of inactivity** (2026-11-14,
-docs/architecture_decisions.md §31). The token carries the sign-in time
-(`auth_time`), and `app.user_activity` (schema `app`, not exposed) holds
-when each account last did something, written by `touch_session` while
-the app is in use. `app.active_role()` requires one or the other within
-30 minutes; past that the account is treated like a deactivated one, and
-the functions refuse with `PT401`. A fresh sign-in starts a new session.
+**A session ends after 15 minutes of inactivity** (2026-11-14 with 30
+minutes, 15 since 2026-11-15; docs/architecture_decisions.md §31, §37).
+The token carries the sign-in time (`auth_time`), and `app.user_activity`
+(schema `app`, not exposed) holds when each account last did something,
+written by `touch_session` while the app is in use. `app.active_role()`
+requires one or the other within 15 minutes; past that the account is
+treated like a deactivated one, and the functions refuse with `PT401`. A
+fresh sign-in starts a new session.
 
 ### Reading
 

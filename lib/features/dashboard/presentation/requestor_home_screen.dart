@@ -8,6 +8,8 @@ import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/relative_time.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/press_scale.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../shells/requestor/requestor_shell.dart';
 import '../../damage_reports/data/models/damage_report.dart';
@@ -33,57 +35,54 @@ class RequestorHomeScreen extends ConsumerWidget {
     final reports = ref.watch(myReportsProvider);
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(9, 7, 11, requestorBottomInset(context)),
+      // One gutter, 16, as every other phone page has, and one rhythm:
+      // 16 between blocks, 8 within (2026-11-15, §39). The frame's own
+      // offsets (9 and 11 at the edges, then 3, 13 and 2 more per block,
+      // and gaps of 6, 7, 8 and 14) set this page's edges a few pixels
+      // apart from each other.
+      padding: EdgeInsets.fromLTRB(16, 12, 16, requestorBottomInset(context)),
       children: [
         const _GreetingCard(),
         const SizedBox(height: 16),
         const _QuickActions(),
-        const SizedBox(height: 14),
-        Padding(
-          padding: const EdgeInsets.only(left: 3, right: 2),
-          child: _OverviewBanner(reports: reports),
+        const SizedBox(height: 16),
+        _OverviewBanner(reports: reports),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Recent Reports',
+                style: AppTextStyles.homeSectionTitle,
+              ),
+            ),
+            TextButton(
+              onPressed: () => context.go(RoutePaths.staffMyReports),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('View All', style: AppTextStyles.homeViewAll),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.only(left: 13, right: 2),
-          child: Row(
+        AsyncValueView<List<DamageReport>>(
+          value: reports,
+          isEmpty: (list) => list.isEmpty,
+          emptyIcon: Icons.assignment_outlined,
+          emptyMessage: 'No reports yet. Tap + to report facility damage.',
+          onRetry: () => ref.invalidate(myReportsProvider),
+          loading: Skeleton.cards(height: 72, gap: 8),
+          data: (list) => Column(
             children: [
-              const Expanded(
-                child: Text(
-                  'Recent Reports',
-                  style: AppTextStyles.homeSectionTitle,
+              for (final report in list.take(recentCount))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _RecentReportRow(report: report),
                 ),
-              ),
-              TextButton(
-                onPressed: () => context.go(RoutePaths.staffMyReports),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  minimumSize: const Size(0, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('View All', style: AppTextStyles.homeViewAll),
-              ),
             ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        Padding(
-          padding: const EdgeInsets.only(left: 2),
-          child: AsyncValueView<List<DamageReport>>(
-            value: reports,
-            isEmpty: (list) => list.isEmpty,
-            emptyIcon: Icons.assignment_outlined,
-            emptyMessage: 'No reports yet. Tap + to report facility damage.',
-            onRetry: () => ref.invalidate(myReportsProvider),
-            data: (list) => Column(
-              children: [
-                for (final report in list.take(recentCount))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 7),
-                    child: _RecentReportRow(report: report),
-                  ),
-              ],
-            ),
           ),
         ),
       ],
@@ -206,34 +205,36 @@ class _ActionTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: color,
-    borderRadius: BorderRadius.circular(14),
-    elevation: 2,
-    shadowColor: const Color(0x40000000),
-    child: InkWell(
+  Widget build(BuildContext context) => PressScale(
+    child: Material(
+      color: color,
       borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // The design's translucent white disc behind the glyph.
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Color(0x33FFFFFF),
-              shape: BoxShape.circle,
+      elevation: 2,
+      shadowColor: const Color(0x40000000),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // The design's translucent white disc behind the glyph.
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Color(0x33FFFFFF),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.white, size: 26),
             ),
-            child: Icon(icon, color: Colors.white, size: 26),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.homeTile,
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.homeTile,
+            ),
+          ],
+        ),
       ),
     ),
   );

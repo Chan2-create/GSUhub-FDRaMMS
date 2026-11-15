@@ -16,8 +16,8 @@ import '../support/fake_admin_backend.dart';
 import '../support/fake_requestor_app.dart';
 import '../support/fake_session.dart';
 
-/// Sessions end after 30 minutes without activity (2026-11-14), on the
-/// phone and on the console: a warning with a countdown at 28 minutes,
+/// Sessions end after 15 minutes without activity (2026-11-15; 30 before), on the
+/// phone and on the console: a warning with a countdown at 13 minutes,
 /// cleared by doing anything; then signed out, on the sign-in page, which
 /// says why. The database can end a session too, and the app follows.
 void main() {
@@ -39,8 +39,11 @@ void main() {
 
   final warning = find.text('Still there?');
 
+  /// When the warning shows: 13 minutes in, two before the end.
+  final warningAt = SessionPolicy.inactivityLimit - SessionPolicy.warningBefore;
+
   group('the faculty and staff app', () {
-    testWidgets('warns at 28 minutes with a countdown, and any tap clears it', (
+    testWidgets('warns at 13 minutes with a countdown, and any tap clears it', (
       tester,
     ) async {
       final app = RequestorHarness(monitor: monitor);
@@ -51,13 +54,22 @@ void main() {
         reason: 'signing in tells the database the person is here',
       );
 
-      await elapse(tester, const Duration(minutes: 27, seconds: 58));
+      await elapse(tester, warningAt - const Duration(seconds: 2));
       expect(warning, findsNothing);
 
       await elapse(tester, const Duration(seconds: 2));
       expect(warning, findsOneWidget);
       expect(find.text('2:00'), findsOneWidget);
       expect(find.text('until you are signed out'), findsOneWidget);
+      // The limit it names is the one the clock keeps: it said 30 for a
+      // while after the limit became 15.
+      expect(
+        find.textContaining(
+          'after ${SessionPolicy.inactivityLimit.inMinutes} minutes without '
+          'activity',
+        ),
+        findsOneWidget,
+      );
 
       await elapse(tester, const Duration(seconds: 1));
       expect(find.text('1:59'), findsOneWidget);
@@ -68,8 +80,8 @@ void main() {
       expect(warning, findsNothing);
       expect(find.text('Home'), findsWidgets, reason: 'still signed in');
 
-      // And the clock started over: 28 more minutes before the next.
-      await elapse(tester, const Duration(minutes: 27));
+      // And the clock started over: 13 more minutes before the next.
+      await elapse(tester, warningAt - const Duration(minutes: 1));
       expect(warning, findsNothing);
       await elapse(tester, const Duration(minutes: 1));
       expect(warning, findsOneWidget);
@@ -79,13 +91,13 @@ void main() {
       expect(warning, findsNothing);
     });
 
-    testWidgets('signs out at 30 minutes, saying why on the sign-in page', (
+    testWidgets('signs out at 15 minutes, saying why on the sign-in page', (
       tester,
     ) async {
       final app = RequestorHarness(monitor: monitor);
       await app.pump(tester, start: RoutePaths.staffMyReports);
 
-      await elapse(tester, const Duration(minutes: 30));
+      await elapse(tester, SessionPolicy.inactivityLimit);
       await tester.pumpAndSettle();
 
       expect(find.text('LOGIN TO DASHBOARD'), findsOneWidget);
@@ -123,7 +135,7 @@ void main() {
       final app = RequestorHarness(monitor: monitor);
       await app.pump(tester);
 
-      await elapse(tester, const Duration(minutes: 28));
+      await elapse(tester, warningAt);
       await tester.tap(find.text('Sign out now'));
       await tester.pumpAndSettle();
 
@@ -210,7 +222,7 @@ void main() {
           sessions: FakeSessionRepository(),
         );
 
-        await elapse(tester, const Duration(minutes: 28));
+        await elapse(tester, warningAt);
         expect(warning, findsOneWidget);
         expect(find.text('2:00'), findsOneWidget);
 
@@ -221,7 +233,7 @@ void main() {
         await tester.pump();
         expect(warning, findsNothing, reason: 'the mouse moved');
 
-        await elapse(tester, const Duration(minutes: 28));
+        await elapse(tester, warningAt);
         expect(warning, findsOneWidget);
         await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
         await tester.pump();
@@ -230,7 +242,7 @@ void main() {
     );
 
     testWidgets(
-      'signed out at 30 minutes; signing in again returns to the page',
+      'signed out at 15 minutes; signing in again returns to the page',
       (tester) async {
         final auth = ScriptedAuthService(signedIn: fakeAdminUser)
           ..signInResult = const Result.success(fakeAdminUser);
@@ -242,7 +254,7 @@ void main() {
         );
         expect(find.text('Damage Reports'), findsWidgets);
 
-        await elapse(tester, const Duration(minutes: 30));
+        await elapse(tester, SessionPolicy.inactivityLimit);
         await tester.pumpAndSettle();
 
         final login = find.byType(AdminLoginScreen);

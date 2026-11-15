@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
+import '../../core/widgets/press_scale.dart';
 
 /// One tab of [MobileBottomBar].
 class MobileTab {
@@ -163,27 +164,30 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
     message: label,
-    child: DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.accentGold,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navFabGlow,
-            blurRadius: 18,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: SizedBox.square(
-            dimension: size,
-            child: const Icon(Icons.add, color: Colors.white, size: 28),
+    child: PressScale(
+      scale: 0.94,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: AppColors.accentGold,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.navFabGlow,
+              blurRadius: 18,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: SizedBox.square(
+              dimension: size,
+              child: const Icon(Icons.add, color: Colors.white, size: 28),
+            ),
           ),
         ),
       ),

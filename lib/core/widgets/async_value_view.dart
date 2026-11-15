@@ -23,6 +23,7 @@ class AsyncValueView<T> extends StatelessWidget {
     this.emptyMessage = 'Nothing to show yet.',
     this.emptyIcon = Icons.inbox_outlined,
     this.loadingHeight = 160,
+    this.loading,
     this.onRetry,
   });
 
@@ -41,12 +42,17 @@ class AsyncValueView<T> extends StatelessWidget {
   final IconData emptyIcon;
   final double loadingHeight;
 
+  /// What stands in for the data while it loads, in place of the spinner:
+  /// a skeleton of the cards or lines about to appear (`skeleton.dart`),
+  /// so the page keeps its shape and nothing jumps when the data lands.
+  final Widget? loading;
+
   /// Shown as a "Try again" action on the error state when provided.
   final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) => value.when(
-    loading: () => _Loading(height: loadingHeight),
+    loading: () => loading ?? _Loading(height: loadingHeight),
     // An error thrown *outside* the Result (a provider that blew up rather
     // than a repository returning a failure) is still a real error the
     // user must see, so it gets the same treatment.

@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/sign_out_dialog.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../shells/mobile/mobile_title_row.dart';
 import '../../../shells/requestor/requestor_shell.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -65,7 +66,15 @@ class MobileProfileScreen extends ConsumerWidget {
             children: [
               AsyncValueView<AppUser>(
                 value: ref.watch(signedInProfileProvider),
-                loadingHeight: 260,
+                loading: const Skeleton(
+                  child: Column(
+                    children: [
+                      SkeletonBox(height: 180, radius: 16),
+                      SizedBox(height: 16),
+                      SkeletonBox(height: 140, radius: 16),
+                    ],
+                  ),
+                ),
                 onRetry: () => ref.invalidate(signedInProfileProvider),
                 data: (person) => Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

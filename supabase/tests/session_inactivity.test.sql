@@ -1,4 +1,4 @@
--- Sessions end after 30 minutes of inactivity (2026-11-14), and the
+-- Sessions end after 15 minutes of inactivity (2026-11-15; 30 from 2026-11-14), and the
 -- database is what ends them: an idle account reads nothing and changes
 -- nothing, whatever token it holds, until it signs in again.
 
@@ -30,7 +30,7 @@ as $$
   on conflict (user_id) do update set last_active_at = excluded.last_active_at;
 $$;
 
-select is(app.inactivity_limit(), interval '30 minutes', 'a session ends after 30 minutes of inactivity');
+select is(app.inactivity_limit(), interval '15 minutes', 'a session ends after 15 minutes of inactivity');
 
 -- ------------------------------------------------- recording activity
 
@@ -57,11 +57,11 @@ select ok(
 
 -- ------------------------------------------------- an idle session
 
-select pg_temp.last_seen('u-req', interval '31 minutes');
+select pg_temp.last_seen('u-req', interval '16 minutes');
 select is(
   tests.query_with_claims(pg_temp.token('u-req', 7200), $$select app.session_alive()::text$$),
   'false',
-  'idle for 31 minutes, signed in two hours ago: the session has ended'
+  'idle for 16 minutes, signed in two hours ago: the session has ended'
 );
 select is(
   tests.query_with_claims(pg_temp.token('u-req', 7200), $$select count(*)::text from public.facilities where id in ('f-1', 'f-2')$$),
@@ -80,7 +80,7 @@ select is(
 );
 select is(
   tests.error_of('u-req', $$select public.mark_all_notifications_read()$$),
-  'Your session ended after 30 minutes of inactivity. Sign in again to continue.',
+  'Your session ended after 15 minutes of inactivity. Sign in again to continue.',
   '…saying so'
 );
 select is(
@@ -89,23 +89,23 @@ select is(
   'touching late revives nothing'
 );
 select ok(
-  (select now() - a.last_active_at > interval '30 minutes' from app.user_activity a where a.user_id = 'u-req'),
+  (select now() - a.last_active_at > interval '15 minutes' from app.user_activity a where a.user_id = 'u-req'),
   '…and the record is left as it was'
 );
 
 -- ------------------------------------------------- the boundary
 
-select pg_temp.last_seen('u-req', interval '29 minutes');
+select pg_temp.last_seen('u-req', interval '14 minutes');
 select is(
   tests.query_with_claims(pg_temp.token('u-req', 7200), $$select count(*)::text from public.facilities where id in ('f-1', 'f-2')$$),
   '2',
-  'active 29 minutes ago: still signed in'
+  'active 14 minutes ago: still signed in'
 );
-select pg_temp.last_seen('u-req', interval '30 minutes 1 second');
+select pg_temp.last_seen('u-req', interval '15 minutes 1 second');
 select is(
   tests.query_with_claims(pg_temp.token('u-req', 7200), $$select count(*)::text from public.facilities where id in ('f-1', 'f-2')$$),
   '0',
-  'active 30 minutes ago: not any more'
+  'active 15 minutes ago: not any more'
 );
 
 -- ------------------------------------------------- signing in again

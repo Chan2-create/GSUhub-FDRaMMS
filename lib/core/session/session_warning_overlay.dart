@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/session_policy.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_styles.dart';
 import 'inactivity_monitor.dart';
@@ -109,7 +110,11 @@ class _SessionWarning extends StatelessWidget {
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          'For your security, GSUhub signs you out after 30 '
+                          // From the policy, so the warning and the clock
+                          // can never name different limits again (it said
+                          // 30 here after the limit had become 15).
+                          'For your security, GSUhub signs you out after '
+                          '${SessionPolicy.inactivityLimit.inMinutes} '
                           'minutes without activity.',
                           style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.textSecondary,

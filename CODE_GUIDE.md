@@ -95,7 +95,7 @@ Database              supabase/migrations/                      tables, access r
 | Who may read and change what in the database | [`20261016130001_access_helpers.sql`](supabase/migrations/20261016130001_access_helpers.sql), [`20261016130005_row_level_security.sql`](supabase/migrations/20261016130005_row_level_security.sql); tested in [`permission_matrix.test.sql`](supabase/tests/permission_matrix.test.sql) |
 | Administrator creates accounts for others | [`firebase_account_provisioning_service.dart`](lib/core/services/firebase/firebase_account_provisioning_service.dart), database `create_account` in [`20261016145429_account_functions.sql`](supabase/migrations/20261016145429_account_functions.sql) |
 | Logout (asks first) | [`lib/core/widgets/sign_out_dialog.dart`](lib/core/widgets/sign_out_dialog.dart); console menu [`admin_profile_menu.dart`](lib/shells/admin/widgets/admin_profile_menu.dart); phone [`mobile_profile_screen.dart`](lib/features/user_management/presentation/mobile_profile_screen.dart) |
-| Session timeout: 30 minutes without activity, warned at 28 with a countdown, then signed out (web and mobile) | [`lib/core/session/`](lib/core/session/): [`session_watch.dart`](lib/core/session/session_watch.dart), [`inactivity_monitor.dart`](lib/core/session/inactivity_monitor.dart), [`session_warning_overlay.dart`](lib/core/session/session_warning_overlay.dart); the numbers in [`session_policy.dart`](lib/core/config/session_policy.dart) |
+| Session timeout: 15 minutes without activity, warned at 13 with a countdown, then signed out (web and mobile) | [`lib/core/session/`](lib/core/session/): [`session_watch.dart`](lib/core/session/session_watch.dart), [`inactivity_monitor.dart`](lib/core/session/inactivity_monitor.dart), [`session_warning_overlay.dart`](lib/core/session/session_warning_overlay.dart); the numbers in [`session_policy.dart`](lib/core/config/session_policy.dart) |
 | The database ending an idle session (what makes the timeout real) | [`20261114140451_session_inactivity.sql`](supabase/migrations/20261114140451_session_inactivity.sql) (`app.user_activity`, `touch_session`, `PT401`); the sign-in time in the token, [`handler.ts`](supabase/functions/firebase-token-exchange/handler.ts); tested in [`session_inactivity.test.sql`](supabase/tests/session_inactivity.test.sql) |
 
 ### Dashboards and analytics
@@ -326,6 +326,10 @@ A report with a geo-tag also appears on Map View
 | Page header (name, purpose line, primary action) and its button | [`page_header.dart`](lib/core/widgets/page_header.dart) |
 | Tabs on a page (Settings, Inventory Management) | [`console_tabs.dart`](lib/core/widgets/console_tabs.dart) |
 | A table row's View button and ⋮ menu (Damage Reports, Work Orders) | [`row_menu.dart`](lib/core/widgets/row_menu.dart) |
+| The logo while the app starts | [`launch_splash.dart`](lib/core/widgets/launch_splash.dart) |
+| Skeletons in place of spinners while content loads | [`skeleton.dart`](lib/core/widgets/skeleton.dart), the `loading:` of [`async_value_view.dart`](lib/core/widgets/async_value_view.dart) |
+| Press feedback on the phone's buttons | [`press_scale.dart`](lib/core/widgets/press_scale.dart) |
+| Page transitions that step aside under reduced motion | [`reduced_motion_transitions.dart`](lib/core/widgets/reduced_motion_transitions.dart) |
 | Category donut chart | [`category_donut.dart`](lib/core/widgets/category_donut.dart) |
 | Initials avatar | [`person_avatar.dart`](lib/core/widgets/person_avatar.dart) |
 | Offline banner, startup error page | [`offline_banner.dart`](lib/core/widgets/offline_banner.dart), [`startup_error_screen.dart`](lib/core/widgets/startup_error_screen.dart) |

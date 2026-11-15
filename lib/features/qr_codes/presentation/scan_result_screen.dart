@@ -9,6 +9,7 @@ import '../../../core/enums/tool_status.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../shells/personnel/personnel_shell.dart';
 import '../../accomplishment/presentation/material_sheets.dart';
 import '../../tools/data/models/tool.dart';
@@ -77,6 +78,7 @@ class ScanResultScreen extends ConsumerWidget {
       AsyncValueView<ScanMatch>(
         value: ref.watch(scanMatchProvider(code)),
         onRetry: () => ref.invalidate(scanMatchProvider(code)),
+        loading: Skeleton.cards(count: 1, height: 120, radius: 16),
         data: (match) => switch (match) {
           MaterialMatch(:final item) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

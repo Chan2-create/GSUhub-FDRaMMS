@@ -12,6 +12,7 @@ import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/quantity_format.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/async_value_view.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../../../../shells/personnel/personnel_shell.dart';
 import '../../../work_orders/data/models/work_order.dart';
 import '../../../work_orders/presentation/personnel/personnel_providers.dart';
@@ -175,7 +176,7 @@ class _MaterialRequestScreenState extends ConsumerState<MaterialRequestScreen> {
         const _Label('Pre-assigned Materials'),
         AsyncValueView<List<AllocatedMaterial>>(
           value: allocated,
-          loadingHeight: 80,
+          loading: Skeleton.cards(count: 1, height: 88, radius: 16),
           onRetry: () =>
               ref.invalidate(allocatedMaterialsProvider(widget.workOrderId)),
           data: (materials) => PersonnelCard(
@@ -291,7 +292,7 @@ class _MaterialRequestScreenState extends ConsumerState<MaterialRequestScreen> {
         const _Label('Request History'),
         AsyncValueView<List<MaterialRequest>>(
           value: requests,
-          loadingHeight: 80,
+          loading: Skeleton.cards(count: 1, height: 88, radius: 16),
           onRetry: () =>
               ref.invalidate(myMaterialRequestsProvider(widget.workOrderId)),
           data: (requests) => requests.isEmpty

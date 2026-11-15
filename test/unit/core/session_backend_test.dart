@@ -14,7 +14,7 @@ import '../../support/test_app_config.dart';
 void main() {
   const refusal = PostgrestException(
     message:
-        'Your session ended after 30 minutes of inactivity. Sign in again '
+        'Your session ended after 15 minutes of inactivity. Sign in again '
         'to continue.',
     code: 'PT401',
   );

@@ -9,6 +9,7 @@ import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../shells/personnel/personnel_shell.dart';
 import '../../tasks/presentation/widgets/task_tiles.dart';
 import '../../user_management/presentation/profile_providers.dart';
@@ -60,7 +61,27 @@ class PersonnelHomeScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           AsyncValueView<MyWork>(
             value: work,
-            loadingHeight: 300,
+            // The shape of the body to come: three tiles, then the cards.
+            loading: Skeleton(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      for (var i = 0; i < 3; i++) ...[
+                        if (i > 0) const SizedBox(width: 10),
+                        const Expanded(
+                          child: SkeletonBox(height: 84, radius: 12),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const SkeletonBox(height: 120, radius: 12),
+                  const SizedBox(height: 12),
+                  const SkeletonBox(height: 120, radius: 12),
+                ],
+              ),
+            ),
             onRetry: () => ref
               ..invalidate(myWorkOrdersProvider)
               ..invalidate(myTasksProvider),
