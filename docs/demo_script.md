@@ -69,7 +69,8 @@ Only if you present on live as well.
    it in User Accounts (⋮ → **Approve**).
 4. **Rooms, materials, tools.** Facilities & Equipment → **Add Room** for
    the rooms you will report from; Inventory Management → **Add
-   Material** (one below its minimum, to show the alert) and a tool.
+   Material** (one below its minimum, to show the alert) and, on the
+   **Tools** tab, a tool.
    Print their labels.
 5. **Settings.** Press **Save keywords**, **Save priority scoring** and
    **Save duplicate detection** once, so the stored settings are the
@@ -138,7 +139,7 @@ or **Keep separate**. Leave it, or merge to show the requestor is told.
 4. Scan `TOOL-TL-0824` → **Borrow** it for this work order.
 5. Optional: **Request Materials** asks GSU for more; the Console's
    Notifications shows *Materials requested*, and Inventory Management →
-   Material Requests approves it.
+   the **Requests** tab approves it.
 6. Scan `TOOL-TL-0824` again → **Return**.
 7. **Mark Complete**: completion notes and a photo of the finished work.
    The confirmation lists what comes off stock. **Submit**.
@@ -155,7 +156,8 @@ or **Keep separate**. Leave it, or merge to show the requestor is told.
    technician; both are told.
 5. Inventory Management: the socket plate's stock went down when the
    report was filed. A LOW STOCK material → **ORDER** records a delivery
-   and the alert clears. A tool's QR icon downloads its label.
+   and the alert clears. On the **Tools** tab, a tool’s QR icon downloads
+   its label.
 
 ### 7. The faculty member rates the work (1 min, Faculty window)
 

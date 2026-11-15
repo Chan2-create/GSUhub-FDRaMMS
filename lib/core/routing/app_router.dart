@@ -106,7 +106,11 @@ GoRouter buildAppRouter({
         ),
         GoRoute(
           path: RoutePaths.adminInventory,
-          builder: (context, state) => const InventoryScreen(),
+          builder: (context, state) => InventoryScreen(
+            initialTab: InventoryTab.fromParam(
+              state.uri.queryParameters[RoutePaths.inventoryTabParam],
+            ),
+          ),
         ),
         GoRoute(
           path: RoutePaths.adminFacilities,

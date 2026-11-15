@@ -46,6 +46,16 @@ final recentMaterialRequestsProvider =
       (ref) => ref.watch(materialRequestRepositoryProvider).watchRecent(),
     );
 
+/// How many material requests wait for review: the count on the Inventory
+/// page's Requests tab. Zero until the list loads.
+final pendingMaterialRequestCountProvider = Provider.autoDispose<int>(
+  (ref) => switch (ref.watch(recentMaterialRequestsProvider)) {
+    AsyncData(value: Success(:final value)) =>
+      value.where((request) => request.isPending).length,
+    _ => 0,
+  },
+);
+
 /// A work order's requests, for the console's work-order page.
 final workOrderMaterialRequestsProvider = StreamProvider.autoDispose
     .family<Result<List<MaterialRequest>>, String>(

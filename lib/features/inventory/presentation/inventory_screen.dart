@@ -9,6 +9,7 @@ import '../../../core/enums/tool_status.dart';
 import '../../../core/utils/quantity_format.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/console_tabs.dart';
 import '../../tools/presentation/tool_providers.dart';
 import '../../tools/presentation/tools_section.dart';
 import '../../work_orders/presentation/work_order_providers.dart';
@@ -19,33 +20,100 @@ import 'widgets/inventory_widgets.dart';
 import 'widgets/material_dialogs.dart';
 import 'widgets/request_review.dart';
 
+/// The page's three tabs, under the summary cards.
+enum InventoryTab {
+  materials('Materials', 'materials'),
+  requests('Requests', 'requests'),
+  tools('Tools', 'tools');
+
+  const InventoryTab(this.label, this.param);
+
+  final String label;
+
+  /// Its name in the page's address: `/admin/inventory?tab=requests`
+  /// opens on Requests, which is where a "Materials requested" notice
+  /// leads.
+  final String param;
+
+  /// The tab named by a `tab` query parameter, or null for none or an
+  /// unknown name.
+  static InventoryTab? fromParam(String? param) {
+    for (final tab in values) {
+      if (tab.param == param) return tab;
+    }
+    return null;
+  }
+}
+
 /// Inventory Management (Figma `200:4032`, manuscript Figure 15;
 /// Objectives 6.A–6.B).
 ///
 /// Every number and row is read live from `inventory_items`, `tools`,
 /// `tool_loans` and `material_requests`. The mockup's $142,500 / 84 / 09
 /// / 15 and its sample rows appear nowhere here.
-class InventoryScreen extends ConsumerWidget {
-  const InventoryScreen({super.key});
+///
+/// **In tabs (2026-11-15, §33).** The four summary cards, then Materials,
+/// Requests and Tools one at a time, where the three used to stack on one
+/// long scroll. Every tab stays built while another is open, so a search
+/// or a table's page survives a look at another. The Requests tab counts
+/// what waits for review.
+class InventoryScreen extends ConsumerStatefulWidget {
+  const InventoryScreen({this.initialTab, super.key});
+
+  /// The tab to open on, from the page's address; Materials when null.
+  final InventoryTab? initialTab;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
-    padding: EdgeInsets.symmetric(
-      horizontal: Breakpoints.gutter(context),
-      vertical: Breakpoints.gutter(context) * 1.5,
-    ),
-    child: const Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _StatRow(),
-        _RequestsSection(),
-        SizedBox(height: 64),
-        _MaterialsSection(),
-        SizedBox(height: 64),
-        ToolsSection(),
-      ],
-    ),
-  );
+  ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
+}
+
+class _InventoryScreenState extends ConsumerState<InventoryScreen> {
+  late InventoryTab _open = widget.initialTab ?? InventoryTab.materials;
+
+  @override
+  void didUpdateWidget(covariant InventoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new address while the page is open (a second notice, say) opens
+    // the tab it names; an address without one leaves the open tab be.
+    final asked = widget.initialTab;
+    if (asked != null && asked != oldWidget.initialTab) _open = asked;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = ref.watch(pendingMaterialRequestCountProvider);
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(
+        horizontal: Breakpoints.gutter(context),
+        vertical: Breakpoints.gutter(context) * 1.5,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _StatRow(),
+          const SizedBox(height: 32),
+          ConsoleTabBar<InventoryTab>(
+            tabs: InventoryTab.values,
+            selected: _open,
+            onSelected: (tab) => setState(() => _open = tab),
+            labelOf: (tab) => tab.label,
+            countOf: (tab) =>
+                tab == InventoryTab.requests && pending > 0 ? pending : null,
+          ),
+          const SizedBox(height: 24),
+          ConsoleTabPages<InventoryTab>(
+            tabs: InventoryTab.values,
+            open: _open,
+            pageOf: (tab) => switch (tab) {
+              InventoryTab.materials => const _MaterialsSection(),
+              InventoryTab.requests => const _RequestsSection(),
+              InventoryTab.tools => const ToolsSection(),
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // --- stat cards ---------------------------------------------------------
@@ -276,61 +344,71 @@ class _RequestsSectionState extends ConsumerState<_RequestsSection> {
       },
       _ => const <String, String>{},
     };
-
-    return switch (requests) {
-      AsyncData(value: Success(:final value)) when value.isNotEmpty => () {
-        final pending = [
-          for (final request in value)
-            if (request.isPending) request,
-        ];
-        final decided = [
-          for (final request in value)
-            if (!request.isPending) request,
-        ].take(5).toList();
-        Widget card(MaterialRequest request) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: MaterialRequestCard(
-            request: request,
-            workOrderTitle: titles[request.workOrderId],
-          ),
-        );
-        return Padding(
-          padding: const EdgeInsets.only(top: 64),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              InventorySectionHeader(
-                title: 'Material Requests',
-                actions: [
-                  if (decided.isNotEmpty)
-                    TextButton(
-                      onPressed: () =>
-                          setState(() => _showDecided = !_showDecided),
-                      child: Text(
-                        _showDecided ? 'Hide decided' : 'Show recently decided',
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              if (pending.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    'No request is waiting for review.',
-                    style: AppTextStyles.inventoryStatNote,
-                  ),
-                ),
-              for (final request in pending) card(request),
-              if (_showDecided)
-                for (final request in decided) card(request),
-            ],
-          ),
-        );
-      }(),
-      // Quiet until there is something to review: the page is Figure 15's.
-      _ => const SizedBox.shrink(),
+    final loaded = switch (requests) {
+      AsyncData(value: Success(:final value)) => value,
+      _ => const <MaterialRequest>[],
     };
+    final decided = [
+      for (final request in loaded)
+        if (!request.isPending) request,
+    ].take(5).toList();
+
+    Widget card(MaterialRequest request) => Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: MaterialRequestCard(
+        request: request,
+        workOrderTitle: titles[request.workOrderId],
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InventorySectionHeader(
+          title: 'Material Requests',
+          actions: [
+            if (decided.isNotEmpty)
+              TextButton(
+                onPressed: () => setState(() => _showDecided = !_showDecided),
+                child: Text(
+                  _showDecided ? 'Hide decided' : 'Show recently decided',
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        AsyncValueView<List<MaterialRequest>>(
+          value: requests,
+          onRetry: () => ref.invalidate(recentMaterialRequestsProvider),
+          data: (value) {
+            final pending = [
+              for (final request in value)
+                if (request.isPending) request,
+            ];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (pending.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      value.isEmpty
+                          ? 'No material has been requested yet. Technicians '
+                                'ask for materials from a work order in the '
+                                'mobile app; the requests arrive here.'
+                          : 'No request is waiting for review.',
+                      style: AppTextStyles.inventoryStatNote,
+                    ),
+                  ),
+                for (final request in pending) card(request),
+                if (_showDecided)
+                  for (final request in decided) card(request),
+              ],
+            );
+          },
+        ),
+      ],
+    );
   }
 }
 

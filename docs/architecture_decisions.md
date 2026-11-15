@@ -2141,3 +2141,48 @@ Checked in Edge at 1440, 1280, 1024, 900, 768 and 390 px, the account
 button under the pointer and the menu open (screenshots), and by
 `test/widget/admin_shell_test.dart` and
 `test/widget/responsive_console_test.dart`.
+
+## 33. Inventory Management in tabs (2026-11-15)
+
+The first of five refinements under the direction in §32 (Chris,
+2026-11-15: the Figma stays the reference; refine, do not redesign; one
+commit each). The Inventory page stacked Figure 15's two halves and the
+material requests on one scroll: the four summary cards, then Material
+Requests (only when there were any), then Consumable Materials, then
+Tool Assets & Tracking, about three screens on a laptop and far more on
+a phone. The tools table was out of sight below every material card.
+
+- **Three tabs under the cards**, Materials, Requests and Tools, one on
+  screen at a time. Each tab holds exactly the section it held before,
+  heading, controls and all: Consumable Materials with its search,
+  category filter and Add Material; Material Requests with Approve,
+  Decline and Show recently decided; Tool Assets & Tracking with Scan QR,
+  Add New Tool, the table and its pages. Nothing moved between them and
+  no button changed. The cards stay above the tabs, since they sum the
+  whole store.
+- **The Requests tab counts what waits** for review in a gold pill, so
+  the administrator sees there is something to decide without opening
+  it. The section used to hide itself when there was nothing; the tab is
+  always there, and says when nothing has been requested yet.
+- **Every tab stays built** while another is open, so a search, a
+  category filter or the table's page survives a look at another tab;
+  only the open one is laid out, painted and reachable by the keyboard
+  (`ConsoleTabPages`).
+- **The address can name the tab**: `/admin/inventory?tab=requests`
+  opens on Requests, which is where the *Materials requested* notice now
+  leads (`RoutePaths.adminInventoryTab`); a low-stock notice still opens
+  the page as it opens by default, on Materials. An unknown name opens
+  Materials.
+- **One tab component for the console.** Settings' tab row and pages
+  (§29) moved from the Settings screen to
+  `lib/core/widgets/console_tabs.dart` (`ConsoleTabBar`,
+  `ConsoleTabPages`), gained the count pill, and are what both pages use.
+  Settings looks and behaves as it did, including the gold dot for
+  unsaved edits.
+
+Checked by `test/widget/inventory_screen_test.dart` (the tabs, the count,
+what was typed surviving a switch, `?tab=`, the notice landing on
+Requests, and every earlier test on the tab its subject now lives on),
+`console_delete_test.dart`, `settings_screen_test.dart` and the page at
+every width in `responsive_console_test.dart`, and by rendering the page
+at 1440 and 390 px with the real fonts.
