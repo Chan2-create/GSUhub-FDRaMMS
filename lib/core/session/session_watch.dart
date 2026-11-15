@@ -14,7 +14,7 @@ import '../utils/result.dart';
 import 'inactivity_monitor.dart';
 
 /// Ends a sign-in that has gone unused (Chris, 2026-11-14), on the console
-/// and on both phone apps: 30 minutes without the person doing anything,
+/// and on both phone apps: 15 minutes without the person doing anything,
 /// a warning with a countdown for the last two, then signed out and back
 /// on the sign-in page, which says why.
 ///

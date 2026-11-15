@@ -24,7 +24,7 @@ which needs no global install.
 | `migrations/*_config_validation.sql` | `update_config` refuses settings the app could not read (7.A). |
 | `migrations/*_task_start_audit.sql` | The audit entry for a task started with a proof photo (7.B). |
 | `seed.sql` | Demo data. **Generated, don't edit it**: see below. |
-| `migrations/*_session_inactivity.sql` | Sessions end after 30 minutes of inactivity (2026-11-14): `app.user_activity`, `touch_session`, and `PT401` for a session that ended. |
+| `migrations/*_session_inactivity.sql` | Sessions end after 15 minutes of inactivity (2026-11-14, 30; 15 from 2026-11-15): `app.user_activity`, `touch_session`, and `PT401` for a session that ended. |
 | `tests/*.test.sql` | 778 pgTAP tests in 20 files: the permission matrix, every function allowed and refused, the stock ledger, the storage policies, the notices and the session's end. |
 | `functions/firebase-token-exchange/` | Trades a Firebase ID token for a Supabase access token. See below. |
 | `functions/tests/` | Its tests, in Deno. |
@@ -64,10 +64,10 @@ from the `users` row with that id on every request, so a deactivated
 account is locked out at once, whatever token it holds.
 
 The token also carries `auth_time`, when the person last typed their
-password. A session ends after 30 minutes of inactivity
+password. A session ends after 15 minutes of inactivity
 (`migrations/*_session_inactivity.sql`): the app records activity through
 `touch_session` while it is in use, and `app.active_role()` requires
-activity, or a sign-in, within the last 30 minutes. Past it, reads see
+activity, or a sign-in, within the last 15 minutes. Past it, reads see
 nothing and the functions refuse with `PT401`, until the person signs in
 again. **Deploy the function before pushing that migration**, so every
 token proves its sign-in time first.

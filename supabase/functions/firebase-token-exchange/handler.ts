@@ -8,7 +8,7 @@
 // account still gets a token, and the token opens nothing.
 //
 // The token also carries Firebase's `auth_time`, when the password was
-// last typed. The database ends a session idle for 30 minutes
+// last typed. The database ends a session idle for 15 minutes
 // (supabase/migrations/*_session_inactivity.sql), and a fresh sign-in is
 // how an idle account comes back: the claim is what proves one happened.
 //

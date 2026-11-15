@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/config/session_policy.dart';
 import 'package:gsuhub/core/session/inactivity_monitor.dart';
 
-/// The session's clock (2026-11-14): 30 minutes without activity, a
+/// The session's clock: 15 minutes without activity (2026-11-15; 30 before), a
 /// warning for the last two, measured against the wall clock.
 void main() {
   late DateTime now;
@@ -28,14 +28,17 @@ void main() {
     monitor.check();
   }
 
-  test('the policy: 30 minutes, warned at 28, as the database has it', () {
-    expect(SessionPolicy.inactivityLimit, const Duration(minutes: 30));
+  /// When the warning shows: 13 minutes in, two before the end.
+  final warningAt = SessionPolicy.inactivityLimit - SessionPolicy.warningBefore;
+
+  test('the policy: 15 minutes, warned at 13, as the database has it', () {
+    expect(SessionPolicy.inactivityLimit, const Duration(minutes: 15));
     expect(
       SessionPolicy.inactivityLimit - SessionPolicy.warningBefore,
-      const Duration(minutes: 28),
+      const Duration(minutes: 13),
     );
     final migration = File(
-      'supabase/migrations/20261114140451_session_inactivity.sql',
+      'supabase/migrations/20261115093218_session_inactivity_15_minutes.sql',
     ).readAsStringSync();
     expect(
       migration,
@@ -50,7 +53,7 @@ void main() {
       ),
       reason: 'and says the same number in its refusal',
     );
-    expect(SessionPolicy.endedMessage, contains('30 minutes'));
+    expect(SessionPolicy.endedMessage, contains('15 minutes'));
   });
 
   test('not watching until started, and idle for nothing then', () {
@@ -64,12 +67,12 @@ void main() {
     expect(notifications, 0);
   });
 
-  test('active for 28 minutes, warning for two, then expired', () {
+  test('active for 13 minutes, warning for two, then expired', () {
     monitor.start();
     expect(monitor.isWatching, isTrue);
     expect(monitor.lastActivity, now);
 
-    elapse(const Duration(minutes: 27, seconds: 59));
+    elapse(warningAt - const Duration(seconds: 1));
     expect(monitor.phase, SessionPhase.active);
     expect(notifications, 0, reason: 'nothing to show yet');
 
@@ -89,16 +92,16 @@ void main() {
 
   test('doing something starts the count over and clears the warning', () {
     monitor.start();
-    elapse(const Duration(minutes: 20));
+    elapse(const Duration(minutes: 10));
     monitor.touch();
-    elapse(const Duration(minutes: 20));
+    elapse(const Duration(minutes: 10));
     expect(
       monitor.phase,
       SessionPhase.active,
-      reason: '20 minutes since the touch, not 40 since the start',
+      reason: '10 minutes since the touch, not 20 since the start',
     );
 
-    elapse(const Duration(minutes: 9));
+    elapse(const Duration(minutes: 3));
     expect(monitor.phase, SessionPhase.warning);
     monitor.touch();
     expect(monitor.phase, SessionPhase.active);
@@ -115,7 +118,7 @@ void main() {
 
   test('once expired, nothing short of starting again revives it', () {
     monitor.start();
-    elapse(const Duration(minutes: 31));
+    elapse(SessionPolicy.inactivityLimit + const Duration(minutes: 1));
     monitor.touch();
     expect(monitor.phase, SessionPhase.expired);
     monitor.check();
@@ -135,7 +138,7 @@ void main() {
 
   test('stopping forgets everything', () {
     monitor.start();
-    elapse(const Duration(minutes: 29));
+    elapse(warningAt + const Duration(minutes: 1));
     expect(monitor.phase, SessionPhase.warning);
     monitor.stop();
     expect(monitor.isWatching, isFalse);
@@ -152,12 +155,12 @@ void main() {
     addTearDown(ticking.dispose);
     ticking.start();
 
-    now = now.add(const Duration(minutes: 28));
+    now = now.add(warningAt);
     expect(ticking.phase, SessionPhase.active, reason: 'not checked yet');
     await tester.pump(const Duration(seconds: 1));
     expect(ticking.phase, SessionPhase.warning);
 
-    now = now.add(const Duration(minutes: 2));
+    now = now.add(SessionPolicy.warningBefore);
     await tester.pump(const Duration(seconds: 1));
     expect(ticking.phase, SessionPhase.expired);
 

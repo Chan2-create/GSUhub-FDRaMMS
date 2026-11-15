@@ -25,7 +25,7 @@ class LoginState {
   final String? infoMessage;
 
   /// Why the person is back on the sign-in page without asking to be: the
-  /// session ended after 30 minutes of inactivity (2026-11-14). Neither an
+  /// session ended after 15 minutes of inactivity (2026-11-14). Neither an
   /// error of theirs nor good news, so it gets its own quiet banner.
   final String? sessionNotice;
 
@@ -118,7 +118,7 @@ class AuthController extends Notifier<LoginState> {
     state = const LoginState();
   }
 
-  /// Signs out a session that ended on its own, idle for 30 minutes or
+  /// Signs out a session that ended on its own, idle for 15 minutes or
   /// refused as such by the database (`SessionWatch`), and leaves the
   /// sign-in page a line saying why.
   Future<void> signOutExpired() async {
