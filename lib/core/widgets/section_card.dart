@@ -6,7 +6,7 @@ import '../constants/breakpoints.dart';
 
 /// Bordered white panel with a heading and an optional trailing action —
 /// the container shared by "Recent Reports", "Reports by Category",
-/// "Recent Activity" and "Monthly Report Volume by Building".
+/// "Recent Activity" and "Open Reports by Priority".
 class SectionCard extends StatelessWidget {
   const SectionCard({
     required this.title,

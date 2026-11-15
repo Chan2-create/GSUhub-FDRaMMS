@@ -11,13 +11,17 @@ import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/priority_chip.dart';
+import '../../../core/widgets/row_menu.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../user_management/presentation/personnel_providers.dart';
 import '../data/models/work_order.dart';
 import 'widgets/kanban_board.dart';
+import 'widgets/work_order_archive.dart';
 import 'widgets/work_order_filter_bar.dart';
+import 'work_order_controller.dart';
 import 'work_order_providers.dart';
 
 /// Work Order Management (Figma node `202:5355`, content area only).
@@ -30,15 +34,14 @@ class WorkOrdersScreen extends ConsumerWidget {
     child: const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Work Order Management', style: AppTextStyles.pageTitle),
-        SizedBox(height: 4),
-        Text(
-          'Track and manage all maintenance tasks and staff assignments.',
-          style: AppTextStyles.pageSubtitle,
+        PageHeader(
+          title: 'Work Order Management',
+          subtitle:
+              'Track and manage all maintenance tasks and staff assignments.',
         ),
-        SizedBox(height: 24),
+        SizedBox(height: PageHeader.gapBelow),
         _StatRow(),
-        SizedBox(height: 24),
+        SizedBox(height: 32),
         WorkOrderFilterBar(),
         SizedBox(height: 24),
         _Body(),
@@ -103,7 +106,7 @@ class _StatRow extends ConsumerWidget {
             : constraints.maxWidth >= 440
             ? 2
             : 1;
-        const gap = 16.0;
+        const gap = 24.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
           spacing: gap,
@@ -234,8 +237,88 @@ class _WorkOrderTable extends ConsumerWidget {
               style: AppTextStyles.tableCell,
             ),
           ),
+          const AppTableColumn(
+            label: 'Actions',
+            width: 120,
+            alignment: Alignment.centerRight,
+            cell: _RowActions.new,
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// View, then one menu with what the row can do, as on the Damage Reports
+/// table (§34). The table used to offer nothing but the number's link;
+/// the board had the moves and Archive in its cards' menus. The same
+/// moves, through the same controller, are here now.
+class _RowActions extends StatelessWidget {
+  const _RowActions(this.workOrder);
+
+  final WorkOrder workOrder;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      RowViewButton(
+        onPressed: () =>
+            context.go(RoutePaths.adminWorkOrderDetailFor(workOrder.id)),
+      ),
+      const SizedBox(width: 4),
+      _RowMenu(workOrder),
+    ],
+  );
+}
+
+enum _RowAction { start, review, archive }
+
+class _RowMenu extends ConsumerWidget {
+  const _RowMenu(this.workOrder);
+
+  final WorkOrder workOrder;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(workOrderControllerProvider);
+    final completed = workOrder.status == WorkOrderStatus.completed;
+    return RowMenuButton<_RowAction>(
+      tooltip: 'Actions for ${DisplayId.workOrder(workOrder.id)}',
+      onSelected: (action) => switch (action) {
+        _RowAction.start => controller.move(
+          context: context,
+          workOrder: workOrder,
+          to: WorkOrderStatus.inProgress,
+        ),
+        _RowAction.review => controller.review(context, workOrder),
+        _RowAction.archive => confirmWorkOrderArchive(context, workOrder),
+      },
+      items: [
+        // What the board's card menu offers in each column (Objective
+        // 7.B): pending work can start; work waiting for sign-off opens at
+        // its accomplishment report; work in progress goes for review when
+        // the technician submits the report, so it has no move here.
+        if (workOrder.status == WorkOrderStatus.pending)
+          PopupMenuItem(
+            value: _RowAction.start,
+            child: Text('Move to ${WorkOrderStatus.inProgress.title}'),
+          ),
+        if (workOrder.status == WorkOrderStatus.forReview)
+          const PopupMenuItem(
+            value: _RowAction.review,
+            child: Text('Review the accomplishment report'),
+          ),
+        // Archive, or restore, finished work (2026-11-08).
+        PopupMenuItem(
+          value: _RowAction.archive,
+          enabled: completed,
+          child: RowMenuEntry(
+            workOrder.isArchived ? 'Restore from archive' : 'Archive',
+            reason: completed ? null : 'Only completed work can be archived.',
+          ),
+        ),
+      ],
     );
   }
 }

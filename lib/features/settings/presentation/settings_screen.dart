@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/widgets/console_tabs.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../classification/presentation/keyword_settings_section.dart';
 import '../../classification/presentation/scoring_settings_section.dart';
 
@@ -73,13 +73,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Settings', style: AppTextStyles.pageTitle),
-        const SizedBox(height: 4),
-        const Text(
-          'The rules GSUhub applies to incoming damage reports.',
-          style: AppTextStyles.pageSubtitle,
+        const PageHeader(
+          title: 'Settings',
+          subtitle: 'The rules GSUhub applies to incoming damage reports.',
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: PageHeader.gapBelow),
         ConsoleTabBar<SettingsTab>(
           tabs: SettingsTab.values,
           selected: _open,

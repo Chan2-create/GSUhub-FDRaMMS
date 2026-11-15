@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
@@ -279,14 +280,19 @@ void main() {
     await app.data.addReport('rep-2', status: ReportStatus.submitted);
     await open(app, tester, RoutePaths.adminReports);
 
-    // An open report cannot be archived.
+    // An open report's menu says it cannot be archived, and why.
+    await tester.tap(find.byTooltip('Actions for #REP-2'));
+    await tester.pumpAndSettle();
     expect(
-      find.byTooltip(
-        'Only a closed, merged or rejected report can be archived.',
-      ),
+      find.text('Only a closed, merged or rejected report can be archived.'),
       findsOneWidget,
     );
-    await tester.tap(find.byTooltip('Archive this report'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Actions for #REP-1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
     await tester.pumpAndSettle();
     expect(find.text('Archive report #REP-1?'), findsOneWidget);
     await confirm(tester, 'Archive');
@@ -308,7 +314,9 @@ void main() {
     expect(find.text('#REP-1'), findsOneWidget);
     expect(find.text('#REP-2'), findsNothing);
 
-    await tester.tap(find.byTooltip('Restore this report to the list'));
+    await tester.tap(find.byTooltip('Actions for #REP-1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restore from archive'));
     await tester.pumpAndSettle();
     await confirm(tester, 'Restore');
     expect(

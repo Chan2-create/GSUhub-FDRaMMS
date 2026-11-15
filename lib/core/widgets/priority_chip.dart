@@ -50,15 +50,19 @@ class PriorityChip extends StatelessWidget {
     ),
   };
 
+  /// The one colour that marks [level] on a light surface: an outlined
+  /// chip's border and text, a chart's bar. The filled chip's text colour
+  /// for every level but CRITICAL, whose text is white on red, so there
+  /// the fill, lest it become white-on-white.
+  static Color inkFor(PriorityLevel level) {
+    final (background, foreground) = paletteFor(level);
+    return level == PriorityLevel.critical ? background : foreground;
+  }
+
   @override
   Widget build(BuildContext context) {
     final (background, foreground) = paletteFor(level);
-
-    // An outlined chip takes its colour from the level's *filled* colour so
-    // CRITICAL — white text on red — does not become white-on-white.
-    final outlineColor = level == PriorityLevel.critical
-        ? background
-        : foreground;
+    final outlineColor = inkFor(level);
 
     final chip = Container(
       padding: dense

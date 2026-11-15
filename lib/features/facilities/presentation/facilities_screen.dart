@@ -11,6 +11,7 @@ import '../../../core/utils/result.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../inventory/presentation/inventory_controller.dart';
 import '../../inventory/presentation/widgets/inventory_widgets.dart';
@@ -59,57 +60,30 @@ class FacilitiesScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.end,
-            spacing: 16,
-            runSpacing: 16,
-            children: [
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Facilities & Equipment',
-                    style: AppTextStyles.pageTitle,
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'The rooms reports are filed against, the equipment in '
-                    'them, and the codes on their stickers.',
-                    style: AppTextStyles.pageSubtitle,
-                  ),
+          PageHeader(
+            title: 'Facilities & Equipment',
+            subtitle:
+                'The rooms reports are filed against, the equipment in them, '
+                'and the codes on their stickers.',
+            action: PageActionButton(
+              outlined: true,
+              icon: const Icon(Icons.print_outlined, size: 18),
+              label: 'Print all labels',
+              onPressed: () => downloadQrLabels(
+                context,
+                ref,
+                labels: [
+                  for (final room in rooms)
+                    if (room.isActive) QrLabel.facility(room),
+                  for (final asset in equipment)
+                    if (asset.isActive)
+                      QrLabel.asset(asset, room: roomsById[asset.facilityId]),
                 ],
+                fileName: 'gsuhub-room-and-equipment-labels.pdf',
               ),
-              OutlinedButton.icon(
-                onPressed: () => downloadQrLabels(
-                  context,
-                  ref,
-                  labels: [
-                    for (final room in rooms)
-                      if (room.isActive) QrLabel.facility(room),
-                    for (final asset in equipment)
-                      if (asset.isActive)
-                        QrLabel.asset(asset, room: roomsById[asset.facilityId]),
-                  ],
-                  fileName: 'gsuhub-room-and-equipment-labels.pdf',
-                ),
-                icon: const Icon(Icons.print_outlined, size: 18),
-                label: const Text('Print all labels'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: PageHeader.gapBelow),
           SectionCard(
             title: 'Rooms',
             subtitle:

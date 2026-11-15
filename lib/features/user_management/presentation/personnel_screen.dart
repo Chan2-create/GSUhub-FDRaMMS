@@ -38,35 +38,17 @@ class PersonnelScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          heading: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Maintenance Personnel', style: AppTextStyles.pageTitle),
-              SizedBox(height: 4),
-              Text(
-                'Manage and monitor GSU maintenance staff availability '
-                'and workloads.',
-                style: AppTextStyles.pageSubtitle,
-              ),
-            ],
-          ),
-          action: FilledButton.icon(
-            onPressed: () => showCreateAccountDialog(context),
+          title: 'Maintenance Personnel',
+          subtitle:
+              'Manage and monitor GSU maintenance staff availability and '
+              'workloads.',
+          action: PageActionButton(
+            label: 'Add Personnel',
             icon: SvgPicture.asset('assets/icons/personnel_add.svg'),
-            label: const Text(
-              'Add Personnel',
-              style: AppTextStyles.primaryButtonLarge,
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
+            onPressed: () => showCreateAccountDialog(context),
           ),
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: PageHeader.gapBelow),
         const _MetricRow(),
         const SizedBox(height: 48),
         const _FilterStrip(),

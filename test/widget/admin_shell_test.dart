@@ -297,7 +297,7 @@ void main() {
       // Figma's leading title slot is an empty frame; filling it as well
       // as the section label printed "Dashboard" twice and overflowed the
       // row. One title, in the sidebar's wording.
-      expect(find.text('Dashboard'), findsNWidgets(2)); // sidebar + top bar
+      expect(find.text('Dashboard'), findsNWidgets(3)); // sidebar, bar, page
     });
 
     testWidgets(

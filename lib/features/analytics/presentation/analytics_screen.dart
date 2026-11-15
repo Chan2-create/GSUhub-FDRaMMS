@@ -6,6 +6,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/category_donut.dart';
+import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../damage_reports/presentation/report_providers.dart';
 import '../../work_orders/presentation/work_order_providers.dart';
@@ -37,8 +38,12 @@ class AnalyticsScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Analytics', style: AppTextStyles.pageTitle),
-          const SizedBox(height: 32),
+          const PageHeader(
+            title: 'Analytics',
+            subtitle:
+                'How reports, work orders and stock moved over the period.',
+          ),
+          const SizedBox(height: PageHeader.gapBelow),
           AnalyticsKpiRow(summary: summary),
           const SizedBox(height: 24),
           // The design sets the charts on a tinted panel of their own.

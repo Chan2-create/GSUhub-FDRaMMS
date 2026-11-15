@@ -46,18 +46,10 @@ class ReportMapScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           PageHeader(
-            heading: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Map View', style: AppTextStyles.pageTitle),
-                SizedBox(height: 4),
-                Text(
-                  'Where geo-tagged damage reports were filed, to help '
-                  'locate a concern on campus.',
-                  style: AppTextStyles.pageSubtitle,
-                ),
-              ],
-            ),
+            title: 'Map View',
+            subtitle:
+                'Where geo-tagged damage reports were filed, to help locate '
+                'a concern on campus.',
             action: FilterChip(
               label: const Text('Finished reports'),
               tooltip: includeFinished
@@ -67,7 +59,7 @@ class ReportMapScreen extends ConsumerWidget {
               onSelected: ref.read(mapIncludesFinishedProvider.notifier).set,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: PageHeader.gapBelow),
           AsyncValueView<ReportMapData>(
             value: ref.watch(reportMapProvider),
             loadingHeight: 320,

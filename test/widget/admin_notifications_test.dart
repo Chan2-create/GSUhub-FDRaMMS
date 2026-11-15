@@ -120,7 +120,7 @@ void main() {
 
     expect(inPage(find.text('Notifications')), findsOneWidget);
     expect(
-      inPage(find.text('System-wide notification logs and alerts')),
+      inPage(find.text('System-wide notification logs and alerts.')),
       findsOneWidget,
     );
     final titles = [

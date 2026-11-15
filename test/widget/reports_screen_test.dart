@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
@@ -292,6 +293,111 @@ void main() {
 
       expect(find.text('Showing 1 to 1 of 1 results'), findsOneWidget);
       expect(find.text('#REP-PLUMB'), findsOneWidget);
+    });
+  });
+
+  // Since 2026-11-15 (§34): View, then one menu per row, in place of the
+  // four icons, two of which were greyed out on every row; and no inert
+  // emergency card under the table.
+  group('row actions', () {
+    Future<void> openMenu(WidgetTester tester, String id) async {
+      await tester.tap(find.byTooltip('Actions for $id'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> closeMenu(WidgetTester tester) async {
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+    }
+
+    bool enabled(WidgetTester tester, String label) => tester
+        .widget<PopupMenuItem<Object?>>(
+          find.ancestor(
+            of: find.text(label),
+            matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+          ),
+        )
+        .enabled;
+
+    testWidgets('every row has View and one menu; nothing sits greyed out', (
+      tester,
+    ) async {
+      await pump(tester, [report(id: 'rep-1', title: 'Flickering Lights')]);
+
+      expect(find.widgetWithText(OutlinedButton, 'View'), findsOneWidget);
+      expect(find.byTooltip('Actions for #REP-1'), findsOneWidget);
+      expect(find.byTooltip('Assign this report'), findsNothing);
+      expect(
+        find.byTooltip('Editing a submitted report is not an admin function.'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('an approved report with its priority confirmed can be '
+        'assigned, not archived', (tester) async {
+      await pump(tester, [
+        report(
+          id: 'rep-1',
+          title: 'Flickering Lights',
+          status: ReportStatus.approved,
+          officialPriority: PriorityLevel.high,
+        ),
+      ]);
+      await openMenu(tester, '#REP-1');
+
+      expect(enabled(tester, 'Assign'), isTrue);
+      expect(enabled(tester, 'Archive'), isFalse);
+      expect(
+        find.text('Only a closed, merged or rejected report can be archived.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('until its priority is confirmed, Assign says what to do '
+        'first', (tester) async {
+      await pump(tester, [
+        report(
+          id: 'rep-1',
+          title: 'Flickering Lights',
+          status: ReportStatus.approved,
+        ),
+      ]);
+      await openMenu(tester, '#REP-1');
+
+      expect(enabled(tester, 'Assign'), isFalse);
+      expect(
+        find.textContaining(
+          'Confirm the damage type and official priority on the report page',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a submitted report has no Assign; a closed one archives', (
+      tester,
+    ) async {
+      await pump(tester, [
+        report(id: 'rep-1', title: 'Flickering Lights'),
+        report(id: 'rep-2', title: 'Cracked Wall', status: ReportStatus.closed),
+      ]);
+
+      await openMenu(tester, '#REP-1');
+      expect(find.text('Assign'), findsNothing);
+      expect(enabled(tester, 'Archive'), isFalse);
+      await closeMenu(tester);
+
+      await openMenu(tester, '#REP-2');
+      expect(enabled(tester, 'Archive'), isTrue);
+    });
+
+    testWidgets('the emergency card is gone; the campus map has the row', (
+      tester,
+    ) async {
+      await pump(tester, [report(id: 'rep-1', title: 'Flickering Lights')]);
+
+      expect(find.text('Need urgent assistance?'), findsNothing);
+      expect(find.text('Dispatch Emergency Team'), findsNothing);
+      expect(find.text('Campus View'), findsOneWidget);
     });
   });
 }

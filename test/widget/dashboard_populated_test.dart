@@ -25,6 +25,7 @@ void main() {
     required DamageCategory category,
     required ReportStatus status,
     required String facility,
+    PriorityLevel? officialPriority,
   }) => DamageReport(
     id: id,
     reporterId: 'faculty-1',
@@ -35,6 +36,7 @@ void main() {
     facilityId: facility.toLowerCase(),
     facilityName: facility,
     requestorPriority: PriorityLevel.medium,
+    officialPriority: officialPriority,
     status: status,
     submittedAt: DateTime.now().toUtc(),
     updatedAt: DateTime.now().toUtc(),
@@ -56,6 +58,8 @@ void main() {
       category: DamageCategory.plumbing,
       status: ReportStatus.assigned,
       facility: 'Science Building',
+      // The one report whose level an administrator has confirmed.
+      officialPriority: PriorityLevel.high,
     ),
     report(
       id: 'rep-0003',
@@ -146,5 +150,38 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(StatCard), findsNWidgets(4));
+  });
+
+  // "Open Reports by Priority" (§35): counted from the same reports as the
+  // cards, open ones only, confirmed levels apart from recommended ones.
+  group('open reports by priority', () {
+    testWidgets('counts each level from the open reports', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpDashboard(tester, width: 1440);
+
+      expect(find.text('Open Reports by Priority'), findsOneWidget);
+      expect(find.text('Monthly Report Volume by Building'), findsNothing);
+      // rep-0002 is High, confirmed; rep-0001 and rep-0003 are Medium by
+      // the requestor's choice; rep-0004 is completed, so not open.
+      expect(find.bySemanticsLabel('Critical: 0 open reports'), findsOneWidget);
+      expect(find.bySemanticsLabel('High: 1 open report'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(
+          'Medium: 2 open reports, 2 awaiting confirmation',
+        ),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Low: 0 open reports'), findsOneWidget);
+      expect(find.text('CONFIRMED'), findsOneWidget);
+      expect(find.text('AWAITING CONFIRMATION'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone', (tester) async {
+      await pumpDashboard(tester, width: 360);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Open Reports by Priority'), findsOneWidget);
+    });
   });
 }
