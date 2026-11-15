@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -237,31 +239,160 @@ String? validatePassword(String? value) {
   return null;
 }
 
+/// The campus photograph under the design's indigo wash.
+///
+/// The photograph is square (474 × 474: the graduates' monument, sky
+/// above, plants below) and the page is wide, so `BoxFit.cover` showed
+/// its top third at three times its size, which read as a zoomed-in
+/// blur (Chris, 2026-11-15). Now the whole photograph is drawn, as
+/// taken, as large as the page allows, its edges fading into the same
+/// picture stretched to fill and softened behind it, so the page is
+/// still full-bleed with no seam. Nothing is cropped, the monument is
+/// whole, and the upscaling is less than two to one on a laptop. It
+/// fades in on load; not under reduced motion.
 class _CampusBackdrop extends StatelessWidget {
   const _CampusBackdrop();
 
+  static const String _photo = 'assets/images/campus_background.png';
+
+  /// Width over height of [_photo]. Replace both together.
+  static const double _photoAspect = 1;
+
   @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      Opacity(
-        opacity: 0.5,
-        child: Image.asset(
-          'assets/images/campus_background.png',
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-          // The source is 474x474 and this fills a 1440-wide screen, so
-          // it is upscaled about 3x. Cubic resampling is visibly softer
-          // on the artefacts than the default bilinear, though it cannot
-          // invent detail the file does not have — see the report.
-          filterQuality: FilterQuality.high,
+  Widget build(BuildContext context) => _Reveal(
+    duration: const Duration(milliseconds: 700),
+    child: RepaintBoundary(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Opacity(
+            opacity: 0.4,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(
+                sigmaX: 28,
+                sigmaY: 28,
+                tileMode: TileMode.mirror,
+              ),
+              child: Image.asset(_photo, fit: BoxFit.cover),
+            ),
+          ),
+          Opacity(
+            opacity: 0.6,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: _photoAspect,
+                child: _FadedEdges(
+                  child: Image.asset(
+                    _photo,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // The indigo wash the design lays over the photo so white type
+          // stays legible against a busy image.
+          const ColoredBox(color: Color(0x80241597)),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Fades its child out towards all four edges, so a picture drawn
+/// smaller than the page melts into what is behind it.
+class _FadedEdges extends StatelessWidget {
+  const _FadedEdges({required this.child});
+
+  final Widget child;
+
+  static Shader _fade(Rect bounds, {required bool across}) => LinearGradient(
+    begin: across ? Alignment.centerLeft : Alignment.topCenter,
+    end: across ? Alignment.centerRight : Alignment.bottomCenter,
+    colors: const [
+      Color(0x00FFFFFF),
+      Color(0xFFFFFFFF),
+      Color(0xFFFFFFFF),
+      Color(0x00FFFFFF),
+    ],
+    stops: const [0, 0.16, 0.84, 1],
+  ).createShader(bounds);
+
+  @override
+  Widget build(BuildContext context) => ShaderMask(
+    blendMode: BlendMode.dstIn,
+    shaderCallback: (bounds) => _fade(bounds, across: true),
+    child: ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => _fade(bounds, across: false),
+      child: child,
+    ),
+  );
+}
+
+/// Fades its child in, rising a little, once, when first built: the
+/// page's entrance (Chris, 2026-11-15). Declarative, so it needs no
+/// timer and settles in tests; and nothing moves when the person has
+/// asked their system for reduced motion.
+class _Reveal extends StatelessWidget {
+  const _Reveal({
+    required this.child,
+    this.duration = const Duration(milliseconds: 500),
+    this.delay = Duration.zero,
+    this.rise = 0,
+  });
+
+  final Widget child;
+  final Duration duration;
+  final Duration delay;
+
+  /// How far below its place the child starts, in pixels.
+  final double rise;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    final total = delay + duration;
+    final start = delay.inMilliseconds / total.inMilliseconds;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: total,
+      curve: Interval(start, 1, curve: Curves.easeOutCubic),
+      child: child,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, rise * (1 - t)),
+          child: child,
         ),
       ),
-      // The indigo wash the design lays over the photo so white type
-      // stays legible against a busy image.
-      const ColoredBox(color: Color(0x80241597)),
-    ],
-  );
+    );
+  }
+}
+
+/// The gold rule along the top of the sign-in card, drawn from the left
+/// as the card settles: the brand's accent, nothing more.
+class _GoldAccent extends StatelessWidget {
+  const _GoldAccent();
+
+  @override
+  Widget build(BuildContext context) {
+    const rule = SizedBox(
+      height: 4,
+      child: ColoredBox(color: AppColors.accentGold),
+    );
+    if (MediaQuery.disableAnimationsOf(context)) return rule;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 1100),
+      curve: const Interval(0.45, 1, curve: Curves.easeOutCubic),
+      builder: (context, t, _) => Align(
+        alignment: Alignment.centerLeft,
+        child: FractionallySizedBox(widthFactor: t, child: rule),
+      ),
+    );
+  }
 }
 
 class _LogoBar extends StatelessWidget {
@@ -350,119 +481,165 @@ class _SignInCard extends StatelessWidget {
   final Future<void> Function() onForgotPassword;
 
   @override
-  Widget build(BuildContext context) => Opacity(
-    opacity: 0.8,
+  Widget build(BuildContext context) => _Reveal(
+    delay: const Duration(milliseconds: 150),
+    rise: 16,
+    // The card used to be drawn at 80% opacity as a whole, type
+    // included. Now only its fill is translucent (2026-11-15), so the
+    // words and the fields stay fully legible over the photograph.
     child: Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(5),
+        color: AppColors.surface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0x99FFFFFF)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x40000000),
-            offset: Offset(0, 4),
-            blurRadius: 4,
+            color: Color(0x2E0B1C30),
+            offset: Offset(0, 16),
+            blurRadius: 40,
+          ),
+          BoxShadow(
+            color: Color(0x1F0B1C30),
+            offset: Offset(0, 2),
+            blurRadius: 6,
           ),
         ],
       ),
-      padding: Breakpoints.isCompact(context)
-          ? const EdgeInsets.symmetric(horizontal: 24, vertical: 32)
-          : const EdgeInsets.symmetric(horizontal: 80, vertical: 56),
       child: Form(
         key: formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Welcome back!', style: AppTextStyles.loginCardTitle),
-            const SizedBox(height: 40),
-            if (state.errorMessage != null) ...[
-              _Banner(
-                message: state.errorMessage!,
-                background: AppColors.statusPendingBackground,
-                foreground: AppColors.statusPendingForeground,
-                icon: Icons.error_outline,
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (state.sessionNotice != null) ...[
-              _Banner(
-                message: state.sessionNotice!,
-                background: AppColors.statusNeutralBackground,
-                foreground: AppColors.statusNeutralForeground,
-                icon: Icons.timer_off_outlined,
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (state.infoMessage != null) ...[
-              _Banner(
-                message: state.infoMessage!,
-                background: AppColors.statusResolvedBackground,
-                foreground: AppColors.statusResolvedForeground,
-                icon: Icons.mark_email_read_outlined,
-              ),
-              const SizedBox(height: 16),
-            ],
-            _Field(
-              controller: emailController,
-              hint: 'Email',
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.username],
-              validator: validateEmail,
-              enabled: !state.isSubmitting,
-              textInputAction: TextInputAction.next,
-              onSubmitted: (_) => passwordFocus.requestFocus(),
-            ),
-            const SizedBox(height: 22),
-            _Field(
-              controller: passwordController,
-              focusNode: passwordFocus,
-              hint: 'Password',
-              obscureText: obscurePassword,
-              autofillHints: const [AutofillHints.password],
-              validator: validatePassword,
-              enabled: !state.isSubmitting,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => onSubmit(),
-              suffix: IconButton(
-                onPressed: onToggleObscure,
-                icon: Icon(
-                  obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  size: 18,
-                ),
-                tooltip: obscurePassword ? 'Show password' : 'Hide password',
-              ),
-            ),
-            const SizedBox(height: 22),
-            SizedBox(
-              height: 45,
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: state.isSubmitting ? null : onSubmit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.sidebarBackground,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5),
+            const _GoldAccent(),
+            Padding(
+              padding: Breakpoints.isCompact(context)
+                  ? const EdgeInsets.fromLTRB(24, 28, 24, 32)
+                  : const EdgeInsets.fromLTRB(80, 52, 80, 56),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Welcome back!',
+                    style: AppTextStyles.loginCardTitle,
                   ),
-                ),
-                child: state.isSubmitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.textOnDark,
-                        ),
-                      )
-                    : const Text('LOGIN', style: AppTextStyles.loginButton),
-              ),
-            ),
-            const SizedBox(height: 22),
-            TextButton(
-              onPressed: state.isSubmitting ? null : onForgotPassword,
-              child: const Text(
-                'Forget password?',
-                style: AppTextStyles.loginLink,
+                  const SizedBox(height: 40),
+                  if (state.errorMessage != null) ...[
+                    _Banner(
+                      message: state.errorMessage!,
+                      background: AppColors.statusPendingBackground,
+                      foreground: AppColors.statusPendingForeground,
+                      icon: Icons.error_outline,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (state.sessionNotice != null) ...[
+                    _Banner(
+                      message: state.sessionNotice!,
+                      background: AppColors.statusNeutralBackground,
+                      foreground: AppColors.statusNeutralForeground,
+                      icon: Icons.timer_off_outlined,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (state.infoMessage != null) ...[
+                    _Banner(
+                      message: state.infoMessage!,
+                      background: AppColors.statusResolvedBackground,
+                      foreground: AppColors.statusResolvedForeground,
+                      icon: Icons.mark_email_read_outlined,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  _Field(
+                    controller: emailController,
+                    hint: 'Email',
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.username],
+                    validator: validateEmail,
+                    enabled: !state.isSubmitting,
+                    textInputAction: TextInputAction.next,
+                    onSubmitted: (_) => passwordFocus.requestFocus(),
+                  ),
+                  const SizedBox(height: 22),
+                  _Field(
+                    controller: passwordController,
+                    focusNode: passwordFocus,
+                    hint: 'Password',
+                    obscureText: obscurePassword,
+                    autofillHints: const [AutofillHints.password],
+                    validator: validatePassword,
+                    enabled: !state.isSubmitting,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => onSubmit(),
+                    suffix: IconButton(
+                      onPressed: onToggleObscure,
+                      icon: Icon(
+                        obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 18,
+                      ),
+                      tooltip: obscurePassword
+                          ? 'Show password'
+                          : 'Hide password',
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    height: 45,
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: state.isSubmitting ? null : onSubmit,
+                      style:
+                          FilledButton.styleFrom(
+                            backgroundColor: AppColors.sidebarBackground,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            animationDuration: const Duration(
+                              milliseconds: 150,
+                            ),
+                          ).copyWith(
+                            // A touch of lift under the pointer, flat again
+                            // while pressed: feedback, not decoration.
+                            elevation: WidgetStateProperty.resolveWith(
+                              (states) =>
+                                  states.contains(WidgetState.hovered) &&
+                                      !states.contains(WidgetState.pressed)
+                                  ? 3
+                                  : 0,
+                            ),
+                          ),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 150),
+                        child: state.isSubmitting
+                            ? const SizedBox(
+                                key: ValueKey('busy'),
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.textOnDark,
+                                ),
+                              )
+                            : const Text(
+                                'LOGIN',
+                                key: ValueKey('label'),
+                                style: AppTextStyles.loginButton,
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  TextButton(
+                    onPressed: state.isSubmitting ? null : onForgotPassword,
+                    child: const Text(
+                      'Forget password?',
+                      style: AppTextStyles.loginLink,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -516,6 +693,9 @@ class _Field extends StatelessWidget {
       hintStyle: AppTextStyles.loginFieldPlaceholder,
       filled: true,
       fillColor: AppColors.surface,
+      // A faint indigo under the pointer; the border's own change to the
+      // focused colour is animated by the field itself.
+      hoverColor: const Color(0x0A241597),
       suffixIcon: suffix,
       contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
       border: _border(const Color(0x80000000)),
