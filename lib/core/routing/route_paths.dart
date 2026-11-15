@@ -39,6 +39,14 @@ abstract final class RoutePaths {
   /// Figure 15).
   static const String adminInventory = '/admin/inventory';
 
+  /// The query parameter naming which of the page's tabs to open:
+  /// `materials`, `requests` or `tools`.
+  static const String inventoryTabParam = 'tab';
+
+  /// Link to [adminInventory] open on one tab, by its name.
+  static String adminInventoryTab(String tab) =>
+      '$adminInventory?$inventoryTabParam=$tab';
+
   /// Rooms and equipment, with their QR stickers (Objective 6.C).
   static const String adminFacilities = '/admin/facilities';
 

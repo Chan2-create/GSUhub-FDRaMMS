@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
+import '../../../core/widgets/console_tabs.dart';
 import '../../classification/presentation/keyword_settings_section.dart';
 import '../../classification/presentation/scoring_settings_section.dart';
 
@@ -80,127 +80,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: AppTextStyles.pageSubtitle,
         ),
         const SizedBox(height: 20),
-        _TabRow(
-          open: _open,
-          unsaved: _unsaved,
-          onOpen: (tab) => setState(() => _open = tab),
+        ConsoleTabBar<SettingsTab>(
+          tabs: SettingsTab.values,
+          selected: _open,
+          onSelected: (tab) => setState(() => _open = tab),
+          labelOf: (tab) => tab.label,
+          markedOf: _unsaved.contains,
         ),
         const SizedBox(height: 24),
         // Every tab stays built, so its edits survive a look at another;
         // only the open one is laid out on the page.
-        for (final tab in SettingsTab.values)
-          Offstage(
-            offstage: tab != _open,
-            child: TickerMode(
-              enabled: tab == _open,
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: tab.maxWidth),
-                  child: _content(tab),
-                ),
-              ),
+        ConsoleTabPages<SettingsTab>(
+          tabs: SettingsTab.values,
+          open: _open,
+          pageOf: (tab) => Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: tab.maxWidth),
+              child: _content(tab),
             ),
           ),
+        ),
       ],
-    ),
-  );
-}
-
-/// The tabs: the open one in the brand's navy over a gold rule, as the
-/// sidebar marks where you are.
-class _TabRow extends StatelessWidget {
-  const _TabRow({
-    required this.open,
-    required this.unsaved,
-    required this.onOpen,
-  });
-
-  final SettingsTab open;
-  final Set<SettingsTab> unsaved;
-  final ValueChanged<SettingsTab> onOpen;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: AppColors.border)),
-    ),
-    // Scrolls sideways on a phone rather than squeezing three names.
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final tab in SettingsTab.values)
-            _Tab(
-              tab: tab,
-              selected: tab == open,
-              unsaved: unsaved.contains(tab),
-              onTap: () => onOpen(tab),
-            ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _Tab extends StatelessWidget {
-  const _Tab({
-    required this.tab,
-    required this.selected,
-    required this.unsaved,
-    required this.onTap,
-  });
-
-  final SettingsTab tab;
-  final bool selected;
-  final bool unsaved;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    label: unsaved ? '${tab.label}, unsaved changes' : tab.label,
-    excludeSemantics: true,
-    child: InkWell(
-      onTap: selected ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 11),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: selected ? AppColors.accentGold : Colors.transparent,
-              width: 3,
-            ),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              tab.label,
-              style: AppTextStyles.sectionTitle.copyWith(
-                color: selected ? AppColors.primary : AppColors.textSecondary,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
-            ),
-            if (unsaved) ...[
-              const SizedBox(width: 8),
-              const Tooltip(
-                message: 'Unsaved changes',
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.accentGold,
-                    shape: BoxShape.circle,
-                  ),
-                  child: SizedBox.square(dimension: 8),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
     ),
   );
 }

@@ -17,6 +17,7 @@ import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../damage_reports/data/models/damage_report.dart';
 import '../../damage_reports/presentation/report_providers.dart';
+import '../../inventory/presentation/inventory_screen.dart';
 import '../data/models/app_notification.dart';
 import 'notification_providers.dart';
 
@@ -498,7 +499,11 @@ class _NoticeRow extends ConsumerWidget {
         router.go(RoutePaths.adminReportDetailFor(id));
       case TableNames.workOrders when id != null:
         router.go(RoutePaths.adminWorkOrderDetailFor(id));
-      case TableNames.materialRequests || TableNames.inventoryItems:
+      // A request waits on the Requests tab; a low-stock notice is about a
+      // material, so the page opens on Materials as it does by default.
+      case TableNames.materialRequests:
+        router.go(RoutePaths.adminInventoryTab(InventoryTab.requests.param));
+      case TableNames.inventoryItems:
         router.go(RoutePaths.adminInventory);
       case TableNames.users:
         router.go(RoutePaths.adminUsers);

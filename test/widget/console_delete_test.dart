@@ -45,6 +45,8 @@ void main() {
       final app = await console();
       await app.data.addTool('tool-1');
       await open(app, tester, RoutePaths.adminInventory);
+      await tester.tap(find.text('Tools'));
+      await tester.pumpAndSettle();
 
       await tester.ensureVisible(find.byTooltip('Delete Fluke Multimeter'));
       await tester.tap(find.byTooltip('Delete Fluke Multimeter'));
@@ -69,6 +71,8 @@ void main() {
       final app = await console();
       await app.data.addTool('tool-1', status: ToolStatus.borrowed);
       await open(app, tester, RoutePaths.adminInventory);
+      await tester.tap(find.text('Tools'));
+      await tester.pumpAndSettle();
 
       await tester.ensureVisible(find.byTooltip('Delete Fluke Multimeter'));
       await tester.tap(find.byTooltip('Delete Fluke Multimeter'));

@@ -172,7 +172,7 @@ live in one feature.
 
 | What | Where |
 |---|---|
-| Inventory Management page (stock cards, requests, materials; hosts the tools table) | [`lib/features/inventory/presentation/inventory_screen.dart`](lib/features/inventory/presentation/inventory_screen.dart) |
+| Inventory Management page (stock cards, then the Materials, Requests and Tools tabs; `?tab=` opens one) | [`lib/features/inventory/presentation/inventory_screen.dart`](lib/features/inventory/presentation/inventory_screen.dart) |
 | Material dialogs (add, edit, delivery, stock count, history, delete) | [`widgets/material_dialogs.dart`](lib/features/inventory/presentation/widgets/material_dialogs.dart) |
 | Technicians' material requests and GSU's answers | [`personnel/material_request_screen.dart`](lib/features/inventory/presentation/personnel/material_request_screen.dart), [`widgets/request_review.dart`](lib/features/inventory/presentation/widgets/request_review.dart) |
 | Low-stock alert | `lowStockCountProvider` in [`inventory_providers.dart`](lib/features/inventory/presentation/inventory_providers.dart); the administrator's notice in [`20261020111840_admin_notifications.sql`](supabase/migrations/20261020111840_admin_notifications.sql) |
@@ -182,7 +182,7 @@ live in one feature.
 
 | What | Where |
 |---|---|
-| Tool Assets & Tracking table (on the Inventory page) and Scan QR | [`lib/features/tools/presentation/tools_section.dart`](lib/features/tools/presentation/tools_section.dart) |
+| Tool Assets & Tracking table (the Tools tab of the Inventory page) and Scan QR | [`lib/features/tools/presentation/tools_section.dart`](lib/features/tools/presentation/tools_section.dart) |
 | Tool dialogs (add, edit, check out, check in, repair, retire, details, delete) | [`widgets/tool_dialogs.dart`](lib/features/tools/presentation/widgets/tool_dialogs.dart) |
 | What the tool screens read | [`tool_providers.dart`](lib/features/tools/presentation/tool_providers.dart) |
 | Borrowing and returning from the maintenance app | [`tool_sheets.dart`](lib/features/tools/presentation/tool_sheets.dart) |
@@ -324,6 +324,7 @@ A report with a geo-tag also appears on Map View
 | Dropdowns used in filters and forms | [`filter_select.dart`](lib/core/widgets/filter_select.dart) |
 | Loading, empty and error states | [`async_value_view.dart`](lib/core/widgets/async_value_view.dart) |
 | Page title row | [`page_header.dart`](lib/core/widgets/page_header.dart) |
+| Tabs on a page (Settings, Inventory Management) | [`console_tabs.dart`](lib/core/widgets/console_tabs.dart) |
 | Category donut chart | [`category_donut.dart`](lib/core/widgets/category_donut.dart) |
 | Initials avatar | [`person_avatar.dart`](lib/core/widgets/person_avatar.dart) |
 | Offline banner, startup error page | [`offline_banner.dart`](lib/core/widgets/offline_banner.dart), [`startup_error_screen.dart`](lib/core/widgets/startup_error_screen.dart) |

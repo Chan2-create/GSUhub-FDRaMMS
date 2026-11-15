@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/table_names.dart';
+import 'package:gsuhub/core/enums/notification_type.dart';
 import 'package:gsuhub/core/enums/tool_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/features/inventory/data/models/material_line.dart';
+import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
 
 import '../support/fake_firestore_repositories.dart';
 import '../support/fake_personnel_app.dart';
+import '../support/firestore_backend/core/data/firestore_records.dart';
 
 /// The console's Inventory Management page (Objectives 6.A–6.B, Figure
 /// 15), over an in-memory Firestore: what it shows, and what each button
@@ -36,14 +39,115 @@ void main() {
     return app;
   }
 
-  Future<void> pump(PersonnelHarness app, WidgetTester tester) => app.pump(
-    tester,
-    start: RoutePaths.adminInventory,
-    size: const Size(1440, 1400),
-  );
+  Future<void> pump(
+    PersonnelHarness app,
+    WidgetTester tester, {
+    String start = RoutePaths.adminInventory,
+  }) => app.pump(tester, start: start, size: const Size(1440, 1400));
+
+  /// Opens the page's Materials, Requests or Tools tab.
+  Future<void> openTab(WidgetTester tester, String label) async {
+    await tester.tap(find.text(label));
+    await tester.pumpAndSettle();
+  }
 
   double? stock(Map<String, dynamic> item) =>
       (item['quantityAvailable'] as num?)?.toDouble();
+
+  // In tabs since 2026-11-15 (§33): the cards, then one of Materials,
+  // Requests and Tools at a time.
+  group('tabs', () {
+    testWidgets('open on Materials, with Requests and Tools a tap away', (
+      tester,
+    ) async {
+      final app = await console(tester);
+      await pump(app, tester);
+
+      expect(find.text('Consumable Materials'), findsOneWidget);
+      expect(find.text('Material Requests'), findsNothing);
+      expect(find.text('Tool Assets & Tracking'), findsNothing);
+      // The cards sum the whole store, whichever tab is open.
+      expect(find.text('Total Stock Value'), findsOneWidget);
+
+      await openTab(tester, 'Tools');
+      expect(find.text('Tool Assets & Tracking'), findsOneWidget);
+      expect(find.text('TL-0001'), findsOneWidget);
+      expect(find.text('Consumable Materials'), findsNothing);
+      expect(find.text('Total Stock Value'), findsOneWidget);
+
+      await openTab(tester, 'Requests');
+      expect(find.text('Material Requests'), findsOneWidget);
+      expect(
+        find.textContaining('No material has been requested yet.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('keep what was typed on one while another is open', (
+      tester,
+    ) async {
+      final app = await console(tester);
+      await pump(app, tester);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search materials...'),
+        'tape',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Insulation Tape'), findsOneWidget);
+      expect(find.text('LED Bulbs'), findsNothing);
+
+      await openTab(tester, 'Tools');
+      await openTab(tester, 'Materials');
+      expect(find.text('tape'), findsOneWidget);
+      expect(find.text('Insulation Tape'), findsOneWidget);
+      expect(find.text('LED Bulbs'), findsNothing);
+    });
+
+    testWidgets('the address can name the tab to open', (tester) async {
+      final app = await console(tester);
+      await pump(app, tester, start: RoutePaths.adminInventoryTab('tools'));
+
+      expect(find.text('Tool Assets & Tracking'), findsOneWidget);
+      expect(find.text('Consumable Materials'), findsNothing);
+    });
+
+    testWidgets('an unknown tab name opens Materials', (tester) async {
+      final app = await console(tester);
+      await pump(app, tester, start: RoutePaths.adminInventoryTab('loans'));
+
+      expect(find.text('Consumable Materials'), findsOneWidget);
+    });
+
+    testWidgets('a "Materials requested" notice lands on Requests', (
+      tester,
+    ) async {
+      final app = await console(tester);
+      await app.data.firestore
+          .collection(TableNames.notifications)
+          .doc('n-request')
+          .set(
+            AppNotification(
+              id: 'n-request',
+              recipientId: fakeAdministrator.uid,
+              type: NotificationType.materialsRequested,
+              title: 'Materials requested',
+              body: 'Marcus Wright asked for 4 units of LED Bulbs.',
+              isRead: false,
+              createdAt: DateTime.now(),
+              relatedEntityType: TableNames.materialRequests,
+              relatedEntityId: 'rq-1',
+            ).toFields().forFirestore,
+          );
+      await pump(app, tester, start: RoutePaths.adminNotifications);
+
+      await tester.tap(find.text('Materials requested'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Material Requests'), findsOneWidget);
+      expect(find.text('Consumable Materials'), findsNothing);
+    });
+  });
 
   testWidgets('the cards add up the stock, the alerts, the loans', (
     tester,
@@ -199,6 +303,7 @@ void main() {
   ) async {
     final app = await console(tester);
     await pump(app, tester);
+    await openTab(tester, 'Tools');
 
     await tester.ensureVisible(find.text('Check Out'));
     await tester.tap(find.text('Check Out'));
@@ -251,6 +356,9 @@ void main() {
     );
     await pump(app, tester);
 
+    // The Requests tab counts what waits, before it is opened.
+    expect(find.bySemanticsLabel('Requests (1)'), findsOneWidget);
+    await openTab(tester, 'Requests');
     expect(find.text('Material Requests'), findsOneWidget);
     expect(find.text('4 units of LED Bulbs'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
@@ -268,12 +376,15 @@ void main() {
         .get();
     expect(allocated.data()?['quantity'], 4);
     expect(find.text('No request is waiting for review.'), findsOneWidget);
+    expect(find.bySemanticsLabel('Requests (1)'), findsNothing);
+    expect(find.bySemanticsLabel('Requests'), findsOneWidget);
   });
 
   testWidgets('Scan QR opens the tool whose label was read', (tester) async {
     final app = await console(tester)
       ..nextScan = 'TOOL-TL-0001';
     await pump(app, tester);
+    await openTab(tester, 'Tools');
 
     await tester.tap(find.text('Scan QR'));
     await tester.pumpAndSettle();
@@ -286,6 +397,7 @@ void main() {
   testWidgets('a tool’s QR label downloads as a PDF', (tester) async {
     final app = await console(tester);
     await pump(app, tester);
+    await openTab(tester, 'Tools');
 
     await tester.ensureVisible(find.byTooltip('QR label for TL-0001'));
     await tester.tap(find.byTooltip('QR label for TL-0001'));
