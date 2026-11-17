@@ -83,6 +83,10 @@ abstract final class TableNames {
   /// it or to return it, and how each request ended (2026-11-16).
   static const String toolRequests = 'tool_requests';
 
+  /// The departments and faculties accounts belong to (2026-11-17), kept
+  /// by the administrator.
+  static const String departments = 'departments';
+
   /// Post-service feedback and ratings (manuscript §1.7 "Feedback and
   /// Rating System").
   static const String feedback = 'feedback';

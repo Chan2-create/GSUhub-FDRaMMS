@@ -91,11 +91,11 @@ final supabaseClientProvider = Provider<SupabaseClient>((ref) {
 final supabaseCallGuardProvider = Provider<SupabaseCallGuard>(
   (ref) => SupabaseCallGuard(
     ref.watch(appConfigProvider),
-    // The database ended the session as idle (PT401): the app signs out,
-    // whichever call the refusal came back on.
+    // The database ended the session (PT401): the app signs out,
+    // whichever call the refusal came back on, and says why.
     onFailure: (failure) {
       if (failure is SessionExpiredFailure) {
-        ref.read(inactivityMonitorProvider).expire();
+        ref.read(inactivityMonitorProvider).expire(reason: failure.reason);
       }
     },
   ),

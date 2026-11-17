@@ -21,4 +21,48 @@ abstract final class SessionPolicy {
   static const String endedMessage =
       'You were signed out after 15 minutes of inactivity. Sign in again to '
       'continue.';
+
+  /// What the sign-in page says after an administrator deactivated the
+  /// account (2026-11-17), in the brief's words.
+  static const String deactivatedMessage =
+      'Your account has been deactivated by the Administrator. You have been '
+      'logged out. If you believe this action was made in error, please '
+      "contact the GSU Administrator's Office.";
+
+  /// What the sign-in page says after an administrator changed the
+  /// account's role (2026-11-17), in the brief's words.
+  static const String roleChangedMessage =
+      'Your account role has been changed by the Administrator, and you have '
+      'been logged out. If you did not request or expect this change, please '
+      "visit the GSU Administrator's Office for clarification.";
+
+  /// What the sign-in page says after a session ended for [reason].
+  static String messageFor(SessionEndReason reason) => switch (reason) {
+    SessionEndReason.idle => endedMessage,
+    SessionEndReason.deactivated => deactivatedMessage,
+    SessionEndReason.roleChanged => roleChangedMessage,
+  };
+}
+
+/// Why a session ended without the person asking (2026-11-17). The
+/// database says which, in the refusal's hint and from `session_state`
+/// (supabase/migrations/*_account_sessions_and_departments.sql).
+enum SessionEndReason {
+  /// 15 minutes without activity.
+  idle,
+
+  /// An administrator deactivated the account.
+  deactivated,
+
+  /// An administrator changed the account's role.
+  roleChanged;
+
+  /// The reason the database names, or null for "active" or anything not
+  /// known here.
+  static SessionEndReason? fromDatabase(String? value) => switch (value) {
+    'idle' => idle,
+    'deactivated' => deactivated,
+    'roleChanged' => roleChanged,
+    _ => null,
+  };
 }

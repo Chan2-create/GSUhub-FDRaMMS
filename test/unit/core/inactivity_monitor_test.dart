@@ -134,6 +134,53 @@ void main() {
     elapse(const Duration(minutes: 5));
     monitor.expire();
     expect(monitor.phase, SessionPhase.expired);
+    expect(monitor.endReason, SessionEndReason.idle);
+  });
+
+  test('and says why: the first reason given stands, until the next '
+      'sign-in', () {
+    monitor.start();
+    monitor.expire(reason: SessionEndReason.deactivated);
+    expect(monitor.phase, SessionPhase.expired);
+    expect(monitor.endReason, SessionEndReason.deactivated);
+
+    // A refusal arriving late on another call changes nothing.
+    monitor.expire(reason: SessionEndReason.roleChanged);
+    expect(monitor.endReason, SessionEndReason.deactivated);
+
+    monitor
+      ..stop()
+      ..start();
+    expect(monitor.endReason, SessionEndReason.idle);
+  });
+
+  test('each reason has its own words on the sign-in page', () {
+    expect(
+      SessionPolicy.messageFor(SessionEndReason.deactivated),
+      'Your account has been deactivated by the Administrator. You have been '
+      'logged out. If you believe this action was made in error, please '
+      "contact the GSU Administrator's Office.",
+    );
+    expect(
+      SessionPolicy.messageFor(SessionEndReason.roleChanged),
+      'Your account role has been changed by the Administrator, and you have '
+      'been logged out. If you did not request or expect this change, please '
+      "visit the GSU Administrator's Office for clarification.",
+    );
+    expect(
+      SessionPolicy.messageFor(SessionEndReason.idle),
+      SessionPolicy.endedMessage,
+    );
+    // The database's refusals carry the same words.
+    final migration =
+        File(
+              'supabase/migrations/20261117102846_account_sessions_and_departments.sql',
+            )
+            .readAsStringSync()
+            .replaceAll("''", "'")
+            .replaceAll(RegExp(r"'\s*\|\|\s*'"), '');
+    expect(migration, contains(SessionPolicy.deactivatedMessage));
+    expect(migration, contains(SessionPolicy.roleChangedMessage));
   });
 
   test('stopping forgets everything', () {

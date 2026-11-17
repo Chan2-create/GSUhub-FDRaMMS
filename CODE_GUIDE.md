@@ -117,6 +117,9 @@ Database              supabase/migrations/                      tables, access r
 | Maintenance Personnel directory | [`personnel_screen.dart`](lib/features/user_management/presentation/personnel_screen.dart) |
 | My Profile (console) and Profile tab (phones) | [`admin_profile_screen.dart`](lib/features/user_management/presentation/admin_profile_screen.dart), [`mobile_profile_screen.dart`](lib/features/user_management/presentation/mobile_profile_screen.dart), [`widgets/profile_cards.dart`](lib/features/user_management/presentation/widgets/profile_cards.dart) |
 | The account record | [`data/models/app_user.dart`](lib/features/user_management/data/models/app_user.dart), [`data/repositories/user_repository_impl.dart`](lib/features/user_management/data/repositories/user_repository_impl.dart) |
+| Departments and faculties: the list, and Settings → Departments | [`data/models/department.dart`](lib/features/user_management/data/models/department.dart), [`data/repositories/department_repository_impl.dart`](lib/features/user_management/data/repositories/department_repository_impl.dart), [`department_providers.dart`](lib/features/user_management/presentation/department_providers.dart), [`departments_settings_section.dart`](lib/features/user_management/presentation/departments_settings_section.dart) |
+| Signing out a deactivated account or one whose role changed, with the notice | [`lib/core/session/session_watch.dart`](lib/core/session/session_watch.dart) (`checkAccount`), [`lib/core/config/session_policy.dart`](lib/core/config/session_policy.dart) (`SessionEndReason`, the messages) |
+| Account field checks and the password policy | [`lib/core/utils/account_validation.dart`](lib/core/utils/account_validation.dart) |
 | Database | `create_account`, `register_self`, `set_account_status`, `update_account` in [`20261016145429_account_functions.sql`](supabase/migrations/20261016145429_account_functions.sql); `delete_account` in [`20261108141827_console_delete_and_archive.sql`](supabase/migrations/20261108141827_console_delete_and_archive.sql) |
 
 ### Facilities and equipment (assets)
@@ -415,6 +418,7 @@ Authentication** for sign-in and **Firebase Cloud Messaging** for push.
 | [`20261114140451_session_inactivity.sql`](supabase/migrations/20261114140451_session_inactivity.sql), [`20261115093218_session_inactivity_15_minutes.sql`](supabase/migrations/20261115093218_session_inactivity_15_minutes.sql) | Ending an idle session |
 | [`20261116015224_tool_requests.sql`](supabase/migrations/20261116015224_tool_requests.sql) | Tool Check-Out and Check-In that wait for the technician's scan |
 | [`20261116115436_report_review_trail.sql`](supabase/migrations/20261116115436_report_review_trail.sql) | A review keeps what the requestor chose, records its reason, and is not saved over a newer one |
+| [`20261117102846_account_sessions_and_departments.sql`](supabase/migrations/20261117102846_account_sessions_and_departments.sql) | Deactivation and role changes end every session; the departments list; account field checks |
 
 ---
 

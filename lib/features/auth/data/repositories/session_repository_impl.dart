@@ -1,3 +1,4 @@
+import '../../../../core/config/session_policy.dart';
 import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/utils/result.dart';
 import 'session_repository.dart';
@@ -16,4 +17,11 @@ class SessionRepositoryImpl extends SupabaseRepository
   Future<Result<void>> touch() =>
       // Changes nothing a screen shows: no reason to read them all again.
       rpc('touch_session', const {}, changesData: false);
+
+  @override
+  Future<Result<SessionEndReason?>> state() async => (await rpcFor<String>(
+    'session_state',
+    const {},
+    changesData: false,
+  )).map(SessionEndReason.fromDatabase);
 }

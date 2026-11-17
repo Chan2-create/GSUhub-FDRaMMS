@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:supabase/supabase.dart';
 
+import '../config/session_policy.dart';
 import '../services/supabase/supabase_session.dart';
 import 'failures.dart';
 
@@ -86,8 +87,13 @@ abstract final class SupabaseErrorMapper {
   static Failure _fromPostgrest(PostgrestException error) {
     final code = error.code ?? '';
     return switch (code) {
-      // Idle past the limit: the database ended the session.
-      'PT401' => SessionExpiredFailure(error.message),
+      // The database ended the session: idle past the limit, or the
+      // account deactivated or its role changed (the hint says which).
+      'PT401' => SessionExpiredFailure(
+        error.message,
+        reason:
+            SessionEndReason.fromDatabase(error.hint) ?? SessionEndReason.idle,
+      ),
       'PT403' => PermissionFailure(error.message),
       'PT404' => NotFoundFailure(error.message),
       'PT409' || 'PT422' || 'P0001' => ValidationFailure(error.message),

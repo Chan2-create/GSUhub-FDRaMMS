@@ -191,8 +191,11 @@ class FirebaseAuthService implements AuthService {
               ? 'Your account is waiting for approval by the GSU '
                     'administrator. You can sign in once it has been '
                     'approved.'
-              : 'This account is not authorized to use GSUhub, or has '
-                    'been deactivated. Contact the GSU administrator.',
+              // Worded as the notice a deactivated session gets
+              // (2026-11-17), so the person hears the same thing twice.
+              : 'This account has been deactivated, or is not authorized '
+                    'to use GSUhub. If you believe this is an error, please '
+                    "contact the GSU Administrator's Office.",
         ),
       );
     }

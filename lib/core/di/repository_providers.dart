@@ -28,6 +28,8 @@ import '../../features/tasks/data/repositories/task_repository.dart';
 import '../../features/tasks/data/repositories/task_repository_impl.dart';
 import '../../features/tools/data/repositories/tool_repository.dart';
 import '../../features/tools/data/repositories/tool_repository_impl.dart';
+import '../../features/user_management/data/repositories/department_repository.dart';
+import '../../features/user_management/data/repositories/department_repository_impl.dart';
 import '../../features/user_management/data/repositories/user_repository.dart';
 import '../../features/user_management/data/repositories/user_repository_impl.dart';
 import '../../features/work_orders/data/repositories/work_order_repository.dart';
@@ -149,6 +151,15 @@ final materialAllocationRepositoryProvider =
 
 final toolRepositoryProvider = Provider<ToolRepository>(
   (ref) => ToolRepositoryImpl(
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
+    live: _liveFor(ref),
+  ),
+);
+
+/// The departments and faculties list (2026-11-17).
+final departmentRepositoryProvider = Provider<DepartmentRepository>(
+  (ref) => DepartmentRepositoryImpl(
     client: ref.watch(supabaseClientProvider),
     guard: ref.watch(supabaseCallGuardProvider),
     live: _liveFor(ref),

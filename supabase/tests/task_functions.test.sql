@@ -79,8 +79,8 @@ select is(
 );
 select is(
   tests.attempt('u-tech-off', $$select public.set_task_status('t-off', 'completed')$$),
-  'PT403',
-  'nor can a deactivated technician work their own'
+  'PT401',
+  'nor can a deactivated technician work their own: its session has ended (2026-11-17)'
 );
 select is(
   tests.attempt('u-tech', $$select public.set_task_status('t-1', 'completed')$$),

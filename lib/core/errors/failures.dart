@@ -1,3 +1,4 @@
+import '../config/session_policy.dart';
 import 'exceptions.dart';
 
 /// User-facing representation of a failed operation, returned by
@@ -39,11 +40,17 @@ final class UnknownFailure extends Failure {
   const UnknownFailure(super.message);
 }
 
-/// The sign-in ended: idle for longer than a session allows, and the
-/// database said so (PT401). `SessionWatch` signs the person out on it,
-/// wherever it surfaced.
+/// The sign-in ended, and the database said so (PT401): idle for longer
+/// than a session allows, or (2026-11-17) the account deactivated or its
+/// role changed. `SessionWatch` signs the person out on it, wherever it
+/// surfaced, and the sign-in page says [reason].
 final class SessionExpiredFailure extends Failure {
-  const SessionExpiredFailure(super.message);
+  const SessionExpiredFailure(
+    super.message, {
+    this.reason = SessionEndReason.idle,
+  });
+
+  final SessionEndReason reason;
 }
 
 /// Translates a caught [AppException] into its corresponding [Failure].

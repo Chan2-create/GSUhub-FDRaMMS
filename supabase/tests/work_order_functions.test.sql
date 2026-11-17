@@ -145,8 +145,8 @@ select is(
 );
 select is(
   tests.attempt('u-tech-off', $$select public.set_work_order_status('w-1', 'inProgress')$$),
-  'PT403',
-  'a deactivated technician moves nothing, even work assigned to them'
+  'PT401',
+  'a deactivated technician moves nothing, even work assigned to them: its session has ended (2026-11-17)'
 );
 select is(
   tests.attempt('u-req', $$select public.set_work_order_status('w-2', 'inProgress')$$),

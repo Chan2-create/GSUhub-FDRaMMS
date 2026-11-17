@@ -5,12 +5,19 @@ import '../../../core/di/repository_providers.dart';
 import '../../../core/di/service_providers.dart';
 import '../../../core/enums/account_status.dart';
 import '../../../core/enums/user_role.dart';
+import '../../../core/utils/account_validation.dart';
 import '../../../core/utils/result.dart';
 import '../../user_management/data/models/app_user.dart';
-import 'admin_login_screen.dart' show validateEmail;
 
 /// The sign-up form's fields, by name, for its per-field errors.
-enum SignUpField { fullName, email, password, confirmPassword }
+enum SignUpField {
+  fullName,
+  email,
+  department,
+  contactNumber,
+  password,
+  confirmPassword,
+}
 
 /// What the sign-up form holds besides its text: whether it is sending,
 /// the inline errors, and a failure from the server.
@@ -41,27 +48,32 @@ class SignUpController extends Notifier<SignUpState> {
   @override
   SignUpState build() => const SignUpState();
 
-  /// The shortest password accepted. Firebase allows six; eight is the
-  /// floor most guidance now gives, and the account guards reports filed
-  /// in the person's name.
-  static const int minPasswordLength = 8;
-
   /// The longest name accepted, matching the security rules.
   static const int maxNameLength = 120;
 
   /// Checks the form, and when it is complete creates the account. Returns
   /// true when the account was created.
+  ///
+  /// [departmentRequired] is whether the list has departments to choose
+  /// from: while it has none, nobody can be asked to choose one, and the
+  /// database agrees.
   Future<bool> register({
     required String fullName,
     required String email,
     required String password,
     required String confirmPassword,
+    String? department,
+    String contactNumber = '',
+    bool departmentRequired = false,
   }) async {
     final errors = validate(
       fullName: fullName,
       email: email,
       password: password,
       confirmPassword: confirmPassword,
+      department: department,
+      contactNumber: contactNumber,
+      departmentRequired: departmentRequired,
     );
     if (errors.isNotEmpty) {
       state = SignUpState(errors: errors);
@@ -73,7 +85,8 @@ class SignUpController extends Notifier<SignUpState> {
     // Lower-cased so the stored address matches the one Firebase signs in
     // with, which the rules compare it against.
     final address = email.trim().toLowerCase();
-    final name = fullName.trim();
+    final name = fullName.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final number = AccountValidation.compactNumber(contactNumber);
     final users = ref.read(userRepositoryProvider);
 
     final result = await ref
@@ -90,6 +103,8 @@ class SignUpController extends Notifier<SignUpState> {
                 email: address,
                 role: UserRole.requestor,
                 accountStatus: AccountStatus.pending,
+                department: department,
+                contactNumber: number.isEmpty ? null : number,
                 createdAt: now,
                 updatedAt: now,
               ),
@@ -117,11 +132,16 @@ class SignUpController extends Notifier<SignUpState> {
   }
 
   /// Every problem with the form, by field. Empty when it can be sent.
+  /// The database checks the same (2026-11-17), except the password, which
+  /// only the sign-in service sees and which its password policy checks.
   static Map<SignUpField, String> validate({
     required String fullName,
     required String email,
     required String password,
     required String confirmPassword,
+    String? department,
+    String contactNumber = '',
+    bool departmentRequired = false,
   }) {
     final name = fullName.trim();
     return {
@@ -130,11 +150,13 @@ class SignUpController extends Notifier<SignUpState> {
       else if (name.length > maxNameLength)
         SignUpField.fullName:
             'Keep your name to $maxNameLength characters or fewer.',
-      SignUpField.email: ?validateEmail(email),
-      if (password.isEmpty)
-        SignUpField.password: 'Choose a password.'
-      else if (password.length < minPasswordLength)
-        SignUpField.password: 'Use at least $minPasswordLength characters.',
+      SignUpField.email: ?AccountValidation.email(email),
+      if (departmentRequired && department == null)
+        SignUpField.department: 'Choose your department or faculty.',
+      SignUpField.contactNumber: ?AccountValidation.contactNumber(
+        contactNumber,
+      ),
+      SignUpField.password: ?PasswordPolicy.validate(password),
       if (confirmPassword.isEmpty)
         SignUpField.confirmPassword: 'Enter your password again.'
       else if (confirmPassword != password)

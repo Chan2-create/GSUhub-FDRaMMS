@@ -27,7 +27,8 @@ which needs no global install.
 | `migrations/*_session_inactivity.sql` | Sessions end after 15 minutes of inactivity (2026-11-14, 30; 15 from 2026-11-15): `app.user_activity`, `touch_session`, and `PT401` for a session that ended. |
 | `migrations/*_tool_requests.sql` | Tool Check-Out and Check-In wait for the technician to scan the tool (2026-11-16): `tool_requests`, the `reserved` status, the scan check, and `app.sweep_tool_requests`, run every five minutes by pg_cron (installed here when the server has it). |
 | `migrations/*_report_review_trail.sql` | A report keeps what the requestor chose (a trigger), and a review records its reason and the whole decision, is refused over a newer change, and writes nothing when sent twice (2026-11-16). |
-| `tests/*.test.sql` | 854 pgTAP tests in 22 files: the permission matrix, every function allowed and refused, the stock ledger, the storage policies, the notices, the session's end, the tool requests and the review trail. |
+| `migrations/*_account_sessions_and_departments.sql` | Deactivating an account or changing its role ends its sessions on every device (`sessions_revoked_at` against the token's `auth_time`, refused with `PT401` and the reason in the hint); `session_state()`; the `departments` list and its functions; the email, mobile number and department checks in the account functions (2026-11-17). |
+| `tests/*.test.sql` | 899 pgTAP tests in 23 files: the permission matrix, every function allowed and refused, the stock ledger, the storage policies, the notices, the session's end, the tool requests, the review trail, and the accounts' sessions and departments. |
 | `functions/firebase-token-exchange/` | Trades a Firebase ID token for a Supabase access token. See below. |
 | `functions/tests/` | Its tests, in Deno. |
 

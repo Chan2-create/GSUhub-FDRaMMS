@@ -221,16 +221,84 @@ void main() {
       await tester.tap(find.text('Edit details'));
       await tester.pumpAndSettle();
 
+      // Chosen from the list kept in Settings (2026-11-17).
+      await tester.tap(find.byKey(const ValueKey('account-department')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Faculty of Business and Management').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save changes'));
+      await tester.pumpAndSettle();
+
+      expect(
+        users.updated.single.department,
+        'Faculty of Business and Management',
+      );
+      expect(users.updated.single.email, 'faculty-1@dorsu.edu.ph');
+      expect(find.text('Saved changes to Maria Santos.'), findsOneWidget);
+    });
+
+    testWidgets('a department from before the list stays a choice, marked, '
+        'and is kept when something else is edited', (tester) async {
+      final users = await pump(tester);
+
+      await openMenuFor(tester, 'Maria Santos');
+      await tester.tap(find.text('Edit details'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CAS (not on the list)'), findsOneWidget);
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Department (optional)'),
-        'Registrar\'s Office',
+        find.widgetWithText(TextFormField, 'Full name'),
+        'Maria L. Santos',
       );
       await tester.tap(find.text('Save changes'));
       await tester.pumpAndSettle();
 
-      expect(users.updated.single.department, "Registrar's Office");
-      expect(users.updated.single.email, 'faculty-1@dorsu.edu.ph');
-      expect(find.text('Saved changes to Maria Santos.'), findsOneWidget);
+      expect(users.updated.single.department, 'CAS');
+      expect(users.updated.single.fullName, 'Maria L. Santos');
+    });
+
+    testWidgets('the mobile number is checked before saving', (tester) async {
+      final users = await pump(tester);
+
+      await openMenuFor(tester, 'Maria Santos');
+      await tester.tap(find.text('Edit details'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Mobile number (optional)'),
+        '12345',
+      );
+      await tester.tap(find.text('Save changes'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Enter a Philippine mobile number'),
+        findsOneWidget,
+      );
+      expect(users.updated, isEmpty);
+    });
+
+    testWidgets('changing a role says it signs the person out everywhere', (
+      tester,
+    ) async {
+      await pump(tester);
+
+      await openMenuFor(tester, 'Maria Santos');
+      await tester.tap(find.text('Edit details'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('out on every device'), findsNothing);
+
+      await tester.tap(find.text(UserRole.requestor.label).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(UserRole.maintenancePersonnel.label).last);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Saving signs Maria Santos out on every device. They sign in again '
+          'to use GSUhub as ${UserRole.maintenancePersonnel.label}.',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('your own role is locked in the edit form', (tester) async {

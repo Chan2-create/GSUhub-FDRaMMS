@@ -71,8 +71,8 @@ select is(
 );
 select is(
   tests.attempt('u-inactive', $$select public.rate_service('r-4', 4, 4, 4)$$),
-  'PT403',
-  'a deactivated account cannot rate'
+  'PT401',
+  'a deactivated account cannot rate: its session has ended (2026-11-17)'
 );
 
 -- ---------------------------------------------------------------- notifications
@@ -94,8 +94,8 @@ select is(
 );
 select is(
   tests.attempt('u-inactive', $$select public.mark_notification_read('n-3')$$),
-  'PT403',
-  'a deactivated account marks nothing'
+  'PT401',
+  'a deactivated account marks nothing: its session has ended'
 );
 insert into public.notifications (id, recipient_id, type, title, body) values
   ('n-4', 'u-tech', 'taskAssigned', 'New task', 'Another one.');

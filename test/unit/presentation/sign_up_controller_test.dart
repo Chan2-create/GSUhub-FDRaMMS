@@ -37,26 +37,86 @@ void main() {
   Future<bool> register({
     String fullName = '  Liza Mae Tan ',
     String email = ' Liza.Tan@DORSU.edu.ph ',
-    String password = 'correct-horse',
+    String password = 'Correct-horse1',
     String? confirm,
+    String? department = 'Faculty of Business and Management',
+    String contactNumber = '',
+    bool departmentRequired = true,
   }) => controller().register(
     fullName: fullName,
     email: email,
     password: password,
     confirmPassword: confirm ?? password,
+    department: department,
+    contactNumber: contactNumber,
+    departmentRequired: departmentRequired,
   );
 
   group('validate', () {
-    test('an empty form names every field', () {
+    test('an empty form names every required field', () {
       expect(
         SignUpController.validate(
           fullName: ' ',
           email: '',
           password: '',
           confirmPassword: '',
+          departmentRequired: true,
         ).keys,
-        unorderedEquals(SignUpField.values),
+        unorderedEquals({
+          SignUpField.fullName,
+          SignUpField.email,
+          SignUpField.department,
+          SignUpField.password,
+          SignUpField.confirmPassword,
+        }),
       );
+    });
+
+    test('a department is required only while the list has any', () {
+      Map<SignUpField, String> errors({required bool required}) =>
+          SignUpController.validate(
+            fullName: 'Liza Mae Tan',
+            email: 'liza.tan@dorsu.edu.ph',
+            password: 'Correct-horse1',
+            confirmPassword: 'Correct-horse1',
+            departmentRequired: required,
+          );
+      expect(errors(required: true), {
+        SignUpField.department: 'Choose your department or faculty.',
+      });
+      expect(errors(required: false), isEmpty);
+    });
+
+    test('a mobile number, when given, is a Philippine one', () {
+      final errors = SignUpController.validate(
+        fullName: 'Liza Mae Tan',
+        email: 'liza.tan@dorsu.edu.ph',
+        password: 'Correct-horse1',
+        confirmPassword: 'Correct-horse1',
+        contactNumber: '12345',
+      );
+      expect(errors.keys, [SignUpField.contactNumber]);
+    });
+
+    test('a password must meet every requirement', () {
+      for (final (password, missing) in [
+        ('Correcthorse1', 'a special character'),
+        ('correct-horse1', 'an uppercase letter'),
+        ('CORRECT-HORSE1', 'a lowercase letter'),
+        ('Correct-horse', 'a number'),
+        ('Co-1', 'at least 8 characters'),
+      ]) {
+        expect(
+          SignUpController.validate(
+            fullName: 'Liza Mae Tan',
+            email: 'liza.tan@dorsu.edu.ph',
+            password: password,
+            confirmPassword: password,
+          )[SignUpField.password],
+          contains(missing),
+          reason: password,
+        );
+      }
     });
 
     test('refuses a malformed email, a short password and a mismatch', () {
@@ -72,7 +132,7 @@ void main() {
         SignUpField.password,
         SignUpField.confirmPassword,
       });
-      expect(errors[SignUpField.password], contains('8 characters'));
+      expect(errors[SignUpField.password], contains('at least 8 characters'));
       expect(errors[SignUpField.confirmPassword], contains('do not match'));
     });
 
@@ -81,8 +141,8 @@ void main() {
         SignUpController.validate(
           fullName: 'Liza Mae Tan',
           email: 'liza.tan@gmail.com',
-          password: 'correct-horse',
-          confirmPassword: 'correct-horse',
+          password: 'Correct-horse1',
+          confirmPassword: 'Correct-horse1',
         ),
         isEmpty,
       );
@@ -99,7 +159,14 @@ void main() {
       expect(profile.email, 'liza.tan@dorsu.edu.ph');
       expect(profile.role, UserRole.requestor);
       expect(profile.accountStatus, AccountStatus.pending);
+      expect(profile.department, 'Faculty of Business and Management');
+      expect(profile.contactNumber, isNull);
       expect(container.read(signUpControllerProvider).errorMessage, isNull);
+    });
+
+    test('a mobile number is saved without its spaces and dashes', () async {
+      expect(await register(contactNumber: '+63 917-123 4567'), isTrue);
+      expect(users.created.single.contactNumber, '+639171234567');
     });
 
     test('an incomplete form sends nothing', () async {
