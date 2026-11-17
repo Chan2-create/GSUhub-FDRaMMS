@@ -2793,3 +2793,145 @@ Tests: `unit/core/live_sync_test.dart` (24), `unit/core/live_wiring_test.dart`
 `widget/admin_report_detail_test.dart`, `widget/report_detail_test.dart`,
 `supabase/tests/report_review_trail.test.sql` (29), and against the
 local stack `e2e/live_views_e2e_test.dart` (3).
+
+## 43. Deactivating an account, or changing its role, signs it out everywhere; departments come from a list (2026-11-17)
+
+The brief of 2026-11-17 asked for four things: a deactivated account
+signed out at once, on every device, with a notice; the same when an
+administrator changes an account's role; Create Account checked field by
+field, with a password checklist and an eye on the password; and a
+Department or Faculty chosen from a list. All of it is enforced by the
+database, as §31's session limit is.
+
+### Ending sessions
+
+What was already true: a deactivated account could not sign in again
+(the profile check at sign-in), and the database treated it as nobody
+(`app.active_role()` requires an active account). What was not: a
+person already signed in stayed on their pages, with reads quietly
+coming back empty, and a role change left the old sign-in going.
+
+The migration `20261117102846_account_sessions_and_departments.sql`:
+
+- adds `users.sessions_revoked_at` and `users.sessions_revoked_reason`.
+  Deactivating (`set_account_status`) and changing the role
+  (`update_account`) set them to now, and "deactivated" or
+  "roleChanged". A sign-in from before then is over; the token's
+  `auth_time` (when the password was typed, §31) says which side a
+  sign-in is on. That is what makes it every device at once: each
+  device's token carries its own sign-in time, and every one from before
+  the change is refused, while a sign-in afterwards works;
+- adds `app.session_end_reason()`: deactivated (the account is inactive,
+  or was deactivated after this sign-in), roleChanged, idle, or none.
+  `app.active_role()`, which every policy and function goes through,
+  now requires none, so the old role's permissions end the moment the
+  role changes, not at the next sign-in;
+- `app.require_session()` refuses with `PT401`, the reason in the
+  error's hint and the brief's words in its message; and `app.refuse`
+  turns any "you may not" (`PT403`) to a caller whose session has ended
+  into that `PT401`, so every function says why, whichever check refused
+  first;
+- `public.session_state()` says where the caller's session stands,
+  without counting as activity.
+
+Kept as before: every account, report and record (nothing is deleted),
+a reactivated account's old sessions stay ended, and a role change that
+leaves the role as it was ends nothing.
+
+The apps (one code base for the console and both phone apps):
+
+- `SessionWatch` watches the signed-in person's own `users` row, live
+  (§42's `LiveSync`; the owner can always read their own row), and asks
+  `session_state` whenever it changes. "deactivated" or "roleChanged"
+  ends the session as the idle limit does, through `InactivityMonitor`,
+  now with a `SessionEndReason`;
+- a `PT401` on any call does the same, with the reason from the hint
+  (`SupabaseErrorMapper`);
+- the sign-in page shows the reason's message (`SessionPolicy.messageFor`):
+  the brief's two messages, word for word, or the idle one. After a
+  deactivation or a role change the console goes to the plain sign-in
+  page, not back to the page it was on: that page may be none of theirs
+  now;
+- the console says what saving does: the Deactivate confirmation, and
+  the account dialog when the role is changed ("Saving signs … out on
+  every device").
+
+Faculty and staff are one role in GSUhub (`requestor`); the three roles
+are requestor, maintenance personnel and administrator.
+
+### Create Account, checked
+
+There is no username: GSUhub signs in with an email address, so the
+checks are the email, the department, the mobile number where there is
+one, and the password (`lib/core/utils/account_validation.dart`).
+
+| Field | App | Database |
+|---|---|---|
+| Email | `^[^@\s]+@[^@\s]+\.[^@\s]+$`, at most 254 | `app.check_email`, the same pattern, stored lower-cased |
+| Mobile number | `^(09\|\+639)\d{9}$` once spaces and dashes are dropped; optional | `app.check_contact_number`, the same; an account's number from before is kept until it is changed |
+| Department | one from the list, required while the list has any | `app.department_named`: an active department, stored as the list spells it; an account's department from before the list is kept until it is changed |
+| Password | `PasswordPolicy`: 8 characters, an uppercase and a lowercase letter, a number, a special character | never reaches the database; Firebase's password policy, set to the same rules (docs/manual_deploy.md) |
+
+Passwords typed to sign in are not held to the new rules: accounts made
+before them keep their passwords.
+
+On the phone, Create Account lists the requirements under the password
+once the first character is typed, each ticked off as it is met, and
+both password fields, and the phone sign-in's, have the eye the
+console's sign-in already had (same icons, same "Show password" and
+"Hide password"). The list appears with the typing because at rest the
+form has to fit the phone (2026-11-13, `auth_fit_test.dart`); with the
+department field it no longer fitted a 640px screen, so the page's
+fitting limits came down a step (spacing to 25% of the design, size to
+80%; a field is still 45px tall). For the same reason sign-up asks for
+no mobile number, which the brief did not ask for there; the console's
+account dialog has one, checked.
+
+### Departments
+
+There was no list anywhere: `users.department` was free text, and the
+live project held one value, "General Services Unit". So
+`public.departments` (name, unique whatever the case; active or
+retired), seeded by the migration from the departments accounts already
+name, and kept by the administrator in **Settings → Departments**: add,
+rename (on the accounts that name it too), retire, restore, each saved
+and audited as it is made. Anyone may read the active ones, signed in or
+not, because Create Account lists them before there is an account; the
+retired ones only administrators see. Accounts keep the department as a
+name, as before, so nothing that shows one changed (User Accounts, both
+profile pages, the faculty home's greeting).
+
+### Deploying it
+
+The database first, then the web console and the APK:
+
+    npx supabase db push --remote --dry-run
+    npx supabase db push --remote
+
+Then, in the Firebase console, **Authentication → Settings → Password
+policy**: require uppercase, lowercase, numeric and non-alphanumeric
+characters, minimum length 8, and enforce it. The app checks the same
+rules before it sends a password; this is the server's side of it.
+
+Then add DOrSU's departments and faculties in Settings → Departments.
+Until there are any besides "General Services Unit", that is the only
+choice Create Account offers.
+
+### Not done
+
+- Deleting an account (2026-11-08) does not sign out its sessions with a
+  notice: the account is simply gone, and its reads come back empty. It
+  can only be deleted when no record names it.
+- Firebase's own sign-in is not revoked (that needs its Admin SDK on a
+  server). It does not need to be: the database refuses every request
+  the old sign-in makes, and the app signs out on the first.
+
+Tests: `supabase/tests/account_sessions.test.sql` (45);
+`unit/core/account_validation_test.dart`,
+`unit/core/inactivity_monitor_test.dart`,
+`unit/core/supabase_error_mapper_test.dart`,
+`unit/presentation/sign_up_controller_test.dart`,
+`unit/repositories/supabase_contract_test.dart`;
+`widget/account_session_end_test.dart`, `widget/requestor_auth_test.dart`,
+`widget/user_accounts_screen_test.dart`,
+`widget/departments_settings_test.dart`, `widget/auth_fit_test.dart`.

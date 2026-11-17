@@ -137,13 +137,15 @@ Firestore id = Firebase Auth uid. Model: `AppUser`
 | `email` | String | ✔ | Institutional email | Fig 20 |
 | `role` | enum `UserRole` | ✔ | `requestor` / `maintenancePersonnel` / `admin` | §1.5 |
 | `accountStatus` | enum `AccountStatus` | ✔ | `active` / `inactive` / `pending`; only `active` may sign in | §1.5; `pending` **DERIVED** (3.A) |
-| `department` | String | — | Owning department | **DERIVED** |
-| `contactNumber` | String | — | Phone contact | **DERIVED** (Fig 17 shows a CONTACT INFO column, populated with email only) |
+| `department` | String | — | Owning department or faculty: a name from `departments` (2026-11-17); one stored before the list is kept until changed | **DERIVED** |
+| `contactNumber` | String | — | Phone contact: a Philippine mobile number, `09XXXXXXXXX` or `+639XXXXXXXXX`, stored without spaces or dashes (2026-11-17); one stored before the check is kept until changed | **DERIVED** (Fig 17 shows a CONTACT INFO column, populated with email only) |
 | `specialization` | enum `DamageCategory` | — | Personnel trade; drives assignment suggestions | Fig 17 |
 | `availability` | enum `PersonnelAvailability` | — | `available` / `busy` / `onLeave` | Fig 17 |
 | `activeTaskCount` | int ≥ 0 | ✔ (default 0) | **Denormalized** count of the person's open work orders (2.B; tasks do not change it — Objective 5) | Fig 17 |
 | `fcmToken` | String | — | Push delivery token | **DERIVED** (implied by §1.5 push requirement) |
 | `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | | **DERIVED** |
+| `sessionsRevokedAt` | DateTime (UTC) | — | When an administrator last ended the account's sessions, by deactivating it or changing its role; a sign-in from before is refused (2026-11-17) | **DERIVED** |
+| `sessionsRevokedReason` | `deactivated` / `roleChanged` | — | Why, for the notice the person sees when they are signed out | **DERIVED** |
 
 `accountStatus` and `availability` are deliberately separate: an account
 can be active (may sign in) while the person is on leave (must not be
@@ -167,13 +169,45 @@ change.
 A faculty or staff member who signs up from the mobile app gets a
 profile written by `UserRepository.createSelfRegistration`: `role:
 requestor`, `accountStatus: pending`, the lower-cased email they signed
-up with, no department, the personnel fields null, and `createdAt` /
-`updatedAt` as server timestamps. The security rules accept exactly that
+up with, the department they chose from `departments` (required while
+the list has any active ones; 2026-11-17), the personnel fields null,
+and `createdAt` / `updatedAt` as server timestamps. The security rules accept exactly that
 shape and nothing more (`isSelfRegistration`). No audit entry is written
 then — the rules let only active accounts write one — but approving or
 declining the request from User Accounts is audited as `statusChanged`
 ("Approved the account request of …"). A declined request becomes
 `inactive`.
+
+### Ending an account's sessions (2026-11-17)
+
+Deactivating an account (`set_account_status`) or changing its role
+(`update_account`) sets `sessionsRevokedAt` to now. From then on the
+database refuses every request made with a sign-in from before (the
+token's `auth_time`), with `PT401` and the reason in the error's hint,
+and treats the caller as nobody; `session_state()` reports the reason
+without counting as activity. The apps sign the person out with the
+reason's notice. The audit entry says the sessions were ended
+(`changes.sessionsEnded`).
+
+## departments (2026-11-17)
+
+The departments and faculties an account belongs to, kept by the
+administrator in Settings → Departments. Model: `Department`
+(`features/user_management/data/models/department.dart`).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | String | ✔ | |
+| `name` | String, 2–120 | ✔ | Unique, whatever the case |
+| `isActive` | bool | ✔ (default true) | Offered for new choices; a retired one stays on the accounts that name it |
+| `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | |
+
+Anyone may read the active ones, signed in or not (Create Account lists
+them before there is an account); administrators also see the retired
+ones. Changed only by `create_department`, `rename_department` (also on
+the accounts that name it) and `set_department_active`, administrators
+only, each audited with `entityType: departments`. The migration seeded
+it with the departments accounts already named.
 
 ## facilities
 
@@ -954,11 +988,13 @@ fresh sign-in starts a new session.
 
 | Table | Function | Who may call it |
 |---|---|---|
-| `users` | `register_self` | someone signed in with no profile yet: becomes a pending requestor under their sign-in email (3.A) |
-| | `create_account`, `update_account`, `set_account_status` | administrator; never their own role or status, never the role of someone holding work |
+| `users` | `register_self` | someone signed in with no profile yet: becomes a pending requestor under their sign-in email (3.A); a department from `departments` is required while it has active ones, and a mobile number, if given, must be a Philippine one (2026-11-17) |
+| | `create_account`, `update_account`, `set_account_status` | administrator; never their own role or status, never the role of someone holding work. The email, department and mobile number are checked as for `register_self`. Deactivating, or changing the role, ends every session the account has (2026-11-17) |
+| | `session_state` | anyone signed in: where their own session stands (`active`, `deactivated`, `roleChanged`, `idle`), without counting as activity (2026-11-17) |
 | | `set_fcm_token` | the account itself |
 | | `delete_account` | administrator; never their own, never one with open work or a tool on loan, never one any record names (deactivate that one); removes the profile and its notifications (2026-11-08) |
-| `app.user_activity` | `touch_session` | the signed-in account itself: records that it is active now, at most once a minute; refused with `PT401` once 30 idle minutes have ended the session (2026-11-14) |
+| `app.user_activity` | `touch_session` | the signed-in account itself: records that it is active now, at most once a minute; refused with `PT401` once 15 idle minutes have ended the session (2026-11-14; 15 from 2026-11-15), or an administrator has (2026-11-17) |
+| `departments` | `create_department`, `rename_department`, `set_department_active` | administrator; a name only once, whatever the case; a rename also renames it on the accounts that name it (2026-11-17) |
 | `facilities`, `assets` | `create_facility`, `update_facility`, `set_facility_active`, `create_asset`, `update_asset`, `set_asset_active` | administrator; a code is unique across rooms, equipment, materials and tools still in use |
 | | `delete_facility`, `delete_asset` | administrator, unless open reports (or, for a room, open work orders or equipment) depend on it; marks it deleted (2026-11-08) |
 | `damage_reports` | `submit_report` | an active requestor, as themselves (3.C) |

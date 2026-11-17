@@ -316,6 +316,14 @@ for you by anyone else: you sign in to each service yourself.
    Authorized domains → Add domain → `gsuhub-dorsu.vercel.app`. Without
    it, sign-in on the deployed console fails.
 2. **Enable Email/Password** in Authentication → Sign-in method.
+3. **Set the password policy** (2026-11-17) in Authentication →
+   Settings → Password policy: minimum length 8; require uppercase,
+   lowercase, numeric and non-alphanumeric characters; **Require** (not
+   only notify). These are the rules Create Account shows and checks
+   (`PasswordPolicy`, docs/architecture_decisions.md §43); this is
+   their server side, since a password never reaches the database. It
+   applies to passwords set from then on, including a reset; existing
+   passwords keep working.
 
 ### 2. Supabase: the data (Objective 1)
 
@@ -526,6 +534,15 @@ the old database:
 4. File a test report from a faculty account: it should arrive in the
    console's Notifications. Reject it afterwards.
 5. Only then, the step below: lock Firestore and Storage.
+
+The same order holds for every release since (§41, §42, §43): the
+database first, then the console, then the APK. For the account changes
+of 2026-11-17, after `db push --remote`:
+
+- set Firebase's password policy (step 1.3 above), if it is not yet;
+- add DOrSU's departments and faculties in the console, Settings →
+  Departments. The migration lists the ones accounts already name; on
+  the live project that was only "General Services Unit".
 
 ### 6. Afterwards
 
