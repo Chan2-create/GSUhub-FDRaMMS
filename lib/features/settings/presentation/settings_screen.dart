@@ -5,12 +5,16 @@ import '../../../core/widgets/console_tabs.dart';
 import '../../../core/widgets/page_header.dart';
 import '../../classification/presentation/keyword_settings_section.dart';
 import '../../classification/presentation/scoring_settings_section.dart';
+import '../../user_management/presentation/departments_settings_section.dart';
 
-/// The three things Settings holds, one tab each.
+/// The things Settings holds, one tab each.
 enum SettingsTab {
   keywords('Keywords', 1180),
   priority('Priority scoring', 900),
-  duplicates('Duplicate detection', 760);
+  duplicates('Duplicate detection', 760),
+
+  /// The departments and faculties accounts choose from (2026-11-17).
+  departments('Departments', 760);
 
   const SettingsTab(this.label, this.maxWidth);
 
@@ -65,6 +69,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     SettingsTab.duplicates => DuplicateSettingsSection(
       onUnsavedChanged: (unsaved) => _report(tab, unsaved: unsaved),
     ),
+    // Saved entry by entry: never anything unsaved to mark.
+    SettingsTab.departments => const DepartmentsSettingsSection(),
   };
 
   @override
@@ -75,7 +81,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         const PageHeader(
           title: 'Settings',
-          subtitle: 'The rules GSUhub applies to incoming damage reports.',
+          subtitle:
+              'The rules GSUhub applies to incoming damage reports, and the '
+              'departments accounts belong to.',
         ),
         const SizedBox(height: PageHeader.gapBelow),
         ConsoleTabBar<SettingsTab>(

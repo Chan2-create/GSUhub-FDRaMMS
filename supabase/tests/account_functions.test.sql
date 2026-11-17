@@ -5,6 +5,9 @@ begin;
 select tests.create_fixtures();
 select plan(34);
 
+-- The departments these tests name are on the list (2026-11-17).
+insert into public.departments (name) values ('College of Arts'), ('Library');
+
 -- ---------------------------------------------------------------- signing up
 
 select is(
@@ -118,7 +121,8 @@ select is(
   (select array[u.role, u.specialization, u.availability, a.description]
      from public.users u, public.audit_logs a
      where u.id = 'u-req' and a.entity_id = 'u-req' and a.action = 'updated'),
-  array['maintenancePersonnel', 'plumbing', 'available', 'Changed Maria Santos from End User to Maintenance'],
+  array['maintenancePersonnel', 'plumbing', 'available',
+    'Changed Maria Santos from End User to Maintenance; their sessions were ended'],
   '…gives personnel a trade and leave status, and is described as one'
 );
 select is(
@@ -158,7 +162,7 @@ select is(
 );
 select is(
   (select description from public.audit_logs where entity_id = 'u-tech2'),
-  'Deactivated the account of Juan Luna',
+  'Deactivated the account of Juan Luna; their sessions were ended',
   '…and the audit says so'
 );
 select is(
@@ -178,8 +182,8 @@ select is(
 );
 select is(
   tests.attempt('u-inactive', $$select public.set_account_status('u-inactive', 'active')$$),
-  'PT403',
-  'a deactivated account cannot reactivate itself'
+  'PT401',
+  'a deactivated account cannot reactivate itself: its session has ended (2026-11-17)'
 );
 
 -- ---------------------------------------------------------------- the push token

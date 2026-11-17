@@ -177,11 +177,17 @@ abstract class SupabaseRepository {
     return _settled(once ? guard.callOnce(run) : guard.call(run));
   }
 
-  /// A database function's answer.
-  Future<Result<R>> rpcFor<R>(String function, Map<String, Object?> params) =>
-      _settled(
-        guard.call(() async => await client.rpc<R>(function, params: params)),
-      );
+  /// A database function's answer. [changesData] is false for a question
+  /// that changes nothing (where a session stands), so nothing is read
+  /// again after it.
+  Future<Result<R>> rpcFor<R>(
+    String function,
+    Map<String, Object?> params, {
+    bool changesData = true,
+  }) => _settled(
+    guard.call(() async => await client.rpc<R>(function, params: params)),
+    changesData: changesData,
+  );
 
   /// An id like Firestore's: 20 characters from a random source. The app
   /// names some records before saving them, so photos can be filed under

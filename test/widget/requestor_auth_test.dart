@@ -103,6 +103,27 @@ void main() {
       expect(find.text('Incorrect email or password.'), findsOneWidget);
     });
 
+    testWidgets('the password field has an eye that shows and hides it', (
+      tester,
+    ) async {
+      await RequestorHarness(signedIn: null).pump(tester);
+      await tester.enterText(field('••••••••'), 'Secret#2026');
+
+      TextField password() => tester.widget<TextField>(field('••••••••'));
+      expect(password().obscureText, isTrue);
+
+      await tester.tap(find.byTooltip('Show password'));
+      await tester.pump();
+      expect(password().obscureText, isFalse);
+      expect(find.byTooltip('Hide password'), findsOneWidget);
+      // What was typed is still there, and nothing was submitted.
+      expect(password().controller!.text, 'Secret#2026');
+
+      await tester.tap(find.byTooltip('Hide password'));
+      await tester.pump();
+      expect(password().obscureText, isTrue);
+    });
+
     testWidgets('CREATE ACCOUNT opens the sign-up', (tester) async {
       await RequestorHarness(signedIn: null).pump(tester);
 
@@ -121,15 +142,27 @@ void main() {
       return app;
     }
 
+    Future<void> chooseDepartment(WidgetTester tester, String name) async {
+      final dropdown = find.byKey(const ValueKey('sign-up-department'));
+      await tester.ensureVisible(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(name).last);
+      await tester.pumpAndSettle();
+    }
+
     Future<void> fillIn(
       WidgetTester tester, {
       String name = 'Liza Mae Tan',
       String email = 'Liza.Tan@dorsu.edu.ph',
-      String password = 'correct-horse',
+      String? department = 'Faculty of Business and Management',
+      String password = 'Correct-horse1',
       String? confirm,
     }) async {
       await tester.enterText(field('e.g. Juan Dela Cruz'), name);
       await tester.enterText(field('juan.dc@dorsu.edu.ph'), email);
+      if (department != null) await chooseDepartment(tester, department);
       await tester.enterText(field('••••••••').at(0), password);
       await tester.enterText(field('••••••••').at(1), confirm ?? password);
     }
@@ -148,6 +181,7 @@ void main() {
         'Create An Account and Report',
         'FULL NAME',
         'EMAIL',
+        'DEPARTMENT / FACULTY',
         'PASSWORD',
         'CONFIRM PASSWORD',
         'REGISTER',
@@ -161,10 +195,28 @@ void main() {
     ) async {
       final app = await openSignUp(tester);
 
-      await fillIn(tester, password: 'short', confirm: 'other');
+      await fillIn(
+        tester,
+        email: 'liza@dorsu',
+        department: null,
+        password: 'short',
+        confirm: 'other',
+      );
       await register(tester);
 
-      expect(find.text('Use at least 8 characters.'), findsOneWidget);
+      expect(
+        find.text('Enter a valid email address, such as juan.dc@dorsu.edu.ph.'),
+        findsOneWidget,
+      );
+      expect(find.text('Choose your department or faculty.'), findsOneWidget);
+      expect(
+        find.text(
+          'Your password still needs: at least 8 characters, an uppercase '
+          r'letter (A–Z), a number (0–9), a special character, such as ! @ # '
+          r'$ %.',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('The passwords do not match.'), findsOneWidget);
       expect(app.auth.registered, isEmpty);
     });
@@ -181,9 +233,107 @@ void main() {
       final profile = app.users.created.single;
       expect(profile.role, UserRole.requestor);
       expect(profile.accountStatus, AccountStatus.pending);
+      expect(profile.department, 'Faculty of Business and Management');
+      expect(profile.contactNumber, isNull);
 
       expect(currentPath(tester), RoutePaths.staffLogin);
       expect(find.textContaining('must approve it'), findsOneWidget);
+    });
+
+    testWidgets('the department list is the one kept in Settings: active '
+        'ones only', (tester) async {
+      final app = await openSignUp(tester);
+      final dropdown = find.byKey(const ValueKey('sign-up-department'));
+      await tester.ensureVisible(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Faculty of Computing, Engineering and Technology').last,
+        findsOneWidget,
+      );
+      expect(find.text('General Services Unit').last, findsOneWidget);
+      expect(find.text('Old Office'), findsNothing, reason: 'retired');
+      await tester.tap(find.text('General Services Unit').last);
+      await tester.pumpAndSettle();
+
+      await fillIn(tester, department: null);
+      await register(tester);
+
+      expect(app.users.created.single.department, 'General Services Unit');
+    });
+
+    testWidgets('with no departments on the list yet, none is asked for', (
+      tester,
+    ) async {
+      final app = RequestorHarness(signedIn: null);
+      app.departments.readFailure = null;
+      for (final department in app.departments.all) {
+        await app.departments.setActive(department.id, active: false);
+      }
+      await app.pump(tester, start: RoutePaths.staffSignUp);
+
+      expect(find.text('DEPARTMENT / FACULTY'), findsNothing);
+      await fillIn(tester, department: null);
+      await register(tester);
+
+      expect(app.users.created.single.department, isNull);
+    });
+
+    testWidgets('the requirements under the password tick off as it is '
+        'typed, and both password fields have the eye', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await openSignUp(tester);
+
+      Finder met(String label) => find.bySemanticsLabel('$label: met');
+      Finder notYet(String label) => find.bySemanticsLabel('$label: not yet');
+
+      // At rest the form fits the phone; the list comes with the typing.
+      expect(notYet('At least 8 characters'), findsNothing);
+
+      await tester.enterText(field('••••••••').at(0), 'g');
+      await tester.pump();
+      expect(notYet('At least 8 characters'), findsOneWidget);
+      expect(notYet('An uppercase letter (A–Z)'), findsOneWidget);
+      expect(met('A lowercase letter (a–z)'), findsOneWidget);
+
+      await tester.enterText(field('••••••••').at(0), 'Gsuhub');
+      await tester.pump();
+      expect(notYet('At least 8 characters'), findsOneWidget);
+      expect(met('An uppercase letter (A–Z)'), findsOneWidget);
+      expect(met('A lowercase letter (a–z)'), findsOneWidget);
+      expect(notYet('A number (0–9)'), findsOneWidget);
+
+      await tester.enterText(field('••••••••').at(0), 'Gsuhub#2026');
+      await tester.pump();
+      for (final rule in [
+        'At least 8 characters',
+        'An uppercase letter (A–Z)',
+        'A lowercase letter (a–z)',
+        'A number (0–9)',
+        r'A special character, such as ! @ # $ %',
+      ]) {
+        expect(met(rule), findsOneWidget, reason: rule);
+      }
+
+      expect(find.byTooltip('Show password'), findsNWidgets(2));
+      semantics.dispose();
+    });
+
+    testWidgets('a department list that cannot be read says so, and can be '
+        'read again', (tester) async {
+      final app = RequestorHarness(signedIn: null);
+      app.departments.readFailure = const NetworkFailure('Offline.');
+      await app.pump(tester, start: RoutePaths.staffSignUp);
+
+      expect(find.text('The list could not be loaded'), findsOneWidget);
+      app.departments.readFailure = null;
+      await tester.ensureVisible(find.text('Try again'));
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose your department or faculty'), findsOneWidget);
     });
 
     testWidgets('an address already in use is reported', (tester) async {

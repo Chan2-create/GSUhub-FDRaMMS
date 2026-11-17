@@ -41,6 +41,7 @@ import 'package:gsuhub/features/tasks/data/repositories/task_repository_impl.dar
 import 'package:gsuhub/features/tools/data/models/tool_draft.dart';
 import 'package:gsuhub/features/tools/data/repositories/tool_repository_impl.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
+import 'package:gsuhub/features/user_management/data/repositories/department_repository_impl.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository_impl.dart';
 import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository_impl.dart';
 import 'package:http/http.dart' as http;
@@ -104,6 +105,14 @@ void main() {
               ? <String, dynamic>{}
               : jsonDecode(request.body) as Map<String, dynamic>;
           calls.add((function, body));
+          if (function == 'session_state') {
+            return http.Response(
+              '"active"',
+              200,
+              headers: {'content-type': 'application/json'},
+              request: request,
+            );
+          }
           final returnsId =
               function.startsWith('create_') && function != 'create_account' ||
               function == 'assign_work_order' ||
@@ -143,7 +152,14 @@ void main() {
 
   /// Every write each repository makes, called once.
   Future<void> exerciseEveryWrite() async {
-    await SessionRepositoryImpl(client: client, guard: guard).touch();
+    final sessions = SessionRepositoryImpl(client: client, guard: guard);
+    await sessions.touch();
+    await sessions.state();
+
+    final departments = DepartmentRepositoryImpl(client: client, guard: guard);
+    await departments.create('Faculty of Nursing');
+    await departments.rename('dep-1', 'Faculty of Nursing and Allied Health');
+    await departments.setActive('dep-1', active: false);
 
     final users = UserRepositoryImpl(client: client, guard: guard);
     await users.createSelfRegistration(user);
@@ -470,7 +486,7 @@ void main() {
   test('every write calls a database function that exists, with the '
       'parameters it takes', () async {
     await exerciseEveryWrite();
-    expect(calls, hasLength(60));
+    expect(calls, hasLength(64));
     for (final (function, params) in calls) {
       final signature = signatures[function];
       expect(

@@ -8,10 +8,13 @@ import '../../../../core/enums/account_status.dart';
 import '../../../../core/enums/personnel_availability.dart';
 import '../../../../core/enums/user_role.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/utils/account_validation.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/models/app_user.dart';
+import '../../data/models/department.dart';
 import '../account_controller.dart';
+import '../department_providers.dart';
 
 // The designs draw the buttons that open these — "Add Personnel", "Create
 // Maintenance Account", the row menu and pencil — but not the dialogs
@@ -91,9 +94,10 @@ Future<void> confirmStatusChange(
     ),
     (false, true) => (
       'Deactivate ${person.fullName}?',
-      'They will no longer be able to use GSUhub. Their reports and work '
-          'history stay on record, and the account can be reactivated at '
-          'any time.',
+      'They will no longer be able to use GSUhub, and are signed out at '
+          'once on every device they are using, with a notice saying why. '
+          'Their reports and work history stay on record, and the account '
+          'can be reactivated at any time.',
       'Deactivate',
       'Deactivated',
     ),
@@ -238,7 +242,9 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _email;
-  late final TextEditingController _department;
+
+  /// The department chosen from the list, or null for none.
+  String? _department;
   late final TextEditingController _contact;
   late UserRole _role;
   DamageCategory? _specialization;
@@ -255,7 +261,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
     final person = widget.existing;
     _name = TextEditingController(text: person?.fullName);
     _email = TextEditingController(text: person?.email);
-    _department = TextEditingController(text: person?.department);
+    _department = person?.department;
     _contact = TextEditingController(text: person?.contactNumber);
     _role = person?.role ?? UserRole.maintenancePersonnel;
     _specialization = person?.specialization;
@@ -266,7 +272,6 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
   void dispose() {
     _name.dispose();
     _email.dispose();
-    _department.dispose();
     _contact.dispose();
     super.dispose();
   }
@@ -287,10 +292,19 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
     return null;
   }
 
+  /// Said under the role while it is being changed: what saving does.
+  String? get _roleNotice {
+    final person = widget.existing;
+    if (person == null || _role == person.role) return null;
+    return 'Saving signs ${person.fullName} out on every device. They sign in '
+        'again to use GSUhub as ${_role.label}.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isPersonnel = _role == UserRole.maintenancePersonnel;
     final lock = _roleLock;
+    final roleNotice = _roleNotice;
 
     return AlertDialog(
       title: Text(_isEdit ? 'Edit account' : 'Create maintenance account'),
@@ -340,8 +354,13 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
                     initialValue: _role,
                     decoration: InputDecoration(
                       labelText: 'Role',
-                      helperText: lock,
-                      helperMaxLines: 2,
+                      helperText: lock ?? roleNotice,
+                      helperMaxLines: 3,
+                      helperStyle: roleNotice != null && lock == null
+                          ? AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.accountPending,
+                            )
+                          : null,
                     ),
                     items: [
                       for (final role in UserRole.values)
@@ -375,19 +394,31 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
                   ),
                 ],
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _department,
-                  decoration: const InputDecoration(
-                    labelText: 'Department (optional)',
-                  ),
+                _DepartmentSelect(
+                  value: _department,
+                  // An account from before the list keeps its department
+                  // until it is changed.
+                  current: widget.existing?.department,
+                  enabled: !_busy,
+                  onChanged: (value) => setState(() => _department = value),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _contact,
                   decoration: const InputDecoration(
-                    labelText: 'Contact number (optional)',
+                    labelText: 'Mobile number (optional)',
+                    hintText: '09XX XXX XXXX',
                   ),
                   keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    // An account's number from before the check stays
+                    // until it is changed, as the database allows.
+                    final stored = widget.existing?.contactNumber;
+                    if (stored != null && (value ?? '').trim() == stored) {
+                      return null;
+                    }
+                    return AccountValidation.contactNumber(value);
+                  },
                 ),
                 if (_isEdit && isPersonnel) ...[
                   const SizedBox(height: 8),
@@ -451,15 +482,8 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
         : stored;
   }
 
-  static String? _validateEmail(String? value) {
-    final email = (value ?? '').trim();
-    if (email.isEmpty) return 'Enter their email address.';
-    // A shape check only; the sign-in service is the real judge.
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      return 'That does not look like an email address.';
-    }
-    return null;
-  }
+  static String? _validateEmail(String? value) =>
+      AccountValidation.email(value, missing: 'Enter their email address.');
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -476,7 +500,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
         fullName: _name.text,
         email: _email.text,
         specialization: _specialization!,
-        department: _department.text,
+        department: _department,
         contactNumber: _contact.text,
       );
       if (!mounted) return;
@@ -509,7 +533,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
         email: existing.email,
         role: _role,
         accountStatus: existing.accountStatus,
-        department: _department.text,
+        department: _department,
         contactNumber: _contact.text,
         specialization: isPersonnel ? _specialization : null,
         availability: isPersonnel ? _availabilityFor(existing) : null,
@@ -537,5 +561,67 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
           _error = failure.message;
         });
     }
+  }
+}
+
+/// Department (optional): one from the list in Settings, or none
+/// (2026-11-17). [current] is the account's department as stored: one
+/// from before the list stays a choice, marked, so editing something else
+/// does not take it away.
+class _DepartmentSelect extends ConsumerWidget {
+  const _DepartmentSelect({
+    required this.value,
+    required this.onChanged,
+    this.current,
+    this.enabled = true,
+  });
+
+  final String? value;
+  final String? current;
+  final bool enabled;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final departments = ref.watch(activeDepartmentsProvider);
+    final listed = switch (departments) {
+      AsyncData(value: Success(:final value)) => value,
+      _ => const <Department>[],
+    };
+    final names = {for (final department in listed) department.name};
+    final unlisted = current != null && !names.contains(current)
+        ? current
+        : null;
+
+    return DropdownButtonFormField<String?>(
+      key: const ValueKey('account-department'),
+      isExpanded: true,
+      initialValue: value,
+      decoration: InputDecoration(
+        labelText: 'Department (optional)',
+        helperText: departments.isLoading
+            ? 'Loading the departments…'
+            : listed.isEmpty
+            ? 'No departments yet: add them in Settings → Departments.'
+            : null,
+      ),
+      items: [
+        const DropdownMenuItem<String?>(child: Text('None')),
+        for (final department in listed)
+          DropdownMenuItem(
+            value: department.name,
+            child: Text(department.name, overflow: TextOverflow.ellipsis),
+          ),
+        if (unlisted != null)
+          DropdownMenuItem(
+            value: unlisted,
+            child: Text(
+              '$unlisted (not on the list)',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      onChanged: enabled ? onChanged : null,
+    );
   }
 }

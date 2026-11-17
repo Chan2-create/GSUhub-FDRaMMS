@@ -1,3 +1,4 @@
+import 'package:gsuhub/core/config/session_policy.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/auth/data/repositories/session_repository.dart';
 
@@ -14,5 +15,18 @@ class FakeSessionRepository implements SessionRepository {
   Future<Result<void>> touch() async {
     touches++;
     return touchResult;
+  }
+
+  /// What the database says of the session when asked (2026-11-17): by
+  /// default, that it is active.
+  Result<SessionEndReason?> stateResult = const Result.success(null);
+
+  /// How many times the app asked where the session stands.
+  int stateChecks = 0;
+
+  @override
+  Future<Result<SessionEndReason?>> state() async {
+    stateChecks++;
+    return stateResult;
   }
 }

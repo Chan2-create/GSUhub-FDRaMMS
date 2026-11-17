@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/routing/route_paths.dart';
+import '../../../core/utils/result.dart';
+import '../../user_management/data/models/department.dart';
+import '../../user_management/presentation/department_providers.dart';
 import 'mobile_login_screen.dart';
 import 'sign_up_controller.dart';
 import 'widgets/mobile_auth_layout.dart';
@@ -17,6 +20,14 @@ import 'widgets/mobile_auth_layout.dart';
 /// success the person is returned to sign-in, which says so. The design's
 /// validation and its "account created" state are not drawn; both are
 /// plain, and flagged.
+///
+/// **2026-11-17:** the department or faculty, chosen from the list the
+/// administrator keeps (required while the list has any), the password's
+/// requirements ticked off as it is typed, and an eye on both password
+/// fields. Not in the design frame; drawn in the card's own style. No
+/// mobile number: the brief did not ask for one here, and the page has
+/// to fit a phone (`test/widget/auth_fit_test.dart`); an administrator
+/// adds one from User Accounts.
 class RequestorSignUpScreen extends ConsumerStatefulWidget {
   const RequestorSignUpScreen({super.key});
 
@@ -30,6 +41,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
+  String? _department;
   late final TapGestureRecognizer _loginLink = TapGestureRecognizer()
     ..onTap = () => context.go(RoutePaths.staffLogin);
 
@@ -46,6 +58,14 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
   SignUpController get _controller =>
       ref.read(signUpControllerProvider.notifier);
 
+  /// The departments to choose from, once they are known: none while
+  /// loading or when they could not be read.
+  List<Department> get _departments =>
+      switch (ref.read(activeDepartmentsProvider)) {
+        AsyncData(value: Success(:final value)) => value,
+        _ => const [],
+      };
+
   Future<void> _register() async {
     FocusScope.of(context).unfocus();
     final created = await _controller.register(
@@ -53,6 +73,8 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
       email: _email.text,
       password: _password.text,
       confirmPassword: _confirm.text,
+      department: _department,
+      departmentRequired: _departments.isNotEmpty,
     );
     if (!mounted || !created) return;
     context.go(
@@ -79,6 +101,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
       TextInputAction action = TextInputAction.next,
       TextCapitalization capitalization = TextCapitalization.none,
       ValueChanged<String>? onSubmitted,
+      Widget? below,
     }) => AuthTextField(
       label: label,
       labelStyle: AppTextStyles.signUpLabel,
@@ -94,6 +117,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
       textCapitalization: capitalization,
       onChanged: (_) => _controller.clearError(name),
       onSubmitted: onSubmitted,
+      below: below,
     );
 
     return MobileAuthLayout(
@@ -144,6 +168,17 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
               autofillHints: const [AutofillHints.email],
             ),
             const AuthGap(24),
+            _DepartmentField(
+              value: _department,
+              error: form.errors[SignUpField.department],
+              enabled: !busy,
+              onChanged: (department) {
+                setState(() => _department = department);
+                _controller.clearError(SignUpField.department);
+              },
+            ),
+            // The department field brings its own gap below, and none when
+            // there is no list to show.
             field(
               SignUpField.password,
               'PASSWORD',
@@ -151,6 +186,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
               '••••••••',
               obscure: true,
               autofillHints: const [AutofillHints.newPassword],
+              below: PasswordRequirements(controller: _password),
             ),
             const AuthGap(24),
             field(
@@ -191,6 +227,113 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// DEPARTMENT / FACULTY: the list the administrator keeps, read when the
+/// form opens (2026-11-17). Nothing to choose from yet, and the field is
+/// not shown: nobody can be asked to pick from an empty list, and the
+/// database asks for a department only once the list has one.
+class _DepartmentField extends ConsumerWidget {
+  const _DepartmentField({
+    required this.value,
+    required this.onChanged,
+    this.error,
+    this.enabled = true,
+  });
+
+  final String? value;
+  final ValueChanged<String?> onChanged;
+  final String? error;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final departments = ref.watch(activeDepartmentsProvider);
+    final (
+      List<Department> options,
+      String hint,
+      bool failed,
+    ) = switch (departments) {
+      AsyncData(value: Success(:final value)) => (
+        value,
+        'Choose your department or faculty',
+        false,
+      ),
+      AsyncData(value: Error()) || AsyncError() => (
+        const <Department>[],
+        'The list could not be loaded',
+        true,
+      ),
+      _ => (const <Department>[], 'Loading departments…', false),
+    };
+    if (departments is AsyncData && !failed && options.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Text('DEPARTMENT / FACULTY', style: AppTextStyles.signUpLabel),
+        ),
+        SizedBox(height: AuthFieldStyle.signUp.labelGap),
+        AuthFieldBox(
+          style: AuthFieldStyle.signUp,
+          hasError: error != null,
+          child: DropdownButtonHideUnderline(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AuthFieldStyle.signUp.horizontalPadding,
+              ),
+              child: DropdownButton<String>(
+                key: const ValueKey('sign-up-department'),
+                value: value,
+                isExpanded: true,
+                hint: Text(
+                  hint,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.authInput.copyWith(
+                    color: AuthFieldStyle.signUp.placeholder,
+                  ),
+                ),
+                style: AppTextStyles.authInput,
+                icon: const Icon(Icons.expand_more, color: AppColors.warmText),
+                items: [
+                  for (final department in options)
+                    DropdownMenuItem(
+                      value: department.name,
+                      child: Text(
+                        department.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: enabled && options.isNotEmpty ? onChanged : null,
+              ),
+            ),
+          ),
+        ),
+        if (failed)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => ref.invalidate(activeDepartmentsProvider),
+              child: const Text('Try again'),
+            ),
+          ),
+        if (error case final message?)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 6),
+            child: Text(
+              message,
+              style: AppTextStyles.formError.copyWith(color: AppColors.error),
+            ),
+          ),
+        const AuthGap(24),
+      ],
     );
   }
 }

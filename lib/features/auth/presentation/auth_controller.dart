@@ -118,12 +118,15 @@ class AuthController extends Notifier<LoginState> {
     state = const LoginState();
   }
 
-  /// Signs out a session that ended on its own, idle for 15 minutes or
-  /// refused as such by the database (`SessionWatch`), and leaves the
-  /// sign-in page a line saying why.
-  Future<void> signOutExpired() async {
+  /// Signs out a session that ended without the person asking
+  /// (`SessionWatch`): idle for 15 minutes, or (2026-11-17) the account
+  /// deactivated or its role changed by an administrator. Leaves the
+  /// sign-in page a line saying which.
+  Future<void> signOutExpired({
+    SessionEndReason reason = SessionEndReason.idle,
+  }) async {
     await _auth.signOut();
-    state = const LoginState(sessionNotice: SessionPolicy.endedMessage);
+    state = LoginState(sessionNotice: SessionPolicy.messageFor(reason));
   }
 
   void clearMessages() => state = LoginState(isSubmitting: state.isSubmitting);

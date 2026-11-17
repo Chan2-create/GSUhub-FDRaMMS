@@ -116,6 +116,7 @@ select is(
 
 -- ---------------------------------------------------------------- accounts
 
+insert into public.departments (name) values ('College of Arts');
 select is(
   tests.attempt_with_claims('{"sub":"u-new","role":"authenticated","email":"new@test.ph"}',
     $$select public.register_self('Pedro Reyes', 'College of Arts')$$)

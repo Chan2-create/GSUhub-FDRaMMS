@@ -74,6 +74,7 @@ class InactivityMonitor extends ChangeNotifier {
   /// Starts watching, counting from now. Signing in.
   void start() {
     _lastActivity = _clock();
+    _endReason = SessionEndReason.idle;
     _ticker ??= Timer.periodic(tick, (_) => check());
     _setPhase(SessionPhase.active);
   }
@@ -110,10 +111,19 @@ class InactivityMonitor extends ChangeNotifier {
     }
   }
 
-  /// The session ended elsewhere: the database refused it as idle. The
-  /// same as the time running out here.
-  void expire() {
+  /// Why the session ended, once [phase] is expired: idle when the time
+  /// ran out here.
+  SessionEndReason get endReason => _endReason;
+  SessionEndReason _endReason = SessionEndReason.idle;
+
+  /// The session ended elsewhere: the database refused it, as idle, or
+  /// (2026-11-17) because an administrator deactivated the account or
+  /// changed its role. Idle is the same as the time running out here.
+  void expire({SessionEndReason reason = SessionEndReason.idle}) {
     if (_lastActivity == null) return;
+    // The first reason given stands: a refusal arriving late on another
+    // call does not change what the person is told.
+    if (_phase != SessionPhase.expired) _endReason = reason;
     _setPhase(SessionPhase.expired);
   }
 

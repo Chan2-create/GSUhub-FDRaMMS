@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gsuhub/core/config/session_policy.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/errors/supabase_error_mapper.dart';
 import 'package:gsuhub/core/services/supabase/supabase_call_guard.dart';
@@ -41,6 +42,29 @@ void main() {
       expect(
         SupabaseErrorMapper.map(_postgrest('PT422')),
         isA<ValidationFailure>(),
+      );
+    });
+
+    test('an ended session says why: idle, deactivated, or a role change', () {
+      SessionExpiredFailure ended(String? hint) => SupabaseErrorMapper.map(
+        PostgrestException(
+          message: 'Your session ended.',
+          code: 'PT401',
+          hint: hint,
+        ),
+      ) as SessionExpiredFailure;
+
+      expect(ended(null).reason, SessionEndReason.idle);
+      expect(ended('idle').reason, SessionEndReason.idle);
+      expect(ended('deactivated').reason, SessionEndReason.deactivated);
+      expect(ended('roleChanged').reason, SessionEndReason.roleChanged);
+      expect(ended('something new').reason, SessionEndReason.idle);
+      expect(ended('deactivated').message, 'Your session ended.');
+      expect(
+        SupabaseErrorMapper.isRetryable(
+          const PostgrestException(message: 'x', code: 'PT401'),
+        ),
+        isFalse,
       );
     });
 

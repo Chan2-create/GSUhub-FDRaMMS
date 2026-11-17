@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
+import '../../../../core/utils/account_validation.dart';
 import '../../../../core/widgets/press_scale.dart';
 
 /// What the faculty and staff sign-in and sign-up pages share (Figma
@@ -68,10 +69,15 @@ class _MobileAuthLayoutState extends State<MobileAuthLayout> {
   final _content = GlobalKey();
 
   /// Spacing is never tightened past this share of the design's.
-  static const double _minDensity = 0.35;
+  ///
+  /// 0.35 until 2026-11-17, when Create Account gained the department
+  /// field and no longer fitted a 640px phone; both limits came down a
+  /// step. A field is still 45px tall at the smallest, a tap target's
+  /// height.
+  static const double _minDensity = 0.25;
 
-  /// The page is never made smaller than this.
-  static const double _minScale = 0.85;
+  /// The page is never made smaller than this (0.85 until 2026-11-17).
+  static const double _minScale = 0.8;
 
   /// Fits the page to a screen [viewport] tall, from what was just laid
   /// out: its height, and how much of that height is spacing.
@@ -290,7 +296,12 @@ class _RenderAuthGap extends RenderProxyBox {
 /// A labelled input on either card. The two cards draw their boxes
 /// differently — sign-in raised on a shadow, sign-up outlined — so the
 /// look comes in through [style].
-class AuthTextField extends StatelessWidget {
+///
+/// A password field ([obscure]) has an eye at its end that shows and
+/// hides what was typed (2026-11-17), as the console's sign-in does: the
+/// same icons, the same tooltips. It is a button of its own beside the
+/// text, so it neither takes the typing nor submits the form.
+class AuthTextField extends StatefulWidget {
   const AuthTextField({
     required this.label,
     required this.labelStyle,
@@ -307,6 +318,7 @@ class AuthTextField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.enabled = true,
+    this.below,
   });
 
   final String label;
@@ -315,6 +327,8 @@ class AuthTextField extends StatelessWidget {
   final String hint;
   final AuthFieldStyle style;
   final String? error;
+
+  /// A password: hidden as typed, with the eye to show it.
   final bool obscure;
   final TextInputType? keyboardType;
   final Iterable<String>? autofillHints;
@@ -324,73 +338,204 @@ class AuthTextField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final bool enabled;
 
+  /// Shown under the box, above any error: the password requirements.
+  final Widget? below;
+
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Padding(
-        padding: const EdgeInsets.only(left: 4),
-        child: Text(label, style: labelStyle),
-      ),
-      SizedBox(height: style.labelGap),
-      DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.authInputFill,
-          borderRadius: BorderRadius.circular(12),
-          border: style.border == null
-              ? null
-              : Border.all(
-                  color: error == null ? style.border! : AppColors.error,
-                ),
-          boxShadow: style.raised
-              ? const [
-                  BoxShadow(
-                    color: Color(0x2E1E1B4B),
-                    blurRadius: 6,
-                    offset: Offset(0, 3),
-                  ),
-                ]
-              : null,
+  State<AuthTextField> createState() => _AuthTextFieldState();
+}
+
+class _AuthTextFieldState extends State<AuthTextField> {
+  /// Whether a password is hidden right now.
+  bool _hidden = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = widget.style;
+    final error = widget.error;
+    final hidden = widget.obscure && _hidden;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Text(widget.label, style: widget.labelStyle),
         ),
-        child: SizedBox(
-          height: style.height,
-          child: Center(
-            child: TextField(
-              controller: controller,
-              enabled: enabled,
-              obscureText: obscure,
-              keyboardType: keyboardType,
-              autofillHints: autofillHints,
-              textInputAction: textInputAction,
-              textCapitalization: textCapitalization,
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              style: AppTextStyles.authInput,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: AppTextStyles.authInput.copyWith(
-                  color: style.placeholder,
-                ),
-                border: InputBorder.none,
-                isCollapsed: true,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: style.horizontalPadding,
-                ),
+        SizedBox(height: style.labelGap),
+        AuthFieldBox(
+          style: style,
+          hasError: error != null,
+          child: TextField(
+            controller: widget.controller,
+            enabled: widget.enabled,
+            obscureText: hidden,
+            enableSuggestions: !widget.obscure,
+            autocorrect: !widget.obscure,
+            keyboardType: widget.keyboardType,
+            autofillHints: widget.autofillHints,
+            textInputAction: widget.textInputAction,
+            textCapitalization: widget.textCapitalization,
+            onChanged: widget.onChanged,
+            onSubmitted: widget.onSubmitted,
+            style: AppTextStyles.authInput,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: AppTextStyles.authInput.copyWith(
+                color: style.placeholder,
               ),
+              border: InputBorder.none,
+              isCollapsed: true,
+              contentPadding: EdgeInsets.only(
+                left: style.horizontalPadding,
+                right: widget.obscure ? 0 : style.horizontalPadding,
+              ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 48,
+                minHeight: 44,
+              ),
+              suffixIcon: widget.obscure
+                  ? IconButton(
+                      onPressed: () => setState(() => _hidden = !_hidden),
+                      icon: Icon(
+                        _hidden
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 20,
+                        color: AppColors.warmText,
+                      ),
+                      tooltip: _hidden ? 'Show password' : 'Hide password',
+                    )
+                  : null,
             ),
           ),
         ),
-      ),
-      if (error case final message?)
-        Padding(
-          padding: const EdgeInsets.only(left: 4, top: 6),
-          child: Text(
-            message,
-            style: AppTextStyles.formError.copyWith(color: AppColors.error),
+        ?widget.below,
+        if (error case final message?)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 6),
+            child: Text(
+              message,
+              style: AppTextStyles.formError.copyWith(color: AppColors.error),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The box an input sits in, as [style] draws it: [AuthTextField]'s, and
+/// the department dropdown's on the Create Account card.
+class AuthFieldBox extends StatelessWidget {
+  const AuthFieldBox({
+    required this.style,
+    required this.child,
+    super.key,
+    this.hasError = false,
+  });
+
+  final AuthFieldStyle style;
+  final bool hasError;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: AppColors.authInputFill,
+      borderRadius: BorderRadius.circular(12),
+      border: style.border == null
+          ? null
+          : Border.all(color: hasError ? AppColors.error : style.border!),
+      boxShadow: style.raised
+          ? const [
+              BoxShadow(
+                color: Color(0x2E1E1B4B),
+                blurRadius: 6,
+                offset: Offset(0, 3),
+              ),
+            ]
+          : null,
+    ),
+    child: SizedBox(
+      height: style.height,
+      child: Center(child: child),
+    ),
+  );
+}
+
+/// Under a new password: what it must have, each ticked off as it is
+/// typed (2026-11-17). The rules are [PasswordPolicy]'s.
+///
+/// Shown from the first character: by then the keyboard is up and the
+/// page scrolls, so the list costs the form nothing at rest, when it has
+/// to fit the phone. Sending the form with the field empty says what the
+/// password needs in the field's error.
+class PasswordRequirements extends StatelessWidget {
+  const PasswordRequirements({required this.controller, super.key});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: controller,
+    builder: (context, value, _) {
+      final password = value.text;
+      if (password.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(left: 4, top: 8),
+        child: Semantics(
+          container: true,
+          explicitChildNodes: true,
+          label: 'Password requirements',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final rule in PasswordPolicy.rules)
+                _Requirement(label: rule.label, met: rule.isMetBy(password)),
+            ],
           ),
         ),
-    ],
+      );
+    },
   );
+}
+
+class _Requirement extends StatelessWidget {
+  const _Requirement({required this.label, required this.met});
+
+  final String label;
+  final bool met;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = met ? AppColors.accountActive : AppColors.warmText;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      // A line of its own for a screen reader: which rule, and whether it
+      // is met yet.
+      child: Semantics(
+        container: true,
+        label: '$label: ${met ? 'met' : 'not yet'}',
+        excludeSemantics: true,
+        child: Row(
+          children: [
+            Icon(
+              met ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 14,
+              color: color,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: AppTextStyles.formError.copyWith(color: color),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// How one card draws its input boxes.

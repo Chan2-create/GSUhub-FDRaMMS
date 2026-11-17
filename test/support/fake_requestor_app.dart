@@ -29,6 +29,7 @@ import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository.dart';
 
 import 'fake_config_repository.dart';
+import 'fake_departments.dart';
 import 'fake_feedback.dart';
 import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
@@ -323,6 +324,18 @@ class FakeRequestorUserRepository implements UserRepository {
     return writeResult ?? const Result.success(null);
   }
 
+  final _accountChanges = StreamController<void>.broadcast();
+
+  /// An administrator changed the account (2026-11-17): the signed-in
+  /// person's own account is read again, as the live view would.
+  void accountChanged() => _accountChanges.add(null);
+
+  @override
+  Stream<Result<AppUser>> watchById(String uid) async* {
+    yield await getById(uid);
+    yield* _accountChanges.stream.asyncMap((_) => getById(uid));
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -399,6 +412,11 @@ class RequestorHarness {
   /// The keyword dictionary a new report is classified with (4.A).
   final config = FakeConfigRepository();
 
+  /// The departments Create Account offers (2026-11-17).
+  final departments = FakeDepartmentRepository(
+    FakeDepartmentRepository.sample(),
+  );
+
   /// Boots the app at [start] on a phone-sized screen.
   Future<void> pump(
     WidgetTester tester, {
@@ -436,6 +454,7 @@ class RequestorHarness {
           qrScanLauncherProvider.overrideWithValue((_) async => null),
           mapPinLauncherProvider.overrideWithValue((_, _) async => null),
           sessionRepositoryProvider.overrideWithValue(sessions),
+          departmentRepositoryProvider.overrideWithValue(departments),
           if (monitor case final monitor?)
             inactivityMonitorProvider.overrideWithValue(monitor),
         ],

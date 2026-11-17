@@ -32,6 +32,7 @@ import 'package:gsuhub/features/work_orders/data/models/work_order.dart';
 import 'package:gsuhub/features/work_orders/data/repositories/work_order_repository.dart';
 
 import 'fake_config_repository.dart';
+import 'fake_departments.dart';
 import 'fake_session.dart';
 import 'test_app_config.dart';
 
@@ -77,6 +78,7 @@ ProviderScope fakeAdminScope({
   FakeAccountProvisioningService? provisioning,
   FakeFileDownloadService? downloads,
   FakeSessionRepository? sessions,
+  FakeDepartmentRepository? departments,
   // A monitor with a clock the test controls, for the session's expiry.
   InactivityMonitor? monitor,
   bool useEmulator = false,
@@ -85,6 +87,10 @@ ProviderScope fakeAdminScope({
   overrides: [
     sessionRepositoryProvider.overrideWithValue(
       sessions ?? FakeSessionRepository(),
+    ),
+    departmentRepositoryProvider.overrideWithValue(
+      departments ??
+          FakeDepartmentRepository(FakeDepartmentRepository.sample()),
     ),
     if (monitor != null) inactivityMonitorProvider.overrideWithValue(monitor),
     appConfigProvider.overrideWithValue(
@@ -540,6 +546,18 @@ class FakeUserRepository implements UserRepository {
 
   @override
   Stream<Result<List<AppUser>>> watchPersonnel() => Stream.value(personnel);
+
+  final _accountChanges = StreamController<void>.broadcast();
+
+  /// An administrator changed the account (2026-11-17): the signed-in
+  /// person's own account is read again, as the live view would.
+  void accountChanged() => _accountChanges.add(null);
+
+  @override
+  Stream<Result<AppUser>> watchById(String uid) async* {
+    yield await getById(uid);
+    yield* _accountChanges.stream.asyncMap((_) => getById(uid));
+  }
 
   /// Backs `currentActorProvider`, which names the actor on every audit
   /// entry.
