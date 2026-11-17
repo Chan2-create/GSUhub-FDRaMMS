@@ -335,13 +335,15 @@ for you by anyone else: you sign in to each service yourself.
    ```powershell
    npx supabase login
    npx supabase link --project-ref <ref>     # asks for the database password
-   npx supabase db push --dry-run            # lists the migrations it would apply (22 on a new project)
-   npx supabase db push                      # the migrations; never the demo data
+   npx supabase db push --remote --dry-run   # lists the migrations it would apply (22 on a new project)
+   npx supabase db push --remote            # the migrations; never the demo data
    ```
 
    `link` connects through Supabase's connection pooler, which works on
    IPv4; the free plan's direct database address is IPv6 only.
-   `db push` applies `supabase/migrations` only. Never add
+   `--remote` is what sends it to the hosted project: without it, newer
+   Supabase CLIs push to the local stack and say "Local database is up to
+   date". `db push` applies `supabase/migrations` only. Never add
    `--include-seed`. **Never run
    `supabase db reset` or the seed against the hosted project**: the
    demo data's accounts and reports are for testing.
@@ -510,8 +512,8 @@ the old database:
 1. **The database.**
 
    ```powershell
-   npx supabase db push --dry-run    # lists the five 20261020… migrations, nothing else
-   npx supabase db push
+   npx supabase db push --remote --dry-run    # lists the five 20261020… migrations, nothing else
+   npx supabase db push --remote
    ```
 
 2. **The console.** Merge to `main`, then check the run in the **Actions**
