@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
+import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/qr_codes/domain/personnel_scan_resolver.dart';
 
+import '../support/fake_firestore_repositories.dart';
 import '../support/fake_personnel_app.dart';
 import '../support/fake_requestor_app.dart' show currentPath;
 
@@ -234,7 +236,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Return'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Return').last);
+      await tester.tap(find.text('Confirm return'));
       await tester.pumpAndSettle();
 
       expect(
@@ -266,6 +268,121 @@ void main() {
 
       expect(app.scans, 1);
       expect(currentPath(tester), RoutePaths.personnelDashboard);
+    });
+  });
+
+  // GSU's tool requests (2026-11-16): the console asks, the technician
+  // confirms by scanning the tool.
+  group('tool requests from GSU', () {
+    Future<String> askToCollect(PersonnelHarness app) async =>
+        (await app.data.tools.requestCheckOut(
+          toolId: 'tool-1',
+          personnelId: fakeTechnician.uid,
+          checkoutAt: DateTime.now(),
+          purpose: 'Ceiling fan repair',
+          message: 'Bring the charger back too.',
+          actor: FirestoreHarness.admin,
+        )).fold((id) => id, (f) => fail(f.message));
+
+    testWidgets('a checkout is confirmed by scanning the tool', (tester) async {
+      final app = PersonnelHarness()..nextScan = 'TOOL-TL-0001';
+      await app.seedJob(status: WorkOrderStatus.inProgress);
+      final id = await askToCollect(app);
+      await app.pump(tester, start: RoutePaths.personnelMaterials);
+
+      expect(find.text('From GSU'), findsOneWidget);
+      expect(find.text('GSU checked out to you'), findsOneWidget);
+      expect(find.text('For: Ceiling fan repair'), findsOneWidget);
+      expect(find.text('“Bring the charger back too.”'), findsOneWidget);
+      await reveal(tester, find.text('Scan to confirm'));
+      await tester.tap(find.text('Scan to confirm'));
+      await tester.pumpAndSettle();
+
+      expect(app.scans, 1);
+      expect(find.text('Confirm you have Fluke Multimeter'), findsOneWidget);
+      await tester.tap(find.text('Confirm receipt'));
+      await tester.pumpAndSettle();
+
+      expect(
+        (await app.read(TableNames.tools, 'tool-1'))['status'],
+        'borrowed',
+      );
+      expect(
+        (await app.read(TableNames.toolRequests, id))['status'],
+        'confirmed',
+      );
+      expect(find.text('From GSU'), findsNothing);
+    });
+
+    testWidgets('scanning the wrong tool confirms nothing', (tester) async {
+      final app = PersonnelHarness()..nextScan = 'TOOL-TL-0002';
+      await app.seedJob(status: WorkOrderStatus.inProgress);
+      await app.data.addTool(
+        'tool-2',
+        toolCode: 'TL-0002',
+        name: 'Pipe Wrench',
+      );
+      await askToCollect(app);
+      await app.pump(tester, start: RoutePaths.personnelMaterials);
+
+      await reveal(tester, find.text('Scan to confirm'));
+      await tester.tap(find.text('Scan to confirm'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'That is Pipe Wrench (TL-0002), not Fluke Multimeter (TL-0001). '
+          'Scan the QR code on Fluke Multimeter.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Confirm receipt'), findsNothing);
+      expect(
+        (await app.read(TableNames.tools, 'tool-1'))['status'],
+        'reserved',
+      );
+    });
+
+    testWidgets('a return GSU asked for is confirmed by scanning the tool', (
+      tester,
+    ) async {
+      final app = PersonnelHarness()..nextScan = 'TOOL-TL-0001';
+      await app.seedJob(status: WorkOrderStatus.inProgress);
+      final loan = (await app.data.tools.borrowTool(
+        toolId: 'tool-1',
+        scannedCode: 'TOOL-TL-0001',
+        borrower: const AuditActor(id: 'personnel-1', name: 'Marcus Wright'),
+      )).fold((loan) => loan, (f) => fail(f.message));
+      final id = (await app.data.tools.requestReturn(
+        loanId: loan.id,
+        dueAt: DateTime.now().add(const Duration(hours: 3)),
+        message: 'Please bring it to the GSU office.',
+        actor: FirestoreHarness.admin,
+      )).fold((id) => id, (f) => fail(f.message));
+      await app.pump(tester, start: RoutePaths.personnelMaterials);
+
+      expect(find.text('GSU asks for it back'), findsOneWidget);
+      expect(find.text('AWAITING RETURN'), findsOneWidget);
+      // Clear of the floating bar, whose gold + would take the tap.
+      await reveal(tester, find.text('Scan to return').first);
+      await tester.tap(find.text('Scan to return').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Return Fluke Multimeter'), findsOneWidget);
+      // The sheet scrolls: the request, the condition, the notes, then
+      // the button.
+      await tester.ensureVisible(find.text('Confirm return'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm return'));
+      await tester.pumpAndSettle();
+
+      expect(
+        (await app.read(TableNames.tools, 'tool-1'))['status'],
+        'available',
+      );
+      expect(
+        (await app.read(TableNames.toolRequests, id))['status'],
+        'confirmed',
+      );
     });
   });
 }

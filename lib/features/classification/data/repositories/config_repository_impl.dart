@@ -13,7 +13,11 @@ import 'config_repository.dart';
 /// it and when.
 class ConfigRepositoryImpl extends SupabaseRepository
     implements ConfigRepository {
-  const ConfigRepositoryImpl({required super.client, required super.guard});
+  const ConfigRepositoryImpl({
+    required super.client,
+    required super.guard,
+    super.live,
+  });
 
   static const String _table = 'app_config';
 
@@ -72,9 +76,7 @@ class ConfigRepositoryImpl extends SupabaseRepository
 
   Stream<Result<T>> _watch<T>(String id, T Function(DataRecord) convert) =>
       guard.stream(
-        client.from(_table).stream(primaryKey: const ['id']).eq('id', id).map((
-          rows,
-        ) {
+        liveRows(_table, (rows) => rows.eq('id', id)).map((rows) {
           if (rows.isEmpty) throw SupabaseRepository.notFound('No config $id');
           return convert(RowRecord.fromConfigRow(rows.first));
         }),

@@ -11,7 +11,11 @@ import 'feedback_repository.dart';
 /// the requestor who gave it, never to the technician rated.
 class FeedbackRepositoryImpl extends SupabaseRepository
     implements FeedbackRepository {
-  const FeedbackRepositoryImpl({required super.client, required super.guard});
+  const FeedbackRepositoryImpl({
+    required super.client,
+    required super.guard,
+    super.live,
+  });
 
   static const String _table = 'feedback';
 
@@ -61,15 +65,11 @@ class FeedbackRepositoryImpl extends SupabaseRepository
   @override
   Stream<Result<ServiceFeedback?>> watchForReport(String reportId) =>
       guard.stream(
-        client
-            .from(_table)
-            .stream(primaryKey: const ['id'])
-            .eq('id', reportId)
-            .map(
-              (rows) => rows.isEmpty
-                  ? null
-                  : ServiceFeedback.fromRecord(RowRecord.fromRow(rows.first)),
-            ),
+        liveRows(_table, (rows) => rows.eq('id', reportId)).map(
+          (rows) => rows.isEmpty
+              ? null
+              : ServiceFeedback.fromRecord(RowRecord.fromRow(rows.first)),
+        ),
       );
 
   @override

@@ -137,6 +137,8 @@ class _Tracking extends ConsumerWidget {
         ),
         const SizedBox(height: 24),
         _SubmittedCard(report: report),
+        const SizedBox(height: 24),
+        _ReviewCard(report: report),
         _RatingSection(report: report),
       ],
     );
@@ -677,6 +679,46 @@ class _TimelineItem extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// What GSU has made official, under what the requestor reported
+/// (2026-11-16): the damage type and the priority an administrator
+/// confirmed, or that the report is still awaiting that review. The
+/// requestor's own choices stay in the card above, as given; the two are
+/// never shown as one. Not in the design frame: it takes the form of the
+/// card above.
+///
+/// The same rule as the console's report page
+/// ([DamageReport.officialCategory], [DamageReport.officialPriority]), so
+/// the phone and the console say the same thing about the same report.
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({required this.report});
+
+  final DamageReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final category = confirmedCategoryOf(report);
+    final priority = report.officialPriority;
+    final pending = report.awaitsAssessment ? 'Awaiting GSU review' : 'Not set';
+
+    return _GoldEdgeCard(
+      children: [
+        const Text("GSU's review", style: AppTextStyles.trackingSectionTitle),
+        const SizedBox(height: 12),
+        _Field(
+          label: 'OFFICIAL DAMAGE TYPE',
+          value: category?.label ?? pending,
+        ),
+        _Field(label: 'OFFICIAL PRIORITY', value: priority?.title ?? pending),
+        const Text(
+          'Set by a GSU administrator. What you reported above stays as you '
+          'gave it.',
+          style: AppTextStyles.signUpLabel,
         ),
       ],
     );

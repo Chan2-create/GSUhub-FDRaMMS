@@ -4,6 +4,7 @@ import '../../../core/di/repository_providers.dart';
 import '../../../core/utils/result.dart';
 import '../data/models/tool.dart';
 import '../data/models/tool_loan.dart';
+import '../data/models/tool_request.dart';
 
 /// What the console's tool screens read (Objective 6.B), all live. Moved
 /// here from the inventory providers on 2026-11-14, so the tools feature
@@ -29,4 +30,17 @@ final openLoansProvider = StreamProvider.autoDispose<Result<List<ToolLoan>>>(
 final toolLoanHistoryProvider = StreamProvider.autoDispose
     .family<Result<List<ToolLoan>>, String>(
       (ref, id) => ref.watch(toolRepositoryProvider).watchLoanHistory(id),
+    );
+
+/// Tool requests waiting for a technician, newest first: what the Tools
+/// tab monitors (2026-11-16).
+final openToolRequestsProvider =
+    StreamProvider.autoDispose<Result<List<ToolRequest>>>(
+      (ref) => ref.watch(toolRepositoryProvider).watchOpenRequests(),
+    );
+
+/// One tool's requests, newest first: its transaction history.
+final toolRequestHistoryProvider = StreamProvider.autoDispose
+    .family<Result<List<ToolRequest>>, String>(
+      (ref, id) => ref.watch(toolRepositoryProvider).watchRequestHistory(id),
     );

@@ -28,7 +28,48 @@ enum NotificationType {
   materialsRequested,
 
   /// Someone signed up and waits for approval.
-  accountRequested;
+  accountRequested,
+
+  // Tool requests (2026-11-16; supabase/migrations/*_tool_requests.sql).
+
+  /// To the technician: GSU checked a tool out to them, to collect and
+  /// confirm by scanning it.
+  toolCheckoutRequested,
+
+  /// To the technician: GSU asks for a tool back by a date and time.
+  toolReturnRequested,
+
+  /// To the technician: a requested return is due within the hour.
+  toolReturnDue,
+
+  /// To the administrators: a technician confirmed collecting a tool.
+  toolCheckoutConfirmed,
+
+  /// To the administrators: a technician confirmed returning a tool.
+  toolReturned,
+
+  /// To the administrators: a checkout is still not collected an hour
+  /// past its time.
+  toolCheckoutPending,
+
+  /// To both: a requested return is past its time.
+  toolOverdue,
+
+  /// To both: a request was cancelled, or lapsed uncollected.
+  toolRequestCancelled;
+
+  /// Whether this is about a tool request.
+  bool get isAboutTools => switch (this) {
+    toolCheckoutRequested ||
+    toolReturnRequested ||
+    toolReturnDue ||
+    toolCheckoutConfirmed ||
+    toolReturned ||
+    toolCheckoutPending ||
+    toolOverdue ||
+    toolRequestCancelled => true,
+    _ => false,
+  };
 
   /// The value persisted on `notifications/{id}.type`.
   String get id => name;

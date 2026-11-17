@@ -14,6 +14,7 @@ class NotificationRepositoryImpl extends SupabaseRepository
   const NotificationRepositoryImpl({
     required super.client,
     required super.guard,
+    super.live,
   });
 
   static const String _table = 'notifications';
@@ -43,18 +44,17 @@ class NotificationRepositoryImpl extends SupabaseRepository
     ),
   );
 
-  /// Filtered on the recipient, which never changes, and not on read: a
-  /// stream filtered on `is_read` would never hear that one was read.
+  /// Filtered on the recipient and not on read: callers want both the
+  /// read and the unread, and count the unread themselves.
   Stream<Result<List<AppNotification>>> _watch(
     String userId, {
     int limit = _limit,
   }) => watchMany(
-    stream: client
-        .from(_table)
-        .stream(primaryKey: const ['id'])
-        .eq('recipient_id', userId)
-        .order('created_at')
-        .limit(limit),
+    stream: liveRows(
+      _table,
+      (rows) =>
+          rows.eq('recipient_id', userId).order('created_at').limit(limit),
+    ),
     convert: AppNotification.fromRecord,
   );
 

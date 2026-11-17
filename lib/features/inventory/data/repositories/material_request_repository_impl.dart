@@ -14,6 +14,7 @@ class MaterialRequestRepositoryImpl extends SupabaseRepository
   const MaterialRequestRepositoryImpl({
     required super.client,
     required super.guard,
+    super.live,
   });
 
   static const String _table = 'material_requests';
@@ -33,10 +34,10 @@ class MaterialRequestRepositoryImpl extends SupabaseRepository
     String? requestedBy,
   }) =>
       watchMany(
-        stream: client
-            .from(_table)
-            .stream(primaryKey: const ['id'])
-            .eq('work_order_id', workOrderId),
+        stream: liveRows(
+          _table,
+          (rows) => rows.eq('work_order_id', workOrderId),
+        ),
         convert: MaterialRequest.fromRecord,
       ).map(
         (result) => result.map(
@@ -51,11 +52,10 @@ class MaterialRequestRepositoryImpl extends SupabaseRepository
   @override
   Stream<Result<List<MaterialRequest>>> watchRecent({int limit = 50}) =>
       watchMany(
-        stream: client
-            .from(_table)
-            .stream(primaryKey: const ['id'])
-            .order('created_at')
-            .limit(limit),
+        stream: liveRows(
+          _table,
+          (rows) => rows.order('created_at').limit(limit),
+        ),
         convert: MaterialRequest.fromRecord,
       );
 

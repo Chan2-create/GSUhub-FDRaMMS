@@ -16,6 +16,7 @@ class AccomplishmentReportRepositoryImpl extends SupabaseRepository
   const AccomplishmentReportRepositoryImpl({
     required super.client,
     required super.guard,
+    super.live,
   });
 
   static const String _table = 'accomplishment_reports';
@@ -41,10 +42,10 @@ class AccomplishmentReportRepositoryImpl extends SupabaseRepository
     String? submittedBy,
   }) =>
       watchMany(
-        stream: client
-            .from(_table)
-            .stream(primaryKey: const ['id'])
-            .eq('work_order_id', workOrderId),
+        stream: liveRows(
+          _table,
+          (rows) => rows.eq('work_order_id', workOrderId),
+        ),
         convert: AccomplishmentReport.fromRecord,
       ).map(
         (result) => result.map(

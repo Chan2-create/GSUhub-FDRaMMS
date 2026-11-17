@@ -83,6 +83,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     final pending = ref.watch(pendingMaterialRequestCountProvider);
+    // Tool requests waiting for a technician (2026-11-16).
+    final waiting = switch (ref.watch(openToolRequestsProvider)) {
+      AsyncData(value: Success(:final value)) => value.length,
+      _ => 0,
+    };
     return SingleChildScrollView(
       padding: EdgeInsets.all(Breakpoints.gutter(context)),
       child: Column(
@@ -102,8 +107,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             selected: _open,
             onSelected: (tab) => setState(() => _open = tab),
             labelOf: (tab) => tab.label,
-            countOf: (tab) =>
-                tab == InventoryTab.requests && pending > 0 ? pending : null,
+            countOf: (tab) => switch (tab) {
+              InventoryTab.requests when pending > 0 => pending,
+              InventoryTab.tools when waiting > 0 => waiting,
+              _ => null,
+            },
           ),
           const SizedBox(height: 24),
           ConsoleTabPages<InventoryTab>(

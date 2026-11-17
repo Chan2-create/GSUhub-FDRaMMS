@@ -13,6 +13,7 @@ class MaterialAllocationRepositoryImpl extends SupabaseRepository
   const MaterialAllocationRepositoryImpl({
     required super.client,
     required super.guard,
+    super.live,
   });
 
   static const String _table = 'work_order_materials_allocated';
@@ -21,23 +22,19 @@ class MaterialAllocationRepositoryImpl extends SupabaseRepository
   Stream<Result<List<AllocatedMaterial>>> watchForWorkOrder(
     String workOrderId,
   ) => guard.stream(
-    client
-        .from(_table)
-        .stream(primaryKey: const ['work_order_id', 'inventory_item_id'])
-        .eq('work_order_id', workOrderId)
-        .map(
-          (rows) =>
-              [
-                for (final row in rows)
-                  AllocatedMaterial.fromRecord(
-                    RowRecord.fromKeyedRow(row, idColumn: 'inventory_item_id'),
-                  ),
-              ]..sort(
-                (a, b) => a.line.itemName.toLowerCase().compareTo(
-                  b.line.itemName.toLowerCase(),
-                ),
+    liveRows(_table, (rows) => rows.eq('work_order_id', workOrderId)).map(
+      (rows) =>
+          [
+            for (final row in rows)
+              AllocatedMaterial.fromRecord(
+                RowRecord.fromKeyedRow(row, idColumn: 'inventory_item_id'),
               ),
-        ),
+          ]..sort(
+            (a, b) => a.line.itemName.toLowerCase().compareTo(
+              b.line.itemName.toLowerCase(),
+            ),
+          ),
+    ),
   );
 
   @override

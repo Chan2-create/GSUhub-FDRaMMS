@@ -79,6 +79,10 @@ abstract final class TableNames {
   /// accountability.
   static const String toolLoans = 'tool_loans';
 
+  /// What an administrator asked of a technician about a tool, to collect
+  /// it or to return it, and how each request ended (2026-11-16).
+  static const String toolRequests = 'tool_requests';
+
   /// Post-service feedback and ratings (manuscript §1.7 "Feedback and
   /// Rating System").
   static const String feedback = 'feedback';

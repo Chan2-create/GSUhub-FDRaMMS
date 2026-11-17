@@ -219,6 +219,37 @@ class FakeDamageReportRepository implements DamageReportRepository {
   Result<int> similarCount = const Result.success(1);
 
   final assessments = <({String reportId, ReportAssessment assessment})>[];
+
+  /// The version of the report each review said it was made from.
+  final assessmentVersions = <DateTime?>[];
+
+  /// Every review move asked for, refused or not.
+  final transitions = <({String reportId, ReportStatus to, String? reason})>[];
+
+  /// When set, a review move waits for it before answering: the time a
+  /// real save spends on its way to the database and back.
+  Completer<void>? saving;
+
+  @override
+  Future<Result<void>> transitionStatus({
+    required String reportId,
+    required ReportStatus to,
+    required AuditActor actor,
+    String? reason,
+  }) async {
+    transitions.add((reportId: reportId, to: to, reason: reason));
+    await saving?.future;
+    if (decisionFailure case final failure?) return Result.failure(failure);
+    _put(
+      _store[reportId]!.copyWith(
+        status: to,
+        rejectionReason: reason,
+        updatedAt: DateTime.now(),
+      ),
+    );
+    return const Result.success(null);
+  }
+
   final merges = <({String parentReportId, List<String> duplicateReportIds})>[];
   final keptSeparate = <({String reportId, String otherReportId})>[];
   final similarQueries =
@@ -273,7 +304,9 @@ class FakeDamageReportRepository implements DamageReportRepository {
     required String reportId,
     required ReportAssessment assessment,
     required AuditActor actor,
+    DateTime? basedOnUpdate,
   }) async {
+    assessmentVersions.add(basedOnUpdate);
     if (decisionFailure case final failure?) return Result.failure(failure);
     assessments.add((reportId: reportId, assessment: assessment));
     _put(

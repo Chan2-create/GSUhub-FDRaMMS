@@ -15,7 +15,11 @@ import 'user_repository.dart';
 /// refuse the lock-outs, and write the audit entry under the caller's own
 /// name — so the `actor` the interface passes is not sent.
 class UserRepositoryImpl extends SupabaseRepository implements UserRepository {
-  const UserRepositoryImpl({required super.client, required super.guard});
+  const UserRepositoryImpl({
+    required super.client,
+    required super.guard,
+    super.live,
+  });
 
   static const String _table = 'users';
 
@@ -37,10 +41,8 @@ class UserRepositoryImpl extends SupabaseRepository implements UserRepository {
   }
 
   @override
-  Stream<Result<List<AppUser>>> watchAll() => watchMany(
-    stream: client.from(_table).stream(primaryKey: const ['id']),
-    convert: AppUser.fromRecord,
-  );
+  Stream<Result<List<AppUser>>> watchAll() =>
+      watchMany(stream: liveRows(_table), convert: AppUser.fromRecord);
 
   @override
   Future<Result<List<AppUser>>> getPersonnel({
@@ -62,8 +64,8 @@ class UserRepositoryImpl extends SupabaseRepository implements UserRepository {
 
   @override
   Stream<Result<List<AppUser>>> watchPersonnel() =>
-      // Filtered here, not by the stream: a role can change, and Realtime
-      // never tells a stream filtered on it about a row that left.
+      // Filtered here, as it was under the Realtime stream, which could
+      // not filter on a role that can change.
       watchAll().map(
         (result) => result.map(
           (users) => [
@@ -146,5 +148,5 @@ class UserRepositoryImpl extends SupabaseRepository implements UserRepository {
 
   @override
   Future<Result<void>> setFcmToken(String uid, String? token) =>
-      rpc('set_fcm_token', {'id': uid, 'token': token});
+      rpc('set_fcm_token', {'id': uid, 'token': token}, changesData: false);
 }

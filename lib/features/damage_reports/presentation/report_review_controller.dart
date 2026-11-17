@@ -8,14 +8,27 @@ import '../../audit/data/models/audit_actor.dart';
 import '../../audit/data/models/audit_log_entry.dart';
 import '../../audit/presentation/current_actor_provider.dart';
 import '../data/models/report_assessment.dart';
+import 'report_providers.dart';
 
 /// The recorded history of one report, for the detail view's timeline.
+///
+/// Read again whenever the report itself changes, whoever changed it: a
+/// decision another administrator makes shows in the history here as it
+/// does in the report above it (2026-11-16).
 final reportHistoryProvider =
-    FutureProvider.family<Result<List<AuditLogEntry>>, String>(
-      (ref, reportId) => ref
+    FutureProvider.family<Result<List<AuditLogEntry>>, String>((ref, reportId) {
+      ref.watch(
+        reportByIdProvider(reportId).select(
+          (report) => switch (report.value) {
+            Success(:final value) => value.updatedAt,
+            _ => null,
+          },
+        ),
+      );
+      return ref
           .watch(auditLogRepositoryProvider)
-          .getForEntity(entityType: 'damage_reports', entityId: reportId),
-    );
+          .getForEntity(entityType: 'damage_reports', entityId: reportId);
+    });
 
 /// Applies the administrator's review decisions.
 ///
@@ -39,10 +52,15 @@ class ReportReviewController {
 
   /// Saves the administrator's classification and priority (Objectives
   /// 4.A–4.C).
+  ///
+  /// [basedOnUpdate] is when the report on the page was last changed, so a
+  /// review made over someone else's newer change is refused instead of
+  /// replacing it.
   Future<Result<void>> recordAssessment(
     String reportId,
-    ReportAssessment assessment,
-  ) => _act(
+    ReportAssessment assessment, {
+    DateTime? basedOnUpdate,
+  }) => _act(
     [reportId],
     (actor) => _ref
         .read(damageReportRepositoryProvider)
@@ -50,6 +68,7 @@ class ReportReviewController {
           reportId: reportId,
           assessment: assessment,
           actor: actor,
+          basedOnUpdate: basedOnUpdate,
         ),
   );
 
@@ -122,12 +141,10 @@ class ReportReviewController {
     }
 
     final result = await action(actor);
-    if (result.isSuccess) {
-      // The reports themselves are watched live; their audit trails are
-      // one-shot reads, so they need telling.
-      for (final id in reportIds) {
-        _ref.invalidate(reportHistoryProvider(id));
-      }
+    // Their audit trails are one-shot reads, so they need telling: after a
+    // refusal too, which may be about a change someone else just made.
+    for (final id in reportIds) {
+      _ref.invalidate(reportHistoryProvider(id));
     }
     return result;
   }

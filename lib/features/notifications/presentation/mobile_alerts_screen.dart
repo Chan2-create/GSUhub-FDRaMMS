@@ -185,6 +185,19 @@ class _AlertCard extends ConsumerWidget {
         Icons.person_outline,
         unread ? AppColors.linkIndigo : AppColors.warmMuted,
       ),
+      // GSU asking the technician to collect or return a tool (2026-11-16);
+      // late ones in red.
+      NotificationType.toolCheckoutRequested ||
+      NotificationType.toolReturnRequested ||
+      NotificationType.toolReturnDue ||
+      NotificationType.toolRequestCancelled => (
+        Icons.handyman_outlined,
+        unread ? AppColors.linkIndigo : AppColors.warmMuted,
+      ),
+      NotificationType.toolOverdue => (
+        Icons.warning_amber_rounded,
+        unread ? AppColors.error : AppColors.warmMuted,
+      ),
       // The administrator's types never reach a phone; listed so the
       // switch stays exhaustive.
       NotificationType.reportAcknowledged ||
@@ -194,7 +207,10 @@ class _AlertCard extends ConsumerWidget {
       NotificationType.workStarted ||
       NotificationType.reviewRequested ||
       NotificationType.materialsRequested ||
-      NotificationType.accountRequested => (
+      NotificationType.accountRequested ||
+      NotificationType.toolCheckoutConfirmed ||
+      NotificationType.toolReturned ||
+      NotificationType.toolCheckoutPending => (
         Icons.notifications_none,
         unread ? AppColors.trackingAccentText : AppColors.warmMuted,
       ),
@@ -214,6 +230,9 @@ class _AlertCard extends ConsumerWidget {
         context.push(RoutePaths.staffReportDetailFor(id));
       case TableNames.workOrders:
         context.push(RoutePaths.personnelWorkOrderFor(id));
+      // GSU's tool requests wait on the Materials & Tools tab.
+      case TableNames.toolRequests:
+        context.go(RoutePaths.personnelMaterials);
     }
   }
 

@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
+import 'package:gsuhub/core/enums/audit_action.dart';
 import 'package:gsuhub/core/enums/priority_level.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/utils/result.dart';
+import 'package:gsuhub/features/audit/data/models/audit_log_entry.dart';
 import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/damage_reports/presentation/report_detail_screen.dart';
 
@@ -23,7 +27,12 @@ void main() {
     String description = 'Water is flooding the floor of the lab.',
     DamageCategory? category = DamageCategory.plumbing,
     bool classifiedAutomatically = true,
+    DamageCategory? requestorCategory,
+    PriorityLevel requestorPriority = PriorityLevel.medium,
     PriorityLevel? officialPriority,
+    PriorityLevel? recommendedPriority,
+    double? priorityScore,
+    String? reviewedBy,
     ReportStatus status = ReportStatus.underReview,
     String? workOrderId,
     Duration filedAgo = Duration.zero,
@@ -35,11 +44,16 @@ void main() {
     description: description,
     category: category,
     classifiedAutomatically: classifiedAutomatically,
+    requestorCategory: requestorCategory,
     facilityId: 'fac-science',
     facilityName: 'Science Building',
     locationDescription: 'Laboratory 3',
-    requestorPriority: PriorityLevel.medium,
+    requestorPriority: requestorPriority,
     officialPriority: officialPriority,
+    recommendedPriority: recommendedPriority,
+    priorityScore: priorityScore,
+    reviewedBy: reviewedBy,
+    reviewedAt: reviewedBy == null ? null : now,
     status: status,
     workOrderId: workOrderId,
     submittedAt: now.subtract(filedAgo),
@@ -51,6 +65,7 @@ void main() {
     String id, {
     required List<DamageReport> reports,
     int similarReports = 1,
+    List<AuditLogEntry> history = const [],
   }) async {
     tester.view
       ..physicalSize = const Size(1440, 3200)
@@ -77,6 +92,7 @@ void main() {
     await tester.pumpWidget(
       fakeAdminScope(
         reportRepository: repository,
+        activity: Result.success(history),
         child: MaterialApp.router(routerConfig: router),
       ),
     );
@@ -299,6 +315,283 @@ void main() {
 
       expect(find.text('This report is ASSIGNED.'), findsOneWidget);
       expect(repository.assessments, isEmpty);
+    });
+  });
+
+  group("the requestor's choices and the official values", () {
+    testWidgets('a report not yet reviewed shows what the requestor chose, '
+        'and that it awaits review', (tester) async {
+      await open(
+        tester,
+        'rep-1',
+        reports: [
+          report(
+            'rep-1',
+            requestorCategory: DamageCategory.electrical,
+            requestorPriority: PriorityLevel.high,
+          ),
+        ],
+      );
+
+      expect(
+        find.textContaining('Awaiting administrative review. The values'),
+        findsOneWidget,
+      );
+      expect(find.text('INITIAL CLASSIFICATION'), findsOneWidget);
+      expect(find.text('Electrical'), findsWidgets);
+      expect(find.text('Requestor-selected'), findsOneWidget);
+      // Nothing is official yet, and the keyword match is not passed off
+      // as a decision.
+      expect(find.text('Awaiting administrative review'), findsNWidgets(2));
+      expect(
+        find.text(
+          'The keywords suggest Plumbing: a suggestion until an '
+          'administrator confirms it.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Administrator-confirmed'), findsNothing);
+      expect(
+        find.text('Computed when the four criteria are rated in the review'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a reviewed report keeps the requestor\'s values beside the '
+        'official ones', (tester) async {
+      await open(
+        tester,
+        'rep-1',
+        reports: [
+          report(
+            'rep-1',
+            requestorCategory: DamageCategory.electrical,
+            requestorPriority: PriorityLevel.high,
+            classifiedAutomatically: false,
+            officialPriority: PriorityLevel.critical,
+            recommendedPriority: PriorityLevel.critical,
+            priorityScore: 3.7,
+            reviewedBy: 'admin-1',
+          ),
+        ],
+      );
+
+      // The requestor's own, as filed.
+      expect(find.text('Electrical'), findsWidgets);
+      expect(find.text('Requestor-selected'), findsOneWidget);
+      // The administrator's, and how they differ.
+      expect(find.text('OFFICIAL CLASSIFICATION'), findsOneWidget);
+      expect(
+        find.text(
+          "Changed from the requestor's Electrical, which is kept above.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Administrator-confirmed'), findsOneWidget);
+      expect(
+        find.text("Raised from the requestor's High, which is kept above."),
+        findsOneWidget,
+      );
+      // And the formula's, named as such.
+      expect(find.text('System-recommended · score 3.70'), findsOneWidget);
+      expect(
+        find.textContaining('Awaiting administrative review'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a review is saved with its reason, against the version of '
+        'the report on the page', (tester) async {
+      final filed = report(
+        'rep-1',
+        requestorCategory: DamageCategory.electrical,
+      );
+      final repository = await open(tester, 'rep-1', reports: [filed]);
+
+      await tapVisible(tester, ratingButton('severity', 4));
+      await tapVisible(tester, ratingButton('safetyRisk', 4));
+      await tapVisible(tester, ratingButton('locationImportance', 3));
+      final reason = find.byKey(const ValueKey('assessment-reason'));
+      await tester.ensureVisible(reason);
+      await tester.enterText(reason, '  Water is reaching the outlets.  ');
+      await tester.pumpAndSettle();
+      await tapVisible(tester, confirmButton());
+
+      final saved = repository.assessments.single.assessment;
+      expect(saved.reason, 'Water is reaching the outlets.');
+      expect(repository.assessmentVersions.single, filed.updatedAt);
+      // What the requestor chose is untouched by the review.
+      expect(
+        repository.byId('rep-1')!.requestorCategory,
+        DamageCategory.electrical,
+      );
+      expect(repository.byId('rep-1')!.requestorPriority, PriorityLevel.medium);
+      expect(find.text('Classification and priority saved.'), findsOneWidget);
+    });
+
+    testWidgets("a review made over someone else's change is refused, and "
+        'the page says who changed it', (tester) async {
+      final repository = await open(
+        tester,
+        'rep-1',
+        reports: [report('rep-1')],
+      );
+      repository.decisionFailure = const ValidationFailure(
+        'Ana Reyes changed this report after you opened it here. The latest '
+        'details are shown now: check them, then save again.',
+      );
+
+      await tapVisible(tester, ratingButton('severity', 2));
+      await tapVisible(tester, ratingButton('safetyRisk', 2));
+      await tapVisible(tester, ratingButton('locationImportance', 3));
+      await tapVisible(tester, confirmButton());
+
+      expect(
+        find.textContaining('Ana Reyes changed this report after you opened'),
+        findsOneWidget,
+      );
+      expect(repository.assessments, isEmpty);
+      // Nothing was lost: the review can be made again.
+      final confirm = tester.widget<FilledButton>(confirmButton());
+      expect(confirm.onPressed, isNotNull);
+    });
+
+    testWidgets('the history spells out what each review changed', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        'rep-1',
+        reports: [report('rep-1', officialPriority: PriorityLevel.critical)],
+        history: [
+          AuditLogEntry(
+            id: 'audit-1',
+            actorId: 'admin-1',
+            actorName: 'Ramon Dela Cruz',
+            action: AuditAction.updated,
+            entityType: 'damage_reports',
+            entityId: 'rep-1',
+            description:
+                'Classified as Plumbing; official priority CRITICAL as '
+                'recommended (score 3.70). Reason: A burst pipe.',
+            changes: const {
+              'requestor': {'category': 'electrical', 'priority': 'high'},
+              'category': {'from': 'electrical', 'to': 'plumbing'},
+              'officialPriority': {'from': null, 'to': 'critical'},
+              'firstReview': true,
+              'reason': 'A burst pipe.',
+            },
+            timestamp: now,
+          ),
+        ],
+      );
+
+      expect(find.textContaining('Reason: A burst pipe.'), findsOneWidget);
+      expect(
+        find.text('Classification: Electrical → Plumbing'),
+        findsOneWidget,
+      );
+      expect(find.text('Official priority: Critical'), findsOneWidget);
+      expect(
+        find.text('The requestor chose: Electrical, High priority'),
+        findsOneWidget,
+      );
+      expect(find.text('Ramon Dela Cruz'), findsOneWidget);
+    });
+  });
+
+  group('review moves', () {
+    testWidgets('approving says so once it is saved, and the page shows the '
+        'new status', (tester) async {
+      final repository = await open(
+        tester,
+        'rep-1',
+        reports: [report('rep-1')],
+      );
+
+      await tapVisible(tester, find.widgetWithText(FilledButton, 'Approve'));
+
+      expect(repository.transitions.single.to, ReportStatus.approved);
+      expect(find.text('Report approved.'), findsOneWidget);
+      expect(repository.byId('rep-1')!.status, ReportStatus.approved);
+      // No longer on offer: the page follows the report.
+      expect(find.widgetWithText(FilledButton, 'Approve'), findsNothing);
+    });
+
+    testWidgets('a move that fails says why, changes nothing, and can be '
+        'tried again', (tester) async {
+      final repository = await open(
+        tester,
+        'rep-1',
+        reports: [report('rep-1', status: ReportStatus.submitted)],
+      );
+      repository.decisionFailure = const NetworkFailure(
+        'Cannot reach the server. Check your internet connection and '
+        'try again.',
+      );
+
+      await tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Start review'),
+      );
+
+      expect(find.textContaining('Cannot reach the server.'), findsOneWidget);
+      expect(find.text('Review started.'), findsNothing);
+      expect(repository.byId('rep-1')!.status, ReportStatus.submitted);
+      expect(find.widgetWithText(FilledButton, 'Start review'), findsOneWidget);
+
+      // The connection is back.
+      repository.decisionFailure = null;
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+
+      expect(repository.transitions, hasLength(2));
+      expect(repository.byId('rep-1')!.status, ReportStatus.underReview);
+      expect(find.text('Review started.'), findsOneWidget);
+    });
+
+    testWidgets('a move cannot be sent twice while the first is being saved', (
+      tester,
+    ) async {
+      final repository = await open(
+        tester,
+        'rep-1',
+        reports: [report('rep-1')],
+      );
+      final approve = find.widgetWithText(FilledButton, 'Approve');
+      await tester.ensureVisible(approve);
+      await tester.pumpAndSettle();
+      repository.saving = Completer<void>();
+
+      await tester.tap(approve);
+      await tester.pump();
+
+      // On its way: the button says so, and neither move can be pressed.
+      final pressed = find.ancestor(
+        of: find.byType(CircularProgressIndicator),
+        matching: find.byType(FilledButton),
+      );
+      expect(pressed, findsOneWidget);
+      expect(tester.widget<FilledButton>(pressed).onPressed, isNull);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Reject'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(find.text('Report approved.'), findsNothing);
+      await tester.tap(pressed, warnIfMissed: false);
+      await tester.pump();
+      expect(repository.transitions, hasLength(1));
+
+      // Answered: only now is it reported as saved.
+      repository.saving!.complete();
+      await tester.pumpAndSettle();
+
+      expect(repository.transitions, hasLength(1));
+      expect(find.text('Report approved.'), findsOneWidget);
     });
   });
 

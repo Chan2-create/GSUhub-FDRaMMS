@@ -8,6 +8,7 @@ import 'package:gsuhub/core/enums/tool_status.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/accomplishment/data/models/material_usage.dart';
+import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 
 import '../../support/fake_firestore_repositories.dart';
 
@@ -505,6 +506,7 @@ void main() {
 
       final result = await h.tools.borrowTool(
         toolId: 'tool-1',
+        scannedCode: 'TOOL-TL-0001',
         borrower: technician,
         workOrderId: 'w1',
       );
@@ -516,7 +518,7 @@ void main() {
       expect(tool['currentLoanId'], loan.id);
       expect(
         (await h.auditEntries()).single['description'],
-        'Borrowed Fluke Multimeter for #WO-W1',
+        'Borrowed Fluke Multimeter for #WO-W1, confirmed by scanning it',
       );
       final open = (await h.tools.watchOpenLoansFor('personnel-1').first).fold(
         (list) => list,
@@ -530,6 +532,7 @@ void main() {
 
       final result = await h.tools.borrowTool(
         toolId: 'tool-1',
+        scannedCode: 'TOOL-TL-0001',
         borrower: technician,
       );
 
@@ -544,11 +547,13 @@ void main() {
       await h.addTool('tool-1');
       final loan = (await h.tools.borrowTool(
         toolId: 'tool-1',
+        scannedCode: 'TOOL-TL-0001',
         borrower: technician,
       )).fold((loan) => loan, (f) => fail(f.message));
 
       final result = await h.tools.returnTool(
         loanId: loan.id,
+        scannedCode: 'TOOL-TL-0001',
         conditionOnReturn: ItemCondition.poor,
         actor: technician,
       );
@@ -565,6 +570,48 @@ void main() {
         ),
         isEmpty,
       );
+    });
+
+    // Since 2026-11-16 the code scanned from the tool confirms each
+    // hand-over.
+    test(
+      'the wrong tool scanned borrows nothing, and says which it was',
+      () async {
+        await h.addTool('tool-1');
+        await h.addTool('tool-2', toolCode: 'TL-0002', name: 'Pipe Wrench');
+
+        final result = await h.tools.borrowTool(
+          toolId: 'tool-1',
+          scannedCode: 'tool-tl-0002',
+          borrower: technician,
+        );
+
+        expect(
+          failureMessage(result),
+          'That is Pipe Wrench (TL-0002), not Fluke Multimeter (TL-0001). '
+          'Scan the QR code on Fluke Multimeter.',
+        );
+        expect((await doc(TableNames.tools, 'tool-1'))['status'], 'available');
+      },
+    );
+
+    test('only the technician holding a tool returns it', () async {
+      await h.addTool('tool-1');
+      final loan = (await h.tools.borrowTool(
+        toolId: 'tool-1',
+        scannedCode: 'TOOL-TL-0001',
+        borrower: technician,
+      )).fold((loan) => loan, (f) => fail(f.message));
+
+      final result = await h.tools.returnTool(
+        loanId: loan.id,
+        scannedCode: 'TOOL-TL-0001',
+        conditionOnReturn: ItemCondition.good,
+        actor: const AuditActor(id: 'personnel-2', name: 'Juan Luna'),
+      );
+
+      expect(result.isFailure, isTrue);
+      expect((await doc(TableNames.tools, 'tool-1'))['status'], 'borrowed');
     });
   });
 

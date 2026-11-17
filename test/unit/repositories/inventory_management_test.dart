@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/table_names.dart';
 import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/tool_status.dart';
+import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/utils/result.dart';
+import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/facilities/data/models/facility_draft.dart';
 import 'package:gsuhub/features/inventory/data/models/inventory_item_draft.dart';
 import 'package:gsuhub/features/inventory/data/models/material_line.dart';
@@ -613,27 +615,207 @@ void main() {
       },
     );
 
-    test('the console checks a tool out to a technician', () async {
-      await h.addPersonnel(technician.id);
-      await h.addTool('tool-1');
+    // Since 2026-11-16 the console asks, and the technician confirms by
+    // scanning the tool: tool_requests.test.sql has the database's side.
+    group('requests', () {
+      const other = AuditActor(id: 'personnel-2', name: 'Juan Luna');
 
-      final loan = (await h.tools.borrowTool(
+      Future<String> askToCollect() async => (await h.tools.requestCheckOut(
         toolId: 'tool-1',
-        borrower: technician,
-        issuedBy: admin,
+        personnelId: technician.id,
+        checkoutAt: DateTime.now(),
+        dueAt: DateTime.now().add(const Duration(days: 2)),
+        purpose: 'Ceiling fan repair',
+        message: 'Bring the charger back too.',
         workOrderId: 'w1',
-      )).fold((loan) => loan, (f) => fail(f.message));
+        actor: admin,
+      )).fold((id) => id, (f) => fail(f.message));
 
-      expect(loan.borrowedBy, technician.id);
-      final tool = await h.doc(TableNames.tools, 'tool-1');
-      expect(tool['status'], 'borrowed');
-      expect(tool['currentHolderId'], technician.id);
-      final audit = (await h.auditEntries()).single;
-      expect(audit['actorId'], admin.id);
-      expect(
-        audit['description'],
-        'Checked out Fluke Multimeter to Marcus Wright for #WO-W1',
+      setUp(() async {
+        await h.addPersonnel(
+          admin.id,
+          role: UserRole.admin,
+          fullName: admin.name,
+        );
+        await h.addPersonnel(technician.id);
+        await h.addPersonnel(other.id, fullName: other.name);
+        await h.addTool('tool-1');
+        await h.addTool('tool-2', toolCode: 'TL-0002', name: 'Pipe Wrench');
+      });
+
+      Future<List<Map<String, dynamic>>> noticesTo(String id) async =>
+          (await h.firestore
+                  .collection(TableNames.notifications)
+                  .where('recipientId', isEqualTo: id)
+                  .get())
+              .docs
+              .map((doc) => doc.data())
+              .toList();
+
+      test('Check Out reserves the tool and lends nothing yet', () async {
+        final id = await askToCollect();
+
+        final tool = await h.doc(TableNames.tools, 'tool-1');
+        expect(tool['status'], 'reserved');
+        expect(tool['currentHolderId'], isNull);
+        final request = await h.doc(TableNames.toolRequests, id);
+        expect(request['status'], 'pending');
+        expect(request['personnelId'], technician.id);
+        expect(
+          (await h.firestore.collection(TableNames.toolLoans).get()).docs,
+          isEmpty,
+        );
+        final notice = (await noticesTo(technician.id)).single;
+        expect(notice['type'], 'toolCheckoutRequested');
+        expect(notice['title'], 'Collect Fluke Multimeter (TL-0001)');
+        expect(notice['body'], contains('Purpose: Ceiling fan repair.'));
+      });
+
+      test('only the technician asked, with the right tool, confirms it, '
+          'and only once', () async {
+        final id = await askToCollect();
+
+        final wrongPerson = await h.tools.confirmCheckOut(
+          requestId: id,
+          scannedCode: 'TOOL-TL-0001',
+          actor: other,
+        );
+        final wrongTool = await h.tools.confirmCheckOut(
+          requestId: id,
+          scannedCode: 'TOOL-TL-0002',
+          actor: technician,
+        );
+        expect(wrongPerson.isFailure, isTrue);
+        expect(
+          failureMessage(wrongTool),
+          'That is Pipe Wrench (TL-0002), not Fluke Multimeter (TL-0001). '
+          'Scan the QR code on Fluke Multimeter.',
+        );
+        expect((await h.doc(TableNames.tools, 'tool-1'))['status'], 'reserved');
+
+        final loan = (await h.tools.confirmCheckOut(
+          requestId: id,
+          scannedCode: 'TOOL-TL-0001',
+          actor: technician,
+        )).fold((loan) => loan, (f) => fail(f.message));
+        expect(loan.borrowedBy, technician.id);
+        expect(loan.workOrderId, 'w1');
+        final tool = await h.doc(TableNames.tools, 'tool-1');
+        expect(tool['status'], 'borrowed');
+        expect(tool['currentHolderId'], technician.id);
+        expect(
+          (await h.doc(TableNames.toolRequests, id))['status'],
+          'confirmed',
+        );
+        expect(
+          (await noticesTo(admin.id)).single['title'],
+          'Marcus Wright received Fluke Multimeter',
+        );
+
+        final again = await h.tools.confirmCheckOut(
+          requestId: id,
+          scannedCode: 'TOOL-TL-0001',
+          actor: technician,
+        );
+        expect(
+          failureMessage(again),
+          'You have already confirmed receiving Fluke Multimeter.',
+        );
+      });
+
+      test('Check In waits for the return to be scanned', () async {
+        final checkout = await askToCollect();
+        final loan = (await h.tools.confirmCheckOut(
+          requestId: checkout,
+          scannedCode: 'TOOL-TL-0001',
+          actor: technician,
+        )).fold((loan) => loan, (f) => fail(f.message));
+
+        final id = (await h.tools.requestReturn(
+          loanId: loan.id,
+          dueAt: DateTime.now().add(const Duration(days: 1)),
+          message: 'Please bring it to the GSU office.',
+          actor: admin,
+        )).fold((id) => id, (f) => fail(f.message));
+        expect((await h.doc(TableNames.tools, 'tool-1'))['status'], 'borrowed');
+        expect(
+          (await noticesTo(technician.id)).map((n) => n['type']),
+          contains('toolReturnRequested'),
+        );
+
+        expect(
+          (await h.tools.returnTool(
+            loanId: loan.id,
+            scannedCode: 'TOOL-TL-0001',
+            conditionOnReturn: ItemCondition.good,
+            actor: technician,
+          )).isSuccess,
+          isTrue,
+        );
+        expect(
+          (await h.doc(TableNames.tools, 'tool-1'))['status'],
+          'available',
+        );
+        expect(
+          (await h.doc(TableNames.toolRequests, id))['status'],
+          'confirmed',
+        );
+        expect(
+          (await noticesTo(admin.id)).map((n) => n['title']),
+          contains('Marcus Wright returned Fluke Multimeter'),
+        );
+      });
+
+      test(
+        'a cancelled checkout frees the tool and tells the technician',
+        () async {
+          final id = await askToCollect();
+
+          expect(
+            (await h.tools.cancelRequest(
+              requestId: id,
+              actor: admin,
+            )).isSuccess,
+            isTrue,
+          );
+          expect(
+            (await h.doc(TableNames.tools, 'tool-1'))['status'],
+            'available',
+          );
+          expect(
+            (await h.doc(TableNames.toolRequests, id))['status'],
+            'cancelled',
+          );
+          expect(
+            (await noticesTo(technician.id)).map((n) => n['title']),
+            contains('Cancelled: checkout of Fluke Multimeter'),
+          );
+          final confirm = await h.tools.confirmCheckOut(
+            requestId: id,
+            scannedCode: 'TOOL-TL-0001',
+            actor: technician,
+          );
+          expect(
+            failureMessage(confirm),
+            'GSU cancelled this checkout of Fluke Multimeter.',
+          );
+        },
       );
+
+      test('a reserved tool is no one else\'s to borrow', () async {
+        await askToCollect();
+
+        final result = await h.tools.borrowTool(
+          toolId: 'tool-1',
+          scannedCode: 'TOOL-TL-0001',
+          borrower: other,
+        );
+
+        expect(
+          failureMessage(result),
+          'Fluke Multimeter is reserved for another technician.',
+        );
+      });
     });
 
     test('editing a tool that is out keeps the condition it left in', () async {

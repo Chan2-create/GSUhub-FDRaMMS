@@ -427,17 +427,40 @@ void main() {
     await tools.deleteTool(toolId: 'tl-2', actor: actor);
     await tools.borrowTool(
       toolId: 'tl-1',
+      scannedCode: 'TOOL-TL-0001',
       borrower: const AuditActor(id: 'u-1', name: 'Marcus Wright'),
-      issuedBy: actor,
       workOrderId: 'w-1',
-      expectedReturnAt: now,
     );
     await tools.returnTool(
       loanId: 'lo-1',
+      scannedCode: 'TOOL-TL-0001',
       conditionOnReturn: ItemCondition.poor,
       actor: actor,
       notes: 'A rung is cracked',
     );
+    // Tool requests (2026-11-16).
+    await tools.requestCheckOut(
+      toolId: 'tl-3',
+      personnelId: 'u-1',
+      checkoutAt: now,
+      dueAt: now.add(const Duration(days: 1)),
+      purpose: 'Pump repair',
+      message: 'Bring it back clean.',
+      workOrderId: 'w-1',
+      actor: actor,
+    );
+    await tools.confirmCheckOut(
+      requestId: 'tr-1',
+      scannedCode: 'TOOL-TL-0003',
+      actor: actor,
+    );
+    await tools.requestReturn(
+      loanId: 'lo-1',
+      dueAt: now,
+      message: 'By five, please.',
+      actor: actor,
+    );
+    await tools.cancelRequest(requestId: 'tr-1', actor: actor);
   }
 
   test('the migrations declare the API functions', () {
@@ -447,7 +470,7 @@ void main() {
   test('every write calls a database function that exists, with the '
       'parameters it takes', () async {
     await exerciseEveryWrite();
-    expect(calls, hasLength(56));
+    expect(calls, hasLength(60));
     for (final (function, params) in calls) {
       final signature = signatures[function];
       expect(
@@ -470,8 +493,14 @@ void main() {
 
   test('every database function is called by the app', () async {
     await exerciseEveryWrite();
+    // Kept only to tell an app not yet updated what to do (2026-11-16):
+    // they refuse, saying the tool is now scanned.
+    const retired = {'borrow_tool', 'return_tool'};
     expect(
-      signatures.keys.toSet().difference({for (final (f, _) in calls) f}),
+      signatures.keys
+          .toSet()
+          .difference({for (final (f, _) in calls) f})
+          .difference(retired),
       isEmpty,
     );
   });

@@ -191,6 +191,114 @@ void main() {
       expect(result.isSuccess, isFalse);
       expect(await h.auditEntries(), isEmpty);
     });
+
+    test('leaves what the requestor chose as it was, and records it beside '
+        'the decision and its reason', () async {
+      await h.addReport(
+        'r1',
+        status: ReportStatus.underReview,
+        officialPriority: null,
+      );
+      await setFields('r1', {'requestorCategory': 'electrical'});
+
+      await h.reports.recordAssessment(
+        reportId: 'r1',
+        assessment: assessment().withReason('  A burst pipe, not wiring.  '),
+        actor: admin,
+      );
+
+      final saved = await report('r1');
+      expect(saved['requestorCategory'], 'electrical');
+      expect(saved['requestorPriority'], 'high');
+      expect(saved['category'], 'plumbing');
+      expect(saved['officialPriority'], 'critical');
+
+      final audit = (await h.auditEntries()).single;
+      expect(
+        audit['description'],
+        'Classified as Plumbing; official priority CRITICAL as recommended '
+        '(score 3.50). Reason: A burst pipe, not wiring.',
+      );
+      final changes = audit['changes'] as Map<String, dynamic>;
+      expect(changes['requestor'], {
+        'category': 'electrical',
+        'priority': 'high',
+      });
+      expect(changes['reason'], 'A burst pipe, not wiring.');
+      expect(changes['firstReview'], isTrue);
+    });
+
+    test('a later change is a review of its own, from the earlier official '
+        'value', () async {
+      // Approved, electrical, official HIGH.
+      await h.addReport('r1');
+
+      await h.reports.recordAssessment(
+        reportId: 'r1',
+        assessment: assessment(),
+        actor: admin,
+      );
+
+      final changes =
+          (await h.auditEntries()).single['changes'] as Map<String, dynamic>;
+      expect(changes['officialPriority'], {'from': 'high', 'to': 'critical'});
+      expect(changes['firstReview'], isFalse);
+      expect(changes.containsKey('reason'), isFalse);
+    });
+
+    test('the same review sent twice is one decision', () async {
+      await h.addReport(
+        'r1',
+        status: ReportStatus.underReview,
+        officialPriority: null,
+      );
+
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final result = await h.reports.recordAssessment(
+          reportId: 'r1',
+          assessment: assessment(),
+          actor: admin,
+        );
+        expect(result.isSuccess, isTrue);
+      }
+
+      expect(await h.auditEntries(), hasLength(1));
+    });
+
+    test('is refused over a change made since the page read the report, '
+        'and saved once the page has it', () async {
+      await h.addReport('r1');
+      final onThePage = (await h.reports.getById('r1'))
+          .fold((report) => report.updatedAt, (_) => null)!;
+
+      // Someone else reviews it meanwhile.
+      await h.reports.recordAssessment(
+        reportId: 'r1',
+        assessment: assessment(official: PriorityLevel.medium),
+        actor: admin,
+      );
+
+      final stale = await h.reports.recordAssessment(
+        reportId: 'r1',
+        assessment: assessment(official: PriorityLevel.low),
+        actor: admin,
+        basedOnUpdate: onThePage,
+      );
+      expect(failureMessage(stale), contains('changed after you opened it'));
+      expect((await report('r1'))['officialPriority'], 'medium');
+      expect(await h.auditEntries(), hasLength(1));
+
+      final latest = (await h.reports.getById('r1'))
+          .fold((report) => report.updatedAt, (_) => null)!;
+      final fresh = await h.reports.recordAssessment(
+        reportId: 'r1',
+        assessment: assessment(official: PriorityLevel.low),
+        actor: admin,
+        basedOnUpdate: latest,
+      );
+      expect(fresh.isSuccess, isTrue);
+      expect((await report('r1'))['officialPriority'], 'low');
+    });
   });
 
   test('countSimilarReports counts one damage type at one facility since '

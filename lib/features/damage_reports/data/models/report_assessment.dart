@@ -11,6 +11,10 @@ import '../../../../core/utils/record_converters.dart';
 ///
 /// Saved in one write, so a report never carries an official priority
 /// without the ratings behind it, or ratings without the score they give.
+///
+/// What the requestor chose when filing is no part of it: a review is
+/// recorded beside the requestor's damage type and urgency, never over
+/// them (2026-11-16).
 @immutable
 class ReportAssessment {
   ReportAssessment({
@@ -23,7 +27,8 @@ class ReportAssessment {
     required this.priorityScore,
     required this.recommendedPriority,
     required this.officialPriority,
-  }) {
+    String? reason,
+  }) : reason = _cleaned(reason) {
     for (final (field, rating) in [
       ('severityRating', severityRating),
       ('safetyRiskRating', safetyRiskRating),
@@ -33,6 +38,20 @@ class ReportAssessment {
       RecordConverters.validateRange(rating, 1, 4, field);
     }
     RecordConverters.validateRange(priorityScore, 1.0, 4.0, 'priorityScore');
+    RecordConverters.validateRange(
+      this.reason?.length ?? 0,
+      0,
+      reasonLimit,
+      'reason',
+    );
+  }
+
+  /// The longest reason accepted, as the database holds it to.
+  static const int reasonLimit = 500;
+
+  static String? _cleaned(String? reason) {
+    final trimmed = reason?.trim() ?? '';
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   final DamageCategory category;
@@ -55,6 +74,24 @@ class ReportAssessment {
   /// The level the administrator set — the only authoritative one (§1.2).
   final PriorityLevel officialPriority;
 
+  /// Why the administrator decided as they did, when they said: kept with
+  /// the decision in the report's audit trail. Null when not given.
+  final String? reason;
+
+  /// This review, for [reason].
+  ReportAssessment withReason(String? reason) => ReportAssessment(
+    category: category,
+    classifiedAutomatically: classifiedAutomatically,
+    severityRating: severityRating,
+    safetyRiskRating: safetyRiskRating,
+    frequencyRating: frequencyRating,
+    locationImportanceRating: locationImportanceRating,
+    priorityScore: priorityScore,
+    recommendedPriority: recommendedPriority,
+    officialPriority: officialPriority,
+    reason: reason,
+  );
+
   /// Whether the administrator set a different level from the one
   /// recommended.
   bool get modifiesRecommendation => officialPriority != recommendedPriority;
@@ -70,7 +107,8 @@ class ReportAssessment {
       other.locationImportanceRating == locationImportanceRating &&
       other.priorityScore == priorityScore &&
       other.recommendedPriority == recommendedPriority &&
-      other.officialPriority == officialPriority;
+      other.officialPriority == officialPriority &&
+      other.reason == reason;
 
   @override
   int get hashCode => Object.hash(
@@ -83,6 +121,7 @@ class ReportAssessment {
     priorityScore,
     recommendedPriority,
     officialPriority,
+    reason,
   );
 
   @override

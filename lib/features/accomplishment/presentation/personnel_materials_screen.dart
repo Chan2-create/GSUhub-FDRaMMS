@@ -13,6 +13,7 @@ import '../../../core/widgets/skeleton.dart';
 import '../../../shells/personnel/personnel_shell.dart';
 import '../../inventory/data/models/inventory_item.dart';
 import '../../tools/data/models/tool_loan.dart';
+import '../../tools/data/models/tool_request.dart';
 import '../../tools/presentation/tool_sheets.dart';
 import '../../work_orders/data/models/work_order.dart';
 import '../../work_orders/presentation/personnel/personnel_providers.dart';
@@ -62,6 +63,7 @@ class PersonnelMaterialsScreen extends ConsumerWidget {
             ),
           ),
         ),
+        const _ToolRequests(),
         const SizedBox(height: 24),
         const PersonnelSectionTitle('Tools with you'),
         const SizedBox(height: 12),
@@ -92,13 +94,95 @@ class PersonnelMaterialsScreen extends ConsumerWidget {
   }
 }
 
+/// What GSU has asked of the technician about tools and is still waiting
+/// for (2026-11-16): a tool to collect, a tool to bring back. Each is
+/// confirmed by scanning the tool. Nothing shows when nothing waits.
+class _ToolRequests extends ConsumerWidget {
+  const _ToolRequests();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final waiting = switch (ref.watch(myToolRequestsProvider)) {
+      AsyncData(value: Success(:final value)) => [
+        for (final request in value)
+          if (request.isPending) request,
+      ],
+      _ => const <ToolRequest>[],
+    };
+    final loans = switch (ref.watch(myToolLoansProvider)) {
+      AsyncData(value: Success(:final value)) => {
+        for (final loan in value) loan.id: loan,
+      },
+      _ => const <String, ToolLoan>{},
+    };
+    if (waiting.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 24),
+        const PersonnelSectionTitle('From GSU'),
+        const SizedBox(height: 12),
+        for (final request in waiting) ...[
+          ToolRequestCard(
+            request: request,
+            action: switch (request.kind) {
+              ToolRequestKind.checkOut => FilledButton.icon(
+                onPressed: () => scanToConfirmCheckOut(context, ref, request),
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                label: const Text('Scan to confirm'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.textPrimary,
+                  minimumSize: const Size.fromHeight(44),
+                ),
+              ),
+              ToolRequestKind.checkIn => FilledButton.icon(
+                onPressed: switch (loans[request.loanId]) {
+                  final loan? => () => scanToReturn(
+                    context,
+                    ref,
+                    loan,
+                    request: request,
+                  ),
+                  null => null,
+                },
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                label: const Text('Scan to return'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.textPrimary,
+                  minimumSize: const Size.fromHeight(44),
+                ),
+              ),
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+}
+
 class _ToolLoans extends ConsumerWidget {
   const _ToolLoans();
 
   @override
-  Widget build(
+  Widget build(BuildContext context, WidgetRef ref) {
+    // GSU's requests for tools back, by the loan they would close.
+    final returnRequests = switch (ref.watch(myToolRequestsProvider)) {
+      AsyncData(value: Success(:final value)) => {
+        for (final request in value)
+          if (request.isPending && request.kind == ToolRequestKind.checkIn)
+            request.loanId!: request,
+      },
+      _ => const <String, ToolRequest>{},
+    };
+    return _loans(context, ref, returnRequests);
+  }
+
+  Widget _loans(
     BuildContext context,
     WidgetRef ref,
+    Map<String, ToolRequest> returnRequests,
   ) => AsyncValueView<List<ToolLoan>>(
     value: ref.watch(myToolLoansProvider),
     loading: Skeleton.cards(count: 1, height: 72),
@@ -135,9 +219,18 @@ class _ToolLoans extends ConsumerWidget {
                     ],
                   ),
                 ),
-                OutlinedButton(
-                  onPressed: () => showReturnToolSheet(context, loan),
-                  child: const Text('Return'),
+                // Returned by scanning the tool, as every hand-over is
+                // (2026-11-16); GSU's request for it, if any, is confirmed
+                // with it.
+                OutlinedButton.icon(
+                  onPressed: () => scanToReturn(
+                    context,
+                    ref,
+                    loan,
+                    request: returnRequests[loan.id],
+                  ),
+                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                  label: const Text('Scan to return'),
                 ),
               ],
             ),

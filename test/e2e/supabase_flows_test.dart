@@ -92,7 +92,9 @@ Map<String, String> _localStack() {
 String _base64Url(List<int> bytes) =>
     base64Url.encode(bytes).replaceAll('=', '');
 
-/// A token like the ones firebase-token-exchange issues.
+/// A token like the ones firebase-token-exchange issues: signed in now, as
+/// the session's 15-minute limit needs it to say (without `auth_time`, a
+/// seeded account last active days ago is refused as idle).
 String _tokenFor(String uid, String secret) {
   final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
   final header = _base64Url(utf8.encode('{"alg":"HS256","typ":"JWT"}'));
@@ -102,6 +104,7 @@ String _tokenFor(String uid, String secret) {
         'sub': uid,
         'role': 'authenticated',
         'aud': 'authenticated',
+        'auth_time': now,
         'iat': now,
         'exp': now + 600,
       }),

@@ -111,6 +111,11 @@ void main() {
       // Their own suggestion appears only as theirs.
       expect(find.text('Electrical'), findsOneWidget);
       expect(find.text('DAMAGE TYPE YOU SUGGESTED'), findsOneWidget);
+      // And GSU's side says, in words, that nothing is official yet.
+      expect(find.text("GSU's review"), findsOneWidget);
+      expect(find.text('OFFICIAL DAMAGE TYPE'), findsOneWidget);
+      expect(find.text('OFFICIAL PRIORITY'), findsOneWidget);
+      expect(find.text('Awaiting GSU review'), findsNWidgets(2));
 
       app.reports.put(
         report(
@@ -124,7 +129,15 @@ void main() {
 
       expect(find.text('AWAITING REVIEW'), findsNothing);
       expect(find.text('HIGH PRIORITY'), findsOneWidget);
-      expect(find.text('Plumbing'), findsOneWidget);
+      // The official type: on the report card, and named in GSU's review.
+      expect(find.text('Plumbing'), findsNWidgets(2));
+      // The urgency they gave and the official priority, which agree here,
+      // each under its own label.
+      expect(find.text('High'), findsNWidgets(2));
+      expect(find.text('Awaiting GSU review'), findsNothing);
+      // What they chose themselves is still there, as theirs.
+      expect(find.text('Electrical'), findsOneWidget);
+      expect(find.text('URGENCY YOU GAVE'), findsOneWidget);
     },
   );
 

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/storage_paths.dart';
 import '../../../core/di/repository_providers.dart';
 import '../../../core/di/service_providers.dart';
-import '../../../core/enums/item_condition.dart';
 import '../../../core/enums/tool_status.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/services/photo_picker_service.dart';
@@ -181,41 +180,58 @@ class InventoryController {
         .deleteTool(toolId: toolId, actor: actor),
   );
 
-  /// Figure 15's Check Out: lends [toolId] to a technician.
+  /// Figure 15's Check Out (2026-11-16): asks [technician] to collect
+  /// [toolId]. Nothing is lent until they scan it and confirm.
   Future<Result<void>> checkOut({
     required String toolId,
     required AuditActor technician,
+    required DateTime checkoutAt,
+    required String purpose,
+    DateTime? dueAt,
+    String? message,
     String? workOrderId,
-    DateTime? expectedReturnAt,
   }) => _act(
     (actor) async => _done(
       await _ref
           .read(toolRepositoryProvider)
-          .borrowTool(
+          .requestCheckOut(
             toolId: toolId,
-            borrower: technician,
-            issuedBy: actor,
+            personnelId: technician.id,
+            checkoutAt: checkoutAt,
+            purpose: purpose,
+            actor: actor,
+            dueAt: dueAt,
+            message: message,
             workOrderId: workOrderId,
-            expectedReturnAt: expectedReturnAt,
           ),
     ),
   );
 
-  /// Figure 15's Check In: closes the loan with the condition it came
-  /// back in.
+  /// Figure 15's Check In (2026-11-16): asks the technician holding the
+  /// tool on [loanId] to return it by [dueAt]. Nothing moves until they
+  /// scan it back.
   Future<Result<void>> checkIn({
     required String loanId,
-    required ItemCondition condition,
-    String? notes,
+    required DateTime dueAt,
+    String? message,
   }) => _act(
+    (actor) async => _done(
+      await _ref
+          .read(toolRepositoryProvider)
+          .requestReturn(
+            loanId: loanId,
+            dueAt: dueAt,
+            actor: actor,
+            message: message,
+          ),
+    ),
+  );
+
+  /// Withdraws a tool request still waiting.
+  Future<Result<void>> cancelToolRequest(String requestId) => _act(
     (actor) => _ref
         .read(toolRepositoryProvider)
-        .returnTool(
-          loanId: loanId,
-          conditionOnReturn: condition,
-          actor: actor,
-          notes: notes,
-        ),
+        .cancelRequest(requestId: requestId, actor: actor),
   );
 
   Future<Result<void>> approveRequest(String requestId, {String? note}) => _act(

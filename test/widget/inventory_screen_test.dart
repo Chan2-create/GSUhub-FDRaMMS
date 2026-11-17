@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/table_names.dart';
+import 'package:gsuhub/core/enums/item_condition.dart';
 import 'package:gsuhub/core/enums/notification_type.dart';
 import 'package:gsuhub/core/enums/tool_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
+import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/inventory/data/models/material_line.dart';
 import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
 
@@ -298,36 +300,172 @@ void main() {
     expect(find.text('Insulation Tape'), findsOneWidget);
   });
 
-  testWidgets('a tool is checked out to a technician, then checked in', (
-    tester,
-  ) async {
-    final app = await console(tester);
-    await pump(app, tester);
-    await openTab(tester, 'Tools');
+  // Since 2026-11-16 Check Out and Check In ask; the technician confirms
+  // each by scanning the tool in the app (done here through the
+  // repository, as the app would).
+  group('check out and check in', () {
+    const technician = AuditActor(id: 'personnel-1', name: 'Marcus Wright');
 
-    await tester.ensureVisible(find.text('Check Out'));
-    await tester.tap(find.text('Check Out'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Technician'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Marcus Wright').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Check out'));
-    await tester.pumpAndSettle();
+    Future<String> requestId(PersonnelHarness app) async =>
+        (await app.data.firestore
+                .collection(TableNames.toolRequests)
+                .orderBy('requestedAt', descending: true)
+                .limit(1)
+                .get())
+            .docs
+            .single
+            .id;
 
-    var tool = await app.read(TableNames.tools, 'tool-1');
-    expect(tool['status'], ToolStatus.borrowed.id);
-    expect(tool['currentHolderId'], fakeTechnician.uid);
-    expect(find.text('BORROWED'), findsOneWidget);
+    Future<void> checkOut(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Check Out'));
+      await tester.tap(find.text('Check Out'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Technician'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Marcus Wright').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Purpose'),
+        'Ceiling fan repair',
+      );
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Send checkout request'),
+      );
+      await tester.pumpAndSettle();
+    }
 
-    await tester.ensureVisible(find.text('Check In'));
-    await tester.tap(find.text('Check In'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Check in'));
-    await tester.pumpAndSettle();
+    testWidgets('a checkout waits for the technician, then a return does', (
+      tester,
+    ) async {
+      final app = await console(tester);
+      expect(fakeTechnician.uid, technician.id);
+      await pump(app, tester);
+      await openTab(tester, 'Tools');
 
-    tool = await app.read(TableNames.tools, 'tool-1');
-    expect(tool['status'], ToolStatus.available.id);
+      await checkOut(tester);
+
+      // Asked, not lent: reserved for them, waiting, and cancellable.
+      var tool = await app.read(TableNames.tools, 'tool-1');
+      expect(tool['status'], ToolStatus.reserved.id);
+      expect(tool['currentHolderId'], isNull);
+      expect(find.text('RESERVED'), findsOneWidget);
+      expect(find.text('to collect'), findsOneWidget);
+      expect(find.text('Waiting for a Technician'), findsOneWidget);
+      expect(find.text('PENDING CONFIRMATION'), findsOneWidget);
+      expect(find.text('Cancel Request'), findsOneWidget);
+      expect(find.bySemanticsLabel('Tools (1)'), findsOneWidget);
+
+      // The technician scans the tool and confirms.
+      final checkout = await requestId(app);
+      final loan = (await app.data.tools.confirmCheckOut(
+        requestId: checkout,
+        scannedCode: 'TOOL-TL-0001',
+        actor: technician,
+      )).fold((loan) => loan, (f) => fail(f.message));
+      await tester.pumpAndSettle();
+
+      expect(find.text('BORROWED'), findsOneWidget);
+      expect(find.text('Waiting for a Technician'), findsNothing);
+
+      await tester.ensureVisible(find.text('Check In'));
+      await tester.tap(find.text('Check In'));
+      await tester.pumpAndSettle();
+      expect(find.text('Check in Fluke Multimeter'), findsOneWidget);
+      expect(find.text('Marcus Wright'), findsWidgets);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Message or instructions (optional)'),
+        'Bring it to the GSU office.',
+      );
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Send return request'),
+      );
+      await tester.pumpAndSettle();
+
+      // Asked back, still out.
+      tool = await app.read(TableNames.tools, 'tool-1');
+      expect(tool['status'], ToolStatus.borrowed.id);
+      expect(find.text('Awaiting Return'), findsOneWidget);
+      expect(find.text('AWAITING RETURN'), findsOneWidget);
+
+      // The technician scans it back.
+      expect(
+        (await app.data.tools.returnTool(
+          loanId: loan.id,
+          scannedCode: 'TOOL-TL-0001',
+          conditionOnReturn: ItemCondition.good,
+          actor: technician,
+        )).isSuccess,
+        isTrue,
+      );
+      await tester.pumpAndSettle();
+
+      tool = await app.read(TableNames.tools, 'tool-1');
+      expect(tool['status'], ToolStatus.available.id);
+      expect(find.text('AVAILABLE'), findsOneWidget);
+      expect(
+        (await app.read(
+          TableNames.toolRequests,
+          await requestId(app),
+        ))['status'],
+        'confirmed',
+      );
+    });
+
+    testWidgets('a checkout still waiting is cancelled from its row', (
+      tester,
+    ) async {
+      final app = await console(tester);
+      await pump(app, tester);
+      await openTab(tester, 'Tools');
+      await checkOut(tester);
+
+      await tester.ensureVisible(find.text('Cancel Request'));
+      await tester.tap(find.text('Cancel Request'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Cancel the checkout of Fluke Multimeter?'),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Cancel checkout'));
+      await tester.pumpAndSettle();
+
+      expect(
+        (await app.read(TableNames.tools, 'tool-1'))['status'],
+        ToolStatus.available.id,
+      );
+      expect(
+        (await app.read(
+          TableNames.toolRequests,
+          await requestId(app),
+        ))['status'],
+        'cancelled',
+      );
+      expect(find.text('Check Out'), findsOneWidget);
+    });
+
+    testWidgets('the form asks what the tool is for', (tester) async {
+      final app = await console(tester);
+      await pump(app, tester);
+      await openTab(tester, 'Tools');
+
+      await tester.ensureVisible(find.text('Check Out'));
+      await tester.tap(find.text('Check Out'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Technician'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Marcus Wright').last);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Send checkout request'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Say what the tool is for.'), findsOneWidget);
+      expect(
+        (await app.read(TableNames.tools, 'tool-1'))['status'],
+        ToolStatus.available.id,
+      );
+    });
   });
 
   testWidgets('a waiting request is approved onto its work order', (
