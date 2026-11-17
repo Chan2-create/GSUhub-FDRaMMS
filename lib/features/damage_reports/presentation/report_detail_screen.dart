@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,8 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
+import '../../../core/constants/damage_categories.dart';
+import '../../../core/enums/priority_level.dart';
 import '../../../core/enums/report_status.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
@@ -182,23 +186,52 @@ class _ReviewActions extends ConsumerStatefulWidget {
 }
 
 class _ReviewActionsState extends ConsumerState<_ReviewActions> {
-  bool _busy = false;
+  /// The move being made, while the database is being asked: its button
+  /// shows it, and none of them can be pressed again until it answers.
+  ReportStatus? _moving;
 
-  Future<void> _run(Future<Result<void>> Function() action) async {
-    setState(() => _busy = true);
+  bool get _busy => _moving != null;
+
+  /// Makes a move and says how it went: [done] once the database has
+  /// confirmed it, or why not, with a way to try again. By then the page
+  /// already shows what the database holds.
+  Future<void> _run(
+    ReportStatus to,
+    Future<Result<void>> Function() action, {
+    required String done,
+  }) async {
+    // One move at a time, whatever the buttons looked like when pressed.
+    if (_busy) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _moving = to);
     final result = await action();
-    if (!mounted) return;
-    setState(() => _busy = false);
+    if (mounted) setState(() => _moving = null);
 
-    result.fold((_) => null, (failure) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    result.fold(
+      (_) => messenger.showSnackBar(SnackBar(content: Text(done))),
+      (failure) => messenger.showSnackBar(
         SnackBar(
           content: Text(failure.message),
           backgroundColor: AppColors.error,
+          action: SnackBarAction(
+            label: 'Try again',
+            textColor: AppColors.textOnDark,
+            onPressed: () {
+              if (mounted) unawaited(_run(to, action, done: done));
+            },
+          ),
         ),
-      );
-    });
+      ),
+    );
   }
+
+  /// [label], or a spinner while that move is being made.
+  Widget _label(ReportStatus to, String label) => _moving == to
+      ? const SizedBox.square(
+          dimension: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+      : Text(label);
 
   @override
   Widget build(BuildContext context) {
@@ -211,20 +244,28 @@ class _ReviewActionsState extends ConsumerState<_ReviewActions> {
         FilledButton(
           onPressed: _busy
               ? null
-              : () => _run(() => controller.startReview(report.id)),
-          child: const Text('Start review'),
+              : () => _run(
+                  ReportStatus.underReview,
+                  () => controller.startReview(report.id),
+                  done: 'Review started.',
+                ),
+          child: _label(ReportStatus.underReview, 'Start review'),
         ),
       if (status.canTransitionTo(ReportStatus.approved))
         FilledButton(
           onPressed: _busy
               ? null
-              : () => _run(() => controller.approve(report.id)),
-          child: const Text('Approve'),
+              : () => _run(
+                  ReportStatus.approved,
+                  () => controller.approve(report.id),
+                  done: 'Report approved.',
+                ),
+          child: _label(ReportStatus.approved, 'Approve'),
         ),
       if (status.canTransitionTo(ReportStatus.rejected))
         OutlinedButton(
           onPressed: _busy ? null : _promptReject,
-          child: const Text('Reject'),
+          child: _label(ReportStatus.rejected, 'Reject'),
         ),
       // Reports are archived, never deleted (2026-11-08).
       if (report.isArchived || report.canBeArchived)
@@ -252,9 +293,11 @@ class _ReviewActionsState extends ConsumerState<_ReviewActions> {
     );
     if (reason == null || !mounted) return;
     await _run(
+      ReportStatus.rejected,
       () => ref
           .read(reportReviewControllerProvider)
           .reject(widget.report.id, reason),
+      done: 'Report rejected.',
     );
   }
 }
@@ -313,92 +356,248 @@ class _RejectDialogState extends State<_RejectDialog> {
   );
 }
 
-/// What the report's classification and priority are now — the summary
-/// beside the review panel, and all there is once the report is past
-/// review.
+/// The report's classification and priority, each said three ways and
+/// kept apart (2026-11-16): what the **requestor** chose when filing,
+/// which never changes; what the **system** suggests or recommends; and
+/// what the **administrator** made official, or that it is still awaiting
+/// their review. The summary beside the review panel, and all there is
+/// once the report is past review.
 class _ClassificationCard extends StatelessWidget {
   const _ClassificationCard({required this.report});
 
   final DamageReport report;
 
+  static final DateFormat _when = DateFormat('MMM d, y · h:mm a');
+
+  /// "Awaiting administrative review" while the report can still get one;
+  /// what became of it once it cannot.
+  String get _noOfficialValue => report.canBeAssessed
+      ? 'Awaiting administrative review'
+      : 'None: the report ended without one';
+
   @override
   Widget build(BuildContext context) {
-    final category = report.category;
+    final official = report.officialCategory;
+    final chosen = report.requestorCategory;
+    final suggested = report.suggestedCategory;
+    final officialPriority = report.officialPriority;
+    final recommended = report.recommendedPriority;
     final score = report.priorityScore;
+    final reviewedAt = report.reviewedAt;
 
     return SectionCard(
       title: 'Classification',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Field(
-            label: 'Damage type',
-            value: category?.label ?? 'Unclassified',
-          ),
-          const SizedBox(height: 4),
-          Text(switch (report) {
-            DamageReport(category: null) =>
-              'The keywords did not decide it, so an administrator '
-                  'classifies it.',
-            // The type is confirmed with the official priority, in one
-            // review (4.C) — an approval alone does not confirm it.
-            DamageReport(
-              classifiedAutomatically: true,
-              officialPriority: null,
-            ) =>
-              'Classified automatically by keyword; not yet confirmed.',
-            DamageReport(classifiedAutomatically: true) =>
-              'Classified automatically by keyword, and confirmed.',
-            _ => 'Set by an administrator.',
-          }, style: AppTextStyles.bodySmall),
-          // What the requestor picked on the mobile form (3.C). Shown beside
-          // the category rather than as it: a suggestion, not a decision.
-          if (report.requestorCategory case final suggested?) ...[
+          if (report.awaitsAssessment) ...[
+            const _AwaitingReviewNote(),
             const SizedBox(height: 16),
-            _Field(label: 'Suggested by requestor', value: suggested.label),
           ],
-          const SizedBox(height: 16),
+          const _GroupLabel("Requestor's submission"),
+          const SizedBox(height: 8),
           _Field(
-            label: 'Priority',
-            child: PriorityChip(
-              level: report.effectivePriority,
-              confirmed: report.isPriorityConfirmed,
+            label: 'Initial classification',
+            value: chosen?.label ?? 'Not chosen',
+          ),
+          const SizedBox(height: 12),
+          _Field(
+            label: 'Initial priority',
+            child: _SourcedPriority(
+              level: report.requestorPriority,
+              confirmed: false,
+              source: 'Requestor-selected',
             ),
           ),
-          if (score != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Score ${score.toStringAsFixed(2)}, recommending '
-              '${report.recommendedPriority?.title ?? '—'}'
-              '${report.isPriorityConfirmed && report.officialPriority != report.recommendedPriority ? ' — changed by the administrator' : ''}.',
-              style: AppTextStyles.bodySmall,
-            ),
-          ],
-          if (!report.isPriorityConfirmed) ...[
-            const SizedBox(height: 8),
-            Text(
-              score == null
-                  ? "Shown as the requestor's own urgency. An administrator "
-                        'sets the official priority before work is assigned.'
-                  : 'Recommended by the score, not yet confirmed. An '
-                        'administrator sets the official priority before '
-                        'work is assigned.',
-              style: AppTextStyles.bodySmall,
-            ),
-          ],
-          const SizedBox(height: 16),
+          const _CardDivider(),
+          const _GroupLabel("Administrator's review"),
+          const SizedBox(height: 8),
           _Field(
-            label: "Requestor's urgency",
-            value: report.requestorPriority.title,
+            label: 'Official classification',
+            value: official?.label ?? _noOfficialValue,
+          ),
+          if (_classificationNote(official, chosen, suggested) case final note?)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(note, style: AppTextStyles.bodySmall),
+            ),
+          const SizedBox(height: 12),
+          _Field(
+            label: 'Official priority',
+            value: officialPriority == null ? _noOfficialValue : null,
+            child: officialPriority == null
+                ? null
+                : _SourcedPriority(
+                    level: officialPriority,
+                    confirmed: true,
+                    source: 'Administrator-confirmed',
+                  ),
+          ),
+          if (_priorityNote(officialPriority) case final note?)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(note, style: AppTextStyles.bodySmall),
+            ),
+          if (officialPriority != null && reviewedAt != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Reviewed ${_when.format(reviewedAt.toLocal())}. Who, and '
+                'any reason given, are in the history.',
+                style: AppTextStyles.bodySmall,
+              ),
+            ),
+          const _CardDivider(),
+          const _GroupLabel('System recommendation'),
+          const SizedBox(height: 8),
+          _Field(
+            label: 'Recommended priority',
+            value: recommended == null
+                ? 'Computed when the four criteria are rated in the review'
+                : null,
+            child: recommended == null
+                ? null
+                : _SourcedPriority(
+                    level: recommended,
+                    confirmed: true,
+                    source: score == null
+                        ? 'System-recommended'
+                        : 'System-recommended · score '
+                              '${score.toStringAsFixed(2)}',
+                  ),
           ),
           if (report.rejectionReason != null) ...[
-            const SizedBox(height: 16),
+            const _CardDivider(),
             _Field(label: 'Rejection reason', value: report.rejectionReason!),
           ],
         ],
       ),
     );
   }
+
+  /// How the official damage type came about, or what stands in for it
+  /// until there is one.
+  String? _classificationNote(
+    DamageCategory? official,
+    DamageCategory? chosen,
+    DamageCategory? suggested,
+  ) {
+    if (official == null) {
+      if (suggested != null) {
+        return 'The keywords suggest ${suggested.label}: a suggestion until '
+            'an administrator confirms it.';
+      }
+      return report.canBeAssessed && report.category == null
+          ? 'No keyword matched, so an administrator classifies it.'
+          : null;
+    }
+    if (chosen == null) return 'The requestor did not choose a type.';
+    return official == chosen
+        ? "Confirms the requestor's choice."
+        : "Changed from the requestor's ${chosen.label}, which is kept above.";
+  }
+
+  /// How the official priority stands against what the requestor chose.
+  String? _priorityNote(PriorityLevel? official) {
+    if (official == null) {
+      return report.canBeAssessed
+          ? "Until then the report is listed under the requestor's own "
+                'urgency, marked as unconfirmed.'
+          : null;
+    }
+    final initial = report.requestorPriority;
+    if (official == initial) return "Confirms the requestor's choice.";
+    return '${official.index > initial.index ? 'Raised' : 'Lowered'} from the '
+        "requestor's ${initial.title}, which is kept above.";
+  }
+}
+
+/// A heading for one of the card's three sources.
+class _GroupLabel extends StatelessWidget {
+  const _GroupLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: AppTextStyles.fieldValue.copyWith(fontWeight: FontWeight.w600),
+  );
+}
+
+class _CardDivider extends StatelessWidget {
+  const _CardDivider();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(vertical: 16),
+    child: Divider(height: 1, color: AppColors.border),
+  );
+}
+
+/// A priority and where it came from: requestor-selected,
+/// system-recommended or administrator-confirmed.
+class _SourcedPriority extends StatelessWidget {
+  const _SourcedPriority({
+    required this.level,
+    required this.confirmed,
+    required this.source,
+  });
+
+  final PriorityLevel level;
+  final bool confirmed;
+  final String source;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 8,
+    runSpacing: 4,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      PriorityChip(level: level, confirmed: confirmed),
+      Text(source, style: AppTextStyles.bodySmall),
+    ],
+  );
+}
+
+/// Says, at the top of the card, that nothing on it is official yet.
+class _AwaitingReviewNote extends StatelessWidget {
+  const _AwaitingReviewNote();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: AppColors.surfaceMuted,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 1),
+          child: Icon(
+            Icons.hourglass_top_outlined,
+            size: 16,
+            color: AppColors.textFaint,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Awaiting administrative review. The values below are the '
+            "requestor's own until an administrator confirms or changes "
+            'them.',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _LocationCard extends StatelessWidget {
@@ -546,6 +745,7 @@ class _HistoryCard extends ConsumerWidget {
               _HistoryRow(
                 title: entry.description,
                 subtitle: entry.actorName,
+                details: reviewDetailsOf(entry),
                 timestamp: dateFormat.format(entry.timestamp.toLocal()),
               ),
           ];
@@ -560,15 +760,63 @@ class _HistoryCard extends ConsumerWidget {
   }
 }
 
+/// What a review changed, as the history spells it out under the entry:
+/// the classification and the official priority from what they were to
+/// what they became, and what the requestor had chosen. Empty for an
+/// entry that is not a review.
+@visibleForTesting
+List<String> reviewDetailsOf(AuditLogEntry entry) {
+  final changes = entry.changes;
+  if (changes == null || changes['officialPriority'] is! Map) return const [];
+
+  String category(Object? id) {
+    if (id is! String) return 'unclassified';
+    for (final type in DamageCategory.values) {
+      if (type.id == id) return type.label;
+    }
+    return id;
+  }
+
+  String priority(Object? id) {
+    if (id is! String) return 'none';
+    for (final level in PriorityLevel.values) {
+      if (level.id == id) return level.title;
+    }
+    return id;
+  }
+
+  String change(String what, Object? pair, String Function(Object?) label) {
+    final from = pair is Map ? pair['from'] : null;
+    final to = pair is Map ? pair['to'] : null;
+    return from == null || from == to
+        ? '$what: ${label(to)}'
+        : '$what: ${label(from)} → ${label(to)}';
+  }
+
+  final requestor = changes['requestor'];
+  return [
+    change('Classification', changes['category'], category),
+    change('Official priority', changes['officialPriority'], priority),
+    if (requestor is Map)
+      'The requestor chose: '
+          '${requestor['category'] == null ? 'no damage type' : category(requestor['category'])}, '
+          '${priority(requestor['priority'])} priority',
+  ];
+}
+
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({
     required this.title,
     required this.timestamp,
     this.subtitle,
+    this.details = const [],
   });
 
   final String title;
   final String? subtitle;
+
+  /// Further lines under the entry: what a review changed.
+  final List<String> details;
   final String timestamp;
 
   @override
@@ -591,6 +839,8 @@ class _HistoryRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: AppTextStyles.fieldValue),
+                for (final line in details)
+                  Text(line, style: AppTextStyles.bodySmall),
                 if (subtitle != null)
                   Text(subtitle!, style: AppTextStyles.bodySmall),
                 if (compact) stamp,

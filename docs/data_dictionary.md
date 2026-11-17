@@ -104,6 +104,9 @@ erDiagram
     accomplishment_reports ||--o{ inventory_transactions : "triggers deduction"
     inventory_items ||--o{ inventory_transactions : "ledger for"
     tools ||--o{ tool_loans : "loaned in"
+    tools ||--o{ tool_requests : "asked for in"
+    users ||--o{ tool_requests : "asked to scan"
+    tool_requests |o--o| tool_loans : "opens or closes"
 
     config_prioritization ||..|| damage_reports : "scores"
     config_classification_rules ||..|| damage_reports : "classifies"
@@ -571,21 +574,55 @@ consumables.
 must record `conditionOnReturn`. Recording condition at both ends is what
 makes damage attributable to a custodian (§1.5, §3.4).
 
-**In the personnel app (Objective 5.C).** A technician borrows an
-available tool by scan or from the list, against one of their work
-orders or none, and returns it with its condition and an optional note.
-A tool returned in `poor` condition goes to `inRepair`; otherwise it is
+**In the personnel app (Objective 5.C; scanning required from
+2026-11-16, §41).** A technician borrows an available tool by scanning
+its QR code, against one of their work orders or none, and returns it
+by scanning it again, with its condition and an optional note. A tool
+returned in `poor` condition goes to `inRepair`; otherwise it is
 `available` again. Each borrow and return writes an audit entry.
 Personnel list their own loans only.
 
-**From the console (Objective 6.B, Figure 15).** Check Out writes the
-loan with `borrowedBy` the technician and the administrator as the audit
-entry's actor; the rules allow an administrator to create a loan only
-for a maintenance-personnel account. Check In closes it as a return
-does. An administrator sends an available tool to repair, brings one
-back, or retires one; never a tool that is out, and a retired tool stays
-retired. A tool out on loan keeps the condition it left in until it is
-checked in.
+**From the console (Objective 6.B, Figure 15; changed 2026-11-16,
+§41).** Check Out and Check In no longer move the tool: they write a
+`tool_requests` row, and the loan opens or closes only when the
+technician scans the tool and confirms. While a checkout waits the tool
+is `reserved`. An administrator sends an available tool to repair, brings
+one back, or retires one; never a tool that is out or reserved, and a
+retired tool stays retired. A tool out on loan keeps the condition it
+left in until it is returned.
+
+## tool_requests
+
+Model: `ToolRequest` (2026-11-16, §41). An administrator's request that
+a technician collect a tool (`checkOut`) or bring one back (`checkIn`),
+waiting for the technician to scan the tool. Kept after it ends, and
+after the tool is deleted: it is the transaction history.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `kind` | `checkOut` / `checkIn` | ✔ | |
+| `toolId` | String → `tools` | ✔ | |
+| `toolName`, `toolCode`, `qrCode` | String | ✔ | **Denormalized**, as they were when asked |
+| `personnelId` | String → `users` | ✔ | The technician who must scan it |
+| `requestedBy` | String → `users` | ✔ | The administrator who asked |
+| `requestedAt` | Timestamp | ✔ | |
+| `checkoutAt` | Timestamp | checkout | When they are to collect it |
+| `dueAt` | Timestamp | return | The expected return (optional on a checkout; becomes the loan's `expectedReturnAt`) or the return-by time |
+| `expiresAt` | Timestamp | checkout | When an uncollected checkout lapses |
+| `purpose` | String ≤ 200 | checkout | |
+| `message` | String ≤ 500 | | The administrator's instructions |
+| `workOrderId` | String → `work_orders` | | |
+| `loanId` | String → `tool_loans` | return | The loan the return closes; on a checkout, the loan it opened |
+| `status` | `pending` / `confirmed` / `cancelled` / `expired` | ✔ | |
+| `confirmedAt` | Timestamp | | When the technician scanned and confirmed |
+| `closedAt`, `closedBy` | Timestamp, String | | Cancelled (by whom) or lapsed |
+| `remindedAt`, `overdueNotifiedAt` | Timestamp | | The sweep's notices, sent once |
+
+*Invariants:* at most one pending request per tool; a return names its
+loan and a due time; a checkout has a collect time, a purpose and a
+lapse time. The statuses people read (Pending Confirmation, Borrowed,
+Cancelled, Expired; Awaiting Return, Overdue, Returned) are worked out
+from `status` and the clock (`ToolRequest.statusAt`).
 
 ## material_requests
 
@@ -681,6 +718,16 @@ A recipient marks one read (`mark_notification_read`) and nothing else.
 | | materials requested | `materialsRequested` | `material_requests` |
 | | a sign-up | `accountRequested` | `users` |
 | | stock at or below its minimum | `lowStockAlert` | `inventory_items` |
+| The technician (2026-11-16, §41) | asked to collect a tool | `toolCheckoutRequested` | `tool_requests` |
+| | asked to return one | `toolReturnRequested` | `tool_requests` |
+| | the return due within the hour | `toolReturnDue` | `tool_requests` |
+| | the return time passed | `toolOverdue` | `tool_requests` |
+| | a request cancelled, or a checkout lapsed | `toolRequestCancelled` | `tool_requests` |
+| Every administrator but the one who acted (2026-11-16) | a checkout confirmed by scanning | `toolCheckoutConfirmed` | `tool_requests` |
+| | a tool returned by scanning | `toolReturned` | `tool_requests` (`tool_loans` when no one asked) |
+| | a checkout uncollected an hour after its time | `toolCheckoutPending` | `tool_requests` |
+| | a return overdue | `toolOverdue` | `tool_requests` |
+| | a request cancelled, or a checkout lapsed | `toolRequestCancelled` | `tool_requests` |
 
 The reporter's wording is `app.report_notice`, mirrored by
 `ReportNotice.forMove` (**DERIVED**). The administrators' notices are
@@ -898,6 +945,7 @@ fresh sign-in starts a new session.
 | `material_requests` | all | — | their own |
 | `inventory_transactions` | all | — | all |
 | `tool_loans` | all | — | their own |
+| `tool_requests` | all | — | their own |
 | `feedback` | all | own | **none** (§1.5: ratings do not feed performance evaluations) |
 | `notifications` | own | own | own |
 | `audit_logs` | all | — | — |
@@ -914,7 +962,7 @@ fresh sign-in starts a new session.
 | `facilities`, `assets` | `create_facility`, `update_facility`, `set_facility_active`, `create_asset`, `update_asset`, `set_asset_active` | administrator; a code is unique across rooms, equipment, materials and tools still in use |
 | | `delete_facility`, `delete_asset` | administrator, unless open reports (or, for a room, open work orders or equipment) depend on it; marks it deleted (2026-11-08) |
 | `damage_reports` | `submit_report` | an active requestor, as themselves (3.C) |
-| | `record_assessment`, `transition_report`, `merge_duplicates`, `keep_separate` | administrator (4.A–4.C) |
+| | `record_assessment`, `transition_report`, `merge_duplicates`, `keep_separate` | administrator (4.A–4.C). `record_assessment` takes an optional `reason` and `expected_updated_at`: it never touches `requestor_category` or `requestor_priority` (a trigger refuses any change to them, `PT409`), refuses a report changed since `expected_updated_at` (`PT409`, naming who), writes nothing when nothing would change, and audits the requestor's choices, the classification and official priority from and to, and the reason (2026-11-16, §42) |
 | | `rate_service` (closes it) | the person who filed it, once, when completed (3.C) |
 | | `set_report_archived` | administrator; archives a closed, merged or rejected report, or restores one (2026-11-08) |
 | `work_orders` | `assign_work_order`, `update_admin_notes` | administrator |
@@ -935,8 +983,11 @@ fresh sign-in starts a new session.
 | | (consumption) | written by `submit_accomplishment` |
 | `tools` | `create_tool`, `update_tool`, `set_tool_status` | administrator |
 | | `delete_tool` | administrator, unless it is on loan; marks it deleted (2026-11-08) |
-| `tool_loans` | `borrow_tool` | a technician for themselves; an administrator to a technician (6.B) |
-| | `return_tool` | the borrower, or an administrator |
+| `tool_loans` | `borrow_tool_by_scan` | a technician for themselves, scanning the tool (2026-11-16; `borrow_tool` now refuses) |
+| | `confirm_tool_return` | the borrower, scanning the tool (2026-11-16; `return_tool` now refuses) |
+| `tool_requests` | `request_tool_checkout`, `request_tool_return`, `cancel_tool_request` | administrator (§41) |
+| | `confirm_tool_checkout` | the technician it names, scanning the tool; opens the loan |
+| | (lapsing, reminders, overdue) | `app.sweep_tool_requests`, every five minutes from pg_cron; no app user can run it |
 | `app_config` | `update_config` | administrator; a setting the app could not read is refused (7.A) |
 | `report_status_history`, `notifications`, `audit_logs` | written by the function that makes the change, in the same transaction; the administrators' notices by triggers on the change (7.A) | — |
 | `notifications` | `mark_notification_read`, `mark_all_notifications_read` | the recipient |

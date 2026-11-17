@@ -13,6 +13,7 @@ import '../../../core/widgets/skeleton.dart';
 import '../../../shells/personnel/personnel_shell.dart';
 import '../../accomplishment/presentation/material_sheets.dart';
 import '../../tools/data/models/tool.dart';
+import '../../tools/data/models/tool_request.dart';
 import '../../tools/presentation/tool_sheets.dart';
 import '../../work_orders/presentation/personnel/my_work_orders_screen.dart';
 import '../../work_orders/presentation/personnel/personnel_providers.dart';
@@ -128,13 +129,17 @@ class ScanResultScreen extends ConsumerWidget {
   );
 }
 
+/// What the technician can do with a scanned tool. Since 2026-11-16 the
+/// scan itself is the confirmation: a checkout GSU sent them is confirmed
+/// here, a return GSU asked for is confirmed here, and a tool on the shelf
+/// is borrowed here, each with the code just scanned.
 class _ToolActions extends ConsumerWidget {
   const _ToolActions({required this.tool, required this.code});
 
   final Tool tool;
 
-  /// The code that found [tool]: read again once it is borrowed or
-  /// returned, so the page shows where the tool is now.
+  /// The code that found [tool]: what each hand-over is confirmed with,
+  /// and read again once one is done, so the page shows where the tool is.
   final String code;
 
   @override
@@ -146,6 +151,33 @@ class _ToolActions extends ConsumerWidget {
         value.where((loan) => loan.toolId == tool.id).firstOrNull,
       _ => null,
     };
+    // GSU's request about this tool, if it was made of this technician.
+    final request = switch (ref.watch(myToolRequestsProvider)) {
+      AsyncData(value: Success(:final value)) =>
+        value
+            .where((request) => request.toolId == tool.id && request.isPending)
+            .firstOrNull,
+      _ => null,
+    };
+
+    Future<void> then(Future<void> step) async {
+      await step;
+      if (context.mounted) ref.invalidate(scanMatchProvider(code));
+    }
+
+    Widget button(String label, IconData icon, VoidCallback onPressed) =>
+        FilledButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon),
+          label: Text(label),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.textPrimary,
+            minimumSize: const Size.fromHeight(52),
+          ),
+        );
+
+    final checkOut = request?.kind == ToolRequestKind.checkOut ? request : null;
+    final checkIn = request?.kind == ToolRequestKind.checkIn ? request : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -155,34 +187,45 @@ class _ToolActions extends ConsumerWidget {
           child: ToolSummary(tool: tool),
         ),
         const SizedBox(height: 16),
-        if (tool.status.isIssuable)
-          FilledButton.icon(
-            onPressed: () async {
-              await showBorrowToolSheet(context, tool: tool);
-              if (context.mounted) ref.invalidate(scanMatchProvider(code));
-            },
-            icon: const Icon(Icons.handyman_outlined),
-            label: const Text('Borrow'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.textPrimary,
-              minimumSize: const Size.fromHeight(52),
+        if (checkOut != null && tool.status == ToolStatus.reserved) ...[
+          ToolRequestCard(request: checkOut),
+          const SizedBox(height: 16),
+          button(
+            'Confirm receipt',
+            Icons.verified_outlined,
+            () => then(
+              showConfirmCheckOutSheet(context, checkOut, scannedCode: code),
             ),
-          )
-        else if (mine && loan != null)
-          FilledButton.icon(
-            onPressed: () async {
-              await showReturnToolSheet(context, loan);
-              if (context.mounted) ref.invalidate(scanMatchProvider(code));
-            },
-            icon: const Icon(Icons.assignment_return_outlined),
-            label: const Text('Return'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.textPrimary,
-              minimumSize: const Size.fromHeight(52),
+          ),
+        ] else if (mine && loan != null) ...[
+          if (checkIn != null) ...[
+            ToolRequestCard(request: checkIn),
+            const SizedBox(height: 16),
+          ],
+          button(
+            checkIn == null ? 'Return' : 'Confirm return',
+            Icons.assignment_return_outlined,
+            () => then(
+              showReturnToolSheet(
+                context,
+                loan,
+                scannedCode: code,
+                request: checkIn,
+              ),
+            ),
+          ),
+        ] else if (tool.status.isIssuable)
+          button(
+            'Borrow',
+            Icons.handyman_outlined,
+            () => then(
+              showBorrowToolSheet(context, tool: tool, scannedCode: code),
             ),
           )
         else
           Text(switch (tool.status) {
+            ToolStatus.reserved =>
+              'This tool is reserved for another technician to collect.',
             ToolStatus.borrowed when mine => 'You have this tool.',
             ToolStatus.borrowed =>
               'Another technician has this tool. It can be borrowed once '

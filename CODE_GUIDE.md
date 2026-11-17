@@ -183,11 +183,12 @@ live in one feature.
 | What | Where |
 |---|---|
 | Tool Assets & Tracking table (the Tools tab of the Inventory page) and Scan QR | [`lib/features/tools/presentation/tools_section.dart`](lib/features/tools/presentation/tools_section.dart) |
-| Tool dialogs (add, edit, check out, check in, repair, retire, details, delete) | [`widgets/tool_dialogs.dart`](lib/features/tools/presentation/widgets/tool_dialogs.dart) |
+| Tool dialogs (add, edit, check out, check in, cancel a request, repair, retire, details, delete) | [`widgets/tool_dialogs.dart`](lib/features/tools/presentation/widgets/tool_dialogs.dart) |
+| The requests waiting for a technician's scan: the console's panel, status chips, the history rows | [`widgets/tool_request_widgets.dart`](lib/features/tools/presentation/widgets/tool_request_widgets.dart) |
 | What the tool screens read | [`tool_providers.dart`](lib/features/tools/presentation/tool_providers.dart) |
-| Borrowing and returning from the maintenance app | [`tool_sheets.dart`](lib/features/tools/presentation/tool_sheets.dart) |
-| The records | [`tool.dart`](lib/features/tools/data/models/tool.dart), [`tool_loan.dart`](lib/features/tools/data/models/tool_loan.dart), [`tool_repository_impl.dart`](lib/features/tools/data/repositories/tool_repository_impl.dart) |
-| Database | `borrow_tool`, `return_tool`, `create_tool`, `update_tool`, `set_tool_status` in [`20261017070003_tool_functions.sql`](supabase/migrations/20261017070003_tool_functions.sql); `delete_tool` in [`20261108141827_console_delete_and_archive.sql`](supabase/migrations/20261108141827_console_delete_and_archive.sql) |
+| Scanning to borrow, return, or confirm GSU's checkout, from the maintenance app | [`tool_sheets.dart`](lib/features/tools/presentation/tool_sheets.dart) |
+| The records | [`tool.dart`](lib/features/tools/data/models/tool.dart), [`tool_loan.dart`](lib/features/tools/data/models/tool_loan.dart), [`tool_request.dart`](lib/features/tools/data/models/tool_request.dart) (Check-Out / Check-In and the statuses people read), [`tool_repository_impl.dart`](lib/features/tools/data/repositories/tool_repository_impl.dart) |
+| Database | `create_tool`, `update_tool`, `set_tool_status` in [`20261017070003_tool_functions.sql`](supabase/migrations/20261017070003_tool_functions.sql); `delete_tool` in [`20261108141827_console_delete_and_archive.sql`](supabase/migrations/20261108141827_console_delete_and_archive.sql); the requests, scanning to borrow and return, and the sweep in [`20261116015224_tool_requests.sql`](supabase/migrations/20261116015224_tool_requests.sql) (`borrow_tool` and `return_tool` now refuse) |
 
 ### QR codes: generating and scanning
 
@@ -374,7 +375,8 @@ Authentication** for sign-in and **Firebase Cloud Messaging** for push.
 | Sign-in bridge (Firebase token → database token) | [`supabase/functions/firebase-token-exchange/`](supabase/functions/firebase-token-exchange/) |
 | Local stack settings | [`supabase/config.toml`](supabase/config.toml); guide [`supabase/README.md`](supabase/README.md) |
 | App's database connection and session | [`lib/core/services/supabase/supabase_session.dart`](lib/core/services/supabase/supabase_session.dart) |
-| Base class every repository uses (calls functions, reads tables, live streams) | [`lib/core/data/supabase_repository.dart`](lib/core/data/supabase_repository.dart), rows into records: [`row_record.dart`](lib/core/data/row_record.dart) |
+| Base class every repository uses (calls functions, reads tables, live views) | [`lib/core/data/supabase_repository.dart`](lib/core/data/supabase_repository.dart), rows into records: [`row_record.dart`](lib/core/data/row_record.dart) |
+| What keeps the screens in step with the database: every live view read again after a save, on a change heard over Realtime, and when the connection or the sign-in changes | [`lib/core/data/live_sync.dart`](lib/core/data/live_sync.dart), the one Realtime channel: [`supabase_change_channel.dart`](lib/core/services/supabase/supabase_change_channel.dart), wired in [`service_providers.dart`](lib/core/di/service_providers.dart) (`liveSyncProvider`, `sessionScopeProvider`) |
 | Which repository and service the app uses (dependency injection) | [`lib/core/di/repository_providers.dart`](lib/core/di/repository_providers.dart), [`service_providers.dart`](lib/core/di/service_providers.dart) |
 | Database errors in plain words | [`lib/core/errors/supabase_error_mapper.dart`](lib/core/errors/supabase_error_mapper.dart), [`failures.dart`](lib/core/errors/failures.dart); every call returns a [`Result`](lib/core/utils/result.dart) |
 | Connection settings (URL, key, live or local) | [`lib/core/config/env.dart`](lib/core/config/env.dart), [`app_config.dart`](lib/core/config/app_config.dart) |
@@ -410,6 +412,9 @@ Authentication** for sign-in and **Firebase Cloud Messaging** for push.
 | [`20261020112150_task_start_audit.sql`](supabase/migrations/20261020112150_task_start_audit.sql) | Audit entry when a task starts |
 | [`20261105104825_delete_material.sql`](supabase/migrations/20261105104825_delete_material.sql) | Deleting a material, keeping its history |
 | [`20261108141827_console_delete_and_archive.sql`](supabase/migrations/20261108141827_console_delete_and_archive.sql) | Deleting rooms, equipment, tools and accounts; archiving reports and work orders |
+| [`20261114140451_session_inactivity.sql`](supabase/migrations/20261114140451_session_inactivity.sql), [`20261115093218_session_inactivity_15_minutes.sql`](supabase/migrations/20261115093218_session_inactivity_15_minutes.sql) | Ending an idle session |
+| [`20261116015224_tool_requests.sql`](supabase/migrations/20261116015224_tool_requests.sql) | Tool Check-Out and Check-In that wait for the technician's scan |
+| [`20261116115436_report_review_trail.sql`](supabase/migrations/20261116115436_report_review_trail.sql) | A review keeps what the requestor chose, records its reason, and is not saved over a newer one |
 
 ---
 
@@ -458,7 +463,7 @@ Each manuscript requirement and the tests that prove it:
 | [`assets/`](assets/) | Fonts, icons and images |
 | [`docs/`](docs/) | Architecture decisions, data dictionary, setup, deployment, testing, demo script |
 | [`docs/diagrams/`](docs/diagrams/) | System diagrams |
-| [`scripts/`](scripts/) | Release builds: [`deploy_web.ps1`](scripts/deploy_web.ps1) (website), [`build_apk.ps1`](scripts/build_apk.ps1) (Android) |
+| [`scripts/`](scripts/) | Release builds: [`deploy_web.ps1`](scripts/deploy_web.ps1) (website), [`build_apk.ps1`](scripts/build_apk.ps1) (Android); the app icons from the logo: [`generate_app_icons.ps1`](scripts/generate_app_icons.ps1) |
 | [`tool/`](tool/) | Developer tools: run everything locally, demo data, database tests without Docker, the Firestore → Supabase migration |
 | [`deploy/`](deploy/) | The website's hosting settings (Vercel) |
 | [`firebase/`](firebase/) | The old Firestore rules, kept until Firestore is locked |

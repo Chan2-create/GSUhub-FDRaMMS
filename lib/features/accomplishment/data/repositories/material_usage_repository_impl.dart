@@ -13,6 +13,7 @@ class MaterialUsageRepositoryImpl extends SupabaseRepository
   const MaterialUsageRepositoryImpl({
     required super.client,
     required super.guard,
+    super.live,
   });
 
   static const String _table = 'work_order_materials_used';
@@ -21,23 +22,19 @@ class MaterialUsageRepositoryImpl extends SupabaseRepository
   Stream<Result<List<RecordedMaterial>>> watchForWorkOrder(
     String workOrderId,
   ) => guard.stream(
-    client
-        .from(_table)
-        .stream(primaryKey: const ['work_order_id', 'inventory_item_id'])
-        .eq('work_order_id', workOrderId)
-        .map(
-          (rows) =>
-              [
-                for (final row in rows)
-                  RecordedMaterial.fromRecord(
-                    RowRecord.fromKeyedRow(row, idColumn: 'inventory_item_id'),
-                  ),
-              ]..sort(
-                (a, b) => a.usage.itemName.toLowerCase().compareTo(
-                  b.usage.itemName.toLowerCase(),
-                ),
+    liveRows(_table, (rows) => rows.eq('work_order_id', workOrderId)).map(
+      (rows) =>
+          [
+            for (final row in rows)
+              RecordedMaterial.fromRecord(
+                RowRecord.fromKeyedRow(row, idColumn: 'inventory_item_id'),
               ),
-        ),
+          ]..sort(
+            (a, b) => a.usage.itemName.toLowerCase().compareTo(
+              b.usage.itemName.toLowerCase(),
+            ),
+          ),
+    ),
   );
 
   @override

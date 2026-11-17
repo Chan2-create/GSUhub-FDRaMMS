@@ -17,6 +17,7 @@ import '../../../inventory/presentation/widgets/inventory_widgets.dart';
 import '../../../qr_codes/presentation/qr_label.dart';
 import '../../../qr_codes/presentation/qr_label_actions.dart';
 import '../../../user_management/data/models/app_user.dart';
+import '../../../user_management/presentation/accounts_providers.dart';
 import '../../../user_management/presentation/personnel_providers.dart';
 import '../../../work_orders/data/models/work_order.dart';
 import '../../../work_orders/presentation/personnel/personnel_providers.dart'
@@ -25,7 +26,9 @@ import '../../../work_orders/presentation/work_order_providers.dart';
 import '../../data/models/tool.dart';
 import '../../data/models/tool_draft.dart';
 import '../../data/models/tool_loan.dart';
+import '../../data/models/tool_request.dart';
 import '../tool_providers.dart';
+import 'tool_request_widgets.dart';
 
 /// The tool dialogs of the Inventory page (Objective 6.B): adding and
 /// editing a tool, Figure 15's Check Out and Check In, and a tool's
@@ -247,8 +250,9 @@ class _ToolFormDialogState extends ConsumerState<_ToolFormDialog> {
   }
 }
 
-/// Figure 15's Check Out: lends [tool] to a technician, for one of their
-/// open work orders or none.
+/// Figure 15's Check Out (2026-11-16): asks a technician to collect a
+/// tool. Nothing is lent here: the tool is reserved for them, and becomes
+/// theirs only when they scan its QR code in the app and confirm.
 Future<void> showCheckOutDialog(BuildContext context, Tool tool) =>
     showDialog<void>(
       context: context,
@@ -265,44 +269,52 @@ class _CheckOutDialog extends ConsumerStatefulWidget {
 }
 
 class _CheckOutDialogState extends ConsumerState<_CheckOutDialog> {
+  late Tool _tool = widget.tool;
   AppUser? _technician;
   String? _workOrderId;
-  DateTime? _returnBy;
+  DateTime _checkoutAt = DateTime.now();
+  DateTime? _dueAt;
+  final _purpose = TextEditingController();
+  final _message = TextEditingController();
   String? _error;
   bool _busy = false;
 
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _returnBy ?? now,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (picked != null && mounted) setState(() => _returnBy = picked);
+  @override
+  void dispose() {
+    _purpose.dispose();
+    _message.dispose();
+    super.dispose();
   }
 
   Future<void> _save() async {
     final technician = _technician;
-    if (technician == null) {
-      setState(() => _error = 'Pick the technician taking it.');
+    final purpose = _purpose.text.trim();
+    final problem = technician == null
+        ? 'Pick the technician to collect it.'
+        : purpose.isEmpty
+        ? 'Say what the tool is for.'
+        : _dueAt != null && !_dueAt!.isAfter(_checkoutAt)
+        ? 'The expected return must be after the checkout.'
+        : null;
+    if (problem != null) {
+      setState(() => _error = problem);
       return;
     }
     setState(() {
       _busy = true;
       _error = null;
     });
-    final returnBy = _returnBy;
+    final message = _message.text.trim();
     final result = await ref
         .read(inventoryControllerProvider)
         .checkOut(
-          toolId: widget.tool.id,
-          technician: AuditActor(id: technician.id, name: technician.fullName),
+          toolId: _tool.id,
+          technician: AuditActor(id: technician!.id, name: technician.fullName),
+          checkoutAt: _checkoutAt,
+          purpose: purpose,
+          dueAt: _dueAt,
+          message: message.isEmpty ? null : message,
           workOrderId: _workOrderId,
-          // The end of the chosen day, as "due today" reads it.
-          expectedReturnAt: returnBy == null
-              ? null
-              : DateTime(returnBy.year, returnBy.month, returnBy.day, 23, 59),
         );
     if (!mounted) return;
     switch (result) {
@@ -312,7 +324,8 @@ class _CheckOutDialogState extends ConsumerState<_CheckOutDialog> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              'Checked out ${widget.tool.name} to ${technician.fullName}.',
+              'Asked ${technician.fullName} to collect ${_tool.name}. It is '
+              'theirs once they scan it.',
             ),
           ),
         );
@@ -326,6 +339,13 @@ class _CheckOutDialogState extends ConsumerState<_CheckOutDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final tools = switch (ref.watch(allToolsProvider)) {
+      AsyncData(value: Success(:final value)) => [
+        for (final tool in value)
+          if (tool.status == ToolStatus.available || tool.id == _tool.id) tool,
+      ],
+      _ => [_tool],
+    };
     final people = switch (ref.watch(personnelStreamProvider)) {
       AsyncData(value: Success(:final value)) => [
         for (final person in value)
@@ -345,94 +365,147 @@ class _CheckOutDialogState extends ConsumerState<_CheckOutDialog> {
     };
 
     return AlertDialog(
-      title: Text('Check out ${widget.tool.name}'),
+      title: const Text('Check out a tool'),
       content: SizedBox(
-        width: 440,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '${widget.tool.toolCode} · ${widget.tool.condition.label} '
-              'condition. It is recorded against the technician until it '
-              'is checked in.',
-              style: AppTextStyles.inventoryStatNote,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<AppUser>(
-              initialValue: technician,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Technician',
-                border: OutlineInputBorder(),
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'The technician is told, and the tool is reserved for them. '
+                'It becomes theirs when they scan its QR code in GSUhub and '
+                'confirm they have it.',
+                style: AppTextStyles.inventoryStatNote,
               ),
-              items: [
-                for (final person in people)
-                  DropdownMenuItem(value: person, child: Text(person.fullName)),
-              ],
-              onChanged: _busy
-                  ? null
-                  : (person) => setState(() {
-                      _technician = person;
-                      _workOrderId = null;
-                    }),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String?>(
-              key: ValueKey(technician?.id),
-              initialValue: _workOrderId,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'For work order (optional)',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                const DropdownMenuItem<String?>(child: Text('None')),
-                for (final order in orders)
-                  DropdownMenuItem<String?>(
-                    value: order.id,
-                    child: Text(
-                      '${DisplayId.workOrder(order.id)} · ${order.title}',
-                      overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 16),
+              // By id: the live list hands over new records as tools
+              // change, and a picker matches its value by equality.
+              DropdownButtonFormField<String>(
+                initialValue: _tool.id,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Tool',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final tool in tools)
+                    DropdownMenuItem(
+                      value: tool.id,
+                      child: Text(
+                        '${tool.name} · ${tool.toolCode} · '
+                        '${tool.condition.label.toLowerCase()} condition',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: _busy || technician == null
-                  ? null
-                  : (id) => setState(() => _workOrderId = id),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _pickDate,
-                  icon: const Icon(Icons.event_outlined, size: 18),
-                  label: Text(
-                    _returnBy == null
-                        ? 'Return by (optional)'
-                        : 'Return by ${DateFormat('MMM d, y').format(_returnBy!)}',
-                  ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (id) => setState(
+                        () => _tool = tools.firstWhere(
+                          (tool) => tool.id == id,
+                          orElse: () => _tool,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<AppUser>(
+                initialValue: technician,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Technician',
+                  border: OutlineInputBorder(),
                 ),
-                if (_returnBy != null)
-                  IconButton(
-                    tooltip: 'No return date',
-                    onPressed: _busy
-                        ? null
-                        : () => setState(() => _returnBy = null),
-                    icon: const Icon(Icons.close, size: 18),
-                  ),
-              ],
-            ),
-            if (_error case final message?) ...[
-              const SizedBox(height: 8),
-              Text(
-                message,
-                style: AppTextStyles.inventoryStatNote.copyWith(
-                  color: AppColors.error,
+                items: [
+                  for (final person in people)
+                    DropdownMenuItem(
+                      value: person,
+                      child: Text(person.fullName),
+                    ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (person) => setState(() {
+                        _technician = person;
+                        _workOrderId = null;
+                      }),
+              ),
+              const SizedBox(height: 12),
+              DateTimeField(
+                label: 'Collect on',
+                value: _checkoutAt,
+                enabled: !_busy,
+                onChanged: (value) =>
+                    setState(() => _checkoutAt = value ?? DateTime.now()),
+              ),
+              const SizedBox(height: 12),
+              DateTimeField(
+                label: 'Expected back by',
+                value: _dueAt,
+                enabled: !_busy,
+                optional: true,
+                onChanged: (value) => setState(() => _dueAt = value),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _purpose,
+                enabled: !_busy,
+                maxLength: 200,
+                decoration: const InputDecoration(
+                  labelText: 'Purpose',
+                  hintText: 'What the tool is for',
+                  counterText: '',
+                  border: OutlineInputBorder(),
                 ),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _message,
+                enabled: !_busy,
+                maxLength: 500,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Instructions (optional)',
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String?>(
+                key: ValueKey(technician?.id),
+                initialValue: _workOrderId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'For work order (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(child: Text('None')),
+                  for (final order in orders)
+                    DropdownMenuItem<String?>(
+                      value: order.id,
+                      child: Text(
+                        '${DisplayId.workOrder(order.id)} · ${order.title}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: _busy || technician == null
+                    ? null
+                    : (id) => setState(() => _workOrderId = id),
+              ),
+              if (_error case final message?) ...[
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  style: AppTextStyles.inventoryStatNote.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
       actions: [
@@ -442,42 +515,44 @@ class _CheckOutDialogState extends ConsumerState<_CheckOutDialog> {
         ),
         FilledButton(
           onPressed: _busy ? null : _save,
-          child: Text(_busy ? 'Saving…' : 'Check out'),
+          child: Text(_busy ? 'Sending…' : 'Send checkout request'),
         ),
       ],
     );
   }
 }
 
-/// Figure 15's Check In: closes [loan], recording the condition the tool
-/// came back in. A tool back in poor condition goes to repair.
+/// Figure 15's Check In (2026-11-16): asks the technician holding [tool]
+/// to return it by a date and time. Nothing moves here: the loan closes
+/// when they scan the tool in the app and confirm the return, saying what
+/// condition it is in.
 Future<void> showCheckInDialog(
   BuildContext context, {
-  required String toolName,
+  required Tool tool,
   required String loanId,
-  required ItemCondition conditionOnBorrow,
+  ToolLoan? loan,
   String? holderName,
 }) => showDialog<void>(
   context: context,
   builder: (_) => _CheckInDialog(
-    toolName: toolName,
+    tool: tool,
     loanId: loanId,
-    conditionOnBorrow: conditionOnBorrow,
+    loan: loan,
     holderName: holderName,
   ),
 );
 
 class _CheckInDialog extends ConsumerStatefulWidget {
   const _CheckInDialog({
-    required this.toolName,
+    required this.tool,
     required this.loanId,
-    required this.conditionOnBorrow,
+    this.loan,
     this.holderName,
   });
 
-  final String toolName;
+  final Tool tool;
   final String loanId;
-  final ItemCondition conditionOnBorrow;
+  final ToolLoan? loan;
   final String? holderName;
 
   @override
@@ -485,29 +560,35 @@ class _CheckInDialog extends ConsumerStatefulWidget {
 }
 
 class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
-  late ItemCondition _condition = widget.conditionOnBorrow;
-  final _notes = TextEditingController();
+  late DateTime _dueAt = defaultReturnTime(DateTime.now());
+  final _message = TextEditingController();
   String? _error;
   bool _busy = false;
 
   @override
   void dispose() {
-    _notes.dispose();
+    _message.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
+    if (!_dueAt.isAfter(DateTime.now())) {
+      setState(
+        () => _error = 'Pick a return date and time that has not passed.',
+      );
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
-    final notes = _notes.text.trim();
+    final message = _message.text.trim();
     final result = await ref
         .read(inventoryControllerProvider)
         .checkIn(
           loanId: widget.loanId,
-          condition: _condition,
-          notes: notes.isEmpty ? null : notes,
+          dueAt: _dueAt,
+          message: message.isEmpty ? null : message,
         );
     if (!mounted) return;
     switch (result) {
@@ -517,9 +598,8 @@ class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              _condition == ItemCondition.poor
-                  ? 'Checked in ${widget.toolName}; it went to repair.'
-                  : 'Checked in ${widget.toolName}.',
+              'Asked ${widget.holderName ?? 'the technician'} to return '
+              '${widget.tool.name}. It is back once they scan it.',
             ),
           ),
         );
@@ -532,74 +612,259 @@ class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text('Check in ${widget.toolName}'),
-    content: SizedBox(
-      width: 420,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) {
+    final tool = widget.tool;
+    final loan = widget.loan;
+    final when = DateFormat('MMM d, y h:mm a');
+
+    Widget fact(String label, String value) => Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${widget.holderName == null ? 'It' : 'From ${widget.holderName}'}; '
-            'it went out in ${widget.conditionOnBorrow.label.toLowerCase()} '
-            'condition.',
-            style: AppTextStyles.inventoryStatNote,
+          SizedBox(
+            width: 120,
+            child: Text(label, style: AppTextStyles.inventoryCaption),
           ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<ItemCondition>(
-            isExpanded: true,
-            initialValue: _condition,
-            decoration: const InputDecoration(
-              labelText: 'Condition now',
-              helperText: 'A tool back in poor condition goes to repair.',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              for (final condition in ItemCondition.values)
-                DropdownMenuItem(
-                  value: condition,
-                  child: Text(condition.label),
-                ),
-            ],
-            onChanged: _busy
-                ? null
-                : (value) => setState(() => _condition = value!),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _notes,
-            enabled: !_busy,
-            maxLength: 300,
-            decoration: const InputDecoration(
-              labelText: 'Notes (optional)',
-              counterText: '',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          if (_error case final message?) ...[
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: AppTextStyles.inventoryStatNote.copyWith(
-                color: AppColors.error,
-              ),
-            ),
-          ],
+          Expanded(child: Text(value, style: AppTextStyles.inventoryCell)),
         ],
       ),
+    );
+
+    return AlertDialog(
+      title: Text('Check in ${tool.name}'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              fact('TOOL', '${tool.name} · ${tool.toolCode}'),
+              fact(
+                'ASSET',
+                [
+                  ?tool.category,
+                  'went out in ${(loan?.conditionOnBorrow ?? tool.condition).label.toLowerCase()} condition',
+                  ?tool.storageLocation,
+                ].join(' · '),
+              ),
+              fact('WITH', widget.holderName ?? 'A technician'),
+              if (loan != null)
+                fact(
+                  'SINCE',
+                  [
+                    when.format(loan.borrowedAt.toLocal()),
+                    if (loan.workOrderId case final id?)
+                      'for ${DisplayId.workOrder(id)}',
+                  ].join(' · '),
+                ),
+              const SizedBox(height: 12),
+              const Text(
+                'They are told, and the tool stays theirs until they scan '
+                'its QR code in GSUhub and confirm the return, saying what '
+                'condition it is in.',
+                style: AppTextStyles.inventoryStatNote,
+              ),
+              const SizedBox(height: 16),
+              DateTimeField(
+                label: 'Return by',
+                value: _dueAt,
+                enabled: !_busy,
+                onChanged: (value) => setState(() => _dueAt = value ?? _dueAt),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _message,
+                enabled: !_busy,
+                maxLength: 500,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Message or instructions (optional)',
+                  hintText: 'Where to bring it, what to check',
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              if (_error case final message?) ...[
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  style: AppTextStyles.inventoryStatNote.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : _save,
+          child: Text(_busy ? 'Sending…' : 'Send return request'),
+        ),
+      ],
+    );
+  }
+}
+
+/// When a return is asked for by default: the end of the working day,
+/// 5:00 PM, today when there is still an hour before it, else tomorrow.
+@visibleForTesting
+DateTime defaultReturnTime(DateTime now) {
+  final today = DateTime(now.year, now.month, now.day, 17);
+  return now.isBefore(today.subtract(const Duration(hours: 1)))
+      ? today
+      : today.add(const Duration(days: 1));
+}
+
+/// A date and a time, picked with the platform's pickers: "Nov 18, 2026"
+/// and "5:00 PM" side by side. [optional] adds a way to clear it.
+class DateTimeField extends StatelessWidget {
+  const DateTimeField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.enabled = true,
+    this.optional = false,
+    super.key,
+  });
+
+  final String label;
+  final DateTime? value;
+  final ValueChanged<DateTime?> onChanged;
+  final bool enabled;
+  final bool optional;
+
+  Future<void> _pickDate(BuildContext context) async {
+    final now = DateTime.now();
+    final current = value ?? defaultReturnTime(now);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current.isBefore(now) ? now : current,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked == null) return;
+    onChanged(
+      DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        current.hour,
+        current.minute,
+      ),
+    );
+  }
+
+  Future<void> _pickTime(BuildContext context) async {
+    final current = value ?? defaultReturnTime(DateTime.now());
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(current),
+    );
+    if (picked == null) return;
+    onChanged(
+      DateTime(
+        current.year,
+        current.month,
+        current.day,
+        picked.hour,
+        picked.minute,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = this.value;
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      ),
+      child: Row(
+        children: [
+          TextButton.icon(
+            onPressed: enabled ? () => _pickDate(context) : null,
+            icon: const Icon(Icons.event_outlined, size: 18),
+            label: Text(
+              value == null
+                  ? 'Pick a date'
+                  : DateFormat('MMM d, y').format(value),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: enabled ? () => _pickTime(context) : null,
+            icon: const Icon(Icons.schedule_outlined, size: 18),
+            label: Text(
+              value == null ? 'Time' : DateFormat('h:mm a').format(value),
+            ),
+          ),
+          const Spacer(),
+          if (optional && value != null)
+            IconButton(
+              tooltip: 'Clear',
+              onPressed: enabled ? () => onChanged(null) : null,
+              icon: const Icon(Icons.close, size: 18),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Asks before withdrawing [request], and withdraws it. A reserved tool
+/// goes back on the shelf; the technician is told.
+Future<void> showCancelToolRequestDialog(
+  BuildContext context,
+  WidgetRef ref,
+  ToolRequest request, {
+  String? technicianName,
+}) async {
+  final checkOut = request.kind == ToolRequestKind.checkOut;
+  final what = checkOut ? 'checkout' : 'return';
+  final sure = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Cancel the $what of ${request.toolName}?'),
+      content: Text(
+        checkOut
+            ? '${technicianName ?? 'The technician'} will not need to collect '
+                  'it, and ${request.toolName} goes back on the shelf.'
+            : '${technicianName ?? 'The technician'} keeps '
+                  '${request.toolName} until GSU asks again.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Keep it'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+          child: Text('Cancel $what'),
+        ),
+      ],
     ),
-    actions: [
-      TextButton(
-        onPressed: _busy ? null : () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: _busy ? null : _save,
-        child: Text(_busy ? 'Saving…' : 'Check in'),
-      ),
-    ],
   );
+  if (sure != true || !context.mounted) return;
+  final result = await ref
+      .read(inventoryControllerProvider)
+      .cancelToolRequest(request.id);
+  if (context.mounted) {
+    showInventoryOutcome(
+      context,
+      result,
+      'Cancelled the $what of ${request.toolName}.',
+    );
+  }
 }
 
 /// Asks before deleting [tool], and deletes it. True once it is deleted;
@@ -681,6 +946,13 @@ class _ToolDetails extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final names = ref.watch(personnelNamesProvider);
+    // Everyone's names, administrators' too: who asked, who cancelled.
+    final accounts = switch (ref.watch(allAccountsProvider)) {
+      AsyncData(value: Success(:final value)) => {
+        for (final account in value) account.id: account.fullName,
+      },
+      _ => names,
+    };
     final loans = ref.watch(toolLoanHistoryProvider(tool.id));
     final when = DateFormat('MMM d, y h:mm a');
 
@@ -804,6 +1076,31 @@ class _ToolDetails extends ConsumerWidget {
               label: const Text('Delete'),
             ),
           ],
+        ),
+        const SizedBox(height: 20),
+        const Text('REQUESTS', style: AppTextStyles.inventoryCaption),
+        const SizedBox(height: 8),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 260),
+          child: AsyncValueView<List<ToolRequest>>(
+            value: ref.watch(toolRequestHistoryProvider(tool.id)),
+            loadingHeight: 100,
+            onRetry: () => ref.invalidate(toolRequestHistoryProvider(tool.id)),
+            data: (requests) => requests.isEmpty
+                ? const Text(
+                    'No checkout or return has been requested.',
+                    style: AppTextStyles.inventoryStatNote,
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: requests.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) => ToolRequestHistoryRow(
+                      request: requests[index],
+                      names: accounts,
+                    ),
+                  ),
+          ),
         ),
         const SizedBox(height: 20),
         const Text('LOANS', style: AppTextStyles.inventoryCaption),

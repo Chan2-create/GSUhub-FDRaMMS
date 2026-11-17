@@ -713,11 +713,13 @@ class _ToolsCard extends ConsumerWidget {
       title: 'Tools With You',
       icon: Icons.handyman_outlined,
       action: open
+          // Borrowed by scanning the tool (2026-11-16): the scan is the
+          // record that this tool, and no other, changed hands.
           ? _GoldOutlineButton(
-              icon: Icons.add_rounded,
-              label: 'Borrow a Tool',
+              icon: Icons.qr_code_scanner_rounded,
+              label: 'Scan to Borrow a Tool',
               onPressed: () =>
-                  showBorrowToolSheet(context, workOrderId: workOrder.id),
+                  scanToBorrow(context, ref, workOrderId: workOrder.id),
             )
           : null,
       child: switch (loans) {
@@ -750,9 +752,10 @@ class _ToolsCard extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    TextButton(
-                      onPressed: () => showReturnToolSheet(context, loan),
-                      child: const Text('Return'),
+                    TextButton.icon(
+                      onPressed: () => scanToReturn(context, ref, loan),
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                      label: const Text('Scan to return'),
                     ),
                   ],
                 ),

@@ -18,7 +18,11 @@ import 'inventory_repository.dart';
 /// never sends a quantity, only movements.
 class InventoryRepositoryImpl extends SupabaseRepository
     implements InventoryRepository {
-  const InventoryRepositoryImpl({required super.client, required super.guard});
+  const InventoryRepositoryImpl({
+    required super.client,
+    required super.guard,
+    super.live,
+  });
 
   static const String _items = 'inventory_items';
   static const String _transactions = 'inventory_transactions';
@@ -55,13 +59,10 @@ class InventoryRepositoryImpl extends SupabaseRepository
 
   @override
   Stream<Result<List<InventoryItem>>> watchItems({String? category}) =>
-      // Filtered here: a material's category can change, and a live
-      // stream cannot ask for an empty deleted_at.
+      // Filtered here, as it was under the Realtime stream, which could
+      // not filter on a category that changes or on an empty deleted_at.
       watchMany(
-        stream: client
-            .from(_items)
-            .stream(primaryKey: const ['id'])
-            .order('name', ascending: true),
+        stream: liveRows(_items, (rows) => rows.order('name', ascending: true)),
         convert: InventoryItem.fromRecord,
       ).map(
         (result) => result.map(
@@ -167,26 +168,27 @@ class InventoryRepositoryImpl extends SupabaseRepository
     String inventoryItemId, {
     int limit = 100,
   }) => watchMany(
-    stream: client
-        .from(_transactions)
-        .stream(primaryKey: const ['id'])
-        .eq('inventory_item_id', inventoryItemId)
-        .order('performed_at')
-        .limit(limit),
+    stream: liveRows(
+      _transactions,
+      (rows) => rows
+          .eq('inventory_item_id', inventoryItemId)
+          .order('performed_at')
+          .limit(limit),
+    ),
     convert: InventoryTransaction.fromRecord,
   );
 
-  /// The ledger never changes an entry, so a stream filtered on its time
-  /// misses nothing.
+  /// The ledger's entries since [since], newest first.
   @override
   Stream<Result<List<InventoryTransaction>>> watchTransactionsSince(
     DateTime since,
   ) => watchMany(
-    stream: client
-        .from(_transactions)
-        .stream(primaryKey: const ['id'])
-        .gte('performed_at', SupabaseRepository.time(since)!)
-        .order('performed_at'),
+    stream: liveRows(
+      _transactions,
+      (rows) => rows
+          .gte('performed_at', SupabaseRepository.time(since)!)
+          .order('performed_at'),
+    ),
     convert: InventoryTransaction.fromRecord,
   );
 

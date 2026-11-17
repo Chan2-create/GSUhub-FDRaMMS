@@ -287,6 +287,38 @@ class DamageReport {
   /// one.
   bool get isPriorityConfirmed => officialPriority != null;
 
+  /// The damage type the General Services Unit has decided on: the
+  /// **official classification**. Null until it has: an administrator set
+  /// it by hand, confirmed it with the official priority (4.C), or approved
+  /// the report with it. The keyword classifier's guess (4.A) on a report
+  /// still in review, or one turned down, merged or archived, is a
+  /// suggestion, not a decision, and nothing presents it as one.
+  ///
+  /// The requestor's own choice is [requestorCategory], kept as filed
+  /// whatever this becomes.
+  DamageCategory? get officialCategory {
+    final decided = category;
+    if (decided == null) return null;
+    // Confirmed with the official priority, in the one write that sets
+    // both: official whoever the record names as its reviewer.
+    if (isPriorityConfirmed) return decided;
+    if (reviewedBy == null) return null;
+    final approved = switch (status.progress) {
+      ReportProgress.inProgress || ReportProgress.completed => true,
+      ReportProgress.pending || ReportProgress.closedOut => false,
+    };
+    return approved || !classifiedAutomatically ? decided : null;
+  }
+
+  /// The keyword classifier's damage type while no administrator has
+  /// decided: the system's suggestion, shown as one.
+  DamageCategory? get suggestedCategory =>
+      officialCategory == null && classifiedAutomatically ? category : null;
+
+  /// Whether the report is still waiting for an administrator to review
+  /// its classification and priority, and can still get that review.
+  bool get awaitsAssessment => !isPriorityConfirmed && canBeAssessed;
+
   /// Whether an administrator may still set this report's classification
   /// and official priority (Objective 4.C): not merged, no work order yet,
   /// and still being reviewed or approved — the manuscript has the priority

@@ -16,7 +16,11 @@ import 'facility_repository.dart';
 /// exists — and audit the change under the caller's own name.
 class FacilityRepositoryImpl extends SupabaseRepository
     implements FacilityRepository {
-  const FacilityRepositoryImpl({required super.client, required super.guard});
+  const FacilityRepositoryImpl({
+    required super.client,
+    required super.guard,
+    super.live,
+  });
 
   static const String _facilities = 'facilities';
   static const String _assets = 'assets';
@@ -50,7 +54,7 @@ class FacilityRepositoryImpl extends SupabaseRepository
   @override
   Stream<Result<List<Facility>>> watchFacilities() =>
       watchMany(
-        stream: client.from(_facilities).stream(primaryKey: const ['id']),
+        stream: liveRows(_facilities),
         convert: Facility.fromRecord,
       ).map(
         (result) => result.map(
@@ -156,10 +160,7 @@ class FacilityRepositoryImpl extends SupabaseRepository
 
   @override
   Stream<Result<List<Asset>>> watchAssets() =>
-      watchMany(
-        stream: client.from(_assets).stream(primaryKey: const ['id']),
-        convert: Asset.fromRecord,
-      ).map(
+      watchMany(stream: liveRows(_assets), convert: Asset.fromRecord).map(
         (result) => result.map(
           (assets) =>
               [

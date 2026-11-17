@@ -12,7 +12,11 @@ import 'audit_log_repository.dart';
 /// it, owner included). Administrators read them under row level security.
 class AuditLogRepositoryImpl extends SupabaseRepository
     implements AuditLogRepository {
-  const AuditLogRepositoryImpl({required super.client, required super.guard});
+  const AuditLogRepositoryImpl({
+    required super.client,
+    required super.guard,
+    super.live,
+  });
 
   static const String _table = 'audit_logs';
 

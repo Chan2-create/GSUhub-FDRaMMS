@@ -2482,3 +2482,314 @@ Tests: `test/widget/launch_splash_test.dart`, `skeleton_test.dart`,
 `press_scale_test.dart`, `reduced_motion_transitions_test.dart`, and
 every phone test that boots the app, which
 now waits through the logo.
+
+## 40. The app icon is the GSUhub gear (2026-11-16)
+
+The installed app still carried Flutter's default icon, and so did the
+web console's install icons (the tab icon was already the gear). Both
+now show the gear mark from the GSUhub logo, on white.
+
+**Why the gear and not the whole logo.** The logo is a wordmark: the
+gear "d", then "GSUhub". At launcher size, about 48 dp, the word would
+be a few pixels tall and unreadable, and Android prints the app's name,
+GSUhub, under the icon anyway. The gear is the part that survives being
+small, and it is what the tab icon already shows.
+
+**Android.** An adaptive icon for Android 8 and later
+(`mipmap-anydpi-v26/ic_launcher.xml`): a white back layer
+(`values/ic_launcher_background.xml`) and the gear on a transparent
+front layer (`mipmap-*/ic_launcher_foreground.png`), which the phone
+masks to its own shape, circle, squircle or rounded square. The gear is
+drawn about 50 dp across on the 108 dp layer, inside the 66 dp that is
+sure to show, with room around it as launcher logos have. Older phones
+get the classic `ic_launcher.png`: the gear on a white tile with rounded
+corners.
+
+**Web.** `web/icons/`: `Icon-192` and `Icon-512` (the gear on a white
+tile), the two maskable ones (white to the edges, the gear inside the
+middle 80 % the browser keeps) and `apple-touch-icon` (white to the
+edges, since iOS rounds the corners itself and fills transparency with
+black). The manifest already had GSUhub's name, colours and description.
+
+**How they are made.** `scripts/generate_app_icons.ps1` finds the gear
+in `assets/images/gsuhub_logo.png` (its first run of drawn columns) and
+draws every size from it, with Windows' own imaging, so nothing is added
+to the project. The gear in that file is only 141 px wide, so the
+largest sizes are drawn up from it and are a little soft. Exporting the
+logo larger from the Figma file (1024 px, say) and running the script
+with `-Logo` on that file would make them sharp.
+
+Not done: a monochrome layer for Android 13's themed icons. Phones that
+theme their icons show GSUhub's in its own colours.
+
+## 41. A tool changes hands only when the technician scans it (2026-11-16)
+
+Until now the console's **Check Out** lent a tool on the spot and
+**Check In** closed the loan, whether or not the tool had moved. The
+brief of 2026-11-16 asks the opposite: the administrator starts the
+transaction, and nothing changes until the technician scans the tool's
+QR code in GSUhub and confirms.
+
+**Requests are their own table.** `tool_requests` holds both kinds, a
+checkout (`checkOut`) and a return (`checkIn`): the tool, its code and
+QR code as they were (kept after the tool is deleted), the technician,
+the administrator who asked, when, the collect time, the expected
+return, the purpose and message, and how it ended (`pending`,
+`confirmed`, `cancelled`, `expired`) with the times. `tool_loans` keeps
+its meaning, a tool in someone's hands; a confirmed checkout opens a
+loan and a confirmed return closes one. Putting pending checkouts into
+`tool_loans` would have made every loan query ask "but was it really
+lent?". At most one request waits per tool (a unique partial index).
+
+**The statuses people read** are the brief's table, worked out from the
+request and the clock (`ToolRequest.statusAt`): Check-Out is Pending
+Confirmation, Borrowed or Cancelled (or Expired, when nobody collected
+it); Check-In is Awaiting Return, Overdue once the return time passes,
+or Returned. Overdue and Expired show the moment the time passes; the
+database's sweep (below) only adds the notices and the record.
+
+**The tool is reserved while a checkout waits.** `ToolStatus.reserved`
+(the RESERVED badge) means "asked for, not yet collected": no one else
+can borrow it, it cannot go to repair or be deleted, and cancelling or
+lapsing puts it back to available. A tool asked back stays Borrowed:
+it is still in the technician's hands.
+
+**Who may do what, in the database** (`20261116015224_tool_requests.sql`):
+
+| Function | Who | Refuses |
+|---|---|---|
+| `request_tool_checkout` | administrator | an inactive or non-technician account, no purpose, a return before the collect time, a tool not available (reserved, out, in repair, retired, deleted) |
+| `confirm_tool_checkout` | the technician it names (`PT403` for anyone else) | a second confirmation, a cancelled or lapsed request, a code that is not this tool's |
+| `request_tool_return` | administrator | a returned loan, a time already past, a second request for the same loan |
+| `confirm_tool_return` | the technician holding it | anyone else, a code that is not this tool's |
+| `cancel_tool_request` | administrator | a request already closed |
+| `borrow_tool_by_scan` | a technician, for themselves | a tool reserved (for them: "confirm that request instead"), a code that is not this tool's |
+
+The scanned code is compared with the tool's own QR code
+(`app.require_scanned_tool`), trimmed and ignoring case, and the refusal
+says which tool was scanned instead. Every step writes an audit entry
+("Received Hammer Drill (TL-0006), confirmed by scanning it").
+
+**Scanning is required everywhere, not only for the console's
+requests.** A technician who borrows on their own also scans the tool
+(`borrow_tool_by_scan`), and returns by scanning it (`confirm_tool_return`,
+which also closes a waiting return request). The phone's "pick a tool
+from the list" is gone: it would have been the one way to borrow a tool
+without having it. The old `borrow_tool` and `return_tool` stay in the
+database but refuse, with a message to reload the console or update
+GSUhub, so a phone still on 1.2.0 cannot lend a tool unscanned.
+
+**Notifications**, eight new types:
+
+| To | When | `type` |
+|---|---|---|
+| The technician | a checkout is asked of them | `toolCheckoutRequested` |
+| | a return is asked | `toolReturnRequested` |
+| | within the hour before the return is due | `toolReturnDue` |
+| | a request cancelled, or a checkout lapsed | `toolRequestCancelled` |
+| | the return time passed | `toolOverdue` |
+| Every administrator | a checkout confirmed | `toolCheckoutConfirmed` |
+| | a return confirmed (saying so when late) | `toolReturned` |
+| | a checkout still uncollected an hour after its collect time | `toolCheckoutPending` |
+| | the return time passed | `toolOverdue` |
+| | a request cancelled, or a checkout lapsed | `toolRequestCancelled` |
+
+On the console they open the Tools tab; on the phone, Materials & Tools.
+
+**The sweep.** `app.sweep_tool_requests()` runs every five minutes from
+pg_cron (installed by the migration where the server has it; the PGlite
+tests call it directly). It lapses checkouts not collected by
+`expires_at` (24 hours after the collect time, or the expected return
+if sooner, but never less than an hour from when it was asked), and
+sends the reminders above, each once. It writes its audit entries as
+"GSUhub", since no one is signed in. Only the database can run it.
+
+**On screen.** Console, Tools tab: the Check Out form (tool, technician,
+collect on, expected back by, purpose, instructions, work order) and the
+Check In form (the tool and who has it, return by, message); a "Waiting
+for a Technician" panel above the table listing what is pending, with
+Cancel; the tab's count; the row's RESERVED badge with "to collect"
+under the name, or Awaiting Return / Overdue in place of Check In; a
+REQUESTS section in the tool's details. Phone, Materials & Tools: a
+"From GSU" section with each request and **Scan to confirm** / **Scan
+to return**; scanning the tool from the gold button opens the same
+confirmation. Confirming always shows the tool and the request first.
+
+**Not done, and why.** If a technician's account is deactivated while
+they hold a tool, no one can close that loan: the brief says only the
+technician confirms a return, and there is no administrator override.
+That needs a decision (for instance, an administrator's "recovered
+without a scan", written to the audit log). Overdue is for a return
+request's deadline; a loan's expected return from the checkout shows
+as "due today" on the stock card but sends no notice until GSU asks
+for the tool back.
+
+Tests: `supabase/tests/tool_requests.test.sql` (43, the brief's eight
+scenarios among them), `tool_functions.test.sql`;
+`unit/models/tool_request_test.dart`,
+`unit/repositories/inventory_management_test.dart` (requests),
+`unit/repositories/personnel_work_test.dart`,
+`widget/inventory_screen_test.dart` (check out and check in),
+`widget/personnel_app_test.dart` (tool requests from GSU).
+
+## 42. Saved changes show without a reload, and a review keeps what the requestor chose (2026-11-16)
+
+The brief of 2026-11-16 reported two things about Damage Reports: the
+console "sometimes behaves as if it has lost its internet connection",
+with changes that only appear after a hard refresh; and the
+classification and priority a requestor chooses must stay theirs when an
+administrator reviews the report.
+
+### What was actually wrong
+
+Nothing failed to save. The live project's API log for 2026-11-16,
+08:13 to 08:21 UTC, shows one administrator saving a classification six
+times, moving a report's status six times and archiving five times.
+Every call was answered `204`. None of it appeared on the page, and at
+08:21:14 the page was reloaded.
+
+The cause was in how every screen learned of a change. Each list and
+each open record was a `SupabaseClient.stream()`: a first read, then
+rows patched from Realtime events. Nothing read again after a save; the
+page waited for the event. That stream ends for good in three ordinary
+situations, and nothing reopened it:
+
+| When | What the old stream did |
+|---|---|
+| **Signing out**, including the automatic one after 15 idle minutes (§37) | The app closes every Realtime channel at sign-out. Each stream closed with its channel. The providers holding them are kept for the life of the page, so after signing back in **in the same tab** every list already loaded still showed its old rows, and listened to nothing. This is what the log shows: the console, loaded at 07:37 and then left, signed in again at 08:13, and that sign-in read no report list at all |
+| The server ending a channel (a token it found expired) | The same: closed, never reopened |
+| **One failed read** when the channel rejoined | The stream closed itself ("no need to keep the realtime connection open") |
+
+Two more faults came with it. A dropped socket was reported to the page
+as `Cannot reach the server. Check your internet connection`, which is
+the "lost its connection" the brief describes, on a working connection.
+And a page patched from events depends on what each event carries and
+on the order they arrive in; a read does not.
+
+The 15-minute session limit shipped on 2026-11-15, which is why this
+went from rare to daily.
+
+### What changed
+
+**Every live view is a query that is read again** when it may have
+changed, never a list patched from events (`lib/core/data/live_sync.dart`,
+`LiveSync`). It is read again:
+
+- when a change is announced on the app's **one** Realtime channel (all
+  of `public`, row level security deciding what reaches whom; it was one
+  channel per list and per open record);
+- **after every change the app itself makes**: a repository's function
+  call returns only once the views on screen have been read again
+  (`SupabaseRepository._settled`), so "saved" is said over a page that
+  already shows it, with Realtime in any state at all;
+- when the channel comes back, a few seconds after it joins (the server
+  answers a join before its change stream is running, found against the
+  local stack), on sign-in, when the connection returns, and when the
+  tab or the app comes back to the front;
+- on a timer, every 20 seconds, but only while the channel is down.
+
+A channel that fails or is closed is replaced, at a growing interval,
+for as long as someone is signed in; it is kept for ten seconds after
+the last view goes, so a page replacing its views does not leave and
+join again. A read that fails for a passing
+reason keeps the rows on screen and is tried again; the offline banner,
+which probes the API itself, is what says the connection is gone. Pages
+out of sight read nothing until they are looked at again.
+
+**Everything read for one sign-in is dropped at the next.** Every
+repository provider watches `sessionScopeProvider` (the signed-in
+account's id), so a sign-out or sign-in rebuilds every provider that
+reads through one. This is also what keeps one account's lists out of
+the next account's session on a shared computer.
+
+**The report page answers every action** (`report_detail_screen.dart`,
+`report_assessment_panel.dart`): the pressed button shows a spinner and
+none can be pressed again until the database answers; "Review started",
+"Report approved", "Report rejected" or "Classification and priority
+saved" appears only then; a failure says why, leaves the page as the
+database has it, and offers **Try again**. Nothing is shown as changed
+before the database confirms it.
+
+### The requestor's choices and the official values
+
+The columns were already apart, and the brief's four names map onto
+them:
+
+| The brief | Column | Written by |
+|---|---|---|
+| Initial Classification | `requestor_category` | the requestor, at filing; never again |
+| Initial Priority | `requestor_priority` | the requestor, at filing; never again |
+| Official Classification | `category`, once an administrator has decided (`DamageReport.officialCategory`) | the review |
+| Official Priority | `official_priority` | the review |
+| System recommendation | `recommended_priority`, `priority_score` (§18's formula, unchanged) | the review, from the four ratings |
+
+Before the review, `category` may hold the keyword classifier's match;
+it is shown as "the keywords suggest", never as official.
+
+What the migration `20261116115436_report_review_trail.sql` adds:
+
+- **A trigger keeps the requestor's two values as filed.** No function
+  changed them before; now none can, whoever writes one later.
+- **`record_assessment` takes a reason** (optional, at most 500
+  characters) and records the whole decision in its audit entry: what
+  the requestor chose, the classification and official priority from
+  and to, whether it was the first review, the reason, with the
+  administrator's name and the time the trail always had.
+- **A review is not saved over a newer one.** The console sends the
+  report's `updated_at` as its page last read it; if the report has
+  changed since, the save is refused with "Ana Reyes changed this report
+  after you opened it here. The latest details are shown now: check
+  them, then save again", and the page shows those details.
+- **The same review sent twice is one decision**: nothing is written,
+  and it succeeds. The six identical saves in the log would now be one
+  audit entry.
+
+On screen, the console's report page has one card with three groups:
+**Requestor's submission** (initial classification and priority, marked
+"Requestor-selected"), **Administrator's review** (official values,
+"Administrator-confirmed", how they differ from the requestor's, or
+"Awaiting administrative review"), and **System recommendation**
+(the level and score). The history lists each review with what it
+changed. The faculty and staff app's report page gains a "GSU's review"
+card under "What you reported", from the same rule
+(`DamageReport.officialCategory`), so the phone and the console agree.
+
+### Deploying it
+
+The database first, then the apps. The new console and phone app send
+`reason` and `expected_updated_at`, which only the new function
+accepts; the old console and the 1.2.0 app keep working against the new
+function, which treats both as optional.
+
+    npx supabase db push --remote --dry-run
+    npx supabase db push --remote
+
+### Not done
+
+- A status move still relies on the lifecycle for conflicts (a move the
+  report's current status does not allow is refused, by name), not on
+  the version check.
+- Reviews by two administrators with unsaved ratings: when the other's
+  review arrives, the form is replaced by the saved values. Nothing is
+  overwritten in the database, but the unsaved ratings are gone without
+  a notice.
+- The administrator's "recent activity" and the audit log page are still
+  read once and on request, not live.
+- One mistake of this change was caught by an existing test and is worth
+  knowing about: the migrations' closing line, a grant on every function
+  in `app`, would have handed the scheduler's `app.sweep_tool_requests`
+  (§41) back to signed-in users. This migration grants its own two
+  functions only; `tool_requests.test.sql` and
+  `report_review_trail.test.sql` both check the sweep stays closed.
+- `test/e2e/supabase_flows_test.dart` had stopped passing when the
+  session limit shipped (§31): its tokens carried no `auth_time`, so
+  seeded accounts counted as idle. It carries one now.
+
+Tests: `unit/core/live_sync_test.dart` (24), `unit/core/live_wiring_test.dart`
+(the sign-out and sign-in of the log, through the app's own providers),
+`unit/repositories/live_views_test.dart` (6),
+`unit/repositories/classification_review_test.dart`,
+`unit/models/model_validation_test.dart`,
+`widget/admin_report_detail_test.dart`, `widget/report_detail_test.dart`,
+`supabase/tests/report_review_trail.test.sql` (29), and against the
+local stack `e2e/live_views_e2e_test.dart` (3).

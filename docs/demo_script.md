@@ -136,11 +136,12 @@ or **Keep separate**. Leave it, or merge to show the requestor is told.
    started*; on the Faculty side the report is In Progress.
 3. The gold **+** → scan `INV-INV-SOCKET-PLATE` → **Record use on a work
    order** → pick this work order, quantity 1 → **Record**.
-4. Scan `TOOL-TL-0824` → **Borrow** it for this work order.
+4. Scan `TOOL-TL-0824` → **Borrow** it for this work order. The scan is
+   the proof it is in their hands; there is no borrowing from a list.
 5. Optional: **Request Materials** asks GSU for more; the Console's
    Notifications shows *Materials requested*, and Inventory Management →
    the **Requests** tab approves it.
-6. Scan `TOOL-TL-0824` again → **Return**.
+6. Scan `TOOL-TL-0824` again → **Return** → **Confirm return**.
 7. **Mark Complete**: completion notes and a photo of the finished work.
    The confirmation lists what comes off stock. **Submit**.
 
@@ -158,6 +159,17 @@ or **Keep separate**. Leave it, or merge to show the requestor is told.
    report was filed. A LOW STOCK material → **ORDER** records a delivery
    and the alert clears. On the **Tools** tab, a tool’s QR icon downloads
    its label.
+6. **A tool goes out only when the technician scans it.** Tools tab →
+   **Check Out** on an available tool: the technician, when to collect
+   it, the expected return, the purpose → **Send checkout request**. The
+   row says RESERVED and *Waiting for a Technician* lists it. On the
+   phone, the alert opens Materials & Tools → **From GSU** → **Scan to
+   confirm**: scan the tool, **Confirm receipt**. The console's row turns
+   BORROWED and Notifications shows who received it. Then **Check In**
+   on that row → a return-by time → **Send return request**; the row
+   says Awaiting Return (Overdue once the time passes) until the phone's
+   **Scan to return** → **Confirm return**. Scanning a different tool's
+   label is refused, naming the tool scanned.
 
 ### 7. The faculty member rates the work (1 min, Faculty window)
 

@@ -12,7 +12,11 @@ import 'task_repository.dart';
 /// starts the work order, its reports and the requestor's timeline with
 /// it.
 class TaskRepositoryImpl extends SupabaseRepository implements TaskRepository {
-  const TaskRepositoryImpl({required super.client, required super.guard});
+  const TaskRepositoryImpl({
+    required super.client,
+    required super.guard,
+    super.live,
+  });
 
   static const String _table = 'tasks';
 
@@ -43,10 +47,10 @@ class TaskRepositoryImpl extends SupabaseRepository implements TaskRepository {
   @override
   Stream<Result<List<MaintenanceTask>>> watchByWorkOrder(String workOrderId) =>
       watchMany(
-        stream: client
-            .from(_table)
-            .stream(primaryKey: const ['id'])
-            .eq('work_order_id', workOrderId),
+        stream: liveRows(
+          _table,
+          (rows) => rows.eq('work_order_id', workOrderId),
+        ),
         convert: MaintenanceTask.fromRecord,
       ).map((result) => result.map(sorted));
 
@@ -55,10 +59,7 @@ class TaskRepositoryImpl extends SupabaseRepository implements TaskRepository {
   @override
   Stream<Result<List<MaintenanceTask>>> watchByAssignee(String personnelId) =>
       watchMany(
-        stream: client
-            .from(_table)
-            .stream(primaryKey: const ['id'])
-            .eq('assigned_to', personnelId),
+        stream: liveRows(_table, (rows) => rows.eq('assigned_to', personnelId)),
         convert: MaintenanceTask.fromRecord,
       ).map((result) => result.map(sorted));
 

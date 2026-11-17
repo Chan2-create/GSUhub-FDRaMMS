@@ -40,7 +40,7 @@ select is(
   'deleting it again does nothing'
 );
 select is(
-  tests.error_of('u-tech', $$select public.borrow_tool('tl-1', 'u-tech')$$),
+  tests.error_of('u-tech', $$select public.borrow_tool_by_scan('tl-1', 'TOOL-TL-0001')$$),
   'Multimeter has been deleted.',
   'a deleted tool cannot be borrowed'
 );

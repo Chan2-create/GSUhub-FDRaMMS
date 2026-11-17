@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase/supabase.dart' show SupabaseClient;
 
 import '../config/app_config.dart';
+import '../data/live_sync.dart';
 import '../errors/failures.dart';
+import '../errors/supabase_error_mapper.dart';
 import '../services/account_provisioning_service.dart';
 import '../services/auth_service.dart';
 import '../services/connectivity_service.dart';
@@ -21,6 +24,7 @@ import '../services/notification_service.dart';
 import '../services/photo_picker_service.dart';
 import '../services/storage_service.dart';
 import '../services/supabase/supabase_call_guard.dart';
+import '../services/supabase/supabase_change_channel.dart';
 import '../services/supabase/supabase_connectivity_service.dart';
 import '../services/supabase/supabase_session.dart';
 import '../services/supabase/supabase_storage_service.dart';
@@ -72,7 +76,8 @@ final supabaseClientProvider = Provider<SupabaseClient>((ref) {
     accessToken: session.accessToken,
   );
   // Realtime keeps the token it joined with until handed a new one, and
-  // the server closes a channel whose token has expired.
+  // the server closes a channel whose token has expired. Signed out, the
+  // channel goes; `liveSyncProvider` opens it again at the next sign-in.
   session.onTokenChanged = (token) => unawaited(
     token == null ? client.removeAllChannels() : client.realtime.setAuth(token),
   );
@@ -135,6 +140,75 @@ final firebaseAuthServiceProvider = Provider<FirebaseAuthService>(
 final authStateProvider = StreamProvider<AuthUser?>(
   (ref) => ref.watch(authServiceProvider).authStateChanges(),
 );
+
+/// Who the data on screen was read for: the signed-in account's id, or
+/// null. The repositories watch it, so everything read for one sign-in is
+/// dropped at the next (2026-11-16).
+final sessionScopeProvider = Provider<String?>(
+  (ref) => ref.watch(authStateProvider.select((state) => state.value?.uid)),
+);
+
+/// Opens the app's one Realtime channel, for [liveSyncProvider]. Its own
+/// provider so a test can stand in a channel that needs no server.
+final changeChannelOpenerProvider = Provider<ChangeChannelOpener>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return ({required onChange, required onStatus}) => SupabaseChangeChannel.open(
+    client,
+    onChange: onChange,
+    onStatus: onStatus,
+  );
+});
+
+/// Whether anyone is signed in, asked at the moment it matters: Firebase's
+/// own answer, which changes the instant a sign-out begins, ahead of
+/// [sessionScopeProvider]. Signed out, nothing is read and no channel is
+/// kept.
+final signedInCheckProvider = Provider<bool Function()>((ref) {
+  final auth = ref.watch(firebaseStartupProvider).auth;
+  return () => auth.currentUser != null;
+});
+
+/// Keeps what the screens show in step with the database: one Realtime
+/// channel, and every live view read again when it may have changed
+/// (2026-11-16, `LiveSync`). Also read again when someone signs in, when
+/// the connection returns, and when the app or its browser tab comes back
+/// to the front.
+final liveSyncProvider = Provider<LiveSync>((ref) {
+  final sync = LiveSync(
+    openChannel: ref.watch(changeChannelOpenerProvider),
+    isSignedIn: ref.watch(signedInCheckProvider),
+    isTransient: SupabaseErrorMapper.isRetryable,
+  );
+
+  // Coming back to a window is frequent; reading everything again on each
+  // return within a few seconds is not worth its cost.
+  DateTime? lastResume;
+  final lifecycle = AppLifecycleListener(
+    onResume: () {
+      final now = DateTime.now();
+      final last = lastResume;
+      if (last != null && now.difference(last) < _resumeResyncGap) return;
+      lastResume = now;
+      unawaited(sync.resync());
+    },
+  );
+
+  ref
+    ..listen(sessionScopeProvider, (_, _) => sync.sessionChanged())
+    ..listen(reachabilityProvider, (previous, next) {
+      if (previous?.value == BackendReachability.offline &&
+          next.value == BackendReachability.online) {
+        unawaited(sync.resync());
+      }
+    })
+    ..onDispose(() {
+      lifecycle.dispose();
+      sync.dispose();
+    });
+  return sync;
+});
+
+const Duration _resumeResyncGap = Duration(seconds: 15);
 
 /// Creates sign-in accounts on an administrator's behalf (Objective 2.C).
 /// Kept apart from [authServiceProvider]: that service is about the

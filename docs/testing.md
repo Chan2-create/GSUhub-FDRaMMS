@@ -14,9 +14,9 @@ sessions with real users.
 
 | Set | Where | How to run | Last run |
 |---|---|---|---|
-| App: unit and widget | `test/unit`, `test/widget` | `flutter test --exclude-tags e2e` | 769 passed (2026-11-05) |
-| App: end to end | `test/e2e` | local stack running, then `$env:SUPABASE_E2E='1'; flutter test test/e2e` | 3 passed |
-| Database (pgTAP) | `supabase/tests` | `npx supabase test db` (Docker), or `cd tool/sql_tests; node run.mjs` and `node run.mjs --seed` (PGlite, no Docker) | 778 passed in PGlite, empty and seeded (2026-11-14); 716 on Postgres 17 (2026-11-05) |
+| App: unit and widget | `test/unit`, `test/widget` | `flutter test --exclude-tags e2e` | 1198 passed (2026-11-17) |
+| App: end to end | `test/e2e` | local stack running, then `$env:SUPABASE_E2E='1'; flutter test test/e2e` | 6 passed (2026-11-17) |
+| Database (pgTAP) | `supabase/tests` | `npx supabase test db` (Docker), or `cd tool/sql_tests; node run.mjs` and `node run.mjs --seed` (PGlite, no Docker) | 854 passed in PGlite, empty and seeded (2026-11-17); 716 on Postgres 17 (2026-11-05) |
 | Photos (real uploads) | `tool/storage_api_test.mjs` | local stack running, `node tool/storage_api_test.mjs` | 14 checks passed |
 | Token exchange | `supabase/functions/tests` | see `supabase/README.md` (Deno) | 27 passed (2026-11-14) |
 | Data move | `tool/migrate/migrate.test.mjs` | `cd tool/migrate; npm test` | 8 passed |
@@ -101,6 +101,8 @@ repositories against the real stack.
 |---|---|
 | Stock deducted only after the accomplishment report, and only through the ledger | `stock_ledger.test.sql`, `accomplishment_functions.test.sql`, `unit/repositories/inventory_management_test.dart`; e2e flow 3 |
 | Tool borrowing, return, condition and accountability | `tool_functions.test.sql`, `widget/personnel_app_test.dart`, `widget/inventory_screen_test.dart` |
+| Tool Check-Out and Check-In wait for the technician's scan (2026-11-16, §41): the brief's eight scenarios (checkout confirmed; return confirmed; wrong QR refused; another technician refused; unconfirmed stays pending; overdue; cancel releases the tool; history kept), validation, notices, the sweep | `tool_requests.test.sql` (43), `tool_functions.test.sql`; `unit/models/tool_request_test.dart`, `unit/repositories/inventory_management_test.dart` (requests), `unit/repositories/personnel_work_test.dart`, `unit/repositories/supabase_contract_test.dart`; `widget/inventory_screen_test.dart` (check out and check in), `widget/personnel_app_test.dart` (tool requests from GSU) |
+| A saved change shows without a reload, and a review keeps what the requestor chose (2026-11-16, §42): the brief's ten scenarios (a status change shows at once; a classification is saved; the official priority changes and the requestor's stays; a requestor files with a type and an urgency; an administrator changes both; both stay in the page and the audit trail; two administrators do not overwrite each other; a network failure is reported and the page keeps its data; saved changes survive a reload; the console and the phone agree), the live channel closed and reopened, sign-out and sign-in | `unit/core/live_sync_test.dart`, `unit/core/live_wiring_test.dart`, `unit/repositories/live_views_test.dart`, `unit/repositories/classification_review_test.dart`, `unit/models/model_validation_test.dart`, `unit/repositories/supabase_contract_test.dart`; `widget/admin_report_detail_test.dart`, `widget/report_detail_test.dart`; `report_review_trail.test.sql` (29); against the local stack, `e2e/live_views_e2e_test.dart` |
 | Automatic low-stock alerts | `widget/inventory_screen_test.dart` (on screen); `admin_notifications.test.sql` (the notice) |
 | Security: authentication and role-based access | `permission_matrix.test.sql` (every role, every table), `function_privileges.test.sql`, `storage_policies.test.sql`, the token exchange's tests, `unit/routing/route_guard_test.dart` |
 | Security: a session ends after 15 minutes of inactivity, warned at 13, enforced by the database (2026-11-14; 15 minutes from 2026-11-15) | `session_inactivity.test.sql`, the token exchange's `auth_time` tests, `unit/core/inactivity_monitor_test.dart`, `unit/core/session_backend_test.dart`, `widget/session_expiry_test.dart` (phone and console) |
@@ -145,7 +147,10 @@ adviser approve it, is the team's.
 1. Sign in and say what today's tasks are.
 2. Start a work order, tick off a task with a proof photo.
 3. Scan a material's label and record using two of them.
-4. Borrow a tool by scanning it, and return it.
+4. Borrow a tool by scanning it, and return it. Confirm a checkout GSU
+   sent (Materials & Tools → From GSU → **Scan to confirm**), then
+   return it when asked (**Scan to return**); scan the wrong tool once
+   and read the refusal.
 5. Submit the accomplishment report with notes and photos.
 
 **Administrator**
@@ -156,8 +161,11 @@ adviser approve it, is the team's.
 3. From the notifications, open the work waiting for sign-off, and sign
    it off or send it back.
 4. Record a delivery for a material that is low, and print its label.
-5. Approve a pending sign-up.
-6. Export the month's report data.
+5. On the Tools tab, **Check Out** a tool to a technician: it shows
+   RESERVED and waits until they scan it. Later **Check In** asks for it
+   back; it stays Borrowed until they scan it. Cancel one request.
+6. Approve a pending sign-up.
+7. Export the month's report data.
 
 Findings go to the issue list; the GUI pass (after Objective 7) takes the
 look-and-feel ones.

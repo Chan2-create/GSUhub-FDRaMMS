@@ -39,6 +39,10 @@ All commands run in PowerShell from the repo root, `D:\Capstone System`.
 | `build_apk.ps1 -Universal` | one APK for every phone instead of one per CPU type |
 | `build_apk.ps1 -Clean` | `flutter clean` first |
 
+The app icons (the phone's launcher icon and the web console's install
+icons) are drawn from the logo by `.\scripts\generate_app_icons.ps1`.
+Run it again only when the logo changes, then build and deploy as usual.
+
 Both scripts stop at the first failing step and say which one. Both end
 (as does the automatic web deploy) with a **release check** (`scripts\check_release_output.ps1`) that fails
 the build if it still points at the emulators: `127.0.0.1`, `10.0.2.2`,
@@ -331,13 +335,15 @@ for you by anyone else: you sign in to each service yourself.
    ```powershell
    npx supabase login
    npx supabase link --project-ref <ref>     # asks for the database password
-   npx supabase db push --dry-run            # lists the migrations it would apply (22 on a new project)
-   npx supabase db push                      # the migrations; never the demo data
+   npx supabase db push --remote --dry-run   # lists the migrations it would apply (22 on a new project)
+   npx supabase db push --remote            # the migrations; never the demo data
    ```
 
    `link` connects through Supabase's connection pooler, which works on
    IPv4; the free plan's direct database address is IPv6 only.
-   `db push` applies `supabase/migrations` only. Never add
+   `--remote` is what sends it to the hosted project: without it, newer
+   Supabase CLIs push to the local stack and say "Local database is up to
+   date". `db push` applies `supabase/migrations` only. Never add
    `--include-seed`. **Never run
    `supabase db reset` or the seed against the hosted project**: the
    demo data's accounts and reports are for testing.
@@ -506,8 +512,8 @@ the old database:
 1. **The database.**
 
    ```powershell
-   npx supabase db push --dry-run    # lists the five 20261020… migrations, nothing else
-   npx supabase db push
+   npx supabase db push --remote --dry-run    # lists the five 20261020… migrations, nothing else
+   npx supabase db push --remote
    ```
 
 2. **The console.** Merge to `main`, then check the run in the **Actions**

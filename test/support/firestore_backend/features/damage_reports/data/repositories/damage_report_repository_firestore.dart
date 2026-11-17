@@ -211,6 +211,7 @@ class FirestoreDamageReportRepository extends FirestoreRepository
     required String reportId,
     required ReportAssessment assessment,
     required AuditActor actor,
+    DateTime? basedOnUpdate,
   }) => db.runTransaction<void>((transaction) async {
     final reference = collection(_path).doc(reportId);
     final snapshot = await transaction.get(reference);
@@ -233,6 +234,37 @@ class FirestoreDamageReportRepository extends FirestoreRepository
       );
     }
 
+    // Already as asked: the same save sent twice is one decision. Checked
+    // before the version, which the first one moved.
+    if (assessment.reason == null &&
+        report.category == assessment.category &&
+        report.classifiedAutomatically == assessment.classifiedAutomatically &&
+        report.severityRating == assessment.severityRating &&
+        report.safetyRiskRating == assessment.safetyRiskRating &&
+        report.frequencyRating == assessment.frequencyRating &&
+        report.locationImportanceRating ==
+            assessment.locationImportanceRating &&
+        report.priorityScore == assessment.priorityScore &&
+        report.recommendedPriority == assessment.recommendedPriority &&
+        report.officialPriority == assessment.officialPriority) {
+      return;
+    }
+
+    // Someone changed the report after the administrator's page read it:
+    // refused, not saved over the change (2026-11-16). The database's
+    // version names who, from the audit trail.
+    if (basedOnUpdate != null &&
+        report.updatedAt.isAfter(
+          basedOnUpdate.add(const Duration(milliseconds: 1)),
+        )) {
+      throw FirestoreRepository.precondition(
+        'This report was changed after you opened it here. The latest '
+        'details are shown now: check them, then save again.',
+      );
+    }
+
+    // What the requestor chose when filing is not among these: the review
+    // is recorded beside it.
     transaction.update(reference, {
       'category': assessment.category.id,
       'classifiedAutomatically': assessment.classifiedAutomatically,
@@ -257,6 +289,10 @@ class FirestoreDamageReportRepository extends FirestoreRepository
       entityId: reportId,
       description: describeAssessment(assessment),
       changes: {
+        'requestor': {
+          'category': report.requestorCategory?.id,
+          'priority': report.requestorPriority.id,
+        },
         'category': {'from': report.category?.id, 'to': assessment.category.id},
         'classifiedAutomatically': assessment.classifiedAutomatically,
         'ratings': {
@@ -271,6 +307,8 @@ class FirestoreDamageReportRepository extends FirestoreRepository
           'from': report.officialPriority?.id,
           'to': assessment.officialPriority.id,
         },
+        'firstReview': report.officialPriority == null,
+        'reason': ?assessment.reason,
       },
     );
   });
@@ -287,7 +325,9 @@ class FirestoreDamageReportRepository extends FirestoreRepository
         : 'official priority ${official.label}, '
               '${official.index > recommended.index ? 'raised' : 'lowered'} '
               'from the recommended ${recommended.label} (score $score)';
-    return 'Classified as ${assessment.category.label}; $priority';
+    final reason = assessment.reason;
+    return 'Classified as ${assessment.category.label}; $priority'
+        '${reason == null ? '' : '. Reason: $reason'}';
   }
 
   @override

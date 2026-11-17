@@ -78,15 +78,18 @@ class PersonnelWorkController {
       .read(materialUsageRepositoryProvider)
       .remove(workOrderId: workOrderId, inventoryItemId: inventoryItemId);
 
-  /// Borrows a tool, for a work order or none (5.C).
+  /// Borrows a tool, for a work order or none (5.C), confirmed with
+  /// [scannedCode], the code read from the tool (2026-11-16).
   Future<Result<void>> borrowTool({
     required String toolId,
+    required String scannedCode,
     String? workOrderId,
   }) => _act(
     (actor) async => switch (await _ref
         .read(toolRepositoryProvider)
         .borrowTool(
           toolId: toolId,
+          scannedCode: scannedCode,
           borrower: actor,
           workOrderId: workOrderId,
         )) {
@@ -95,9 +98,12 @@ class PersonnelWorkController {
     },
   );
 
-  /// Returns a tool, saying what condition it is in (5.C).
+  /// Returns a tool, saying what condition it is in (5.C), confirmed with
+  /// [scannedCode], the code read from the tool (2026-11-16). Closes GSU's
+  /// request for it, if there is one.
   Future<Result<void>> returnTool({
     required String loanId,
+    required String scannedCode,
     required ItemCondition condition,
     String? notes,
   }) => _act(
@@ -105,10 +111,29 @@ class PersonnelWorkController {
         .read(toolRepositoryProvider)
         .returnTool(
           loanId: loanId,
+          scannedCode: scannedCode,
           conditionOnReturn: condition,
           actor: actor,
           notes: notes,
         ),
+  );
+
+  /// Confirms receiving a tool GSU checked out to the technician, with
+  /// [scannedCode], the code read from the tool (2026-11-16).
+  Future<Result<void>> confirmCheckOut({
+    required String requestId,
+    required String scannedCode,
+  }) => _act(
+    (actor) async => switch (await _ref
+        .read(toolRepositoryProvider)
+        .confirmCheckOut(
+          requestId: requestId,
+          scannedCode: scannedCode,
+          actor: actor,
+        )) {
+      Success() => const Result.success(null),
+      Error(:final failure) => Result.failure(failure),
+    },
   );
 
   /// Asks GSU for more materials for a work order (6.B, Group 43).

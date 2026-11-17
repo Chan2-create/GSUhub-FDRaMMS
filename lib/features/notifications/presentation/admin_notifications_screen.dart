@@ -452,6 +452,28 @@ class _NoticeRow extends ConsumerWidget {
         AppColors.notificationTileRed,
         null,
       ),
+      // Tool requests (2026-11-16): a confirmed hand-over is green, as
+      // finished work is; something late is red, as low stock is; the
+      // rest is a request, in blue.
+      NotificationType.toolCheckoutConfirmed ||
+      NotificationType.toolReturned => (
+        'assets/icons/notification_check.svg',
+        AppColors.notificationTileGreen,
+        null,
+      ),
+      NotificationType.toolOverdue || NotificationType.toolCheckoutPending => (
+        'assets/icons/notification_warning.svg',
+        AppColors.notificationTileRed,
+        null,
+      ),
+      NotificationType.toolCheckoutRequested ||
+      NotificationType.toolReturnRequested ||
+      NotificationType.toolReturnDue ||
+      NotificationType.toolRequestCancelled => (
+        'assets/icons/notification_tools.svg',
+        AppColors.notificationTileBlue,
+        null,
+      ),
       NotificationType.reportSubmitted ||
       NotificationType.reportAcknowledged ||
       NotificationType.workOrderAssigned ||
@@ -481,6 +503,10 @@ class _NoticeRow extends ConsumerWidget {
         router.go(RoutePaths.adminInventoryTab(InventoryTab.requests.param));
       case TableNames.inventoryItems:
         router.go(RoutePaths.adminInventory);
+      // A tool request, or a return nobody asked for: the Tools tab, where
+      // open requests and the tools are.
+      case TableNames.toolRequests || TableNames.toolLoans:
+        router.go(RoutePaths.adminInventoryTab(InventoryTab.tools.param));
       case TableNames.users:
         router.go(RoutePaths.adminUsers);
     }

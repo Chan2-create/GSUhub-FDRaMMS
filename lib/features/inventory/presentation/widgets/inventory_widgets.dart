@@ -89,6 +89,14 @@ class InventoryBadge extends StatelessWidget {
       foreground: AppColors.inventoryInStockText,
       horizontalPadding: 12,
     ),
+    // Waiting for the technician to collect it and scan it (2026-11-16):
+    // the brand's gold, as low stock is, for something waiting on someone.
+    ToolStatus.reserved => const InventoryBadge(
+      label: 'RESERVED',
+      background: AppColors.inventoryLowStockFill,
+      foreground: AppColors.inventoryLowStockText,
+      horizontalPadding: 12,
+    ),
     ToolStatus.borrowed => const InventoryBadge(
       label: 'BORROWED',
       background: AppColors.inventoryBorrowedFill,

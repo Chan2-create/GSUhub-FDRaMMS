@@ -17,8 +17,10 @@ import '../../qr_codes/presentation/scan_result_screen.dart';
 import '../../user_management/presentation/personnel_providers.dart';
 import '../data/models/tool.dart';
 import '../data/models/tool_loan.dart';
+import '../data/models/tool_request.dart';
 import 'tool_providers.dart';
 import 'widgets/tool_dialogs.dart';
+import 'widgets/tool_request_widgets.dart';
 
 /// "Tool Assets & Tracking", the tools half of the console's Inventory
 /// page (Figure 15; Objective 6.B): every tool, its status and condition,
@@ -79,10 +81,21 @@ class _ToolsSectionState extends ConsumerState<ToolsSection> {
       _ => const <String, ToolLoan>{},
     };
     final names = ref.watch(personnelNamesProvider);
+    // What waits on a technician (2026-11-16): above the table, and on
+    // each row it concerns.
+    final open = switch (ref.watch(openToolRequestsProvider)) {
+      AsyncData(value: Success(:final value)) => value,
+      _ => const <ToolRequest>[],
+    };
+    final waiting = {for (final request in open) request.toolId: request};
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (open.isNotEmpty) ...[
+          ToolRequestsPanel(requests: open, names: names),
+          const SizedBox(height: 40),
+        ],
         InventorySectionHeader(
           title: 'Tool Assets & Tracking',
           actions: [
@@ -109,6 +122,7 @@ class _ToolsSectionState extends ConsumerState<ToolsSection> {
             return _ToolTable(
               rows: rows,
               loans: loans,
+              waiting: waiting,
               names: names,
               footer: _TableFooter(
                 first: tools.isEmpty ? 0 : page * _pageSize + 1,
@@ -130,12 +144,17 @@ class _ToolTable extends StatelessWidget {
   const _ToolTable({
     required this.rows,
     required this.loans,
+    required this.waiting,
     required this.names,
     required this.footer,
   });
 
   final List<Tool> rows;
   final Map<String, ToolLoan> loans;
+
+  /// The request waiting on each tool, by tool id.
+  final Map<String, ToolRequest> waiting;
+
   final Map<String, String> names;
   final Widget footer;
 
@@ -221,7 +240,12 @@ class _ToolTable extends StatelessWidget {
   );
 
   Widget _toolRow(BuildContext context, Tool tool) {
-    final holder = tool.currentHolderId;
+    final request = waiting[tool.id];
+    // Reserved: the technician it waits for, though they do not have it
+    // yet (2026-11-16).
+    final holder =
+        tool.currentHolderId ??
+        (tool.status == ToolStatus.reserved ? request?.personnelId : null);
     final holderName = holder == null ? null : names[holder] ?? 'A technician';
     final loan = tool.currentLoanId == null ? null : loans[tool.currentLoanId];
     return _row([
@@ -259,10 +283,25 @@ class _ToolTable extends StatelessWidget {
             InventoryAvatar(name: holderName),
             const SizedBox(width: 4),
             Flexible(
-              child: Text(
-                holderName,
-                style: AppTextStyles.inventoryCell,
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    holderName,
+                    style: AppTextStyles.inventoryCell,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  // Reserved, not lent: the name is who is to collect it.
+                  if (tool.status == ToolStatus.reserved)
+                    Text(
+                      'to collect',
+                      style: AppTextStyles.inventoryCell.copyWith(
+                        fontSize: 11,
+                        color: AppColors.inventoryLabel,
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
@@ -277,7 +316,7 @@ class _ToolTable extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 4,
         children: [
-          _toolAction(context, tool, holderName, loan),
+          _toolAction(context, tool, holderName, loan, request),
           _delete(context, tool),
         ],
       ),
@@ -296,24 +335,68 @@ class _ToolTable extends StatelessWidget {
     ),
   );
 
+  /// Since 2026-11-16 neither button moves the tool: Check Out asks a
+  /// technician to collect it, Check In asks for it back, and each waits
+  /// for the technician to scan the tool. While one waits, the row says
+  /// so; a checkout still waiting can be cancelled from here.
   Widget _toolAction(
     BuildContext context,
     Tool tool,
     String? holderName,
     ToolLoan? loan,
+    ToolRequest? request,
   ) => switch (tool.status) {
     ToolStatus.available => InventoryNavyButton(
       label: 'Check Out',
       onPressed: () => showCheckOutDialog(context, tool),
     ),
+    ToolStatus.reserved => Consumer(
+      builder: (context, ref, _) => Tooltip(
+        message:
+            'Waiting for ${holderName ?? 'the technician'} to scan it and '
+            'confirm. Cancel to put it back on the shelf.',
+        child: TextButton(
+          onPressed: request == null
+              ? null
+              : () => showCancelToolRequestDialog(
+                  context,
+                  ref,
+                  request,
+                  technicianName: holderName,
+                ),
+          child: Text(
+            'Cancel Request',
+            style: AppTextStyles.inventoryCellStrong.copyWith(
+              color: AppColors.inventoryHeading,
+            ),
+          ),
+        ),
+      ),
+    ),
+    ToolStatus.borrowed when request != null => () {
+      final status = request.statusAt(DateTime.now());
+      return Tooltip(
+        message:
+            '${toolRequestTiming(request)}. It is back once '
+            '${holderName ?? 'the technician'} scans it.',
+        child: Text(
+          status.label,
+          style: AppTextStyles.inventoryCellStrong.copyWith(
+            color: status == ToolTransactionStatus.overdue
+                ? AppColors.error
+                : AppColors.inventoryLowStockText,
+          ),
+        ),
+      );
+    }(),
     ToolStatus.borrowed => TextButton(
       onPressed: tool.currentLoanId == null
           ? null
           : () => showCheckInDialog(
               context,
-              toolName: tool.name,
+              tool: tool,
               loanId: tool.currentLoanId!,
-              conditionOnBorrow: loan?.conditionOnBorrow ?? tool.condition,
+              loan: loan,
               holderName: holderName,
             ),
       child: Text(

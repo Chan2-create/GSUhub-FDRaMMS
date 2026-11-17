@@ -113,21 +113,24 @@ class FirestoreHarness {
       );
 
   /// A tool on the shelf, or out (Objective 5.C).
+  /// A tool on the shelf; its label reads `TOOL-<toolCode>`.
   Future<void> addTool(
     String id, {
     ToolStatus status = ToolStatus.available,
     ItemCondition condition = ItemCondition.good,
+    String toolCode = 'TL-0001',
+    String name = 'Fluke Multimeter',
   }) => firestore
       .collection(TableNames.tools)
       .doc(id)
       .set(
         Tool(
           id: id,
-          toolCode: 'TL-0001',
-          name: 'Fluke Multimeter',
+          toolCode: toolCode,
+          name: name,
           status: status,
           condition: condition,
-          qrCode: 'TOOL-TL-0001',
+          qrCode: 'TOOL-$toolCode',
           currentHolderId: status == ToolStatus.borrowed ? 'personnel-2' : null,
           createdAt: DateTime.utc(2026),
           updatedAt: DateTime.utc(2026),

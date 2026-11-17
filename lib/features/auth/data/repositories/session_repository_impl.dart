@@ -6,8 +6,14 @@ import 'session_repository.dart';
 /// caller's row of `app.user_activity` (not exposed) as of now.
 class SessionRepositoryImpl extends SupabaseRepository
     implements SessionRepository {
-  const SessionRepositoryImpl({required super.client, required super.guard});
+  const SessionRepositoryImpl({
+    required super.client,
+    required super.guard,
+    super.live,
+  });
 
   @override
-  Future<Result<void>> touch() => rpc('touch_session', const {});
+  Future<Result<void>> touch() =>
+      // Changes nothing a screen shows: no reason to read them all again.
+      rpc('touch_session', const {}, changesData: false);
 }

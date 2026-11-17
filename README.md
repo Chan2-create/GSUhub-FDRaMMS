@@ -31,7 +31,7 @@ One Flutter codebase builds three apps against one shared backend:
 |---|---|---|---|
 | Admin console | GSU administrators | Web browser | Review and classify reports, set priorities, handle duplicates, assign work orders, sign off finished work, manage inventory, tools, rooms, equipment and accounts, analytics, Map View, settings |
 | Faculty and staff app | Faculty and staff | Android | Sign up, report damage (photos, building and room, geo-tag, QR code), follow reports live, get notified, rate the service |
-| Maintenance app | GSU maintenance personnel | Android | See assigned work orders and the day's tasks, tick tasks with proof photos, scan QR codes, record materials, borrow and return tools, send accomplishment reports |
+| Maintenance app | GSU maintenance personnel | Android | See assigned work orders and the day's tasks, tick tasks with proof photos, scan QR codes, record materials, borrow and return tools by scanning them (and confirm the ones GSU checks out or asks back), send accomplishment reports |
 
 The two phone apps are one APK; the account's role decides which opens.
 
@@ -246,7 +246,7 @@ data works.
 
 The live backend is the hosted Supabase project and the Firebase project
 `gsuhub-dorsu`. New migrations reach it with
-`npx supabase@2.122.1 db push --linked`
+`npx supabase db push --remote` (older CLIs: `--linked`)
 ([`docs/manual_deploy.md`](docs/manual_deploy.md)).
 
 ## 8. Running the mobile application

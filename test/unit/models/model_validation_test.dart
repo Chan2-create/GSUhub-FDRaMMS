@@ -13,6 +13,7 @@ import 'package:gsuhub/features/accomplishment/data/models/material_usage.dart';
 import 'package:gsuhub/features/classification/data/models/duplicate_detection_config.dart';
 import 'package:gsuhub/features/classification/data/models/prioritization_config.dart';
 import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
+import 'package:gsuhub/features/damage_reports/data/models/report_assessment.dart';
 import 'package:gsuhub/features/feedback/data/models/service_feedback.dart';
 import 'package:gsuhub/features/inventory/data/models/inventory_item.dart';
 import 'package:gsuhub/features/inventory/data/models/inventory_transaction.dart';
@@ -108,6 +109,85 @@ void main() {
     test('isDuplicate reflects the duplicateOf pointer', () {
       expect(buildReport().isDuplicate, isFalse);
       expect(buildReport().copyWith(duplicateOf: 'rep-9').isDuplicate, isTrue);
+    });
+
+    test("a keyword match is a suggestion, and the requestor's choice their "
+        'own, until an administrator decides', () {
+      final filed = buildReport().copyWith(
+        requestorCategory: DamageCategory.electrical,
+        category: DamageCategory.plumbing,
+        classifiedAutomatically: true,
+      );
+
+      expect(filed.officialCategory, isNull);
+      expect(filed.suggestedCategory, DamageCategory.plumbing);
+      expect(filed.requestorCategory, DamageCategory.electrical);
+      expect(filed.awaitsAssessment, isTrue);
+      expect(filed.isPriorityConfirmed, isFalse);
+    });
+
+    test('the review makes the type and the priority official, beside the '
+        "requestor's own", () {
+      final reviewed = buildReport().copyWith(
+        requestorCategory: DamageCategory.electrical,
+        category: DamageCategory.plumbing,
+        classifiedAutomatically: true,
+        officialPriority: PriorityLevel.critical,
+        reviewedBy: 'admin-1',
+      );
+
+      expect(reviewed.officialCategory, DamageCategory.plumbing);
+      expect(reviewed.suggestedCategory, isNull);
+      expect(reviewed.awaitsAssessment, isFalse);
+      // Kept as filed.
+      expect(reviewed.requestorCategory, DamageCategory.electrical);
+      expect(reviewed.requestorPriority, PriorityLevel.medium);
+    });
+
+    test('a report that ended without a review awaits none', () {
+      final rejected = buildReport().copyWith(status: ReportStatus.rejected);
+
+      expect(rejected.awaitsAssessment, isFalse);
+      expect(rejected.officialCategory, isNull);
+    });
+  });
+
+  group('ReportAssessment', () {
+    ReportAssessment review({String? reason}) => ReportAssessment(
+      category: DamageCategory.plumbing,
+      classifiedAutomatically: false,
+      severityRating: 4,
+      safetyRiskRating: 4,
+      frequencyRating: 2,
+      locationImportanceRating: 3,
+      priorityScore: 3.5,
+      recommendedPriority: PriorityLevel.critical,
+      officialPriority: PriorityLevel.high,
+      reason: reason,
+    );
+
+    test('keeps a reason trimmed, and a blank one as none', () {
+      expect(review(reason: '  Not wiring.  ').reason, 'Not wiring.');
+      expect(review(reason: '   ').reason, isNull);
+      expect(review().reason, isNull);
+    });
+
+    test('withReason changes the reason and nothing else', () {
+      final withReason = review().withReason('Shut off at the main.');
+
+      expect(withReason.reason, 'Shut off at the main.');
+      expect(withReason.withReason(null), review());
+    });
+
+    test('refuses a reason longer than the database accepts', () {
+      expect(
+        review(reason: 'x' * ReportAssessment.reasonLimit).reason,
+        hasLength(ReportAssessment.reasonLimit),
+      );
+      expect(
+        () => review(reason: 'x' * (ReportAssessment.reasonLimit + 1)),
+        throwsA(isA<ValidationException>()),
+      );
     });
   });
 

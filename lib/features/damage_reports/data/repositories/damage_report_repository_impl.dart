@@ -26,6 +26,7 @@ class DamageReportRepositoryImpl extends SupabaseRepository
   const DamageReportRepositoryImpl({
     required super.client,
     required super.guard,
+    super.live,
   });
 
   static const String _table = 'damage_reports';
@@ -43,25 +44,27 @@ class DamageReportRepositoryImpl extends SupabaseRepository
   @override
   Stream<Result<List<StatusChange>>> watchStatusHistory(String reportId) =>
       watchMany(
-        stream: client
-            .from('report_status_history')
-            .stream(primaryKey: const ['id'])
-            .eq('report_id', reportId)
-            .order('changed_at', ascending: true)
-            // Far beyond any real report's history; a bound all the same.
-            .limit(statusHistoryLimit),
+        stream: liveRows(
+          'report_status_history',
+          (rows) => rows
+              .eq('report_id', reportId)
+              .order('changed_at', ascending: true)
+              // Far beyond any real report's history; a bound all the same.
+              .limit(statusHistoryLimit),
+        ),
         convert: StatusChange.fromRecord,
       );
 
   @override
   Stream<Result<List<DamageReport>>> watchByReporter(String reporterId) =>
       watchMany(
-        stream: client
-            .from(_table)
-            .stream(primaryKey: const ['id'])
-            .eq('reporter_id', reporterId)
-            .order('submitted_at')
-            .limit(DamageReportRepository.reporterQueryLimit),
+        stream: liveRows(
+          _table,
+          (rows) => rows
+              .eq('reporter_id', reporterId)
+              .order('submitted_at')
+              .limit(DamageReportRepository.reporterQueryLimit),
+        ),
         convert: DamageReport.fromRecord,
       );
 
@@ -72,14 +75,10 @@ class DamageReportRepositoryImpl extends SupabaseRepository
     String? categoryId,
     bool excludeDuplicates = true,
   }) =>
-      // Filtered here rather than by the stream: status, priority and
-      // category all change, and Realtime never tells a stream filtered on
-      // a column about a row that has left it.
+      // One read for every filter: the dashboard, the table and the
+      // assignment queue narrow the same list, each its own way.
       watchMany(
-        stream: client
-            .from(_table)
-            .stream(primaryKey: const ['id'])
-            .order('submitted_at'),
+        stream: liveRows(_table, (rows) => rows.order('submitted_at')),
         convert: DamageReport.fromRecord,
       ).map(
         (result) => result.map(
@@ -133,6 +132,7 @@ class DamageReportRepositoryImpl extends SupabaseRepository
     required String reportId,
     required ReportAssessment assessment,
     required AuditActor actor,
+    DateTime? basedOnUpdate,
   }) => rpc('record_assessment', {
     'report_id': reportId,
     'category': assessment.category.id,
@@ -144,6 +144,8 @@ class DamageReportRepositoryImpl extends SupabaseRepository
     'priority_score': assessment.priorityScore,
     'recommended_priority': assessment.recommendedPriority.id,
     'official_priority': assessment.officialPriority.id,
+    'reason': assessment.reason,
+    'expected_updated_at': SupabaseRepository.time(basedOnUpdate),
   });
 
   @override

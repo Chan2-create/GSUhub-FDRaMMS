@@ -25,7 +25,9 @@ which needs no global install.
 | `migrations/*_task_start_audit.sql` | The audit entry for a task started with a proof photo (7.B). |
 | `seed.sql` | Demo data. **Generated, don't edit it**: see below. |
 | `migrations/*_session_inactivity.sql` | Sessions end after 15 minutes of inactivity (2026-11-14, 30; 15 from 2026-11-15): `app.user_activity`, `touch_session`, and `PT401` for a session that ended. |
-| `tests/*.test.sql` | 778 pgTAP tests in 20 files: the permission matrix, every function allowed and refused, the stock ledger, the storage policies, the notices and the session's end. |
+| `migrations/*_tool_requests.sql` | Tool Check-Out and Check-In wait for the technician to scan the tool (2026-11-16): `tool_requests`, the `reserved` status, the scan check, and `app.sweep_tool_requests`, run every five minutes by pg_cron (installed here when the server has it). |
+| `migrations/*_report_review_trail.sql` | A report keeps what the requestor chose (a trigger), and a review records its reason and the whole decision, is refused over a newer change, and writes nothing when sent twice (2026-11-16). |
+| `tests/*.test.sql` | 854 pgTAP tests in 22 files: the permission matrix, every function allowed and refused, the stock ledger, the storage policies, the notices, the session's end, the tool requests and the review trail. |
 | `functions/firebase-token-exchange/` | Trades a Firebase ID token for a Supabase access token. See below. |
 | `functions/tests/` | Its tests, in Deno. |
 

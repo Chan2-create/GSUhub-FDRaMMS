@@ -6,6 +6,12 @@
 /// and would sit in [inRepair] forever. Flagged in docs/data_dictionary.md.
 enum ToolStatus {
   available,
+
+  /// A checkout request waits for the technician to collect the tool and
+  /// confirm by scanning it (2026-11-16): held for them, lent to nobody
+  /// yet.
+  reserved,
+
   borrowed,
   inRepair,
   retired;
@@ -16,6 +22,7 @@ enum ToolStatus {
   /// How the apps name it (Objective 5.C).
   String get label => switch (this) {
     ToolStatus.available => 'Available',
+    ToolStatus.reserved => 'Reserved',
     ToolStatus.borrowed => 'Borrowed',
     ToolStatus.inRepair => 'In repair',
     ToolStatus.retired => 'Retired',

@@ -77,8 +77,20 @@ abstract interface class DamageReportRepository {
   ///   work order, or is past review (only `submitted`, `underReview` and
   ///   `approved` reports are assessed);
   /// - write the assessment and record the reviewer;
+  /// - leave what the requestor chose when filing as it is: the review is
+  ///   recorded beside the requestor's damage type and urgency, not over
+  ///   them (2026-11-16);
+  /// - refuse, when [basedOnUpdate] is given, a report that has changed
+  ///   since: [basedOnUpdate] is the report's `updatedAt` as the
+  ///   administrator's page last read it, so one review cannot silently
+  ///   replace another made meanwhile;
   /// - append an `audit_logs` entry naming [actor], saying whether the
-  ///   official priority confirms or modifies the recommendation.
+  ///   official priority confirms or modifies the recommendation, with
+  ///   what the requestor chose, what the classification and official
+  ///   priority were and became, and the reason when one was given.
+  ///
+  /// A review that changes nothing writes nothing and succeeds: the same
+  /// save sent twice is one decision.
   ///
   /// Replaces 1.B's `setCategory`, `setOfficialPriority` and
   /// `setRecommendedPriority`, which wrote one field each with no audit
@@ -88,6 +100,7 @@ abstract interface class DamageReportRepository {
     required String reportId,
     required ReportAssessment assessment,
     required AuditActor actor,
+    DateTime? basedOnUpdate,
   });
 
   /// How many reports of [category] at [facilityId] were filed since

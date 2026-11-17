@@ -13,7 +13,11 @@ import 'work_order_repository.dart';
 /// open-work counts, and writes the notices and audit entries.
 class WorkOrderRepositoryImpl extends SupabaseRepository
     implements WorkOrderRepository {
-  const WorkOrderRepositoryImpl({required super.client, required super.guard});
+  const WorkOrderRepositoryImpl({
+    required super.client,
+    required super.guard,
+    super.live,
+  });
 
   static const String _table = 'work_orders';
 
@@ -30,8 +34,8 @@ class WorkOrderRepositoryImpl extends SupabaseRepository
     WorkOrderStatus? status,
     String? categoryId,
   }) =>
-      // Filtered here: a work order's status changes, and Realtime never
-      // tells a stream filtered on it about one that has moved on.
+      // Filtered here, as it was under the Realtime stream, which could
+      // not filter on a status that changes.
       _watchVisible().map(
         (result) => result.map(
           (orders) => [
@@ -58,10 +62,7 @@ class WorkOrderRepositoryImpl extends SupabaseRepository
 
   /// Every work order the caller may see, newest first.
   Stream<Result<List<WorkOrder>>> _watchVisible() => watchMany(
-    stream: client
-        .from(_table)
-        .stream(primaryKey: const ['id'])
-        .order('created_at'),
+    stream: liveRows(_table, (rows) => rows.order('created_at')),
     convert: WorkOrder.fromRecord,
   );
 

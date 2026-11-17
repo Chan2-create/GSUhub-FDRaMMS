@@ -12,6 +12,7 @@ import '../../../tasks/data/models/maintenance_task.dart';
 import '../../../tasks/domain/task_day.dart';
 import '../../../tools/data/models/tool.dart';
 import '../../../tools/data/models/tool_loan.dart';
+import '../../../tools/data/models/tool_request.dart';
 import '../../data/models/work_order.dart';
 
 // Every inventory item by name, and a work order's pre-assigned materials:
@@ -156,6 +157,15 @@ final myToolLoansProvider = StreamProvider.autoDispose<Result<List<ToolLoan>>>((
   if (uid == null) return Stream.value(const Result.success([]));
   return ref.watch(toolRepositoryProvider).watchOpenLoansFor(uid);
 });
+
+/// What GSU has asked of the technician about tools, newest first: to
+/// collect one, or to return one (2026-11-16). Only their own.
+final myToolRequestsProvider =
+    StreamProvider.autoDispose<Result<List<ToolRequest>>>((ref) {
+      final uid = signedInUid(ref);
+      if (uid == null) return Stream.value(const Result.success([]));
+      return ref.watch(toolRepositoryProvider).watchRequestsFor(uid);
+    });
 
 /// The technician's requests for materials on one work order, newest
 /// first (Objective 6.B). Only their own: the rules list nothing else.

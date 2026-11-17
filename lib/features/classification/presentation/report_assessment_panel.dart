@@ -90,7 +90,14 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm> {
     widget.report,
     suggestion: _keywords.category,
   );
+  final _reason = TextEditingController();
   bool _saving = false;
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
 
   ClassificationResult _classify() => KeywordClassifier(widget.rules).classify(
     KeywordClassifier.textOf(
@@ -118,14 +125,25 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm> {
   };
 
   Future<void> _save(ReportAssessment assessment) async {
+    // One save at a time, whatever the button looked like when pressed.
+    if (_saving) return;
+    // Taken before the wait: by the time the database has answered, the
+    // page shows the saved report, and this form has been replaced by a
+    // fresh one. The answer is still owed to the administrator.
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     final result = await ref
         .read(reportReviewControllerProvider)
-        .recordAssessment(widget.report.id, assessment);
-    if (!mounted) return;
-    setState(() => _saving = false);
+        .recordAssessment(
+          widget.report.id,
+          // The reason as it stands now, not as when the form was drawn.
+          assessment.withReason(_reason.text),
+          // The version on the page: a review of a report someone has
+          // changed since is refused, not saved over their change.
+          basedOnUpdate: widget.report.updatedAt,
+        );
+    if (mounted) setState(() => _saving = false);
 
-    final messenger = ScaffoldMessenger.of(context);
     result.fold(
       (_) => messenger.showSnackBar(
         const SnackBar(content: Text('Classification and priority saved.')),
@@ -202,13 +220,13 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm> {
         ),
         const SizedBox(height: 8),
         _KeywordEvidence(result: _keywords),
-        if (report.requestorCategory case final suggested?) ...[
-          const SizedBox(height: 4),
-          Text(
-            'The requestor suggested ${suggested.label}.',
-            style: AppTextStyles.bodySmall,
-          ),
-        ],
+        const SizedBox(height: 4),
+        Text(switch (report.requestorCategory) {
+          final chosen? =>
+            'The requestor chose ${chosen.label}. It stays on the report as '
+                'their choice, whichever type you confirm.',
+          null => 'The requestor did not choose a damage type.',
+        }, style: AppTextStyles.bodySmall),
         const _Divider(),
         const _Heading('Priority criteria'),
         const SizedBox(height: 4),
@@ -274,7 +292,8 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm> {
         const SizedBox(height: 8),
         Text(
           "The requestor's own urgency: ${report.requestorPriority.title}. "
-          'It is supplementary and does not set the official level (§1.2).',
+          'It is supplementary and does not set the official level (§1.2); '
+          'it stays on the report as their choice.',
           style: AppTextStyles.bodySmall,
         ),
         if (official != null && recommended != null && official != recommended)
@@ -288,7 +307,24 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm> {
               ),
             ),
           ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: TextField(
+            key: const ValueKey('assessment-reason'),
+            controller: _reason,
+            enabled: !_saving,
+            minLines: 1,
+            maxLines: 3,
+            maxLength: ReportAssessment.reasonLimit,
+            decoration: const InputDecoration(
+              labelText: 'Reason for this decision (optional)',
+              helperText:
+                  "Kept in the report's history with your name and the time.",
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         // Wraps: on a 320px phone the button alone is as wide as the
         // card, and its hint goes under it.
         Wrap(
