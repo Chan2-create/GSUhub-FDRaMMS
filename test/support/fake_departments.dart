@@ -28,12 +28,21 @@ class FakeDepartmentRepository implements DepartmentRepository {
   /// When set, reading the list fails with it.
   Failure? readFailure;
 
+  /// When set, a read waits for it: the time a real one spends on the
+  /// network, for the loading state.
+  Completer<void>? holdReads;
+
+  /// How many times the list was read.
+  int reads = 0;
+
   int _next = 0;
 
   List<Department> get all => List.unmodifiable(_departments);
 
   @override
   Future<Result<List<Department>>> getActive() async {
+    reads++;
+    await holdReads?.future;
     if (readFailure case final failure?) return Result.failure(failure);
     return Result.success(
       [

@@ -418,9 +418,12 @@ class RequestorHarness {
   );
 
   /// Boots the app at [start] on a phone-sized screen.
+  ///
+  /// [settle] false leaves it at the first frame, for a loading state.
   Future<void> pump(
     WidgetTester tester, {
     String start = RoutePaths.staffHome,
+    bool settle = true,
   }) async {
     tester.view
       ..physicalSize = const Size(390, 844)
@@ -461,7 +464,7 @@ class RequestorHarness {
         child: const GsuhubApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) await tester.pumpAndSettle();
   }
 }
 

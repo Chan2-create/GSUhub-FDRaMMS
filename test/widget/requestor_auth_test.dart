@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
@@ -264,17 +266,25 @@ void main() {
       expect(app.users.created.single.department, 'General Services Unit');
     });
 
-    testWidgets('with no departments on the list yet, none is asked for', (
-      tester,
-    ) async {
+    testWidgets('with no departments on the list yet, it says so, and none '
+        'is asked for', (tester) async {
       final app = RequestorHarness(signedIn: null);
-      app.departments.readFailure = null;
       for (final department in app.departments.all) {
         await app.departments.setActive(department.id, active: false);
       }
       await app.pump(tester, start: RoutePaths.staffSignUp);
 
-      expect(find.text('DEPARTMENT / FACULTY'), findsNothing);
+      // Said as what it is, not as a failure.
+      expect(find.text('DEPARTMENT / FACULTY'), findsOneWidget);
+      expect(find.text('No departments listed yet'), findsOneWidget);
+      expect(
+        find.text(
+          'GSU has not listed any departments or faculties yet. You can '
+          'create your account without one.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Retry'), findsNothing);
       await fillIn(tester, department: null);
       await register(tester);
 
@@ -321,19 +331,90 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('a department list that cannot be read says so, and can be '
-        'read again', (tester) async {
+    testWidgets('while the list loads, a spinner says so', (tester) async {
       final app = RequestorHarness(signedIn: null);
-      app.departments.readFailure = const NetworkFailure('Offline.');
+      app.departments.holdReads = Completer<void>();
+      await app.pump(tester, start: RoutePaths.staffSignUp, settle: false);
+      await tester.pump();
+
+      expect(find.text('Loading departments…'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('sign-up-department')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+
+      app.departments.holdReads!.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Loading departments…'), findsNothing);
+      expect(find.text('Choose your department or faculty'), findsOneWidget);
+    });
+
+    testWidgets('a list that cannot be read says why, and Retry reads it '
+        'again', (tester) async {
+      final app = RequestorHarness(signedIn: null);
+      // What the live project answered on 2026-11-17, before its database
+      // had the departments table: not found, a server failure.
+      app.departments.readFailure = const ServerFailure(
+        "Could not find the table 'public.departments' in the schema cache",
+      );
       await app.pump(tester, start: RoutePaths.staffSignUp);
 
-      expect(find.text('The list could not be loaded'), findsOneWidget);
-      app.departments.readFailure = null;
-      await tester.ensureVisible(find.text('Try again'));
-      await tester.tap(find.text('Try again'));
-      await tester.pumpAndSettle();
+      expect(find.text('Departments unavailable'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'The list of departments is not available right now.',
+        ),
+        findsOneWidget,
+      );
+      // The database's wording is not shown to the person signing up.
+      expect(find.textContaining('schema cache'), findsNothing);
+      expect(app.departments.reads, 1);
 
+      // Still down: Retry asks again, and says so again.
+      await tester.ensureVisible(find.text('Retry'));
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(app.departments.reads, 2);
+      expect(find.text('Departments unavailable'), findsOneWidget);
+
+      // Back: Retry loads it, and a department can be chosen and saved.
+      app.departments.readFailure = null;
+      await tester.ensureVisible(find.text('Retry'));
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(app.departments.reads, 3);
+      expect(find.text('Retry'), findsNothing);
       expect(find.text('Choose your department or faculty'), findsOneWidget);
+
+      await fillIn(tester);
+      await register(tester);
+      expect(
+        app.users.created.single.department,
+        'Faculty of Business and Management',
+      );
+    });
+
+    testWidgets('no connection: the connection is what it names', (
+      tester,
+    ) async {
+      final app = RequestorHarness(signedIn: null);
+      app.departments.readFailure = const NetworkFailure(
+        'Cannot reach the server. Check your internet connection and try '
+        'again.',
+      );
+      await app.pump(tester, start: RoutePaths.staffSignUp);
+
+      expect(
+        find.text(
+          'Cannot reach the server. Check your internet connection and try '
+          'again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Retry'), findsOneWidget);
     });
 
     testWidgets('an address already in use is reported', (tester) async {
