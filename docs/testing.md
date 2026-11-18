@@ -14,7 +14,7 @@ sessions with real users.
 
 | Set | Where | How to run | Last run |
 |---|---|---|---|
-| App: unit and widget | `test/unit`, `test/widget` | `flutter test --exclude-tags e2e` | 1235 passed (2026-11-17) |
+| App: unit and widget | `test/unit`, `test/widget` | `flutter test --exclude-tags e2e` | 1243 passed (2026-11-18) |
 | App: end to end | `test/e2e` | local stack running, then `$env:SUPABASE_E2E='1'; flutter test test/e2e` | 6 passed (2026-11-17) |
 | Database (pgTAP) | `supabase/tests` | `npx supabase test db` (Docker), or `cd tool/sql_tests; node run.mjs` and `node run.mjs --seed` (PGlite, no Docker) | 899 passed in PGlite, empty and seeded (2026-11-17); 716 on Postgres 17 (2026-11-05) |
 | Photos (real uploads) | `tool/storage_api_test.mjs` | local stack running, `node tool/storage_api_test.mjs` | 14 checks passed |

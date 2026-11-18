@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/errors/failures.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/result.dart';
 import '../../user_management/data/models/department.dart';
@@ -231,10 +232,11 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
   }
 }
 
-/// DEPARTMENT / FACULTY: the list the administrator keeps, read when the
-/// form opens (2026-11-17). Nothing to choose from yet, and the field is
-/// not shown: nobody can be asked to pick from an empty list, and the
-/// database asks for a department only once the list has one.
+/// DEPARTMENT / FACULTY: the list the administrator keeps, read from the
+/// database when the form opens (2026-11-17). Four states, each said in
+/// words: loading, with a spinner; the list; an empty list, which is not
+/// an error (nothing to choose, so nothing is required, and the database
+/// agrees); and a list that could not be read, with why and a Retry.
 class _DepartmentField extends ConsumerWidget {
   const _DepartmentField({
     required this.value,
@@ -248,28 +250,84 @@ class _DepartmentField extends ConsumerWidget {
   final String? error;
   final bool enabled;
 
+  /// What to tell the person when the list could not be read.
+  static String failureMessage(Failure? failure) => switch (failure) {
+    NetworkFailure(:final message) => message,
+    _ =>
+      'The list of departments is not available right now. Retry in a '
+          "moment; if it keeps happening, tell the GSU Administrator's "
+          'Office.',
+  };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final departments = ref.watch(activeDepartmentsProvider);
-    final (
-      List<Department> options,
-      String hint,
-      bool failed,
-    ) = switch (departments) {
-      AsyncData(value: Success(:final value)) => (
-        value,
-        'Choose your department or faculty',
-        false,
-      ),
-      AsyncData(value: Error()) || AsyncError() => (
-        const <Department>[],
-        'The list could not be loaded',
-        true,
-      ),
-      _ => (const <Department>[], 'Loading departments…', false),
-    };
-    if (departments is AsyncData && !failed && options.isEmpty) {
-      return const SizedBox.shrink();
+    final placeholder = AppTextStyles.authInput.copyWith(
+      color: AuthFieldStyle.signUp.placeholder,
+    );
+
+    final List<Department> options;
+    final Widget hint;
+    String? note;
+    var failed = false;
+    switch (departments) {
+      case AsyncData(value: Success(:final value)) when value.isNotEmpty:
+        options = value;
+        hint = Text(
+          'Choose your department or faculty',
+          overflow: TextOverflow.ellipsis,
+          style: placeholder,
+        );
+      case AsyncData(value: Success()):
+        options = const [];
+        hint = Text(
+          'No departments listed yet',
+          overflow: TextOverflow.ellipsis,
+          style: placeholder,
+        );
+        note =
+            'GSU has not listed any departments or faculties yet. You can '
+            'create your account without one.';
+      case AsyncData(value: Error(:final failure)):
+        options = const [];
+        failed = true;
+        hint = Text(
+          'Departments unavailable',
+          overflow: TextOverflow.ellipsis,
+          style: placeholder,
+        );
+        note = failureMessage(failure);
+      case AsyncError():
+        options = const [];
+        failed = true;
+        hint = Text(
+          'Departments unavailable',
+          overflow: TextOverflow.ellipsis,
+          style: placeholder,
+        );
+        note = failureMessage(null);
+      default:
+        options = const [];
+        hint = Row(
+          children: [
+            const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.warmText,
+                semanticsLabel: 'Loading departments',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                'Loading departments…',
+                overflow: TextOverflow.ellipsis,
+                style: placeholder,
+              ),
+            ),
+          ],
+        );
     }
 
     return Column(
@@ -292,13 +350,8 @@ class _DepartmentField extends ConsumerWidget {
                 key: const ValueKey('sign-up-department'),
                 value: value,
                 isExpanded: true,
-                hint: Text(
-                  hint,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.authInput.copyWith(
-                    color: AuthFieldStyle.signUp.placeholder,
-                  ),
-                ),
+                hint: hint,
+                disabledHint: hint,
                 style: AppTextStyles.authInput,
                 icon: const Icon(Icons.expand_more, color: AppColors.warmText),
                 items: [
@@ -316,12 +369,26 @@ class _DepartmentField extends ConsumerWidget {
             ),
           ),
         ),
+        if (note != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 6),
+            child: Semantics(
+              liveRegion: failed,
+              child: Text(
+                note,
+                style: AppTextStyles.formError.copyWith(
+                  color: failed ? AppColors.error : AppColors.warmText,
+                ),
+              ),
+            ),
+          ),
         if (failed)
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(
+            child: TextButton.icon(
               onPressed: () => ref.invalidate(activeDepartmentsProvider),
-              child: const Text('Try again'),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
             ),
           ),
         if (error case final message?)

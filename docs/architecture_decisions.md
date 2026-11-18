@@ -2926,6 +2926,26 @@ choice Create Account offers.
   server). It does not need to be: the database refuses every request
   the old sign-in makes, and the app signs out on the first.
 
+### Two fixes after the first APK (2026-11-17)
+
+- **"The list could not be loaded"** on Create Account. The APK was
+  installed before the database was pushed: the live project's API log
+  shows the app's request for `/rest/v1/departments` answered 404, and
+  the live database had neither the table nor this migration. Nothing in
+  the app was wrong with the request; the fix is `db push --remote`. The
+  form now says what each state is: a spinner while it loads; "No
+  departments listed yet", and that none is needed, for an empty list
+  (it used to hide the field); and for a failure, why (no connection, or
+  "not available right now", never the database's own wording) with a
+  **Retry**.
+- **The masked password sat above the middle of its box.** The eye was a
+  suffix inside a collapsed text field, which makes the field as tall as
+  the icon's tap area and pins the text to its top: 24% of the box's
+  height off centre, on every phone. The eye now sits beside the text in
+  a row, so the text is laid out as every other field's is
+  (`auth_field_alignment_test.dart` measures it on five phone sizes,
+  masked and shown, and the cursor).
+
 Tests: `supabase/tests/account_sessions.test.sql` (45);
 `unit/core/account_validation_test.dart`,
 `unit/core/inactivity_monitor_test.dart`,
@@ -2934,4 +2954,5 @@ Tests: `supabase/tests/account_sessions.test.sql` (45);
 `unit/repositories/supabase_contract_test.dart`;
 `widget/account_session_end_test.dart`, `widget/requestor_auth_test.dart`,
 `widget/user_accounts_screen_test.dart`,
-`widget/departments_settings_test.dart`, `widget/auth_fit_test.dart`.
+`widget/departments_settings_test.dart`, `widget/auth_fit_test.dart`,
+`widget/auth_field_alignment_test.dart`.

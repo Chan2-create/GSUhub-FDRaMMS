@@ -366,48 +366,59 @@ class _AuthTextFieldState extends State<AuthTextField> {
         AuthFieldBox(
           style: style,
           hasError: error != null,
-          child: TextField(
-            controller: widget.controller,
-            enabled: widget.enabled,
-            obscureText: hidden,
-            enableSuggestions: !widget.obscure,
-            autocorrect: !widget.obscure,
-            keyboardType: widget.keyboardType,
-            autofillHints: widget.autofillHints,
-            textInputAction: widget.textInputAction,
-            textCapitalization: widget.textCapitalization,
-            onChanged: widget.onChanged,
-            onSubmitted: widget.onSubmitted,
-            style: AppTextStyles.authInput,
-            decoration: InputDecoration(
-              hintText: widget.hint,
-              hintStyle: AppTextStyles.authInput.copyWith(
-                color: style.placeholder,
+          // The eye sits beside the text, not inside its decoration: a
+          // suffix in a collapsed field makes the field as tall as the
+          // icon's tap area and pins the text to its top, 13px above the
+          // box's middle (2026-11-17). Beside it, the text is laid out as
+          // every other field's is, and the row centres both.
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: widget.controller,
+                  enabled: widget.enabled,
+                  obscureText: hidden,
+                  enableSuggestions: !widget.obscure,
+                  autocorrect: !widget.obscure,
+                  keyboardType: widget.keyboardType,
+                  autofillHints: widget.autofillHints,
+                  textInputAction: widget.textInputAction,
+                  textCapitalization: widget.textCapitalization,
+                  onChanged: widget.onChanged,
+                  onSubmitted: widget.onSubmitted,
+                  style: AppTextStyles.authInput,
+                  decoration: InputDecoration(
+                    hintText: widget.hint,
+                    hintStyle: AppTextStyles.authInput.copyWith(
+                      color: style.placeholder,
+                    ),
+                    border: InputBorder.none,
+                    isCollapsed: true,
+                    contentPadding: EdgeInsets.only(
+                      left: style.horizontalPadding,
+                      right: widget.obscure ? 4 : style.horizontalPadding,
+                    ),
+                  ),
+                ),
               ),
-              border: InputBorder.none,
-              isCollapsed: true,
-              contentPadding: EdgeInsets.only(
-                left: style.horizontalPadding,
-                right: widget.obscure ? 0 : style.horizontalPadding,
-              ),
-              suffixIconConstraints: const BoxConstraints(
-                minWidth: 48,
-                minHeight: 44,
-              ),
-              suffixIcon: widget.obscure
-                  ? IconButton(
-                      onPressed: () => setState(() => _hidden = !_hidden),
-                      icon: Icon(
-                        _hidden
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        size: 20,
-                        color: AppColors.warmText,
-                      ),
-                      tooltip: _hidden ? 'Show password' : 'Hide password',
-                    )
-                  : null,
-            ),
+              if (widget.obscure)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: IconButton(
+                    onPressed: widget.enabled
+                        ? () => setState(() => _hidden = !_hidden)
+                        : null,
+                    icon: Icon(
+                      _hidden
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      size: 20,
+                      color: AppColors.warmText,
+                    ),
+                    tooltip: _hidden ? 'Show password' : 'Hide password',
+                  ),
+                ),
+            ],
           ),
         ),
         ?widget.below,
