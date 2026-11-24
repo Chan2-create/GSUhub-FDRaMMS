@@ -398,11 +398,16 @@ class _Pill extends StatelessWidget {
       children: [
         Icon(icon, size: 15, color: foreground),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: AppTextStyles.bodySmall.copyWith(
-            color: foreground,
-            fontWeight: FontWeight.w600,
+        // May wrap inside the pill on a narrow phone rather than run past
+        // its edge (the larger text of 2026-11-25).
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 2,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],

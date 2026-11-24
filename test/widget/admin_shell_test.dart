@@ -301,12 +301,13 @@ void main() {
     });
 
     testWidgets(
-      'offers Export Data, and explains the admin cannot file reports',
+      'offers Export Data, and no Report New Damage: reports come from the '
+      'phone app',
       (tester) async {
         await pumpShell(tester);
 
         expect(find.text('Export Data'), findsOneWidget);
-        expect(find.text('Report New Damage'), findsOneWidget);
+        expect(find.text('Report New Damage'), findsNothing);
         // 2.C: the export works from every page.
         expect(
           tester
@@ -315,22 +316,6 @@ void main() {
               )
               .onPressed,
           isNotNull,
-        );
-        // Filing a report is a faculty/staff function, from the mobile app.
-        expect(
-          find.byTooltip(
-            'Reports are submitted by faculty and staff from the mobile app — '
-            'not from the admin console.',
-          ),
-          findsOneWidget,
-        );
-        expect(
-          tester
-              .widget<FilledButton>(
-                find.widgetWithText(FilledButton, 'Report New Damage'),
-              )
-              .onPressed,
-          isNull,
         );
       },
     );

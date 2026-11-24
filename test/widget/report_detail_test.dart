@@ -335,6 +335,9 @@ void main() {
     expect(find.text('#REP-0042'), findsOneWidget);
 
     app.reports.historyFailure = null;
+    // Below the fold on a phone since the text grew (2026-11-25).
+    await tester.ensureVisible(find.text('Try again'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
     expect(find.text('Report received'), findsOneWidget);

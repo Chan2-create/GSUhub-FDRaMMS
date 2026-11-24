@@ -332,7 +332,9 @@ class _RecentReportRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(height: 7),
+                        // 3, not the design's 7: the row is a fixed 73 tall,
+                        // and the larger text of 2026-11-25 needs the room.
+                        const SizedBox(height: 3),
                         Wrap(
                           spacing: 4,
                           runSpacing: 4,

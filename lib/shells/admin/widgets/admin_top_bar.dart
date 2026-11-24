@@ -15,7 +15,7 @@ import 'admin_profile_menu.dart';
 /// The console's header (Figma `196:743`, refined 2026-11-15): one white
 /// bar across the whole window. The GSUhub logo over the sidebar's
 /// column; after a hairline, the page's name and the date; at the right,
-/// Export Data, Report New Damage, the bell, Help, another hairline and
+/// Export Data, the bell, Help, another hairline and
 /// the account button. The shell draws the gold rule under it, full
 /// width, and the sidebar below that.
 ///
@@ -23,11 +23,10 @@ import 'admin_profile_menu.dart';
 /// the white header, which read as a second, floating bar (Chris,
 /// 2026-11-15); the card is gone and its contents share the one bar.
 ///
-/// Export Data downloads the Analytics CSV from any page (2.C). Report New
-/// Damage renders disabled with a tooltip: filing a report is a faculty and
-/// staff function (manuscript §1.5), done from the mobile app, and 2.B
-/// found no documented admin path for it. It is shown because the design
-/// shows it and its absence would misrepresent the layout.
+/// Export Data downloads the Analytics CSV from any page (2.C). The
+/// design's Report New Damage button was removed (Chris, 2026-11-25):
+/// filing a report is a faculty and staff function (manuscript §1.5),
+/// done from the mobile app, and it only ever showed disabled here.
 ///
 /// [pageControls] is the slot a page fills with its own control, as
 /// Analytics does with its period selector (Figma `87:4308`).
@@ -76,9 +75,8 @@ class AdminTopBar extends StatelessWidget {
   /// Export Data as an icon, and the bell; the rest returns with the room.
   static const double _compactWidth = 640;
 
-  /// The date needs this much; the disabled Report New Damage a little less.
+  /// The date needs this much room.
   static const double _dateWidth = 940;
-  static const double _reportButtonWidth = 820;
 
   @override
   Widget build(BuildContext context) {
@@ -168,11 +166,9 @@ class AdminTopBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // No Report New Damage (removed 2026-11-25): reports are
+              // filed by faculty and staff from the phone app.
               const _ExportDataButton(),
-              if (width >= _reportButtonWidth) ...[
-                const SizedBox(width: 10),
-                const _ReportNewDamageButton(),
-              ],
               const SizedBox(width: 8),
               _NotificationBell(unreadCount: unreadNotifications),
               const _HelpButton(),
@@ -355,40 +351,6 @@ class _ExportDataButtonState extends ConsumerState<_ExportDataButton> {
     await ref.read(analyticsExportControllerProvider).export(context);
     if (mounted) setState(() => _busy = false);
   }
-}
-
-class _ReportNewDamageButton extends StatelessWidget {
-  const _ReportNewDamageButton();
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message:
-        'Reports are submitted by faculty and staff from the mobile app — '
-        'not from the admin console.',
-    child: FilledButton.icon(
-      onPressed: null,
-      icon: SvgPicture.asset(
-        'assets/icons/topbar_add.svg',
-        width: 11,
-        height: 11,
-        colorFilter: const ColorFilter.mode(
-          AppColors.ctaAmberForeground,
-          BlendMode.srcIn,
-        ),
-      ),
-      label: const Text('Report New Damage', style: AppTextStyles.buttonLabel),
-      style: FilledButton.styleFrom(
-        backgroundColor: AppColors.ctaAmber,
-        foregroundColor: AppColors.ctaAmberForeground,
-        disabledBackgroundColor: AppColors.ctaAmber.withValues(alpha: 0.5),
-        disabledForegroundColor: AppColors.ctaAmberForeground.withValues(
-          alpha: 0.7,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      ),
-    ),
-  );
 }
 
 class _NotificationBell extends StatelessWidget {

@@ -118,6 +118,14 @@ class GsuhubApp extends ConsumerWidget {
     );
 
     return base.copyWith(
+      // Material's smallest sizes, a step up for reading (2026-11-25):
+      // helper and error text under fields, tooltips, small labels.
+      // The console is also drawn at 90%, which made 11px read as 10.
+      textTheme: base.textTheme.copyWith(
+        bodySmall: base.textTheme.bodySmall?.copyWith(fontSize: 13),
+        labelMedium: base.textTheme.labelMedium?.copyWith(fontSize: 13),
+        labelSmall: base.textTheme.labelSmall?.copyWith(fontSize: 12),
+      ),
       // Disabled controls appear throughout the admin UI in 2.A — every
       // nav item and top-bar action that belongs to a later objective —
       // so their treatment is set once here rather than per widget.

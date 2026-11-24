@@ -102,7 +102,7 @@ abstract final class AppTextStyles {
   /// "Overview", "Management", "System" group headers.
   static const TextStyle sidebarGroupLabel = TextStyle(
     fontFamily: _display,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.textOnDark,
   );
@@ -131,7 +131,7 @@ abstract final class AppTextStyles {
 
   static const TextStyle sidebarFooterRole = TextStyle(
     fontFamily: _display,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w300,
     color: Colors.black,
   );
@@ -158,7 +158,7 @@ abstract final class AppTextStyles {
   /// The caption under a stat card's number.
   static const TextStyle statLabel = TextStyle(
     fontFamily: _display,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w600,
     color: Color(0xD9000000),
   );
@@ -175,7 +175,7 @@ abstract final class AppTextStyles {
   /// "TOTAL" under the donut centre, and other small uppercase captions.
   static const TextStyle captionUpper = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.textFaint,
     height: 1.5,
@@ -183,16 +183,16 @@ abstract final class AppTextStyles {
 
   static const TextStyle legendLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.textSecondary,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// Table column headers — uppercase with wide tracking.
   static const TextStyle tableHeader = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.textMuted,
     letterSpacing: 0.6,
@@ -218,10 +218,10 @@ abstract final class AppTextStyles {
   /// Secondary line under a cell's primary text, e.g. the category.
   static const TextStyle tableCellCaption = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.textMuted,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// Report identifiers.
@@ -236,7 +236,7 @@ abstract final class AppTextStyles {
   /// Status chip text.
   static const TextStyle statusChip = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
   );
 
@@ -277,7 +277,7 @@ abstract final class AppTextStyles {
 
   static const TextStyle activityBody = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.textMuted,
     height: 1.6,
@@ -287,24 +287,24 @@ abstract final class AppTextStyles {
 
   static const TextStyle barLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimary,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   static const TextStyle bodySmall = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.textMuted,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// Chart legend keys: "CURRENT MONTH" / "PREVIOUS MONTH".
   static const TextStyle legendKeyUpper = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
     color: AppColors.textFaint,
     height: 1.5,
@@ -342,7 +342,7 @@ abstract final class AppTextStyles {
   /// "Filters:" and similar small bold labels.
   static const TextStyle filterLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.textSecondary,
     letterSpacing: 0.6,
@@ -360,10 +360,10 @@ abstract final class AppTextStyles {
   /// Compact input text on the work-order filter bar.
   static const TextStyle inputText = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.textPrimary,
-    height: 18 / 12,
+    height: 19 / 13,
   );
 
   /// "Clear all filters", "View All Personnel".
@@ -378,10 +378,10 @@ abstract final class AppTextStyles {
   /// The outlined "View" row action.
   static const TextStyle rowActionText = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.accentOlive,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// "Showing 1 to 10 of 42 results".
@@ -433,26 +433,26 @@ abstract final class AppTextStyles {
   /// Small bold pill text: "4 PENDING", category chips.
   static const TextStyle badgeText = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
-    height: 15 / 10,
+    height: 17 / 12,
   );
 
   /// Priority chip text.
   static const TextStyle priorityChip = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// Report number on an assignment queue card.
   static const TextStyle queueCardId = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.textFaint,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   static const TextStyle queueCardTitle = TextStyle(
@@ -489,10 +489,10 @@ abstract final class AppTextStyles {
 
   static const TextStyle personRole = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.textMuted,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// Initials inside an avatar tile.
@@ -514,16 +514,16 @@ abstract final class AppTextStyles {
   /// ACTIVE / INACTIVE beside the presence dot.
   static const TextStyle presenceLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   static const TextStyle outlineButtonSmall = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   static const TextStyle kanbanColumnTitle = TextStyle(
@@ -536,18 +536,18 @@ abstract final class AppTextStyles {
 
   static const TextStyle kanbanCount = TextStyle(
     fontFamily: _mono,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
-    height: 18 / 12,
+    height: 19 / 13,
   );
 
   /// Work-order number on a Kanban card.
   static const TextStyle workOrderId = TextStyle(
     fontFamily: _mono,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
     color: AppColors.primary,
-    height: 16.5 / 11,
+    height: 17.5 / 12,
   );
 
   static const TextStyle workOrderTitle = TextStyle(
@@ -560,20 +560,20 @@ abstract final class AppTextStyles {
 
   static const TextStyle workOrderMeta = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.textSecondary,
-    height: 18 / 12,
+    height: 19 / 13,
   );
 
   /// Labels in the report detail view's field grid.
   static const TextStyle fieldLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.textMuted,
     letterSpacing: 0.6,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   static const TextStyle fieldValue = TextStyle(
@@ -621,7 +621,7 @@ abstract final class AppTextStyles {
 
   static const TextStyle staffId = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.textSecondary,
   );
@@ -629,10 +629,10 @@ abstract final class AppTextStyles {
   /// Category pill text; colour comes from the category palette.
   static const TextStyle categoryChip = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.6,
-    height: 12 / 12,
+    height: 13 / 13,
   );
 
   static const TextStyle staffStatus = TextStyle(
@@ -660,7 +660,7 @@ abstract final class AppTextStyles {
 
   static const TextStyle assignTaskLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.ctaAmberForeground,
   );
@@ -695,11 +695,11 @@ abstract final class AppTextStyles {
 
   static const TextStyle kpiLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.iconMuted,
     letterSpacing: 0.6,
-    height: 12 / 12,
+    height: 13 / 13,
   );
 
   static const TextStyle kpiValue = TextStyle(
@@ -722,18 +722,18 @@ abstract final class AppTextStyles {
 
   static const TextStyle kpiFootnote = TextStyle(
     fontFamily: _ui,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.iconMuted,
-    height: 16.5 / 11,
+    height: 17.5 / 12,
   );
 
   /// Trend chip text; colour comes from the chip.
   static const TextStyle trendChip = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   static const TextStyle chartTitle = TextStyle(
@@ -747,10 +747,10 @@ abstract final class AppTextStyles {
   /// Month labels under the charts; the current month is darkened.
   static const TextStyle chartAxisLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
     color: AppColors.iconMuted,
-    height: 15 / 10,
+    height: 17 / 12,
   );
 
   static const TextStyle donutCenterValue = TextStyle(
@@ -780,26 +780,26 @@ abstract final class AppTextStyles {
   /// "MAIN BUILDING" and its count in Reports by Building.
   static const TextStyle barRowLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.textSecondary,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   static const TextStyle barRowValue = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.textPrimary,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// "-72% Improvement" badge on the resolution-time chart.
   static const TextStyle chartBadge = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
-    height: 15 / 10,
+    height: 17 / 12,
   );
 
   static const TextStyle issueRank = TextStyle(
@@ -884,11 +884,11 @@ abstract final class AppTextStyles {
 
   static const TextStyle accountsHeader = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.textSecondary,
     letterSpacing: 0.6,
-    height: 12 / 12,
+    height: 13 / 13,
   );
 
   static const TextStyle accountName = TextStyle(
@@ -910,19 +910,19 @@ abstract final class AppTextStyles {
   /// Role pill and ACTIVE/INACTIVE text; colour comes from the role.
   static const TextStyle roleChip = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.5,
-    height: 12 / 10,
+    height: 14 / 12,
   );
 
   static const TextStyle legendTitle = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.textSecondary,
     letterSpacing: 0.6,
-    height: 12 / 12,
+    height: 13 / 13,
   );
 
   static const TextStyle legendItem = TextStyle(
@@ -949,10 +949,10 @@ abstract final class AppTextStyles {
   /// behind it (white on navy, black on gold).
   static const TextStyle formLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.6,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// Typed text in the title box. White: the box is gold-tinted over navy.
@@ -1000,20 +1000,20 @@ abstract final class AppTextStyles {
   /// "GPS LOCATION".
   static const TextStyle gpsLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: Colors.black,
     letterSpacing: 1.2,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// "AUTO-CAPTURE".
   static const TextStyle autoCaptureLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
     color: AppColors.iconMuted,
-    height: 15 / 10,
+    height: 17 / 12,
   );
 
   /// "Engineering Building, DOrSU".
@@ -1058,9 +1058,9 @@ abstract final class AppTextStyles {
   /// card behind it.
   static const TextStyle formError = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w500,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   // --- faculty and staff app: sign-in and sign-up (193:310, 194:455, 3.A) ---
@@ -1073,11 +1073,11 @@ abstract final class AppTextStyles {
   /// "DAVAO ORIENTAL STATE UNIVERSITY".
   static const TextStyle authUniversity = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w600,
     color: AppColors.authUniversity,
     letterSpacing: 2.4,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// "Welcome back".
@@ -1129,10 +1129,10 @@ abstract final class AppTextStyles {
   /// The footer line under both cards.
   static const TextStyle authFooter = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.authFooter,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// "Create Account".
@@ -1156,11 +1156,11 @@ abstract final class AppTextStyles {
   /// "FULL NAME", "EMAIL" — upper case in the design.
   static const TextStyle signUpLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.warmText,
     letterSpacing: 1.2,
-    height: 18 / 12,
+    height: 19 / 13,
   );
 
   /// "Login" after "Already have an account?".
@@ -1175,11 +1175,11 @@ abstract final class AppTextStyles {
   /// "© 2026 GSUHUB. EXCELLENCE, INNOVATION, AND INCLUSION."
   static const TextStyle signUpFooter = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w500,
     color: AppColors.signUpFooter,
     letterSpacing: 1.6,
-    height: 18 / 12,
+    height: 19 / 13,
   );
 
   // --- faculty and staff app: home, My Reports, bottom bar (3.A) ---
@@ -1252,28 +1252,28 @@ abstract final class AppTextStyles {
   /// "AB Bldg, Room 101" on a recent report.
   static const TextStyle homeRowLocation = TextStyle(
     fontFamily: _display,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: FontWeight.w600,
     color: AppColors.homeText,
-    height: 17 / 13,
+    height: 18 / 14,
   );
 
   /// "3H AGO".
   static const TextStyle homeRowTime = TextStyle(
     fontFamily: _display,
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: FontWeight.w500,
     color: AppColors.homeTextMuted,
-    height: 12 / 8,
+    height: 14 / 10,
   );
 
   /// The home screen's category and progress pills ("Electrical",
   /// "Pending"). Colour comes from the pill.
   static const TextStyle requestorChip = TextStyle(
     fontFamily: _display,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w500,
-    height: 14 / 9,
+    height: 16 / 11,
   );
 
   /// My Reports' progress pill. Colour comes from the pill.
@@ -1341,10 +1341,10 @@ abstract final class AppTextStyles {
   /// tab is bolder.
   static const TextStyle navLabel = TextStyle(
     fontFamily: _display,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w500,
     color: AppColors.primary,
-    height: 17 / 11,
+    height: 18 / 12,
   );
 
   /// A placeholder tab's heading and copy.
@@ -1390,19 +1390,19 @@ abstract final class AppTextStyles {
   /// current one is bold and gold.
   static const TextStyle trackingStep = TextStyle(
     fontFamily: _ui,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.warmText,
-    height: 16 / 11,
+    height: 17 / 12,
   );
 
   /// "Linked Report", "Assigned Maintenance Personnel".
   static const TextStyle trackingCardLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w500,
     color: AppColors.warmText,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// The report's title in its card.
@@ -1435,11 +1435,11 @@ abstract final class AppTextStyles {
   /// "HIGH PRIORITY", and the trade under the personnel's name.
   static const TextStyle trackingBadge = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
     color: Colors.white,
     letterSpacing: 0.5,
-    height: 15 / 10,
+    height: 17 / 12,
   );
 
   /// The assigned personnel's name.
@@ -1454,10 +1454,10 @@ abstract final class AppTextStyles {
   /// "Assigned May 24".
   static const TextStyle trackingMeta = TextStyle(
     fontFamily: _ui,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.warmText,
-    height: 16 / 11,
+    height: 17 / 12,
   );
 
   /// "Updates Timeline".
@@ -1472,10 +1472,10 @@ abstract final class AppTextStyles {
   /// "Today, 09:45 AM" above a timeline entry.
   static const TextStyle trackingWhen = TextStyle(
     fontFamily: _ui,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w600,
     color: AppColors.warmText,
-    height: 16 / 11,
+    height: 17 / 12,
   );
 
   /// "ADMIN FOLLOW-UP" — the label on a note from GSU.
@@ -1539,10 +1539,10 @@ abstract final class AppTextStyles {
   /// "2 minutes ago", "Oct 24, 10:15 AM".
   static const TextStyle alertsTime = TextStyle(
     fontFamily: _ui,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.warmMuted,
-    height: 16 / 11,
+    height: 17 / 12,
   );
 
   // --- faculty and staff app: Ratings (Figma 169:1797, Objective 3.C) ---
@@ -1550,10 +1550,10 @@ abstract final class AppTextStyles {
   /// "WO-88421-2024", "May 24, 2026".
   static const TextStyle ratingMeta = TextStyle(
     fontFamily: _ui,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w500,
     color: AppColors.ratingMeta,
-    height: 16 / 11,
+    height: 17 / 12,
   );
 
   /// "Room 302 • HVAC Maintenance".
@@ -1577,10 +1577,10 @@ abstract final class AppTextStyles {
   /// The trade, white on indigo.
   static const TextStyle ratingTrade = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w500,
     color: Colors.white,
-    height: 14 / 10,
+    height: 16 / 12,
   );
 
   /// "How would you rate the service?".
@@ -1595,10 +1595,10 @@ abstract final class AppTextStyles {
   /// Each rating's name — "Response time".
   static const TextStyle ratingDimension = TextStyle(
     fontFamily: _ui,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: FontWeight.w600,
     color: AppColors.ratingLabel,
-    height: 18 / 13,
+    height: 19 / 14,
   );
 
   /// "Very Good" under the stars, in gold.
@@ -1613,10 +1613,10 @@ abstract final class AppTextStyles {
   /// "Comments".
   static const TextStyle ratingCommentsLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w600,
     color: AppColors.ratingLabel,
-    height: 16 / 11,
+    height: 17 / 12,
   );
 
   /// Typed comments, and the placeholder in [AppColors.warmMuted].
@@ -1681,10 +1681,10 @@ abstract final class AppTextStyles {
   /// A stat tile's name.
   static const TextStyle personnelTileLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w500,
     color: AppColors.personnelTitle,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// A stat tile's number.
@@ -1708,30 +1708,30 @@ abstract final class AppTextStyles {
   /// A card's body text.
   static const TextStyle personnelCardBody = TextStyle(
     fontFamily: _ui,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: FontWeight.w400,
     color: AppColors.personnelBody,
-    height: 18 / 13,
+    height: 19 / 14,
   );
 
   /// Small capitals: chips, labels ("DAMAGE DESCRIPTION").
   static const TextStyle personnelChip = TextStyle(
     fontFamily: _ui,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
     color: AppColors.personnelChipText,
     letterSpacing: 0.4,
-    height: 14 / 11,
+    height: 15 / 12,
   );
 
   /// A work order's number ("WO-…"), on cards.
   static const TextStyle personnelWorkOrderId = TextStyle(
     fontFamily: _mono,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w600,
     color: AppColors.personnelBody,
     letterSpacing: 0.4,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   // --- Inventory Management (Objective 6, Figma 200:4032 / Figure 15) ---
@@ -1739,7 +1739,7 @@ abstract final class AppTextStyles {
   /// "Total Stock Value", "Tool ID": the captions and column headings.
   static const TextStyle inventoryCaption = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.inventoryLabel,
     letterSpacing: 0.6,
@@ -1759,10 +1759,10 @@ abstract final class AppTextStyles {
   /// The line under a stat card's number.
   static const TextStyle inventoryStatNote = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w600,
     color: AppColors.inventoryLabel,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// "Consumable Materials", "Tool Assets & Tracking".
@@ -1795,18 +1795,18 @@ abstract final class AppTextStyles {
   /// "units", after the quantity.
   static const TextStyle inventoryUnit = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.inventoryLabel,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// "IN STOCK", "BORROWED", "ORDER".
   static const TextStyle inventoryBadge = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
-    height: 15 / 10,
+    height: 17 / 12,
     letterSpacing: 0.5,
   );
 
@@ -1867,7 +1867,7 @@ abstract final class AppTextStyles {
   /// "FILTER BY DATE".
   static const TextStyle notificationFilterLabel = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w700,
     color: AppColors.iconMuted,
     height: 1,
@@ -1894,9 +1894,9 @@ abstract final class AppTextStyles {
   /// "2 hours ago".
   static const TextStyle notificationTime = TextStyle(
     fontFamily: _ui,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.w500,
-    height: 16 / 12,
+    height: 17 / 13,
   );
 
   /// A notice's words. The record number in it is bold.
@@ -1910,9 +1910,9 @@ abstract final class AppTextStyles {
   /// "HIGH PRIORITY", "UNREAD".
   static const TextStyle notificationTag = TextStyle(
     fontFamily: _ui,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: FontWeight.w700,
-    height: 15 / 10,
+    height: 17 / 12,
   );
 
   /// "View Older Notifications".
