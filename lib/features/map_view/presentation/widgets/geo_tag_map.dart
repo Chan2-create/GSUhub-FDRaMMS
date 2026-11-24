@@ -42,7 +42,7 @@ class OsmAttribution extends StatelessWidget {
         '© OpenStreetMap contributors',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 10, color: Colors.black87),
+        style: TextStyle(fontSize: 11, color: Colors.black87),
       ),
     ),
   );

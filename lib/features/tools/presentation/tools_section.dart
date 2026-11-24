@@ -297,7 +297,7 @@ class _ToolTable extends StatelessWidget {
                     Text(
                       'to collect',
                       style: AppTextStyles.inventoryCell.copyWith(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: AppColors.inventoryLabel,
                       ),
                     ),
