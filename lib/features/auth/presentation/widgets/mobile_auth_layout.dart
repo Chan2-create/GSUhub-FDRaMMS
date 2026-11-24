@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
@@ -73,8 +74,9 @@ class _MobileAuthLayoutState extends State<MobileAuthLayout> {
   /// 0.35 until 2026-11-17, when Create Account gained the department
   /// field and no longer fitted a 640px phone; both limits came down a
   /// step. A field is still 45px tall at the smallest, a tap target's
-  /// height.
-  static const double _minDensity = 0.25;
+  /// height. 0.25 until 2026-11-25, when the terms box came: the spacing
+  /// gives way rather than the type, which had just been made larger.
+  static const double _minDensity = 0.2;
 
   /// The page is never made smaller than this (0.85 until 2026-11-17).
   static const double _minScale = 0.8;
@@ -102,7 +104,12 @@ class _MobileAuthLayoutState extends State<MobileAuthLayout> {
     final scale = height <= viewport
         ? 1.0
         : (viewport / height).clamp(_minScale, 1.0);
-    if ((density - _density).abs() < 0.002 && (scale - _scale).abs() < 0.002) {
+    // Settled once another pass would move the page by under a tenth of a
+    // pixel. A share of the spacing (0.002 until 2026-11-25) could stop
+    // nearly a pixel short on sign-up, whose spacing is some 450px, and
+    // leave it a hair to scroll.
+    if (((density - _density) * spacing).abs() < 0.1 &&
+        ((scale - _scale) * height).abs() < 0.1) {
       return;
     }
     setState(() {
@@ -319,6 +326,9 @@ class AuthTextField extends StatefulWidget {
     this.onSubmitted,
     this.enabled = true,
     this.below,
+    this.maxLength,
+    this.inputFormatters,
+    this.focusNode,
   });
 
   final String label;
@@ -341,6 +351,16 @@ class AuthTextField extends StatefulWidget {
   /// Shown under the box, above any error: the password requirements.
   final Widget? below;
 
+  /// The most characters the field takes (2026-11-25): more are not let
+  /// in, and a count, "5/12", sits at the end of the label's line, where
+  /// it costs the form no height.
+  final int? maxLength;
+
+  /// Applied to what is typed or pasted, before [maxLength].
+  final List<TextInputFormatter>? inputFormatters;
+
+  final FocusNode? focusNode;
+
   @override
   State<AuthTextField> createState() => _AuthTextFieldState();
 }
@@ -360,7 +380,15 @@ class _AuthTextFieldState extends State<AuthTextField> {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4),
-          child: Text(widget.label, style: widget.labelStyle),
+          child: switch (widget.maxLength) {
+            null => Text(widget.label, style: widget.labelStyle),
+            final max => Row(
+              children: [
+                Expanded(child: Text(widget.label, style: widget.labelStyle)),
+                _CharacterCount(controller: widget.controller, max: max),
+              ],
+            ),
+          },
         ),
         SizedBox(height: style.labelGap),
         AuthFieldBox(
@@ -376,7 +404,13 @@ class _AuthTextFieldState extends State<AuthTextField> {
               Expanded(
                 child: TextField(
                   controller: widget.controller,
+                  focusNode: widget.focusNode,
                   enabled: widget.enabled,
+                  inputFormatters: [
+                    ...?widget.inputFormatters,
+                    if (widget.maxLength case final max?)
+                      LengthLimitingTextInputFormatter(max),
+                  ],
                   obscureText: hidden,
                   enableSuggestions: !widget.obscure,
                   autocorrect: !widget.obscure,
@@ -481,17 +515,27 @@ class AuthFieldBox extends StatelessWidget {
 /// page scrolls, so the list costs the form nothing at rest, when it has
 /// to fit the phone. Sending the form with the field empty says what the
 /// password needs in the field's error.
+///
+/// **2026-11-25:** also shown while the field has the focus, before the
+/// first character, each rule with its empty circle; the keyboard is up
+/// by then, so it still costs the form nothing at rest.
 class PasswordRequirements extends StatelessWidget {
-  const PasswordRequirements({required this.controller, super.key});
+  const PasswordRequirements({
+    required this.controller,
+    this.focusNode,
+    super.key,
+  });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder(
-    valueListenable: controller,
-    builder: (context, value, _) {
-      final password = value.text;
-      if (password.isEmpty) return const SizedBox.shrink();
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([controller, ?focusNode]),
+    builder: (context, _) {
+      final password = controller.text;
+      final focused = focusNode?.hasFocus ?? false;
+      if (password.isEmpty && !focused) return const SizedBox.shrink();
       return Padding(
         padding: const EdgeInsets.only(left: 4, top: 8),
         child: Semantics(
@@ -511,27 +555,107 @@ class PasswordRequirements extends StatelessWidget {
   );
 }
 
+/// Under Confirm Password (2026-11-25): whether it matches the password
+/// above, as it is typed into either. Nothing until something is typed
+/// here; the form's own error takes its place once the form is sent.
+class PasswordMatch extends StatelessWidget {
+  const PasswordMatch({
+    required this.password,
+    required this.confirm,
+    super.key,
+  });
+
+  final TextEditingController password;
+  final TextEditingController confirm;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([password, confirm]),
+    builder: (context, _) {
+      if (confirm.text.isEmpty) return const SizedBox.shrink();
+      final matches = confirm.text == password.text;
+      return Padding(
+        padding: const EdgeInsets.only(left: 4, top: 8),
+        child: _Requirement(
+          label: matches ? 'Passwords match' : 'The passwords do not match.',
+          met: matches,
+          failed: !matches,
+          semanticsLabel: matches
+              ? 'Passwords match'
+              : 'The passwords do not match',
+        ),
+      );
+    },
+  );
+}
+
+/// "5/12": how many characters of the most a field takes.
+class _CharacterCount extends StatelessWidget {
+  const _CharacterCount({required this.controller, required this.max});
+
+  final TextEditingController controller;
+  final int max;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: controller,
+    builder: (context, value, _) {
+      final count = value.text.characters.length;
+      return Semantics(
+        label: '$count of $max characters',
+        excludeSemantics: true,
+        child: Text(
+          '$count/$max',
+          style: AppTextStyles.formError.copyWith(
+            color: AppColors.warmText,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _Requirement extends StatelessWidget {
-  const _Requirement({required this.label, required this.met});
+  const _Requirement({
+    required this.label,
+    required this.met,
+    this.failed = false,
+    this.semanticsLabel,
+  });
 
   final String label;
   final bool met;
 
+  /// Drawn as an error rather than as a rule not yet met.
+  final bool failed;
+
+  /// What a screen reader says, when not "[label]: met / not yet".
+  final String? semanticsLabel;
+
   @override
   Widget build(BuildContext context) {
-    final color = met ? AppColors.accountActive : AppColors.warmText;
+    final color = met
+        ? AppColors.accountActive
+        : failed
+        ? AppColors.error
+        : AppColors.warmText;
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       // A line of its own for a screen reader: which rule, and whether it
       // is met yet.
       child: Semantics(
         container: true,
-        label: '$label: ${met ? 'met' : 'not yet'}',
+        label: semanticsLabel ?? '$label: ${met ? 'met' : 'not yet'}',
         excludeSemantics: true,
         child: Row(
           children: [
             Icon(
-              met ? Icons.check_circle : Icons.radio_button_unchecked,
+              met
+                  ? Icons.check_circle
+                  : failed
+                  ? Icons.error_outline
+                  : Icons.radio_button_unchecked,
               size: 14,
               color: color,
             ),

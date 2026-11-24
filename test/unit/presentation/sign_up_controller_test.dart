@@ -37,11 +37,12 @@ void main() {
   Future<bool> register({
     String fullName = '  Liza Mae Tan ',
     String email = ' Liza.Tan@DORSU.edu.ph ',
-    String password = 'Correct-horse1',
+    String password = 'Horse#Bat12',
     String? confirm,
     String? department = 'Faculty of Business and Management',
     String contactNumber = '',
     bool departmentRequired = true,
+    bool acceptedTerms = true,
   }) => controller().register(
     fullName: fullName,
     email: email,
@@ -50,6 +51,7 @@ void main() {
     department: department,
     contactNumber: contactNumber,
     departmentRequired: departmentRequired,
+    acceptedTerms: acceptedTerms,
   );
 
   group('validate', () {
@@ -68,6 +70,7 @@ void main() {
           SignUpField.department,
           SignUpField.password,
           SignUpField.confirmPassword,
+          SignUpField.terms,
         }),
       );
     });
@@ -77,9 +80,10 @@ void main() {
           SignUpController.validate(
             fullName: 'Liza Mae Tan',
             email: 'liza.tan@dorsu.edu.ph',
-            password: 'Correct-horse1',
-            confirmPassword: 'Correct-horse1',
+            password: 'Horse#Bat12',
+            confirmPassword: 'Horse#Bat12',
             departmentRequired: required,
+            acceptedTerms: true,
           );
       expect(errors(required: true), {
         SignUpField.department: 'Choose your department or faculty.',
@@ -91,20 +95,24 @@ void main() {
       final errors = SignUpController.validate(
         fullName: 'Liza Mae Tan',
         email: 'liza.tan@dorsu.edu.ph',
-        password: 'Correct-horse1',
-        confirmPassword: 'Correct-horse1',
+        password: 'Horse#Bat12',
+        confirmPassword: 'Horse#Bat12',
         contactNumber: '12345',
+        acceptedTerms: true,
       );
       expect(errors.keys, [SignUpField.contactNumber]);
     });
 
     test('a password must meet every requirement', () {
       for (final (password, missing) in [
-        ('Correcthorse1', 'a special character'),
-        ('correct-horse1', 'an uppercase letter'),
-        ('CORRECT-HORSE1', 'a lowercase letter'),
-        ('Correct-horse', 'a number'),
-        ('Co-1', 'at least 8 characters'),
+        ('Horsebat12', 'one special character'),
+        ('Horse-bat12', 'one special character'),
+        ('horse#bat12', 'one uppercase letter'),
+        ('HORSE#BAT12', 'one lowercase letter'),
+        ('Horse#Batty', 'one number'),
+        ('Ho#1', '8–12 characters'),
+        ('Horse#Bat1234', 'no more than 12 characters'),
+        ('Horse #Bat12', 'cannot contain spaces'),
       ]) {
         expect(
           SignUpController.validate(
@@ -125,6 +133,7 @@ void main() {
         email: 'liza.tan@',
         password: 'short',
         confirmPassword: 'different',
+        acceptedTerms: true,
       );
 
       expect(errors.keys, {
@@ -132,7 +141,7 @@ void main() {
         SignUpField.password,
         SignUpField.confirmPassword,
       });
-      expect(errors[SignUpField.password], contains('at least 8 characters'));
+      expect(errors[SignUpField.password], contains('8–12 characters'));
       expect(errors[SignUpField.confirmPassword], contains('do not match'));
     });
 
@@ -141,11 +150,28 @@ void main() {
         SignUpController.validate(
           fullName: 'Liza Mae Tan',
           email: 'liza.tan@gmail.com',
-          password: 'Correct-horse1',
-          confirmPassword: 'Correct-horse1',
+          password: 'Horse#Bat12',
+          confirmPassword: 'Horse#Bat12',
+          acceptedTerms: true,
         ),
         isEmpty,
       );
+    });
+
+    test('the terms must be accepted (2026-11-25)', () {
+      Map<SignUpField, String> errors({required bool accepted}) =>
+          SignUpController.validate(
+            fullName: 'Liza Mae Tan',
+            email: 'liza.tan@dorsu.edu.ph',
+            password: 'Horse#Bat12',
+            confirmPassword: 'Horse#Bat12',
+            acceptedTerms: accepted,
+          );
+      expect(errors(accepted: false), {
+        SignUpField.terms:
+            'Accept the Terms of Use and Privacy Notice to create an account.',
+      });
+      expect(errors(accepted: true), isEmpty);
     });
   });
 

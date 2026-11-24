@@ -159,14 +159,22 @@ void main() {
       String name = 'Liza Mae Tan',
       String email = 'Liza.Tan@dorsu.edu.ph',
       String? department = 'Faculty of Business and Management',
-      String password = 'Correct-horse1',
+      String password = 'Horse#Bat12',
       String? confirm,
+      bool acceptTerms = true,
     }) async {
       await tester.enterText(field('e.g. Juan Dela Cruz'), name);
       await tester.enterText(field('juan.dc@dorsu.edu.ph'), email);
       if (department != null) await chooseDepartment(tester, department);
       await tester.enterText(field('••••••••').at(0), password);
       await tester.enterText(field('••••••••').at(1), confirm ?? password);
+      if (acceptTerms) {
+        final box = find.byKey(const ValueKey('sign-up-terms'));
+        await tester.ensureVisible(box);
+        await tester.pumpAndSettle();
+        await tester.tap(box);
+        await tester.pumpAndSettle();
+      }
     }
 
     Future<void> register(WidgetTester tester) async {
@@ -203,6 +211,7 @@ void main() {
         department: null,
         password: 'short',
         confirm: 'other',
+        acceptTerms: false,
       );
       await register(tester);
 
@@ -213,14 +222,20 @@ void main() {
       expect(find.text('Choose your department or faculty.'), findsOneWidget);
       expect(
         find.text(
-          'Your password still needs: at least 8 characters, an uppercase '
-          r'letter (A–Z), a number (0–9), a special character, such as ! @ # '
-          r'$ %.',
+          'Your password still needs: 8–12 characters, one uppercase '
+          r'letter, one number, one special character (e.g., @ # $ ! % &).',
         ),
         findsOneWidget,
       );
       expect(find.text('The passwords do not match.'), findsOneWidget);
+      expect(
+        find.text(
+          'Accept the Terms of Use and Privacy Notice to create an account.',
+        ),
+        findsOneWidget,
+      );
       expect(app.auth.registered, isEmpty);
+      expect(app.users.created, isEmpty);
     });
 
     testWidgets('a complete form files a request and returns to sign-in', (
@@ -299,36 +314,199 @@ void main() {
       Finder met(String label) => find.bySemanticsLabel('$label: met');
       Finder notYet(String label) => find.bySemanticsLabel('$label: not yet');
 
-      // At rest the form fits the phone; the list comes with the typing.
-      expect(notYet('At least 8 characters'), findsNothing);
+      const rules = [
+        '8–12 characters',
+        'One uppercase letter',
+        'One lowercase letter',
+        'One number',
+        r'One special character (e.g., @ # $ ! % &)',
+      ];
 
-      await tester.enterText(field('••••••••').at(0), 'g');
-      await tester.pump();
-      expect(notYet('At least 8 characters'), findsOneWidget);
-      expect(notYet('An uppercase letter (A–Z)'), findsOneWidget);
-      expect(met('A lowercase letter (a–z)'), findsOneWidget);
+      // At rest the form fits the phone; the list comes with the field.
+      expect(notYet('8–12 characters'), findsNothing);
 
-      await tester.enterText(field('••••••••').at(0), 'Gsuhub');
+      // Entering the field shows every rule, none met yet.
+      final password = field('••••••••').at(0);
+      await tester.ensureVisible(password);
+      await tester.pumpAndSettle();
+      await tester.tap(password);
       await tester.pump();
-      expect(notYet('At least 8 characters'), findsOneWidget);
-      expect(met('An uppercase letter (A–Z)'), findsOneWidget);
-      expect(met('A lowercase letter (a–z)'), findsOneWidget);
-      expect(notYet('A number (0–9)'), findsOneWidget);
+      for (final rule in rules) {
+        expect(notYet(rule), findsOneWidget, reason: rule);
+      }
 
-      await tester.enterText(field('••••••••').at(0), 'Gsuhub#2026');
+      await tester.enterText(password, 'g');
       await tester.pump();
-      for (final rule in [
-        'At least 8 characters',
-        'An uppercase letter (A–Z)',
-        'A lowercase letter (a–z)',
-        'A number (0–9)',
-        r'A special character, such as ! @ # $ %',
-      ]) {
+      expect(notYet('8–12 characters'), findsOneWidget);
+      expect(notYet('One uppercase letter'), findsOneWidget);
+      expect(met('One lowercase letter'), findsOneWidget);
+
+      await tester.enterText(password, 'Gsuhub');
+      await tester.pump();
+      expect(notYet('8–12 characters'), findsOneWidget);
+      expect(met('One uppercase letter'), findsOneWidget);
+      expect(met('One lowercase letter'), findsOneWidget);
+      expect(notYet('One number'), findsOneWidget);
+
+      // A hyphen is not one of the special characters Firebase counts.
+      await tester.enterText(password, 'Gsuhub-2026');
+      await tester.pump();
+      expect(notYet(rules.last), findsOneWidget);
+
+      await tester.enterText(password, 'Gsuhub#2026');
+      await tester.pump();
+      for (final rule in rules) {
         expect(met(rule), findsOneWidget, reason: rule);
       }
 
       expect(find.byTooltip('Show password'), findsNWidgets(2));
       semantics.dispose();
+    });
+
+    testWidgets('the password takes no spaces and no more than 12 '
+        'characters, and counts them', (tester) async {
+      await openSignUp(tester);
+      final password = field('••••••••').at(0);
+      String typed() => tester.widget<TextField>(password).controller!.text;
+
+      expect(find.text('0/12'), findsOneWidget);
+
+      await tester.enterText(password, 'Gsuhu');
+      await tester.pump();
+      expect(find.text('5/12'), findsOneWidget);
+
+      // Spaces are not let in, typed or pasted.
+      await tester.enterText(password, 'Gsu hub#20 26');
+      await tester.pump();
+      expect(typed(), 'Gsuhub#2026');
+      expect(find.text('11/12'), findsOneWidget);
+
+      // Nor a thirteenth character.
+      await tester.enterText(password, 'Gsuhub#2026xyz');
+      await tester.pump();
+      expect(typed(), 'Gsuhub#2026x');
+      expect(find.text('12/12'), findsOneWidget);
+
+      // Confirm Password takes the same.
+      final confirm = field('••••••••').at(1);
+      await tester.enterText(confirm, 'Gsu hub#2026xyz');
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(confirm).controller!.text,
+        'Gsuhub#2026x',
+      );
+    });
+
+    testWidgets('the eye shows and hides each password without clearing '
+        'it', (tester) async {
+      await openSignUp(tester);
+      bool hidden(int i) =>
+          tester.widget<TextField>(field('••••••••').at(i)).obscureText;
+
+      await tester.enterText(field('••••••••').at(0), 'Gsuhub#2026');
+      await tester.enterText(field('••••••••').at(1), 'Gsuhub#2026');
+      expect(hidden(0), isTrue);
+      expect(hidden(1), isTrue);
+
+      final eye = find.byTooltip('Show password').first;
+      await tester.ensureVisible(eye);
+      await tester.pumpAndSettle();
+      await tester.tap(eye);
+      await tester.pump();
+      expect(hidden(0), isFalse);
+      expect(hidden(1), isTrue, reason: 'each field has its own eye');
+      expect(find.byTooltip('Hide password'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(field('••••••••').at(0)).controller!.text,
+        'Gsuhub#2026',
+      );
+
+      await tester.tap(find.byTooltip('Hide password'));
+      await tester.pump();
+      expect(hidden(0), isTrue);
+      expect(
+        tester.widget<TextField>(field('••••••••').at(0)).controller!.text,
+        'Gsuhub#2026',
+      );
+    });
+
+    testWidgets('Confirm Password says whether it matches as it is typed', (
+      tester,
+    ) async {
+      await openSignUp(tester);
+      final password = field('••••••••').at(0);
+      final confirm = field('••••••••').at(1);
+
+      await tester.enterText(password, 'Gsuhub#2026');
+      await tester.pump();
+      expect(find.text('Passwords match'), findsNothing);
+      expect(find.text('The passwords do not match.'), findsNothing);
+
+      await tester.enterText(confirm, 'Gsuhub#20');
+      await tester.pump();
+      expect(find.text('The passwords do not match.'), findsOneWidget);
+
+      await tester.enterText(confirm, 'Gsuhub#2026');
+      await tester.pump();
+      expect(find.text('Passwords match'), findsOneWidget);
+      expect(find.text('The passwords do not match.'), findsNothing);
+
+      // A change to the password above is caught too.
+      await tester.enterText(password, 'Gsuhub#2027');
+      await tester.pump();
+      expect(find.text('The passwords do not match.'), findsOneWidget);
+    });
+
+    testWidgets('a mismatched password creates nothing', (tester) async {
+      final app = await openSignUp(tester);
+
+      await fillIn(tester, confirm: 'Horse#Bat13');
+      await register(tester);
+
+      // Said once: the form's error takes the live line's place.
+      expect(find.text('The passwords do not match.'), findsOneWidget);
+      expect(app.auth.registered, isEmpty);
+      expect(app.users.created, isEmpty);
+    });
+
+    testWidgets('without the terms accepted nothing is created; the notice '
+        'opens from its name and I Agree ticks the box', (tester) async {
+      final app = await openSignUp(tester);
+
+      await fillIn(tester, acceptTerms: false);
+      await register(tester);
+      expect(
+        find.text(
+          'Accept the Terms of Use and Privacy Notice to create an account.',
+        ),
+        findsOneWidget,
+      );
+      expect(app.auth.registered, isEmpty);
+
+      await tester.ensureVisible(find.textContaining('I agree to the'));
+      await tester.pumpAndSettle();
+      await tester.tapOnText(
+        find.textRange.ofSubstring('Terms and Privacy Notice').first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Your rights'), findsOneWidget);
+      await tester.tap(find.text('I Agree'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Checkbox>(find.byKey(const ValueKey('sign-up-terms')))
+            .value,
+        isTrue,
+      );
+      expect(
+        find.text(
+          'Accept the Terms of Use and Privacy Notice to create an account.',
+        ),
+        findsNothing,
+      );
+      await register(tester);
+      expect(app.auth.registered, ['liza.tan@dorsu.edu.ph']);
     });
 
     testWidgets('while the list loads, a spinner says so', (tester) async {

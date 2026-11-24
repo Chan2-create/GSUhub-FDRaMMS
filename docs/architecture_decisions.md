@@ -2870,7 +2870,7 @@ one, and the password (`lib/core/utils/account_validation.dart`).
 | Email | `^[^@\s]+@[^@\s]+\.[^@\s]+$`, at most 254 | `app.check_email`, the same pattern, stored lower-cased |
 | Mobile number | `^(09\|\+639)\d{9}$` once spaces and dashes are dropped; optional | `app.check_contact_number`, the same; an account's number from before is kept until it is changed |
 | Department | one from the list, required while the list has any | `app.department_named`: an active department, stored as the list spells it; an account's department from before the list is kept until it is changed |
-| Password | `PasswordPolicy`: 8 characters, an uppercase and a lowercase letter, a number, a special character | never reaches the database; Firebase's password policy, set to the same rules (docs/manual_deploy.md) |
+| Password | `PasswordPolicy`: 8 characters, an uppercase and a lowercase letter, a number, a special character (8 to 12 and no spaces since §44) | never reaches the database; Firebase's password policy, set to the same rules (docs/manual_deploy.md) |
 
 Passwords typed to sign in are not held to the new rules: accounts made
 before them keep their passwords.
@@ -2956,3 +2956,87 @@ Tests: `supabase/tests/account_sessions.test.sql` (45);
 `widget/user_accounts_screen_test.dart`,
 `widget/departments_settings_test.dart`, `widget/auth_fit_test.dart`,
 `widget/auth_field_alignment_test.dart`.
+
+## 44. A new password is 8 to 12 characters, checked by one regular expression; Create Account asks for the terms (2026-11-25)
+
+The brief asked for the password rules as a regular expression, a
+maximum of 12 characters, no spaces, a character counter, a live
+"passwords match", and an account created only once the Terms of
+Service and Privacy Policy are accepted.
+
+**The rules are one expression.** `PasswordPolicy.pattern` in
+`lib/core/utils/account_validation.dart`:
+
+    ^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[special])\S{8,12}$
+
+The brief's example ended `[A-Za-z\d\W]{8,12}`; `\W` takes a space, which
+the brief also refused, so the body is `\S{8,12}`. The five lines under
+the field ("8–12 characters", "One uppercase letter", "One lowercase
+letter", "One number", "One special character (e.g., @ # $ ! % &)") are
+the expression taken apart, and a unit test runs 20,000 passwords
+through both to hold them to the same answer.
+
+**The special character is one Firebase counts.** Firebase's password
+policy accepts only `^ $ * . [ ] { } ( ) ? " ! @ # % & / \ , > < ' : ; | _ ~`
+as non-alphanumeric. The old rule took any symbol, so `-` or `+` would
+have passed on the phone and then been refused by Firebase. Other
+symbols may still be in a password; they just do not meet the rule. The
+backtick is left out because Google's two pages disagree on it.
+
+**On the form.** Spaces are not let into either password field, typed
+or pasted, nor a 13th character; "5/12" sits at the end of the
+PASSWORD label's line, where it adds no height. The requirements show
+as soon as the field is entered, every circle empty, and tick off as it
+is typed. Confirm Password says "Passwords match" or "The passwords do
+not match." as either field changes; once the form is sent, the form's
+own error takes that line's place, so it is not said twice. The eye on
+each field already toggled it without clearing it (§43).
+
+**The terms.** GSUhub had no terms or privacy notice. Chris chose a
+checkbox and a notice drafted from what the system actually collects
+(name, email, department, contact number, report text, photos, GPS
+location, report history, ratings, last activity, notification token),
+who sees it (GSU administrators, assigned personnel), and the rights
+under the Data Privacy Act of 2012 (RA 10173). It is a **draft** for him
+and the adviser, in `lib/features/auth/presentation/widgets/terms_notice.dart`.
+The box sits above REGISTER; "Terms and Privacy Notice" opens it, and
+its I Agree ticks the box. Unticked, the form says so and sends nothing.
+Acceptance is not recorded in the database: the brief did not ask, and
+it would need a migration.
+
+**REGISTER stays tappable.** It does not grey out until the form is
+valid: tapping it with something wrong marks each problem, which says
+more than a dead button. Nothing reaches Firebase or the database
+until `SignUpController.validate` is empty.
+
+**The server's side.** A password goes to Firebase Authentication only;
+Firebase stores a hash, and no GSUhub code logs it. Firebase's password
+policy is the check that cannot be bypassed: Chris sets the maximum to
+12 there (docs/manual_deploy.md, step 1.3), with force upgrade on
+sign-in left off so existing accounts keep signing in. Firebase's
+policy cannot refuse a space; only the apps do. A refusal from Firebase
+(`weak-password`, `password-does-not-meet-requirements`) now states the
+rules instead of "at least 6 characters".
+
+**The console's starter password.** Create Account on the console gives
+the new Firebase account a random password nobody sees, then emails a
+link to set one. It was 32 characters, which a 12-character maximum
+would refuse; it is now 12, with one of each kind the policy asks for
+(`starter_password_test.dart` checks 5,000).
+
+**Still fitting the phone.** The terms line made sign-up 22px too tall
+for a 320×568 phone. The line is one short line at the form's helper
+size, the 40px above REGISTER is shared around it, and the layout's
+spacing may now tighten to 20% of the design's (was 25%) rather than the
+type shrinking. The fitter also stopped up to a pixel short on sign-up,
+since it settled on a share of the spacing; it now settles at a tenth of
+a pixel.
+
+Tests: `unit/core/account_validation_test.dart` (the brief's cases, the
+special characters, the list and the expression agreeing),
+`unit/core/starter_password_test.dart`,
+`unit/presentation/sign_up_controller_test.dart`;
+`widget/requestor_auth_test.dart` (requirements on entering the field,
+the counter, no spaces, no 13th character, the eye without clearing,
+the live match, a mismatch and unaccepted terms creating nothing, the
+notice's I Agree), `widget/auth_fit_test.dart`.
