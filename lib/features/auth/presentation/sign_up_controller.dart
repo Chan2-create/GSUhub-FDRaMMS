@@ -17,6 +17,9 @@ enum SignUpField {
   contactNumber,
   password,
   confirmPassword,
+
+  /// The Terms of Use and Privacy Notice box (2026-11-25).
+  terms,
 }
 
 /// What the sign-up form holds besides its text: whether it is sending,
@@ -65,6 +68,7 @@ class SignUpController extends Notifier<SignUpState> {
     String? department,
     String contactNumber = '',
     bool departmentRequired = false,
+    bool acceptedTerms = false,
   }) async {
     final errors = validate(
       fullName: fullName,
@@ -74,6 +78,7 @@ class SignUpController extends Notifier<SignUpState> {
       department: department,
       contactNumber: contactNumber,
       departmentRequired: departmentRequired,
+      acceptedTerms: acceptedTerms,
     );
     if (errors.isNotEmpty) {
       state = SignUpState(errors: errors);
@@ -131,9 +136,11 @@ class SignUpController extends Notifier<SignUpState> {
     );
   }
 
-  /// Every problem with the form, by field. Empty when it can be sent.
+  /// Every problem with the form, by field. Empty when it can be sent:
+  /// nothing reaches the sign-in service or the database until it is.
   /// The database checks the same (2026-11-17), except the password, which
-  /// only the sign-in service sees and which its password policy checks.
+  /// only the sign-in service sees and which its password policy checks,
+  /// and the terms box, which is the form's alone.
   static Map<SignUpField, String> validate({
     required String fullName,
     required String email,
@@ -142,6 +149,7 @@ class SignUpController extends Notifier<SignUpState> {
     String? department,
     String contactNumber = '',
     bool departmentRequired = false,
+    bool acceptedTerms = false,
   }) {
     final name = fullName.trim();
     return {
@@ -161,6 +169,10 @@ class SignUpController extends Notifier<SignUpState> {
         SignUpField.confirmPassword: 'Enter your password again.'
       else if (confirmPassword != password)
         SignUpField.confirmPassword: 'The passwords do not match.',
+      if (!acceptedTerms)
+        SignUpField.terms:
+            'Accept the Terms of Use and Privacy Notice to create an '
+            'account.',
     };
   }
 }

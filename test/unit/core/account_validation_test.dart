@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/utils/account_validation.dart';
@@ -74,19 +75,91 @@ void main() {
   group('password policy', () {
     test('lists the five requirements, in order', () {
       expect(PasswordPolicy.rules.map((rule) => rule.label), [
-        'At least 8 characters',
-        'An uppercase letter (A–Z)',
-        'A lowercase letter (a–z)',
-        'A number (0–9)',
-        r'A special character, such as ! @ # $ %',
+        '8–12 characters',
+        'One uppercase letter',
+        'One lowercase letter',
+        'One number',
+        r'One special character (e.g., @ # $ ! % &)',
       ]);
+    });
+
+    test('is one regular expression', () {
+      expect(
+        PasswordPolicy.pattern.pattern,
+        r'^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])'
+        r'''(?=.*[\^$*.\[\]{}()?"!@#%&/\\,><':;|_~])\S{8,12}$''',
+      );
+    });
+
+    // The brief's cases (2026-11-25), each with what is said about it.
+    final cases = <String, (bool, String?)>{
+      'Ab1!xyz': (false, 'Your password still needs: 8–12 characters.'),
+      'Abc1!': (false, 'Your password still needs: 8–12 characters.'),
+      'Abcdefghij1!x': (false, 'Use no more than 12 characters.'),
+      'abcdefg1!': (false, 'Your password still needs: one uppercase letter.'),
+      'ABCDEFG1!': (false, 'Your password still needs: one lowercase letter.'),
+      'Abcdefgh!': (false, 'Your password still needs: one number.'),
+      'Abcdefgh1': (
+        false,
+        r'Your password still needs: one special character (e.g., @ # $ ! '
+            '% &).',
+      ),
+      'Abcd efg1!': (false, 'A password cannot contain spaces.'),
+      'Abcdefg1\t!': (false, 'A password cannot contain spaces.'),
+      'Gsuhub#2026': (true, null),
+      'Abcdefg1!': (true, null),
+      'Aa1!Aa1!Aa1!': (true, null),
+    };
+    for (final MapEntry(key: password, value: (valid, message))
+        in cases.entries) {
+      test('"$password": ${valid ? 'accepted' : 'refused'}', () {
+        expect(PasswordPolicy.isValid(password), valid);
+        expect(PasswordPolicy.validate(password), message);
+      });
+    }
+
+    test('counts only the special characters Firebase counts', () {
+      for (final special in PasswordPolicy.specialCharacters.split('')) {
+        expect(
+          PasswordPolicy.isValid('Abcdef1$special'),
+          isTrue,
+          reason: special,
+        );
+      }
+      // Allowed in a password, but not the special character it needs.
+      for (final other in ['-', '+', '=', '`', 'ñ']) {
+        expect(PasswordPolicy.isValid('Abcdef1$other'), isFalse, reason: other);
+        expect(PasswordPolicy.isValid('Abcdef1!$other'), isTrue, reason: other);
+      }
+    });
+
+    test('the list under the field and the expression always agree', () {
+      // Every password of up to 14 characters drawn from a small alphabet
+      // with one of each kind, a space and a character that is not special.
+      const alphabet = ['A', 'a', '1', '!', ' ', '-'];
+      final random = Random(25);
+      for (var i = 0; i < 20000; i++) {
+        final length = random.nextInt(15);
+        final password = [
+          for (var j = 0; j < length; j++)
+            alphabet[random.nextInt(alphabet.length)],
+        ].join();
+        final listed =
+            PasswordPolicy.unmet(password).isEmpty && !password.contains(' ');
+        expect(PasswordPolicy.isValid(password), listed, reason: password);
+        expect(
+          PasswordPolicy.validate(password) == null,
+          listed,
+          reason: password,
+        );
+      }
     });
 
     test('ticks each off as it is met', () {
       expect(PasswordPolicy.unmet(''), hasLength(5));
       expect(
         PasswordPolicy.unmet('abc').map((rule) => rule.label),
-        isNot(contains('A lowercase letter (a–z)')),
+        isNot(contains('One lowercase letter')),
       );
       expect(PasswordPolicy.unmet('Abcdefg1'), hasLength(1));
       expect(PasswordPolicy.unmet('Abcdefg1!'), isEmpty);
@@ -95,16 +168,7 @@ void main() {
         PasswordPolicy.unmet('Abcdefg1 ').single.label,
         contains('special'),
       );
-    });
-
-    test('says what a password still needs', () {
       expect(PasswordPolicy.validate(''), 'Choose a password.');
-      expect(
-        PasswordPolicy.validate('abcdefgh'),
-        r'Your password still needs: an uppercase letter (A–Z), a number '
-        r'(0–9), a special character, such as ! @ # $ %.',
-      );
-      expect(PasswordPolicy.validate('Gsuhub#2026'), isNull);
     });
   });
 

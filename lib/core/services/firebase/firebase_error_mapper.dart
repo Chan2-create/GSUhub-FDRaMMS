@@ -93,8 +93,13 @@ abstract final class FirebaseErrorMapper {
       'email-already-in-use' => const ValidationFailure(
         'An account already exists for that email address.',
       ),
-      'weak-password' => const ValidationFailure(
-        'That password is too weak. Use at least 6 characters.',
+      // The password policy's refusal (2026-11-25). The forms check the
+      // same rules first, so this is for a password that got past them.
+      'weak-password' ||
+      'password-does-not-meet-requirements' => const ValidationFailure(
+        'That password does not meet the requirements: 8 to 12 '
+        'characters, no spaces, with an uppercase letter, a lowercase '
+        'letter, a number and a special character.',
       ),
       'too-many-requests' => const ServerFailure(
         'Too many attempts. Please wait a moment and try again.',

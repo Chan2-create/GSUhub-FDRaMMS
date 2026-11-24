@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,12 +8,14 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/routing/route_paths.dart';
+import '../../../core/utils/account_validation.dart';
 import '../../../core/utils/result.dart';
 import '../../user_management/data/models/department.dart';
 import '../../user_management/presentation/department_providers.dart';
 import 'mobile_login_screen.dart';
 import 'sign_up_controller.dart';
 import 'widgets/mobile_auth_layout.dart';
+import 'widgets/terms_notice.dart';
 
 /// Create Account — faculty and staff self-registration (Figma `194:455`,
 /// Objective 3.A).
@@ -29,6 +32,13 @@ import 'widgets/mobile_auth_layout.dart';
 /// mobile number: the brief did not ask for one here, and the page has
 /// to fit a phone (`test/widget/auth_fit_test.dart`); an administrator
 /// adds one from User Accounts.
+///
+/// **2026-11-25:** the password is 8 to 12 characters with no spaces
+/// ([PasswordPolicy.pattern]): spaces are not let in, nor a thirteenth
+/// character, and a count sits beside the label. The requirements show
+/// as soon as the field is entered, Confirm Password says whether it
+/// matches as it is typed, and an account is created only once the
+/// Terms of Use and Privacy Notice are accepted ([TermsNotice], a draft).
 class RequestorSignUpScreen extends ConsumerStatefulWidget {
   const RequestorSignUpScreen({super.key});
 
@@ -42,7 +52,9 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
+  final _passwordFocus = FocusNode();
   String? _department;
+  bool _acceptedTerms = false;
   late final TapGestureRecognizer _loginLink = TapGestureRecognizer()
     ..onTap = () => context.go(RoutePaths.staffLogin);
 
@@ -52,6 +64,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
     _email.dispose();
     _password.dispose();
     _confirm.dispose();
+    _passwordFocus.dispose();
     _loginLink.dispose();
     super.dispose();
   }
@@ -76,6 +89,7 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
       confirmPassword: _confirm.text,
       department: _department,
       departmentRequired: _departments.isNotEmpty,
+      acceptedTerms: _acceptedTerms,
     );
     if (!mounted || !created) return;
     context.go(
@@ -85,6 +99,19 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
       ).toString(),
     );
   }
+
+  void _setAccepted(bool accepted) {
+    setState(() => _acceptedTerms = accepted);
+    if (accepted) _controller.clearError(SignUpField.terms);
+  }
+
+  Future<void> _openTerms() async {
+    final agreed = await showTermsNotice(context);
+    if (agreed ?? false) _setAccepted(true);
+  }
+
+  /// Spaces are not let into a new password's fields.
+  static final _noSpaces = FilteringTextInputFormatter.deny(RegExp(r'\s'));
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +130,9 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
       TextCapitalization capitalization = TextCapitalization.none,
       ValueChanged<String>? onSubmitted,
       Widget? below,
+      int? maxLength,
+      List<TextInputFormatter>? inputFormatters,
+      FocusNode? focusNode,
     }) => AuthTextField(
       label: label,
       labelStyle: AppTextStyles.signUpLabel,
@@ -119,6 +149,9 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
       onChanged: (_) => _controller.clearError(name),
       onSubmitted: onSubmitted,
       below: below,
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
+      focusNode: focusNode,
     );
 
     return MobileAuthLayout(
@@ -187,7 +220,13 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
               '••••••••',
               obscure: true,
               autofillHints: const [AutofillHints.newPassword],
-              below: PasswordRequirements(controller: _password),
+              maxLength: PasswordPolicy.maxLength,
+              inputFormatters: [_noSpaces],
+              focusNode: _passwordFocus,
+              below: PasswordRequirements(
+                controller: _password,
+                focusNode: _passwordFocus,
+              ),
             ),
             const AuthGap(24),
             field(
@@ -199,8 +238,25 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
               autofillHints: const [AutofillHints.newPassword],
               action: TextInputAction.done,
               onSubmitted: (_) => _register(),
+              inputFormatters: [
+                _noSpaces,
+                LengthLimitingTextInputFormatter(PasswordPolicy.maxLength),
+              ],
+              // The form's own error replaces it once the form is sent.
+              below: form.errors[SignUpField.confirmPassword] == null
+                  ? PasswordMatch(password: _password, confirm: _confirm)
+                  : null,
             ),
-            const AuthGap(40),
+            // The 40 the button had below Confirm Password, shared.
+            const AuthGap(16),
+            _TermsBox(
+              accepted: _acceptedTerms,
+              enabled: !busy,
+              error: form.errors[SignUpField.terms],
+              onChanged: _setAccepted,
+              onOpen: _openTerms,
+            ),
+            const AuthGap(24),
             AuthButton(
               label: 'REGISTER',
               color: AppColors.primary,
@@ -228,6 +284,103 @@ class _RequestorSignUpScreenState extends ConsumerState<RequestorSignUpScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "I agree to the Terms of Use and Privacy Notice"
+/// (2026-11-25): a box to tick, and the notice's name to tap to read it,
+/// whose I Agree ticks the box too.
+class _TermsBox extends StatefulWidget {
+  const _TermsBox({
+    required this.accepted,
+    required this.onChanged,
+    required this.onOpen,
+    this.error,
+    this.enabled = true,
+  });
+
+  final bool accepted;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onOpen;
+  final String? error;
+  final bool enabled;
+
+  @override
+  State<_TermsBox> createState() => _TermsBoxState();
+}
+
+class _TermsBoxState extends State<_TermsBox> {
+  late final TapGestureRecognizer _link = TapGestureRecognizer()
+    ..onTap = () => widget.onOpen();
+
+  @override
+  void dispose() {
+    _link.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final error = widget.error;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            SizedBox.square(
+              dimension: 32,
+              child: Checkbox(
+                key: const ValueKey('sign-up-terms'),
+                value: widget.accepted,
+                onChanged: widget.enabled
+                    ? (value) => widget.onChanged(value ?? false)
+                    : null,
+                activeColor: AppColors.primary,
+                side: BorderSide(
+                  color: error != null ? AppColors.error : AppColors.warmText,
+                  width: 1.5,
+                ),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                semanticLabel: 'I agree to the ${TermsNotice.title}',
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  // One line on the card, so the form still fits a phone
+                  // (test/widget/auth_fit_test.dart).
+                  style: AppTextStyles.formError.copyWith(
+                    color: AppColors.warmText,
+                  ),
+                  children: [
+                    const TextSpan(text: 'I agree to the '),
+                    TextSpan(
+                      text: 'Terms and Privacy Notice',
+                      style: AppTextStyles.formError.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.underline,
+                      ),
+                      recognizer: widget.enabled ? _link : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (error case final message?)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 6),
+            child: Text(
+              message,
+              style: AppTextStyles.formError.copyWith(color: AppColors.error),
+            ),
+          ),
+      ],
     );
   }
 }

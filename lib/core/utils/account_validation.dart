@@ -56,40 +56,83 @@ class PasswordRule {
   bool isMetBy(String password) => _test(password);
 }
 
-/// What a new password must be (2026-11-17): the one place the rules are
-/// written, for the requirements shown under the field and the check
-/// before the account is created.
+/// What a new password must be: the one place the rules are written, for
+/// the requirements shown under the field, the check before the account
+/// is created, and the console's starter passwords.
+///
+/// **2026-11-25:** 8 to 12 characters, no spaces, and the special
+/// character one of Firebase's own (below), as one regular expression,
+/// [pattern]. The five [rules] are that expression taken apart for the
+/// list under the field; `test/unit/core/account_validation_test.dart`
+/// checks the two agree.
 ///
 /// The password goes to Firebase Authentication and never reaches the
 /// database, so the server's side of this check is Firebase's own
-/// password policy, which is set to the same rules in the Firebase
-/// console (docs/manual_deploy.md). A password typed to sign in is not
-/// held to these: accounts made before them keep their passwords.
+/// password policy, set to the same rules in the Firebase console
+/// (docs/manual_deploy.md); Firebase stores only a hash of it. A password
+/// typed to sign in is not held to these: accounts made before them keep
+/// their passwords.
 abstract final class PasswordPolicy {
   static const int minLength = 8;
+  static const int maxLength = 12;
+
+  /// The characters Firebase's password policy counts as non-alphanumeric
+  /// (firebase.google.com/docs/auth/web/password-auth, "Password policy").
+  /// Others, such as `-` or `+`, may be in a password but do not meet the
+  /// rule, since Firebase would not count them. The backtick is left out:
+  /// Google's two pages disagree on it.
+  static const String specialCharacters =
+      r'^$*.[]{}()?"!@#%&/\,><'
+      "'"
+      r':;|_~';
+
+  /// [specialCharacters] as a character class, escaped by hand.
+  static const String _specialClass =
+      r'[\^$*.\[\]{}()?"!@#%&/\\,><'
+      "'"
+      r':;|_~]';
+
+  /// The whole policy: an uppercase letter, a lowercase letter, a digit
+  /// and a special character somewhere, and 8 to 12 characters of which
+  /// none is a space. Written out, it reads
+  /// `^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[special])\S{8,12}$`.
+  static final RegExp pattern = RegExp(
+    r'^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*' +
+        _specialClass +
+        r')\S{' +
+        '$minLength,$maxLength' +
+        r'}$',
+  );
+
+  static final RegExp _special = RegExp(_specialClass);
+  static final RegExp _space = RegExp(r'\s');
 
   static final List<PasswordRule> rules = [
     PasswordRule(
-      'At least $minLength characters',
-      (password) => password.length >= minLength,
+      '$minLength–$maxLength characters',
+      (password) =>
+          password.length >= minLength && password.length <= maxLength,
     ),
     PasswordRule(
-      'An uppercase letter (A–Z)',
+      'One uppercase letter',
       (password) => password.contains(RegExp('[A-Z]')),
     ),
     PasswordRule(
-      'A lowercase letter (a–z)',
+      'One lowercase letter',
       (password) => password.contains(RegExp('[a-z]')),
     ),
     PasswordRule(
-      'A number (0–9)',
+      'One number',
       (password) => password.contains(RegExp('[0-9]')),
     ),
     PasswordRule(
-      r'A special character, such as ! @ # $ %',
-      (password) => password.contains(RegExp(r'[^A-Za-z0-9\s]')),
+      r'One special character (e.g., @ # $ ! % &)',
+      (password) => password.contains(_special),
     ),
   ];
+
+  /// Whether [password] meets the whole policy.
+  static bool isValid(String password) => pattern.hasMatch(password);
 
   /// The rules [password] does not meet yet, in the order they are listed.
   static List<PasswordRule> unmet(String password) => [
@@ -100,10 +143,18 @@ abstract final class PasswordPolicy {
   /// What is wrong with [password] as a new password, or null.
   static String? validate(String password) {
     if (password.isEmpty) return 'Choose a password.';
+    if (password.contains(_space)) return 'A password cannot contain spaces.';
+    if (password.length > maxLength) {
+      return 'Use no more than $maxLength characters.';
+    }
     final missing = unmet(password);
-    if (missing.isEmpty) return null;
-    return 'Your password still needs: '
-        '${missing.map((rule) => _lower(rule.label)).join(', ')}.';
+    if (missing.isNotEmpty) {
+      return 'Your password still needs: '
+          '${missing.map((rule) => _lower(rule.label)).join(', ')}.';
+    }
+    // The list and the expression agree (the unit test holds them to it);
+    // the expression has the last word.
+    return isValid(password) ? null : 'Choose a different password.';
   }
 
   static String _lower(String label) =>

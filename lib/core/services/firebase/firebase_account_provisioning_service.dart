@@ -2,10 +2,11 @@ import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 
 import '../../config/app_config.dart';
 import '../../config/web_auth_emulator.dart';
+import '../../utils/account_validation.dart';
 import '../../utils/result.dart';
 import '../account_provisioning_service.dart';
 import 'firebase_call_guard.dart';
@@ -51,7 +52,7 @@ class FirebaseAccountProvisioningService implements AccountProvisioningService {
       credential = await auth
           .createUserWithEmailAndPassword(
             email: address,
-            password: _randomPassword(),
+            password: randomPassword(),
           )
           .timeout(_config.requestTimeout);
     } on Object catch (error) {
@@ -109,17 +110,29 @@ class FirebaseAccountProvisioningService implements AccountProvisioningService {
     return auth;
   }
 
-  /// 32 characters from a cryptographic source. Never shown or stored: the
-  /// person sets their own through the emailed link.
-  static String _randomPassword() {
-    const alphabet =
-        'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%^*-_';
-    final random = Random.secure();
-    return String.fromCharCodes(
-      Iterable.generate(
-        32,
-        (_) => alphabet.codeUnitAt(random.nextInt(alphabet.length)),
-      ),
-    );
+  /// A starter password from a cryptographic source. Never shown or
+  /// stored: the person sets their own through the emailed link.
+  ///
+  /// It meets [PasswordPolicy] (2026-11-25), since Firebase's password
+  /// policy refuses any that does not: the policy's most characters, one
+  /// of each kind the policy asks for, the rest from all of them, in a
+  /// shuffled order.
+  @visibleForTesting
+  static String randomPassword([Random? source]) {
+    final random = source ?? Random.secure();
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghijkmnopqrstuvwxyz';
+    const digits = '23456789';
+    const special = '!@#%*_?';
+    const all = upper + lower + digits + special;
+    String pick(String from) => from[random.nextInt(from.length)];
+    final characters = [
+      pick(upper),
+      pick(lower),
+      pick(digits),
+      pick(special),
+      for (var i = 4; i < PasswordPolicy.maxLength; i++) pick(all),
+    ]..shuffle(random);
+    return characters.join();
   }
 }

@@ -316,14 +316,20 @@ for you by anyone else: you sign in to each service yourself.
    Authorized domains → Add domain → `gsuhub-dorsu.vercel.app`. Without
    it, sign-in on the deployed console fails.
 2. **Enable Email/Password** in Authentication → Sign-in method.
-3. **Set the password policy** (2026-11-17) in Authentication →
-   Settings → Password policy: minimum length 8; require uppercase,
-   lowercase, numeric and non-alphanumeric characters; **Require** (not
-   only notify). These are the rules Create Account shows and checks
-   (`PasswordPolicy`, docs/architecture_decisions.md §43); this is
-   their server side, since a password never reaches the database. It
-   applies to passwords set from then on, including a reset; existing
-   passwords keep working.
+3. **Set the password policy** (2026-11-17, maximum added 2026-11-25)
+   in Authentication → Settings → Password policy: minimum length 8,
+   **maximum length 12**; require uppercase, lowercase, numeric and
+   non-alphanumeric characters. These are the rules Create Account
+   shows and checks (`PasswordPolicy`, docs/architecture_decisions.md
+   §43, §44); this is their server side, since a password never reaches
+   the database. New passwords, including a reset, have to meet it.
+   **Leave "force upgrade on sign-in" off** (Notify mode): turned on, it
+   stops every existing account whose password does not meet the new
+   rules, the administrator's included, from signing in until that
+   password is changed. If the console has no maximum-length box, the
+   maximum can be left unset there: the apps hold passwords to 12
+   themselves. A space cannot be refused by Firebase's policy; the apps
+   do not let one be typed.
 
 ### 2. Supabase: the data (Objective 1)
 
