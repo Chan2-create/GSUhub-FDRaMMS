@@ -10,6 +10,7 @@ import '../../features/analytics/presentation/widgets/analytics_range_select.dar
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/dashboard/presentation/dashboard_providers.dart';
 import '../../features/inventory/presentation/inventory_providers.dart';
+import '../page_refresh.dart';
 import 'widgets/admin_nav_items.dart';
 import 'widgets/admin_sidebar.dart';
 import 'widgets/admin_top_bar.dart';
@@ -102,7 +103,12 @@ class AdminShell extends ConsumerWidget {
                 // A container of its own, so the page route's modal
                 // barrier hides nothing outside it: without one, screen
                 // readers lost the sidebar and the top bar.
-                Expanded(child: Semantics(container: true, child: child)),
+                Expanded(
+                  child: Semantics(
+                    container: true,
+                    child: PageRefreshFrame(child: child),
+                  ),
+                ),
               ],
             ),
           ),

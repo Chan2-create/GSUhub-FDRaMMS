@@ -33,6 +33,8 @@ import 'package:gsuhub/features/work_orders/data/repositories/work_order_reposit
 
 import 'fake_config_repository.dart';
 import 'fake_departments.dart';
+import 'fake_live_sync.dart';
+import 'fake_requestor_app.dart' show FakeConnectivityService;
 import 'fake_session.dart';
 import 'test_app_config.dart';
 
@@ -85,6 +87,11 @@ ProviderScope fakeAdminScope({
   String? startLocation,
 }) => ProviderScope(
   overrides: [
+    // The real LiveSync, over a channel that needs no server (2026-11-25).
+    changeChannelOpenerProvider.overrideWithValue(openFakeChangeChannel),
+    signedInCheckProvider.overrideWithValue(() => true),
+    // Reachability, which LiveSync listens to: online, and no server.
+    connectivityServiceProvider.overrideWithValue(FakeConnectivityService()),
     sessionRepositoryProvider.overrideWithValue(
       sessions ?? FakeSessionRepository(),
     ),

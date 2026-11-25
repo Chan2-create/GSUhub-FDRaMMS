@@ -6,6 +6,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/damage_categories.dart';
 import '../../../core/enums/priority_level.dart';
+import '../../../core/navigation/unsaved_work.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/priority_chip.dart';
@@ -84,7 +85,8 @@ class _AssessmentForm extends ConsumerStatefulWidget {
   ConsumerState<_AssessmentForm> createState() => _AssessmentFormState();
 }
 
-class _AssessmentFormState extends ConsumerState<_AssessmentForm> {
+class _AssessmentFormState extends ConsumerState<_AssessmentForm>
+    with GuardsUnsavedWork {
   late ClassificationResult _keywords = _classify();
   late AssessmentDraft _draft = AssessmentDraft.of(
     widget.report,
@@ -92,6 +94,15 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm> {
   );
   final _reason = TextEditingController();
   bool _saving = false;
+
+  /// Ratings, a category or a level picked and not saved, or a reason
+  /// typed (2026-11-25).
+  @override
+  bool get hasUnsavedWork =>
+      _reason.text.trim().isNotEmpty ||
+      !_draft.sameAs(
+        AssessmentDraft.of(widget.report, suggestion: _keywords.category),
+      );
 
   @override
   void dispose() {

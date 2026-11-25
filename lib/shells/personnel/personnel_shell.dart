@@ -10,6 +10,7 @@ import '../../features/notifications/presentation/notification_providers.dart';
 import '../../features/qr_codes/presentation/qr_scanner_screen.dart';
 import '../mobile/mobile_bottom_bar.dart';
 import '../mobile/mobile_header.dart';
+import '../page_refresh.dart';
 
 /// The personnel app's four tabs (Figures 24 and 25: Home, Tasks,
 /// Materials, Profile). Notifications open from the header's bell.
@@ -110,7 +111,12 @@ class PersonnelShell extends ConsumerWidget {
           const OfflineBanner(),
           // A semantics container of its own, so the page route's modal
           // barrier does not hide the header from screen readers.
-          Expanded(child: Semantics(container: true, child: child)),
+          Expanded(
+            child: Semantics(
+              container: true,
+              child: PageRefreshFrame(child: child),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: MobileBottomBar(

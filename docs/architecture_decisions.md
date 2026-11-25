@@ -3040,3 +3040,85 @@ special characters, the list and the expression agreeing),
 the counter, no spaces, no 13th character, the eye without clearing,
 the live match, a mismatch and unaccepted terms creating nothing, the
 notice's I Agree), `widget/auth_fit_test.dart`.
+
+## 45. A navigation button pressed again reads its page again (2026-11-25)
+
+The brief: pressing the module already open, on the console's sidebar or
+the phone apps' bottom bar, should return to the module's own page and
+show the latest data, without a browser reload, and without losing
+unsaved work.
+
+**What a press does now** (`lib/shells/page_refresh.dart`,
+`navigateFromNav`):
+
+| Where the person is | The press |
+|---|---|
+| Another module | Goes there, as before. Its page reads its data as it opens. |
+| Inside the module (a report's details, a work order, a rating) | Back to the module's own page, then its data read again. |
+| The module's own page | Its data read again, in place: nothing is navigated, so filters, a search, the open tab (Inventory's is in the address) and any form keep what they hold. |
+
+Before, the console's active item ignored presses altogether, even on a
+report's details; the phone tabs already went back to the tab's page
+but did nothing on it.
+
+**What "read again" is.** Every list and figure in the app is already a
+live query (§42), so the refresh is one call: `LiveSync.refreshWatched`
+reads every query on screen again and waits for all of them. Unlike the
+reads after a save, it waits for the answers rather than five seconds,
+up to 30, and says whether every read succeeded, because the person is
+watching for the outcome. Queries out of sight are only marked and read
+when they come back. The few views read once rather than kept live (the
+dashboard's recent activity, a report's review history, the signed-in
+profile) are read again too. Nothing is cleared first: what is on screen
+stays until the new rows replace it, so a failed refresh never empties
+a page. These are database reads through the existing repositories, so
+permissions are the database's as always.
+
+**What the person sees.** A thin indigo bar along the top of the page
+while it reads, at least 0.4 seconds so a quick refresh is still seen.
+It lies over the page's top edge and takes no room, so nothing moves.
+Indigo, not gold: the console's gold rule sits right above it. If a read
+fails: "Could not refresh this page. It shows the last information
+received, and updates on its own once the connection is back."
+
+**Repeated presses** join the refresh that is running (one set of reads,
+however many presses), and a press after it ends starts a new one.
+
+**Unsaved work.** Forms that can hold unsaved work join a register
+(`lib/core/navigation/unsaved_work.dart`, `GuardsUnsavedWork`) and are
+asked at the moment of the press. Leaving a page with any asks "Leave
+without saving?", with **Stay on this page** (nothing is touched) and
+**Leave and discard**. A refresh in place discards nothing, so it does
+not ask. The forms: Settings (any tab with edits), a report's
+assessment (ratings, category, level or reason), a work order's note
+and its Add Task form, the materials set aside on a work order (console);
+a rating, the completion notes and photos, a material request (phone).
+Forms in dialogs and sheets need nothing: the dialog's barrier keeps the
+navigation out of reach. The phone's Report Damage form is not under the
+bottom bar, but its Back arrow and the phone's Back button now ask the
+same question once anything is typed, chosen or photographed, so a
+report begun is never lost by a slip.
+
+**Not covered:** the browser's own Back button and address bar on the
+console, which leave without asking, as before.
+
+**A test pitfall found on the way:** awaiting a stream subscription's
+`cancel()` under the widget test clock hangs the next `pump`, as
+`live_sync_test.dart` already noted; the new tests do not await it. The
+console's fake test scope now gives the real LiveSync a channel that
+needs no server (`test/support/fake_live_sync.dart`) and a fake
+connectivity service, as the phone harnesses do.
+
+Tests: `widget/nav_reselect_test.dart` (every console module and phone
+tab pressed again on its own page; Damage Reports from a report's
+details, Work Order Management from a work order, Reports from a
+report's details, Tasks; another module without a refresh; repeated
+presses as one refresh; a failed refresh's message; Settings, a rating,
+completion notes and the Report Damage form asking, Stay keeping the
+work, Leave going, a refresh in place not asking, nothing asked with
+nothing changed); `unit/core/live_sync_test.dart` (the refresh reads
+every view on screen, reports a failure and keeps the rows, waits for a
+slow read and gives up on one that never answers, leaves a view out of
+sight for later); `unit/presentation/page_refresh_test.dart` (busy
+meanwhile, one refresh for many presses, failures counted, the
+dashboard's recent activity read again only when shown).

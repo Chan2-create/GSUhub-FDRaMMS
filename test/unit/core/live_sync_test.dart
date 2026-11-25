@@ -586,4 +586,97 @@ void main() {
       expect(backend.reads, reads);
     });
   });
+
+  group('a navigation button pressed again (2026-11-25)', () {
+    liveTest('reads every view on screen again, and says it succeeded', (
+      tester,
+      backend,
+    ) async {
+      final reports = _Screen(backend.watch());
+      final tools = _Screen(backend.watch('tools'));
+      await tester.pump();
+      final reads = backend.reads;
+
+      backend.setStatus('approved');
+      final done = backend.sync.refreshWatched();
+      await tester.pump();
+
+      expect(await done, isTrue);
+      expect(backend.reads, reads + 2);
+      expect(reports.seen.last, 'approved');
+      expect(tools.seen.last, 'approved');
+    });
+
+    liveTest('says so when a read fails, and keeps the rows shown', (
+      tester,
+      backend,
+    ) async {
+      final screen = _Screen(backend.watch());
+      await tester.pump();
+
+      backend.failure = _Blip();
+      final done = backend.sync.refreshWatched();
+      await tester.pump();
+
+      expect(await done, isFalse);
+      expect(screen.seen, ['submitted'], reason: 'the rows stay');
+
+      // Answered once the connection is back.
+      backend.failure = null;
+      final again = backend.sync.refreshWatched();
+      await tester.pump();
+      expect(await again, isTrue);
+    });
+
+    liveTest('waits for a slow read, and fails one that never answers', (
+      tester,
+      backend,
+    ) async {
+      _Screen(backend.watch());
+      await tester.pump();
+
+      backend.holdReads = true;
+      var answered = false;
+      final done = backend.sync
+          .refreshWatched(limit: const Duration(seconds: 3))
+          .then((ok) {
+            answered = true;
+            return ok;
+          });
+      await tester.pump(const Duration(seconds: 1));
+      expect(answered, isFalse, reason: 'past the save settle, still waiting');
+
+      await tester.pump(const Duration(seconds: 3));
+      expect(await done, isFalse);
+      for (final gate in backend.held) {
+        gate.complete();
+      }
+      await tester.pump();
+    });
+
+    liveTest('leaves a view out of sight to be read when it is back', (
+      tester,
+      backend,
+    ) async {
+      final screen = _Screen(backend.watch());
+      await tester.pump();
+      final reads = backend.reads;
+      screen.subscription.pause();
+
+      expect(await backend.sync.refreshWatched(), isTrue);
+      expect(backend.reads, reads);
+
+      screen.subscription.resume();
+      await tester.pump();
+      expect(backend.reads, reads + 1);
+    });
+
+    liveTest('with nothing on screen, there is nothing to read', (
+      tester,
+      backend,
+    ) async {
+      expect(await backend.sync.refreshWatched(), isTrue);
+      expect(backend.reads, 0);
+    });
+  });
 }

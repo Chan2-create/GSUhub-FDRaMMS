@@ -154,6 +154,31 @@ class LiveSync {
     await Future.wait(reads).timeout(settleTimeout, onTimeout: () => const []);
   }
 
+  /// Reads every query on screen again, for a navigation button pressed
+  /// on the page it already shows (2026-11-25). Completes once every read
+  /// has answered, or after [limit], and says whether all of them
+  /// succeeded: false when one failed, or did not answer in time. Unlike
+  /// [resync], it waits for the reads rather than for [settleTimeout],
+  /// since the person is watching a loading bar and is owed the outcome.
+  /// Queries out of sight are only marked, and read when they come back.
+  Future<bool> refreshWatched({
+    Duration limit = const Duration(seconds: 30),
+  }) async {
+    if (_disposed) return true;
+    final queries = [
+      for (final query in _queries.toList())
+        if (query._active) query,
+    ];
+    for (final query in _queries) {
+      if (!query._active) query._stale = true;
+    }
+    if (queries.isEmpty) return true;
+    final answered = await Future.wait([
+      for (final query in queries) query.refresh(),
+    ]).then((_) => true).timeout(limit, onTimeout: () => false);
+    return answered && queries.every((query) => !query.lastReadFailed);
+  }
+
   /// The app has just asked the database to change something, and the
   /// database has answered. [reached] is false when no answer came: the
   /// change may or may not have landed, and the screens are read again
@@ -351,6 +376,10 @@ class _LiveQuery {
 
   bool get _active => _listening && !_paused;
 
+  /// Whether the last read of this query failed (2026-11-25), for
+  /// [LiveSync.refreshWatched].
+  bool lastReadFailed = false;
+
   void _start() {
     _listening = true;
     _sync._add(this);
@@ -434,6 +463,7 @@ class _LiveQuery {
   }
 
   void _succeeded(LiveRows rows) {
+    lastReadFailed = false;
     if (!_listening || _controller.isClosed) return;
     _failures = 0;
     final encoded = _encode(rows);
@@ -445,6 +475,7 @@ class _LiveQuery {
   }
 
   void _failed(Object error, StackTrace stack) {
+    lastReadFailed = true;
     if (!_listening || _controller.isClosed) return;
     // Signed out while it was being read: nothing to show, and nobody to
     // show it to. Signing in reads it again.

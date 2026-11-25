@@ -8,6 +8,7 @@ import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/di/repository_providers.dart';
 import '../../../../core/enums/task_status.dart';
 import '../../../../core/enums/work_order_status.dart';
+import '../../../../core/navigation/unsaved_work.dart';
 import '../../../../core/routing/route_paths.dart';
 import '../../../../core/services/photo_picker_service.dart';
 import '../../../../core/utils/display_id.dart';
@@ -806,9 +807,16 @@ class _CompletionForm extends ConsumerStatefulWidget {
   ConsumerState<_CompletionForm> createState() => _CompletionFormState();
 }
 
-class _CompletionFormState extends ConsumerState<_CompletionForm> {
+class _CompletionFormState extends ConsumerState<_CompletionForm>
+    with GuardsUnsavedWork {
   final _notes = TextEditingController();
   final _photos = <PickedPhoto>[];
+
+  /// Notes or photos for the completion report, not yet submitted
+  /// (2026-11-25).
+  @override
+  bool get hasUnsavedWork =>
+      _notes.text.trim().isNotEmpty || _photos.isNotEmpty;
 
   /// Reserved on the first attempt and kept for retries, so a submission
   /// that reached the server is not filed twice.

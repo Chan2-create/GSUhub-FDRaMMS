@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/navigation/unsaved_work.dart';
 import '../../../../core/utils/quantity_format.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/section_card.dart';
@@ -131,10 +132,15 @@ class _AllocateForm extends ConsumerStatefulWidget {
   ConsumerState<_AllocateForm> createState() => _AllocateFormState();
 }
 
-class _AllocateFormState extends ConsumerState<_AllocateForm> {
+class _AllocateFormState extends ConsumerState<_AllocateForm>
+    with GuardsUnsavedWork {
   final _quantity = TextEditingController();
   String? _itemId;
   bool _busy = false;
+
+  /// A quantity typed and not set aside (2026-11-25).
+  @override
+  bool get hasUnsavedWork => _quantity.text.trim().isNotEmpty;
 
   @override
   void dispose() {

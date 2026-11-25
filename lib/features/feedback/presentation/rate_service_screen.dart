@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/enums/report_status.dart';
+import '../../../core/navigation/unsaved_work.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/utils/result.dart';
@@ -268,8 +269,17 @@ class _RatingForm extends ConsumerStatefulWidget {
   ConsumerState<_RatingForm> createState() => _RatingFormState();
 }
 
-class _RatingFormState extends ConsumerState<_RatingForm> {
+class _RatingFormState extends ConsumerState<_RatingForm>
+    with GuardsUnsavedWork {
   final _comments = TextEditingController();
+
+  /// Stars given or comments typed, not yet submitted (2026-11-25).
+  @override
+  bool get hasUnsavedWork {
+    final state = ref.read(ratingControllerProvider(widget.reportId));
+    return !state.submitted &&
+        (state.stars.isNotEmpty || _comments.text.trim().isNotEmpty);
+  }
 
   @override
   void dispose() {

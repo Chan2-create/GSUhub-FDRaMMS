@@ -53,6 +53,15 @@ class AssessmentDraft {
   /// saved decision is never changed behind the administrator's back.
   final bool officialChosen;
 
+  /// Whether [other] holds the same choices (2026-11-25): the panel has
+  /// unsaved work while its draft differs from the one the report starts
+  /// from.
+  bool sameAs(AssessmentDraft other) =>
+      category == other.category &&
+      mapEquals(ratings, other.ratings) &&
+      officialChosen == other.officialChosen &&
+      (!officialChosen || officialPriority == other.officialPriority);
+
   AssessmentDraft withCategory(DamageCategory category) =>
       _copy(category: category);
 
