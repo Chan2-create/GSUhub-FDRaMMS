@@ -8,7 +8,6 @@ import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/relative_time.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
-import '../../../core/widgets/press_scale.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../shells/requestor/requestor_shell.dart';
@@ -18,8 +17,12 @@ import '../../damage_reports/presentation/my_reports/widgets/report_pills.dart';
 import '../../user_management/presentation/profile_providers.dart';
 
 /// The faculty and staff home screen (Figma `170:2050`, Objective 3.A):
-/// greeting, two quick actions, the reports overview, and the three most
-/// recent reports.
+/// greeting, the reports overview, and the three most recent reports.
+///
+/// **2026-11-26:** no more Submit Damage Report and My Reports tiles, and
+/// no View All: the bar's gold + opens the report form and its Reports tab
+/// opens My Reports, so they were the same buttons twice. The overview
+/// follows the greeting directly, with no gap where the tiles were.
 ///
 /// Every figure is the signed-in requestor's own and live (3.B) — the
 /// mockup's "James Landoy" and "8 Active • 2 In-Progress • 10 Completed"
@@ -44,29 +47,9 @@ class RequestorHomeScreen extends ConsumerWidget {
       children: [
         const _GreetingCard(),
         const SizedBox(height: 16),
-        const _QuickActions(),
-        const SizedBox(height: 16),
         _OverviewBanner(reports: reports),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Recent Reports',
-                style: AppTextStyles.homeSectionTitle,
-              ),
-            ),
-            TextButton(
-              onPressed: () => context.go(RoutePaths.staffMyReports),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                minimumSize: const Size(0, 32),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text('View All', style: AppTextStyles.homeViewAll),
-            ),
-          ],
-        ),
+        const Text('Recent Reports', style: AppTextStyles.homeSectionTitle),
         const SizedBox(height: 8),
         AsyncValueView<List<DamageReport>>(
           value: reports,
@@ -157,87 +140,6 @@ class _GreetingCard extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// Submit Damage Report (gold) and My Reports (navy), `169:628`/`169:629`.
-class _QuickActions extends StatelessWidget {
-  const _QuickActions();
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 116,
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: _ActionTile(
-            label: 'Submit Damage\nReport',
-            icon: Icons.warning_rounded,
-            color: AppColors.accentGold,
-            onTap: () => context.push(RoutePaths.staffSubmitReport),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _ActionTile(
-            label: 'My Reports',
-            icon: Icons.assignment_rounded,
-            color: AppColors.primary,
-            onTap: () => context.go(RoutePaths.staffMyReports),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => PressScale(
-    child: Material(
-      color: color,
-      borderRadius: BorderRadius.circular(14),
-      elevation: 2,
-      shadowColor: const Color(0x40000000),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // The design's translucent white disc behind the glyph.
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                color: Color(0x33FFFFFF),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: Colors.white, size: 26),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.homeTile,
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 /// "Reports Overview" over the campus photo (`169:659`), with the

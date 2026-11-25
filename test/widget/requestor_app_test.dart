@@ -5,17 +5,15 @@ import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/connectivity_service.dart';
+import 'package:gsuhub/shells/mobile/mobile_header.dart';
 
 import '../support/fake_requestor_app.dart';
 
 /// The faculty and staff app's home, My Reports and bottom bar (Figma
 /// `170:2050`, `169:1251`, Objective 3.A), inside the real app and router.
 void main() {
-  /// The header's bell, whatever its count says (2026-11-26).
-  Finder bell() => find.byWidgetPredicate(
-    (widget) =>
-        widget is Tooltip && (widget.message ?? '').startsWith('Notifications'),
-  );
+  /// The Notifications tab (back in the bar since 2026-11-26).
+  Finder notificationsTab() => find.text('Notifications');
 
   final now = DateTime.now();
 
@@ -69,8 +67,34 @@ void main() {
 
       expect(find.text('Hello, Maria Santos'), findsOneWidget);
       expect(find.text('College of Engineering'), findsOneWidget);
-      expect(find.text('Submit Damage\nReport'), findsOneWidget);
-      expect(find.text('My Reports'), findsOneWidget);
+    });
+
+    testWidgets('has no Submit Damage Report or My Reports tiles and no '
+        'View All, and no gap where they were (2026-11-26)', (tester) async {
+      await withHistory().pump(tester);
+
+      expect(find.textContaining('Submit Damage'), findsNothing);
+      expect(find.text('My Reports'), findsNothing);
+      expect(find.text('View All'), findsNothing);
+      // The overview follows the greeting card, 16 apart as everything
+      // else on the page, and the recent reports follow it.
+      final greeting = find.ancestor(
+        of: find.text('Hello, Maria Santos'),
+        matching: find.byType(Container),
+      );
+      final overview = find.ancestor(
+        of: find.text('Reports Overview'),
+        matching: find.byType(Container),
+      );
+      expect(
+        tester.getTopLeft(overview.first).dy -
+            tester.getBottomLeft(greeting.first).dy,
+        16,
+      );
+      expect(
+        tester.getTopLeft(find.text('Recent Reports')).dy,
+        tester.getBottomLeft(overview.first).dy + 16,
+      );
     });
 
     testWidgets('without a department the role line is generic', (
@@ -142,22 +166,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('AB Bldg, Room 101'), findsOneWidget);
-    });
-
-    testWidgets('View All and the My Reports tile open My Reports', (
-      tester,
-    ) async {
-      await withHistory().pump(tester);
-
-      await tester.tap(find.text('View All'));
-      await tester.pumpAndSettle();
-      expect(currentPath(tester), RoutePaths.staffMyReports);
-
-      await tester.tap(find.text('Home'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('My Reports'));
-      await tester.pumpAndSettle();
-      expect(currentPath(tester), RoutePaths.staffMyReports);
     });
 
     testWidgets('a recent report opens its details', (tester) async {
@@ -351,8 +359,8 @@ void main() {
       await app.pump(tester);
       expect(app.reports.openListeners, 1);
 
-      // The notifications, from the bell: no report on screen.
-      await tester.tap(bell());
+      // The notifications: no report on screen.
+      await tester.tap(notificationsTab());
       await tester.pumpAndSettle();
       expect(app.reports.openListeners, 0);
 
@@ -365,21 +373,90 @@ void main() {
     });
   });
 
+  group('help (2026-11-26)', () {
+    testWidgets("the header's question mark opens Help, over the page it "
+        'was opened from', (tester) async {
+      await withHistory().pump(tester);
+      expect(find.byKey(MobileHeader.helpKey), findsOneWidget);
+
+      await tester.tap(find.byKey(MobileHeader.helpKey));
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.staffHelp);
+      expect(find.text('Help'), findsOneWidget);
+
+      // Back returns to the page beneath.
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.staffHome);
+    });
+
+    testWidgets('covers sending a report, the statuses, the QR code and '
+        'GSU', (tester) async {
+      await RequestorHarness().pump(tester, start: RoutePaths.staffHelp);
+
+      final page = find.byType(Scrollable).first;
+      Future<void> sees(Finder finder) async {
+        await tester.scrollUntilVisible(finder, 200, scrollable: page);
+        expect(finder, findsOneWidget);
+      }
+
+      await sees(find.text('Sending a damage report'));
+      await sees(find.textContaining('Tap the gold +'));
+      await sees(find.text('What each status means'));
+      for (final status in const [
+        'Pending',
+        'Under Review',
+        'Approved',
+        'Scheduled',
+        'Assigned',
+        'In Progress',
+        'Completed',
+        'Rejected',
+      ]) {
+        await sees(
+          find.textContaining(RegExp('^$status\\. '), findRichText: true),
+        );
+      }
+      await sees(find.text('Scanning a QR code'));
+      await sees(find.textContaining('QR button at the top right'));
+      await sees(find.text('Contacting GSU'));
+      await sees(find.textContaining("GSU Administrator's Office"));
+    });
+
+    testWidgets('opened directly, Back goes Home', (tester) async {
+      await RequestorHarness().pump(tester, start: RoutePaths.staffHelp);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.staffHome);
+    });
+  });
+
   group('bottom bar', () {
-    testWidgets('switches between the three tabs; the bell opens the '
-        'notifications (2026-11-26)', (tester) async {
+    testWidgets('switches between the four tabs, two each side of the + '
+        '(2026-11-26)', (tester) async {
       await withHistory().pump(tester);
 
-      // Alerts left the bar: the header's bell opens them.
-      expect(find.text('Alerts'), findsNothing);
+      // Home, Reports, [+], Notifications, Profile.
+      final plus = tester.getCenter(find.byTooltip('Report damage')).dx;
+      final xs = [
+        for (final label in ['Home', 'Reports', 'Notifications', 'Profile'])
+          tester.getCenter(find.text(label)).dx,
+      ];
+      expect(xs[0], lessThan(xs[1]));
+      expect(xs[1], lessThan(plus));
+      expect(xs[2], greaterThan(plus));
+      expect(xs[3], greaterThan(xs[2]));
+
       await tester.tap(find.text('Reports'));
       await tester.pumpAndSettle();
       expect(currentPath(tester), RoutePaths.staffMyReports);
 
-      await tester.tap(bell());
+      await tester.tap(notificationsTab());
       await tester.pumpAndSettle();
       expect(currentPath(tester), RoutePaths.staffAlerts);
-      expect(find.text('Notifications'), findsOneWidget);
+      // The tab, and the page's title.
+      expect(notificationsTab(), findsNWidgets(2));
 
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
@@ -409,7 +486,7 @@ void main() {
 
     testWidgets('Back from the notifications returns Home too', (tester) async {
       await withHistory().pump(tester);
-      await tester.tap(bell());
+      await tester.tap(notificationsTab());
       await tester.pumpAndSettle();
       expect(currentPath(tester), RoutePaths.staffAlerts);
 

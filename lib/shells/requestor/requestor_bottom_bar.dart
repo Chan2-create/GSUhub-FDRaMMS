@@ -4,9 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../core/routing/route_paths.dart';
 import '../mobile/mobile_bottom_bar.dart';
 
-/// The tabs of the faculty and staff app (Figma `170:2050`, "Group 6").
-/// Alerts left the bar on 2026-11-26: the header's bell opens the
-/// notifications, and each tab counts its own unread ones.
+/// The four tabs of the faculty and staff app (Figma `170:2050`, "Group
+/// 6"): Home and Reports, the gold +, Notifications and Profile.
+///
+/// Notifications left the bar for the header's bell on 2026-11-26, which
+/// left three tabs around the +, lopsided; it is back, and the header has
+/// Help in the bell's place. It carries the unread count.
 enum RequestorTab {
   home('Home', RoutePaths.staffHome, Icons.home_outlined, Icons.home_rounded),
   reports(
@@ -14,6 +17,12 @@ enum RequestorTab {
     RoutePaths.staffMyReports,
     Icons.assignment_outlined,
     Icons.assignment_rounded,
+  ),
+  alerts(
+    'Notifications',
+    RoutePaths.staffAlerts,
+    Icons.notifications_none_rounded,
+    Icons.notifications_rounded,
   ),
   profile(
     'Profile',

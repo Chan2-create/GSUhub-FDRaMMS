@@ -31,10 +31,14 @@ class MobileTab {
 /// and the raised gold "+" between them (Figma `170:2050`, `166:2261`; the
 /// personnel frames of Figures 24 and 25 draw the same bar).
 ///
-/// Four tabs as drawn, two each side; since 2026-11-26 the faculty and
-/// staff app has three (no Alerts tab: the header's bell opens the
-/// notifications), the third centred in the right half. Each tab shows
-/// its own unread count as a number.
+/// Four tabs, two each side of the button; each shows its own unread
+/// count as a number.
+///
+/// **Laid out by halves (2026-11-26).** The button sits in a slot of its
+/// own size in the middle, and each half spreads its tabs evenly, each tab
+/// as wide as its label. Equal fifths left a tab 68 wide at the 390 the
+/// phone apps are laid out at, and the faculty app's "Notifications"
+/// needs 79: it now has the room its half has to spare.
 class MobileBottomBar extends StatelessWidget {
   const MobileBottomBar({
     required this.tabs,
@@ -69,6 +73,12 @@ class MobileBottomBar extends StatelessWidget {
   static const double _fabSize = 55;
   static const double _fabRise = 28;
 
+  /// The button's slot in the pill: the button and a margin either side.
+  static const double _fabSlot = _fabSize + 12;
+
+  /// The narrowest a tab's touch area gets, its label shorter or not.
+  static const double _minTabWidth = 52;
+
   @override
   Widget build(BuildContext context) => SafeArea(
     top: false,
@@ -83,36 +93,20 @@ class MobileBottomBar extends StatelessWidget {
           children: [
             Container(
               height: _pillHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
                 color: AppColors.navBar,
                 borderRadius: BorderRadius.circular(_pillHeight / 2),
                 border: Border.all(color: AppColors.accentGold, width: 2),
               ),
-              // Two halves around the button's slot, so the button stays
-              // in the middle whatever the number of tabs.
+              // Two equal halves around the button's slot, so the button
+              // stays in the middle; in each, the tabs spread evenly.
               child: Row(
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: Row(
-                      children: [
-                        for (final tab in tabs.take(_leftCount))
-                          _item(context, tab),
-                      ],
-                    ),
-                  ),
+                  _half(context, tabs.take(_leftCount)),
                   // The raised button's slot.
-                  const Expanded(child: SizedBox()),
-                  Expanded(
-                    flex: 2,
-                    child: Row(
-                      children: [
-                        for (final tab in tabs.skip(_leftCount))
-                          _item(context, tab),
-                      ],
-                    ),
-                  ),
+                  const SizedBox(width: _fabSlot),
+                  _half(context, tabs.skip(_leftCount)),
                 ],
               ),
             ),
@@ -133,6 +127,27 @@ class MobileBottomBar extends StatelessWidget {
   /// The tabs left of the button: the first half, the larger one.
   int get _leftCount => (tabs.length + 1) ~/ 2;
 
+  /// One half of the pill: its tabs spread evenly at their own widths.
+  /// Should they not fit (a font wider than the app's, as in the tests),
+  /// the half is scaled down as a whole rather than overflow or cut a
+  /// label: the row is at least the half's width, so it spreads them when
+  /// there is room, and as wide as the tabs when there is not, and the
+  /// box shrinks only that.
+  Widget _half(BuildContext context, Iterable<MobileTab> tabs) => Expanded(
+    child: LayoutBuilder(
+      builder: (context, constraints) => FittedBox(
+        fit: BoxFit.scaleDown,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [for (final tab in tabs) _item(context, tab)],
+          ),
+        ),
+      ),
+    ),
+  );
+
   Widget _item(BuildContext context, MobileTab tab) {
     final isSelected = tab.path == selected?.path;
     final icon = Icon(
@@ -140,44 +155,53 @@ class MobileBottomBar extends StatelessWidget {
       size: 22,
       color: AppColors.primary,
     );
-    return Expanded(
-      child: Semantics(
-        container: true,
-        button: true,
-        selected: isSelected,
-        label: tab.badge > 0 ? '${tab.label}, ${tab.badge} unread' : tab.label,
-        excludeSemantics: true,
-        child: InkResponse(
-          // Pressed again, the tab's page is read again; from a page
-          // under the tab, it returns to the tab's own page first
-          // (2026-11-25).
-          onTap: () => navigateFromNav(
-            context,
-            location: location,
-            target: tab.path,
-            inModule: isSelected,
-          ),
-          radius: 30,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (tab.badge > 0)
-                Badge(
-                  label: Text(tab.badge > 99 ? '99+' : '${tab.badge}'),
-                  backgroundColor: AppColors.notificationBadge,
-                  textColor: Colors.white,
-                  child: icon,
-                )
-              else
-                icon,
-              Text(
-                tab.label,
-                style: AppTextStyles.navLabel.copyWith(
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+    // As wide as its label: the half spreads the tabs (2026-11-26).
+    return Semantics(
+      container: true,
+      button: true,
+      selected: isSelected,
+      label: tab.badge > 0 ? '${tab.label}, ${tab.badge} unread' : tab.label,
+      excludeSemantics: true,
+      child: InkResponse(
+        key: ValueKey('tab-${tab.path}'),
+        // Pressed again, the tab's page is read again; from a page
+        // under the tab, it returns to the tab's own page first
+        // (2026-11-25).
+        onTap: () => navigateFromNav(
+          context,
+          location: location,
+          target: tab.path,
+          inModule: isSelected,
+        ),
+        radius: 30,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: _minTabWidth),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (tab.badge > 0)
+                  Badge(
+                    label: Text(tab.badge > 99 ? '99+' : '${tab.badge}'),
+                    backgroundColor: AppColors.notificationBadge,
+                    textColor: Colors.white,
+                    child: icon,
+                  )
+                else
+                  icon,
+                Text(
+                  tab.label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                  style: AppTextStyles.navLabel.copyWith(
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

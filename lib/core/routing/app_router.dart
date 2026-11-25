@@ -16,6 +16,7 @@ import '../../features/dashboard/presentation/personnel_home_screen.dart';
 import '../../features/dashboard/presentation/requestor_home_screen.dart';
 import '../../features/facilities/presentation/facilities_screen.dart';
 import '../../features/feedback/presentation/rate_service_screen.dart';
+import '../../features/help/presentation/requestor_help_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/inventory/presentation/personnel/material_request_screen.dart';
 import '../../features/notifications/presentation/admin_notifications_screen.dart';
@@ -33,6 +34,7 @@ import '../../features/work_orders/presentation/task_assignment_screen.dart';
 import '../../features/work_orders/presentation/work_order_detail_screen.dart';
 import '../../features/work_orders/presentation/work_orders_screen.dart';
 import '../../shells/admin/admin_shell.dart';
+import '../../shells/page_refresh.dart';
 import '../../shells/personnel/personnel_shell.dart';
 import '../../shells/requestor/requestor_shell.dart';
 import 'route_guards.dart';
@@ -169,8 +171,12 @@ GoRouter buildAppRouter({
       builder: (context, state) => const SubmitReportScreen(),
     ),
     ShellRoute(
-      builder: (context, state, child) =>
-          RequestorShell(location: state.matchedLocation, child: child),
+      // The router's real path, not the shell's own: a page pushed over a
+      // tab (2026-11-26) must light its own tab.
+      builder: (context, state, child) => RequestorShell(
+        location: currentRoutePath(context, fallback: state.matchedLocation),
+        child: child,
+      ),
       routes: [
         GoRoute(
           path: RoutePaths.staffHome,
@@ -204,14 +210,21 @@ GoRouter buildAppRouter({
           path: RoutePaths.staffProfile,
           builder: (context, state) => const MobileProfileScreen(),
         ),
+        // Opened with `push` from the header, so Back returns.
+        GoRoute(
+          path: RoutePaths.staffHelp,
+          builder: (context, state) => const RequestorHelpScreen(),
+        ),
       ],
     ),
 
     // --- Maintenance Personnel (mobile) — WBS Objective 5 ---
     // Signed in on the mobile app's one sign-in page (staffLogin).
     ShellRoute(
-      builder: (context, state, child) =>
-          PersonnelShell(location: state.matchedLocation, child: child),
+      builder: (context, state, child) => PersonnelShell(
+        location: currentRoutePath(context, fallback: state.matchedLocation),
+        child: child,
+      ),
       routes: [
         GoRoute(
           path: RoutePaths.personnelDashboard,

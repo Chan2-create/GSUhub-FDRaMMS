@@ -5,6 +5,7 @@ import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/qr_codes/domain/personnel_scan_resolver.dart';
+import 'package:gsuhub/shells/mobile/mobile_header.dart';
 
 import '../support/fake_firestore_repositories.dart';
 import '../support/fake_personnel_app.dart';
@@ -59,6 +60,9 @@ void main() {
       expect(currentPath(tester), RoutePaths.personnelMaterials);
       expect(find.text('Materials & Tools'), findsOneWidget);
 
+      // The bell stays in this app's header: Help took its place only in
+      // the faculty one (2026-11-26).
+      expect(find.byKey(MobileHeader.helpKey), findsNothing);
       await tester.tap(find.byTooltip('Notifications'));
       await tester.pumpAndSettle();
       expect(currentPath(tester), RoutePaths.personnelAlerts);

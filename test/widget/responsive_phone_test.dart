@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
+import 'package:gsuhub/shells/mobile/mobile_bottom_bar.dart';
 
 import '../support/app_fonts.dart';
 import '../support/fake_notifications.dart';
@@ -51,6 +53,7 @@ void main() {
       'Rate the service': '/staff/reports/r-2/rate',
       'Notifications': RoutePaths.staffAlerts,
       'Profile': RoutePaths.staffProfile,
+      'Help': RoutePaths.staffHelp,
     };
 
     for (final MapEntry(key: name, value: path) in pages.entries) {
@@ -94,6 +97,88 @@ void main() {
           fillsTheScreen(tester, screen);
         });
       }
+    }
+  });
+
+  /// The bottom bar's [labels], whole and at their own size: none faded
+  /// for want of room, neither half scaled down to fit, none touching
+  /// another, two each side of the + and the + in the middle.
+  void barFits(WidgetTester tester, Size screen, List<String> labels) {
+    final bar = find.byType(MobileBottomBar);
+    for (final fitted in tester.renderObjectList<RenderFittedBox>(
+      find.descendant(of: bar, matching: find.byType(FittedBox)),
+    )) {
+      expect(
+        fitted.child!.size.width,
+        lessThanOrEqualTo(fitted.size.width + 0.01),
+        reason: 'a half of the bar was scaled down',
+      );
+    }
+    final rects = <Rect>[];
+    for (final label in labels) {
+      final text = find.descendant(of: bar, matching: find.text(label));
+      final paragraph = tester.renderObject<RenderParagraph>(text);
+      expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+      expect(
+        paragraph.size.width,
+        closeTo(paragraph.getMaxIntrinsicWidth(double.infinity), 0.5),
+        reason: '$label is cut',
+      );
+      rects.add(tester.getRect(text));
+    }
+    for (var i = 1; i < rects.length; i++) {
+      expect(
+        rects[i].left - rects[i - 1].right,
+        greaterThan(4),
+        reason: '${labels[i - 1]} and ${labels[i]} too close',
+      );
+    }
+    final plus = tester.getRect(
+      // The + is the bar's one tooltip.
+      find.descendant(of: bar, matching: find.byType(Tooltip)),
+    );
+    expect(plus.center.dx, closeTo(screen.width / 2, 0.5));
+    expect(rects[1].right, lessThan(plus.left));
+    expect(rects[2].left, greaterThan(plus.right));
+    expect(rects.first.left, greaterThan(0));
+    expect(rects.last.right, lessThan(screen.width));
+  }
+
+  group('the bottom bar fits its labels (2026-11-26)', () {
+    for (final MapEntry(key: label, value: screen) in screens.entries) {
+      testWidgets('faculty: Home, Reports, +, Notifications, Profile at '
+          '$label', (tester) async {
+        notches(tester);
+        await RequestorHarness(notices: [fakeNotice('n-1'), fakeNotice('n-2')])
+            .pump(tester);
+        tester.view.physicalSize = screen;
+        await tester.pumpAndSettle();
+
+        barFits(tester, screen, const [
+          'Home',
+          'Reports',
+          'Notifications',
+          'Profile',
+        ]);
+      });
+
+      testWidgets('personnel: Home, Tasks, +, Materials, Profile at $label', (
+        tester,
+      ) async {
+        notches(tester);
+        final app = PersonnelHarness();
+        await app.seedJob();
+        await app.pump(tester);
+        tester.view.physicalSize = screen;
+        await tester.pumpAndSettle();
+
+        barFits(tester, screen, const [
+          'Home',
+          'Tasks',
+          'Materials',
+          'Profile',
+        ]);
+      });
     }
   });
 

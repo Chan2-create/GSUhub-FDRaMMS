@@ -5,11 +5,14 @@ import 'package:gsuhub/core/enums/notification_type.dart';
 import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/services/notification_service.dart';
+import 'package:gsuhub/shells/mobile/mobile_header.dart';
+import 'package:gsuhub/shells/mobile/mobile_title_row.dart';
 
 import '../support/fake_notifications.dart';
 import '../support/fake_requestor_app.dart';
 
-/// The Alerts tab (Figma `169:1459`, Objective 3.B), inside the real app.
+/// The Notifications tab (Figma `169:1459`, Objective 3.B; "Alerts" until
+/// 2026-11-26), inside the real app.
 void main() {
   /// Notices from 2 minutes, 45 minutes and two days before [at] (now by
   /// default).
@@ -39,7 +42,7 @@ void main() {
     );
   }
 
-  /// The badge on the Alerts tab, or null when there is none.
+  /// The badge on the Notifications tab, or null when there is none.
   String? badgeText(WidgetTester tester) {
     final badges = find.byType(Badge);
     if (badges.evaluate().isEmpty) return null;
@@ -55,7 +58,10 @@ void main() {
     await withClock(Clock.fixed(noon), () async {
       await withNotices(at: noon).pump(tester, start: RoutePaths.staffAlerts);
 
-      expect(find.text('Notifications'), findsOneWidget);
+      expect(
+        find.widgetWithText(MobileTitleRow, 'Notifications'),
+        findsOneWidget,
+      );
       expect(find.text('Today'), findsOneWidget);
       expect(find.text('Earlier'), findsOneWidget);
       expect(find.text('2 minutes ago'), findsOneWidget);
@@ -89,14 +95,16 @@ void main() {
     );
   });
 
-  testWidgets('Reports counts the unread notices about the reports, live, '
-      'as a number; opening it reads them (2026-11-26)', (tester) async {
+  testWidgets('the Notifications tab counts the unread notices, live, as a '
+      'number; opening it leaves them unread (2026-11-26)', (tester) async {
     final app = withNotices();
     await app.pump(tester);
-    // No Alerts tab any more: the number is on Reports, and on the bell.
-    expect(find.text('Alerts'), findsNothing);
+    // On the tab, and only there: the header has no bell.
+    expect(find.text('Notifications'), findsOneWidget);
+    expect(find.byType(Badge), findsOneWidget);
     expect(badgeText(tester), '2');
-    expect(find.byTooltip('Notifications, 2 unread'), findsOneWidget);
+    expect(find.byTooltip('Notifications, 2 unread'), findsNothing);
+    expect(find.bySemanticsLabel('Notifications, 2 unread'), findsOneWidget);
 
     app.notifications.deliver(
       fakeNotice('n-started', body: 'Work has started on your report.'),
@@ -104,23 +112,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(badgeText(tester), '3');
 
-    await tester.tap(find.text('Reports'));
+    await tester.tap(find.text('Notifications'));
     await tester.pumpAndSettle();
 
-    expect(badgeText(tester), isNull);
+    // Read one by one, or all at once: opening the list hides nothing.
+    expect(currentPath(tester), RoutePaths.staffAlerts);
+    expect(badgeText(tester), '3');
+    expect(app.notifications.markedManyRead, isEmpty);
     expect(
-      app.notifications.markedManyRead.expand((ids) => ids),
-      unorderedEquals(['n-approved', 'n-assigned', 'n-started']),
+      tester
+          .widget<Text>(find.textContaining('was approved'))
+          .style
+          ?.fontWeight,
+      FontWeight.w700,
     );
-    expect(find.byTooltip('Notifications'), findsOneWidget);
   });
 
-  testWidgets('the whole list is a press of the bell away, and Mark all as '
-      'read reads them', (tester) async {
+  testWidgets('Mark all as read reads them, and clears the tab', (
+    tester,
+  ) async {
     final app = withNotices();
     await app.pump(tester);
 
-    await tester.tap(find.byTooltip('Notifications, 2 unread'));
+    await tester.tap(find.text('Notifications'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mark all as read'));
     await tester.pumpAndSettle();
@@ -169,13 +183,15 @@ void main() {
     expect(find.textContaining('was approved'), findsOneWidget);
   });
 
-  testWidgets('the header bell opens Alerts', (tester) async {
+  testWidgets('the header has Help in place of the bell (2026-11-26)', (
+    tester,
+  ) async {
     await withNotices().pump(tester);
 
-    await tester.tap(find.byTooltip('Notifications, 2 unread'));
-    await tester.pumpAndSettle();
-
-    expect(currentPath(tester), RoutePaths.staffAlerts);
+    expect(find.byKey(MobileHeader.helpKey), findsOneWidget);
+    expect(find.byTooltip('Help'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('^Notifications, ')), findsOneWidget);
+    expect(find.byTooltip(RegExp('^Notifications')), findsNothing);
   });
 
   group('permission', () {

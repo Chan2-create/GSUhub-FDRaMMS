@@ -29,7 +29,12 @@ class AdminShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final location = GoRouterState.of(context).matchedLocation;
+    // The router's real path (2026-11-26): a page pushed over a module
+    // must not leave the sidebar on the module beneath it.
+    final location = currentRoutePath(
+      context,
+      fallback: GoRouterState.of(context).matchedLocation,
+    );
     final user = ref.watch(authStateProvider).value;
 
     final unread = user == null

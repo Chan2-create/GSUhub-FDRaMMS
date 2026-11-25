@@ -124,6 +124,7 @@ GSUhub/
 │   │   ├── map_view/             The campus map (on Damage Reports), geo-tag map, pin picker
 │   │   ├── notifications/        notification pages and push
 │   │   ├── feedback/             service ratings
+│   │   ├── help/                 Help for faculty and staff
 │   │   ├── settings/             the Settings page
 │   │   └── audit/                audit trail
 │   └── shells/                   the frame around each app

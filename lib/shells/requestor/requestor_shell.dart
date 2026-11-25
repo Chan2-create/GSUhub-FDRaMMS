@@ -6,7 +6,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/routing/route_paths.dart';
 import '../../core/utils/result.dart';
 import '../../core/widgets/offline_banner.dart';
-import '../../features/notifications/presentation/nav_badges.dart';
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../mobile/mobile_bottom_bar.dart';
 import '../page_refresh.dart';
@@ -37,7 +36,9 @@ class RequestorShell extends ConsumerWidget {
       Success(:final value) => value,
       _ => 0,
     };
-    final badges = badgeCountsOf(unreadNoticesOf(ref), requestorSectionOf);
+    // Every unread notice, on the Notifications tab (2026-11-26): what
+    // the header's bell counted until it made way for Help.
+    final badges = {if (unread > 0) RoutePaths.staffAlerts: unread};
     final page = Scaffold(
       backgroundColor: AppColors.mobilePageBackground,
       // The bar floats over the page, as drawn: pages pad their scrolling
@@ -45,20 +46,20 @@ class RequestorShell extends ConsumerWidget {
       extendBody: true,
       body: Column(
         children: [
-          RequestorHeader(unreadCount: unread),
+          const RequestorHeader(),
           const OfflineBanner(),
           // A container of its own, so the page route's modal barrier
           // does not hide the header and the offline banner above it from
           // screen readers.
+          //
+          // No NavBadgeClearer, unlike the other two (2026-11-26): the
+          // notices are read one by one on Notifications, or all at once
+          // with "Mark all as read", so opening the page does not hide
+          // which ones are new.
           Expanded(
             child: Semantics(
               container: true,
-              child: NavBadgeClearer(
-                location: location,
-                sectionOf: requestorSectionOf,
-                sectionFor: (location) => RequestorTab.of(location)?.path,
-                child: PageRefreshFrame(child: child),
-              ),
+              child: PageRefreshFrame(child: child),
             ),
           ),
         ],
@@ -72,11 +73,9 @@ class RequestorShell extends ConsumerWidget {
     // Tabs are switched with `go`, which leaves nothing beneath them to go
     // back to. Back from another tab's own page returns Home, rather than
     // closing the app from wherever the person happened to be.
-    // The bell's notifications too, since they left the tabs (2026-11-26).
     final isOtherTab =
         location != RoutePaths.staffHome &&
-        (RequestorTab.values.any((tab) => tab.path == location) ||
-            location == RoutePaths.staffAlerts);
+        RequestorTab.values.any((tab) => tab.path == location);
     if (!isOtherTab) return page;
 
     return PopScope(
