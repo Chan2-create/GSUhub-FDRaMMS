@@ -276,16 +276,6 @@ void main() {
       });
     });
 
-    test("the faculty app's notices are all about its reports", () {
-      expect(
-        badgeCountsOf([
-          notice('1', 'damage_reports'),
-          notice('2', 'damage_reports'),
-        ], requestorSectionOf),
-        {RoutePaths.staffMyReports: 2},
-      );
-    });
-
     test('the maintenance app: tasks, materials and tools, and the work', () {
       expect(
         badgeCountsOf([

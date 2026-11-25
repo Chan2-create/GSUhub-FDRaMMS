@@ -22,6 +22,11 @@ import '../support/fake_requestor_app.dart';
 /// A navigation button pressed again (2026-11-25): on its own page it
 /// reads the page again; from a page inside its module it returns to the
 /// module's page; leaving a page with unsaved work asks first.
+///
+/// **From a page opened with `push` (2026-11-26):** a tab always goes to
+/// its page. A pushed page left the shell's location where it was, so
+/// Home, from a report opened on Home, thought it was on Home already and
+/// only read the hidden page again.
 void main() {
   final bar = find.byKey(PageRefreshFrame.barKey);
 
@@ -89,6 +94,18 @@ void main() {
       await tester.tap(item('Work Order Management'));
       await tester.pumpAndSettle();
       expect(currentPath(), RoutePaths.adminWorkOrders);
+    });
+
+    testWidgets('from a page pushed over the Dashboard, Dashboard returns '
+        'to it (2026-11-26)', (tester) async {
+      await pumpConsole(tester, at: RoutePaths.adminDashboard);
+      unawaited(router.push(RoutePaths.adminReportDetailFor('r-1')));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, RoutePaths.adminReportDetailFor('r-1'));
+
+      await tester.tap(item('Dashboard'));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, RoutePaths.adminDashboard);
     });
 
     testWidgets('another module opens as before, without a refresh', (
@@ -279,13 +296,18 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    for (final (label, path) in const [
+    const facultyTabs = [
       ('Home', RoutePaths.staffHome),
       ('Reports', RoutePaths.staffMyReports),
-      // No Alerts tab since 2026-11-26: the header's bell opens them.
+      // Back in the bar since 2026-11-26.
+      ('Notifications', RoutePaths.staffAlerts),
       ('Profile', RoutePaths.staffProfile),
-    ]) {
-      testWidgets(' can be pressed again on its own page', (tester) async {
+    ];
+
+    for (final (label, path) in facultyTabs) {
+      testWidgets('$label can be pressed again on its own page', (
+        tester,
+      ) async {
         await RequestorHarness().pump(tester, start: path);
         await tester.tap(tab(label));
         await tester.pump();
@@ -295,6 +317,78 @@ void main() {
         expect(bar, findsNothing);
       });
     }
+
+    testWidgets('Home, open a recent report, Home: on Home (2026-11-26)', (
+      tester,
+    ) async {
+      await RequestorHarness(reports: [fakeMyReport('rep-1')]).pump(tester);
+      expect(currentPath(tester), RoutePaths.staffHome);
+
+      // The recent row shows where, not the title.
+      await tester.tap(find.text('Science Building, Laboratory 1'));
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.staffReportDetailFor('rep-1'));
+      expect(find.text('Report Details'), findsOneWidget);
+
+      await tester.tap(tab('Home'));
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.staffHome);
+      expect(find.text('Report Details'), findsNothing);
+      expect(find.text('Recent Reports'), findsOneWidget);
+    });
+
+    for (final (label, path) in facultyTabs) {
+      testWidgets('from a report opened on Home, $label goes to its page', (
+        tester,
+      ) async {
+        await RequestorHarness(reports: [fakeMyReport('rep-1')]).pump(tester);
+        await tester.tap(find.text('Science Building, Laboratory 1'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(tab(label));
+        await tester.pumpAndSettle();
+        expect(currentPath(tester), path);
+        expect(find.text('Report Details'), findsNothing);
+      });
+    }
+
+    testWidgets('a report opened on Home lights Reports, where it belongs', (
+      tester,
+    ) async {
+      await RequestorHarness(reports: [fakeMyReport('rep-1')]).pump(tester);
+      bool selected(String label) => tester
+          .widget<Semantics>(
+            find
+                .ancestor(
+                  of: tab(label),
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is Semantics &&
+                        widget.properties.selected != null,
+                  ),
+                )
+                .first,
+          )
+          .properties
+          .selected!;
+      expect(selected('Home'), isTrue);
+
+      await tester.tap(find.text('Science Building, Laboratory 1'));
+      await tester.pumpAndSettle();
+      expect(selected('Reports'), isTrue);
+      expect(selected('Home'), isFalse);
+    });
+
+    testWidgets('from Help, Home goes Home', (tester) async {
+      await RequestorHarness().pump(tester, start: RoutePaths.staffProfile);
+      await tester.tap(find.byTooltip('Help'));
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.staffHelp);
+
+      await tester.tap(tab('Home'));
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.staffHome);
+    });
 
     testWidgets('a rating begun asks before another tab opens', (tester) async {
       await RequestorHarness(
@@ -383,6 +477,43 @@ void main() {
       await tester.pumpAndSettle();
       expect(currentPath(tester), RoutePaths.personnelTasks);
     });
+
+    testWidgets('Home, open a work order, Home: on Home (2026-11-26)', (
+      tester,
+    ) async {
+      final app = PersonnelHarness();
+      await app.seedJob();
+      await app.pump(tester);
+      expect(currentPath(tester), RoutePaths.personnelDashboard);
+
+      await tester.tap(find.text('Flickering lights').first);
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.personnelWorkOrderFor('wo-1'));
+
+      await tester.tap(tab('Home'));
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.personnelDashboard);
+      expect(find.text('Start work'), findsNothing);
+    });
+
+    for (final (label, path) in const [
+      ('Tasks', RoutePaths.personnelTasks),
+      ('Materials', RoutePaths.personnelMaterials),
+      ('Profile', RoutePaths.personnelProfile),
+    ]) {
+      testWidgets('from a work order opened on Home, $label goes to its '
+          'page', (tester) async {
+        final app = PersonnelHarness();
+        await app.seedJob();
+        await app.pump(tester);
+        await tester.tap(find.text('Flickering lights').first);
+        await tester.pumpAndSettle();
+
+        await tester.tap(tab(label));
+        await tester.pumpAndSettle();
+        expect(currentPath(tester), path);
+      });
+    }
 
     testWidgets('completion notes begun ask before another tab opens', (
       tester,

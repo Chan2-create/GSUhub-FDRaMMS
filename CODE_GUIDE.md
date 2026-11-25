@@ -70,6 +70,7 @@ Database              supabase/migrations/                      tables, access r
 | Campus map (on Damage Reports) and geo-tagging | [`lib/features/map_view/`](lib/features/map_view/) | [`report_map_panel.dart`](lib/features/map_view/presentation/report_map_panel.dart) |
 | Notifications | [`lib/features/notifications/`](lib/features/notifications/) | [`admin_notifications_screen.dart`](lib/features/notifications/presentation/admin_notifications_screen.dart), [`mobile_alerts_screen.dart`](lib/features/notifications/presentation/mobile_alerts_screen.dart) |
 | Feedback and ratings | [`lib/features/feedback/`](lib/features/feedback/) | [`rate_service_screen.dart`](lib/features/feedback/presentation/rate_service_screen.dart) |
+| Help for faculty and staff | [`lib/features/help/`](lib/features/help/) | [`requestor_help_screen.dart`](lib/features/help/presentation/requestor_help_screen.dart) |
 | Settings | [`lib/features/settings/`](lib/features/settings/) | [`settings_screen.dart`](lib/features/settings/presentation/settings_screen.dart) |
 | Audit trail | [`lib/features/audit/`](lib/features/audit/) | [`audit_log_repository_impl.dart`](lib/features/audit/data/repositories/audit_log_repository_impl.dart) |
 | Shared components | [`lib/core/widgets/`](lib/core/widgets/) | see [Shared code](#shared-code) |
@@ -225,11 +226,17 @@ rooms and equipment) and is unique; see
 | What | Where |
 |---|---|
 | Notifications page (admin), opened from the header's bell | [`admin_notifications_screen.dart`](lib/features/notifications/presentation/admin_notifications_screen.dart) |
-| Numbered badges on every navigation item, cleared as the section opens | [`nav_badges.dart`](lib/features/notifications/presentation/nav_badges.dart) |
-| Notifications (both phone apps), opened from the header's bell | [`mobile_alerts_screen.dart`](lib/features/notifications/presentation/mobile_alerts_screen.dart) |
+| Numbered badges on every navigation item, cleared as the section opens (the faculty app: all unread on Notifications, read there) | [`nav_badges.dart`](lib/features/notifications/presentation/nav_badges.dart), [`requestor_shell.dart`](lib/shells/requestor/requestor_shell.dart) |
+| Notifications (both phone apps): the faculty app's Notifications tab, the maintenance app's bell | [`mobile_alerts_screen.dart`](lib/features/notifications/presentation/mobile_alerts_screen.dart) |
 | Push notifications on the phone | [`push_coordinator.dart`](lib/features/notifications/presentation/push_coordinator.dart), [`fcm_notification_service.dart`](lib/core/services/firebase/fcm_notification_service.dart) |
 | The wording of each notice | [`report_notice.dart`](lib/features/notifications/data/models/report_notice.dart) (faculty and staff), [`personnel_notice.dart`](lib/features/notifications/data/models/personnel_notice.dart) (maintenance) |
 | Database (notices are written by the database as records change) | `app.notify` in [`20261016145419_server_helpers.sql`](supabase/migrations/20261016145419_server_helpers.sql); the administrator's notices in [`20261020111840_admin_notifications.sql`](supabase/migrations/20261020111840_admin_notifications.sql) |
+
+### Help
+
+| What | Where |
+|---|---|
+| Help for faculty and staff (sending a report, the statuses, scanning a QR code, contacting GSU), opened from the header's question mark at `/staff/help` | [`requestor_help_screen.dart`](lib/features/help/presentation/requestor_help_screen.dart) |
 
 ### Feedback and ratings
 
@@ -319,9 +326,10 @@ Reports page
 |---|---|
 | Admin console frame: sidebar, header, gold rule | [`lib/shells/admin/admin_shell.dart`](lib/shells/admin/admin_shell.dart), [`widgets/admin_sidebar.dart`](lib/shells/admin/widgets/admin_sidebar.dart), [`widgets/admin_top_bar.dart`](lib/shells/admin/widgets/admin_top_bar.dart), [`widgets/admin_nav_items.dart`](lib/shells/admin/widgets/admin_nav_items.dart) (the sidebar's items) |
 | Header account menu (My Profile, Logout) | [`widgets/admin_profile_menu.dart`](lib/shells/admin/widgets/admin_profile_menu.dart) |
-| Faculty and staff app frame and its three tabs | [`lib/shells/requestor/`](lib/shells/requestor/) |
+| Faculty and staff app frame and its four tabs (Home, Reports, Notifications, Profile) | [`lib/shells/requestor/`](lib/shells/requestor/) |
 | Maintenance app frame and its four tabs | [`lib/shells/personnel/personnel_shell.dart`](lib/shells/personnel/personnel_shell.dart) |
-| Pieces both phone apps share: header, bottom bar, title row | [`lib/shells/mobile/`](lib/shells/mobile/) |
+| Pieces both phone apps share: header (bell, or Help in the faculty app), bottom bar, title row | [`lib/shells/mobile/`](lib/shells/mobile/) |
+| A navigation button pressed: goes to its page, from a pushed page too, or reads it again (§45, §48) | [`lib/shells/page_refresh.dart`](lib/shells/page_refresh.dart) (`navigateFromNav`, `currentRoutePath`) |
 | Screen size: the console at 90%, the phone apps fitted to small phones | [`lib/shells/app_viewport.dart`](lib/shells/app_viewport.dart) |
 
 ### Shared widgets ([`lib/core/widgets/`](lib/core/widgets/))
@@ -361,7 +369,7 @@ decides who may open it.
 
 | Admin console | Faculty and staff app | Maintenance app |
 |---|---|---|
-| `/admin/login`, `/admin/dashboard`, `/admin/reports`, `/admin/reports/:id`, `/admin/task-assignment`, `/admin/work-orders`, `/admin/work-orders/:id`, `/admin/map` (redirects to `/admin/reports`), `/admin/inventory`, `/admin/facilities`, `/admin/personnel`, `/admin/analytics`, `/admin/users`, `/admin/notifications`, `/admin/settings`, `/admin/profile` | `/staff/login`, `/staff/signup`, `/staff/home`, `/staff/submit`, `/staff/reports`, `/staff/reports/:id`, `/staff/reports/:id/rate`, `/staff/alerts`, `/staff/profile` | `/personnel/dashboard`, `/personnel/tasks`, `/personnel/work-orders`, `/personnel/work-orders/:id`, `/personnel/work-orders/:id/materials`, `/personnel/materials`, `/personnel/scan`, `/personnel/alerts`, `/personnel/profile` |
+| `/admin/login`, `/admin/dashboard`, `/admin/reports`, `/admin/reports/:id`, `/admin/task-assignment`, `/admin/work-orders`, `/admin/work-orders/:id`, `/admin/map` (redirects to `/admin/reports`), `/admin/inventory`, `/admin/facilities`, `/admin/personnel`, `/admin/analytics`, `/admin/users`, `/admin/notifications`, `/admin/settings`, `/admin/profile` | `/staff/login`, `/staff/signup`, `/staff/home`, `/staff/submit`, `/staff/reports`, `/staff/reports/:id`, `/staff/reports/:id/rate`, `/staff/alerts`, `/staff/profile`, `/staff/help` | `/personnel/dashboard`, `/personnel/tasks`, `/personnel/work-orders`, `/personnel/work-orders/:id`, `/personnel/work-orders/:id/materials`, `/personnel/materials`, `/personnel/scan`, `/personnel/alerts`, `/personnel/profile` |
 
 ### Starting the app
 

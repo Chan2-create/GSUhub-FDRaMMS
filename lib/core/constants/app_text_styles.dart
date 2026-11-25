@@ -1204,15 +1204,6 @@ abstract final class AppTextStyles {
     height: 17 / 15,
   );
 
-  /// "Submit Damage Report", "My Reports" on the two tiles.
-  static const TextStyle homeTile = TextStyle(
-    fontFamily: _display,
-    fontSize: 15,
-    fontWeight: FontWeight.w600,
-    color: Colors.white,
-    height: 20 / 15,
-  );
-
   /// "Reports Overview".
   static const TextStyle bannerTitle = TextStyle(
     fontFamily: _display,
@@ -1237,15 +1228,6 @@ abstract final class AppTextStyles {
     fontSize: 15,
     fontWeight: FontWeight.w600,
     color: AppColors.homeSectionTitle,
-    height: 17 / 15,
-  );
-
-  /// "View All".
-  static const TextStyle homeViewAll = TextStyle(
-    fontFamily: _display,
-    fontSize: 15,
-    fontWeight: FontWeight.w600,
-    color: AppColors.accentGold,
     height: 17 / 15,
   );
 

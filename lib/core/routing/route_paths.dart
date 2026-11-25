@@ -119,6 +119,10 @@ abstract final class RoutePaths {
   /// sign-out.
   static const String staffProfile = '/staff/profile';
 
+  /// Help for faculty and staff (2026-11-26): opened from the header's
+  /// question mark, in place of the bell.
+  static const String staffHelp = '/staff/help';
+
   /// Rating the service on one of the requestor's completed reports
   /// (Objective 3.C, Figma `169:1797`). Rating closes the report.
   static const String staffRateReport = '/staff/reports/:reportId/rate';

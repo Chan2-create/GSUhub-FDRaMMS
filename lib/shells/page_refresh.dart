@@ -13,6 +13,19 @@ import '../features/damage_reports/presentation/report_review_controller.dart';
 import '../features/dashboard/presentation/dashboard_providers.dart';
 import '../features/user_management/presentation/profile_providers.dart';
 
+/// Where the app really is: the router's current path, a page pushed over
+/// a tab included (2026-11-26). A shell's own [GoRouterState] names the
+/// route it was reached by, so with a report's details pushed over Home
+/// it still says Home: the bar then lit Home, and Home pressed there
+/// refreshed Home's hidden page instead of going back to it. [fallback]
+/// is used when there is no router above [context] (a widget test that
+/// builds a shell on its own).
+String currentRoutePath(BuildContext context, {required String fallback}) {
+  final router = GoRouter.maybeOf(context);
+  if (router == null) return fallback;
+  return router.state.uri.path;
+}
+
 /// A navigation button pressed (2026-11-25): the console's sidebar, the
 /// phone apps' bottom bar.
 ///
@@ -30,7 +43,10 @@ import '../features/user_management/presentation/profile_providers.dart';
 ///
 /// [location] is the path shown now, without its query; [target] the
 /// button's path; [inModule] whether [location] belongs to the button's
-/// module.
+/// module. The router's own current path is what decides whether the page
+/// is left, whatever [location] says: from a page pushed over the
+/// button's page (a recent report opened from Home), the button goes back
+/// to its page, popping what was pushed (2026-11-26).
 Future<void> navigateFromNav(
   BuildContext context, {
   required String location,
@@ -39,7 +55,8 @@ Future<void> navigateFromNav(
 }) async {
   final container = ProviderScope.containerOf(context, listen: false);
   final router = GoRouter.of(context);
-  if (location != target) {
+  final here = router.state.uri.path;
+  if (here != target) {
     if (!await confirmLeavingUnsavedWork(context)) return;
     router.go(target);
     if (!inModule) return;

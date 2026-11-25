@@ -3239,7 +3239,9 @@ Utility" in place of the department.
 - *Clearing.* Opening a section, or any page under it, reads its notices
   (`NavBadgeClearer`, through the new `mark_notifications_read`, which
   touches the caller's own notices only).
-- *The full list.* The bell in each header stays the way to the whole
+- *The full list.* (The faculty app's part was reversed the same day,
+  §48: Notifications is a tab again, and the header has Help.) The bell
+  in each header stays the way to the whole
   list, now with a number too. The faculty app lost its Alerts tab;
   `MobileBottomBar` now takes three tabs as well as four, with the
   button kept in the middle. Back from the notifications returns Home in
@@ -3364,3 +3366,79 @@ Keep separate are unchanged.
   Personnel" card, and the notices and refusals the database writes.
 - *What did not change.* The stored role values, and the trade names of
   Table 3.3 (such as "Structural Maintenance Personnel").
+
+## 48. The faculty app's bar balanced again, Help in the header, a lighter Home, and tabs that work from any page (2026-11-26)
+
+The brief, for the faculty and staff app: put Notifications back in the
+bar (Home, Reports, +, Notifications, Profile) with its unread count;
+replace the header's bell with a help button that opens a Help page;
+take the two quick-action tiles and View All off Home; and fix the Home
+button doing nothing after a recent report was opened.
+
+**The bug.** A recent report opens with `context.push`. Inside a
+`ShellRoute`, a pushed page leaves the shell's `state.matchedLocation`
+where it was (`/staff/home`), and `routerDelegate.currentConfiguration`
+says the same. `navigateFromNav` compared that location with the tab's
+page, found them equal, and only read the hidden Home page again: the
+report stayed on screen. Only `GoRouter.state` (the topmost page) knows
+about the pushed page. Now:
+
+- `navigateFromNav` reads `router.state.uri.path`, so a tab from a
+  pushed page goes to the tab's page (`go`), asking first about unsaved
+  work as before;
+- the three shells take their location from it too (`currentRoutePath`
+  in `lib/shells/page_refresh.dart`), so the highlighted tab or sidebar
+  item is the page actually on screen. A report opened on Home now
+  lights Reports, where reports belong, and Help lights none.
+
+The same fix covers the maintenance app (a work order opened from Home)
+and the console (its pages open with `go`, but anything pushed is
+covered). Tests: Home, open a recent report, Home: on Home (and the same
+for every tab); Home, open a work order, Home; a page pushed over the
+console's Dashboard, then Dashboard. The faculty test fails without the
+fix.
+
+**The bar.** `MobileBottomBar` lays its tabs out in two equal halves
+around the button's slot, each tab as wide as its label (at least 52),
+spread evenly in its half. Equal fifths gave each tab 68 at the 390 the
+phone apps are laid out at, and "Notifications" needs 79. At 390 the
+labels sit about 20 apart on the left and 9 on the right, the + in the
+middle; narrower phones scale the whole app down (`AppViewport`), so
+360 and 320 look the same, smaller. Should a label ever not fit (a font
+wider than the app's, as in the tests), its half is scaled down as a
+whole rather than overflow or cut a label. The maintenance app's bar is
+the same widget and keeps its four tabs.
+
+**The count.** The Notifications tab shows every unread notice, as a
+number (what the bell showed). Opening it reads none of them: the list
+shows which are new in bold, and they are read one by one or with Mark
+all as read. So the faculty shell has no `NavBadgeClearer`, and
+`requestorSectionOf` is gone; the console and the maintenance app keep
+their per-section counts. The count is not on Reports as well.
+
+**Help.** `MobileHeader.help` draws a question mark
+(`Icons.help_outline_rounded`, "Help") where the bell was; the
+maintenance app keeps the bell (`MobileHeader`'s default constructor).
+It pushes `/staff/help` (`RequestorHelpScreen`), inside the faculty
+shell so the bar stays, with four sections in the app's own words:
+sending a report (the gold +, building and room or a QR code, title,
+type or "Not sure", urgency, description, 1 to 5 photos, GPS, Submit
+Report), the statuses (Pending, Under Review, Approved, Scheduled,
+Assigned, In Progress, Completed, Rejected, with the chips' colours, and
+a note that the list shows Approved and Assigned as In Progress),
+scanning a QR code (the button at the top right of the report form, the
+torch), and contacting GSU. **The GSU office's phone number and email
+are not in the app**: none were given, and none were made up. The page
+names the GSU Administrator's Office, as the app's other messages do,
+and says to report anything dangerous in person too. Add the details
+in `requestor_help_screen.dart` once GSU supplies them.
+
+**Home.** The greeting, the reports overview and the three most recent
+reports, 16 apart. The tiles and View All repeated the bar's + and
+Reports.
+
+Tests: `widget/nav_reselect_test.dart`, `widget/alerts_test.dart`,
+`widget/requestor_app_test.dart`, `widget/personnel_app_test.dart`,
+`widget/responsive_phone_test.dart` (the bar at every phone size, both
+apps, with the real fonts: no label faded or cut, no half scaled, none
+touching, the + centred; Help fits).

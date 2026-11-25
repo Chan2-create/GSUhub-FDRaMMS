@@ -10,10 +10,13 @@ import '../data/models/app_notification.dart';
 import 'notification_providers.dart';
 
 // The navigation's numbered badges (2026-11-26, the adviser's
-// consultation). Each item of the console's sidebar and the phones' bottom
-// bars counts the unread notices about its section, as a number; opening
-// the section reads them, which clears it. The whole list stays a press
-// of the header's bell away.
+// consultation). Each item of the console's sidebar and the maintenance
+// app's bottom bar counts the unread notices about its section, as a
+// number; opening the section reads them, which clears it. The whole list
+// stays a press of the header's bell away.
+//
+// The faculty and staff app has no sections to sort them into: its
+// Notifications tab counts them all, and they are read there (the shell).
 
 /// Which navigation section a notice belongs to, by the path of the item
 /// that opens it; null for one no item shows.
@@ -34,13 +37,6 @@ String? adminSectionOf(AppNotification notice) =>
       'users' => RoutePaths.adminUsers,
       _ => notice.type.isAboutTools ? RoutePaths.adminInventory : null,
     };
-
-/// The faculty and staff app: every notice is about one of their reports,
-/// which the Reports tab holds.
-String? requestorSectionOf(AppNotification notice) =>
-    notice.relatedEntityType == 'damage_reports'
-    ? RoutePaths.staffMyReports
-    : null;
 
 /// The maintenance app: tasks to Tasks; tools, and GSU's answers to a
 /// material request ("Materials approved", "Materials request declined",
