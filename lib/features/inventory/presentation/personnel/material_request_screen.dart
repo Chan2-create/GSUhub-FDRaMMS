@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/di/repository_providers.dart';
 import '../../../../core/enums/material_request_status.dart';
+import '../../../../core/navigation/unsaved_work.dart';
 import '../../../../core/routing/route_paths.dart';
 import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/quantity_format.dart';
@@ -42,9 +43,14 @@ class MaterialRequestScreen extends ConsumerStatefulWidget {
       _MaterialRequestScreenState();
 }
 
-class _MaterialRequestScreenState extends ConsumerState<MaterialRequestScreen> {
+class _MaterialRequestScreenState extends ConsumerState<MaterialRequestScreen>
+    with GuardsUnsavedWork {
   final _needed = <MaterialLine>[];
   final _note = TextEditingController();
+
+  /// Materials listed or a note typed, not yet sent (2026-11-25).
+  @override
+  bool get hasUnsavedWork => _needed.isNotEmpty || _note.text.trim().isNotEmpty;
   String? _requestId;
   bool _busy = false;
 

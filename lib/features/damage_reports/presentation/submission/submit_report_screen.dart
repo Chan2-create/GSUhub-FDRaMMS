@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -6,6 +8,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/constants/damage_categories.dart';
 import '../../../../core/enums/priority_level.dart';
+import '../../../../core/navigation/unsaved_work.dart';
 import '../../../../core/services/photo_picker_service.dart';
 import '../../../../core/utils/display_id.dart';
 import '../../../../core/utils/result.dart';
@@ -35,7 +38,8 @@ class SubmitReportScreen extends ConsumerStatefulWidget {
   ConsumerState<SubmitReportScreen> createState() => _SubmitReportScreenState();
 }
 
-class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> {
+class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen>
+    with GuardsUnsavedWork {
   final _title = TextEditingController();
   final _description = TextEditingController();
   final _scroll = ScrollController();
@@ -50,6 +54,28 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> {
 
   ReportFormController get _form =>
       ref.read(reportFormControllerProvider.notifier);
+
+  /// A report begun and not sent (2026-11-25): anything typed, chosen or
+  /// photographed. The location is not counted: it fills itself in.
+  @override
+  bool get hasUnsavedWork => _begun(ref.read(reportFormControllerProvider));
+
+  static bool _begun(ReportFormState form) =>
+      form.phase is! SubmissionDone &&
+      (form.title.trim().isNotEmpty ||
+          form.description.trim().isNotEmpty ||
+          form.damageType != null ||
+          form.urgency != null ||
+          form.building != null ||
+          form.facility != null ||
+          form.photos.isNotEmpty);
+
+  /// Back on a report begun: asked first, so it is not lost by a slip of
+  /// the thumb (2026-11-25).
+  Future<void> _leave() async {
+    final navigator = Navigator.of(context);
+    if (await confirmLeavingUnsavedWork(context)) navigator.pop();
+  }
 
   void _say(String message) => ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -127,8 +153,16 @@ class _SubmitReportScreenState extends ConsumerState<SubmitReportScreen> {
     final enabled = !form.isLocked;
 
     return PopScope(
-      // Leaving mid-upload would abandon photos already sent.
-      canPop: !form.phase.isBusy,
+      // Leaving mid-upload would abandon photos already sent; leaving a
+      // report begun asks first. Opened with nothing beneath, Back leaves
+      // the app as before.
+      canPop:
+          !form.phase.isBusy &&
+          (!_begun(form) || !Navigator.of(context).canPop()),
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || form.phase.isBusy) return;
+        unawaited(_leave());
+      },
       child: Scaffold(
         backgroundColor: AppColors.mobilePageBackground,
         body: Column(

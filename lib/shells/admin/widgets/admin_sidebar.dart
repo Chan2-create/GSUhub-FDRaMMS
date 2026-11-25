@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/services/auth_service.dart';
+import '../../page_refresh.dart';
 import 'admin_nav_items.dart';
 
 /// Persistent admin navigation rail (Figma node `196:534`).
@@ -14,6 +14,11 @@ import 'admin_nav_items.dart';
 /// (Breakpoints.expanded), [rail] draws the same items as icons with
 /// their names in tooltips; on a phone the shell puts the full panel in
 /// a drawer.
+///
+/// **2026-11-25:** the active item can be pressed again: from a page
+/// inside its module (a report's details) it returns to the module's own
+/// page, and on that page it reads the page's data again
+/// ([navigateFromNav]).
 class AdminSidebar extends StatelessWidget {
   const AdminSidebar({
     required this.currentLocation,
@@ -77,6 +82,7 @@ class AdminSidebar extends StatelessWidget {
                     for (final item in group.items)
                       _NavTile(
                         item: item,
+                        location: currentLocation,
                         isActive: currentLocation.startsWith(item.path),
                         badge: badges[item.path] ?? 0,
                         rail: rail,
@@ -97,12 +103,16 @@ class AdminSidebar extends StatelessWidget {
 class _NavTile extends StatelessWidget {
   const _NavTile({
     required this.item,
+    required this.location,
     required this.isActive,
     this.badge = 0,
     this.rail = false,
   });
 
   final AdminNavItem item;
+
+  /// The path shown now.
+  final String location;
   final bool isActive;
 
   /// Above zero, a red count after the label.
@@ -122,7 +132,7 @@ class _NavTile extends StatelessWidget {
       enabled: item.isEnabled,
       label: badge > 0 ? '${item.label}, $badge low on stock' : null,
       child: InkWell(
-        onTap: item.isEnabled && !isActive ? () => _go(context) : null,
+        onTap: item.isEnabled ? () => _go(context) : null,
         child: Container(
           height: 45,
           decoration: isActive
@@ -187,10 +197,17 @@ class _NavTile extends StatelessWidget {
     );
   }
 
-  /// In the drawer, the panel closes as the page changes.
-  void _go(BuildContext context) {
-    Scaffold.maybeOf(context)?.closeDrawer();
-    context.go(item.path);
+  /// In the drawer, the panel closes as the page changes. Pressed again
+  /// on its own module, the page is read again (2026-11-25).
+  Future<void> _go(BuildContext context) async {
+    final drawer = Scaffold.maybeOf(context);
+    await navigateFromNav(
+      context,
+      location: location,
+      target: item.path,
+      inModule: isActive,
+    );
+    drawer?.closeDrawer();
   }
 
   /// The rail's tile: the icon in the gold pill, the name in a tooltip,
@@ -203,7 +220,7 @@ class _NavTile extends StatelessWidget {
       label: badge > 0 ? '${item.label}, $badge low on stock' : item.label,
       excludeSemantics: true,
       child: InkWell(
-        onTap: item.isEnabled && !isActive ? () => _go(context) : null,
+        onTap: item.isEnabled ? () => _go(context) : null,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           height: 45,

@@ -10,6 +10,7 @@ import '../../../core/enums/account_status.dart';
 import '../../../core/enums/personnel_availability.dart';
 import '../../../core/enums/task_status.dart';
 import '../../../core/enums/work_order_status.dart';
+import '../../../core/navigation/unsaved_work.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
 import '../../../core/utils/result.dart';
@@ -430,11 +431,16 @@ class _NoteCard extends ConsumerStatefulWidget {
   ConsumerState<_NoteCard> createState() => _NoteCardState();
 }
 
-class _NoteCardState extends ConsumerState<_NoteCard> {
+class _NoteCardState extends ConsumerState<_NoteCard> with GuardsUnsavedWork {
   late final _note = TextEditingController(
     text: widget.workOrder.adminNotes ?? '',
   );
   bool _busy = false;
+
+  /// A note edited and not saved (2026-11-25).
+  @override
+  bool get hasUnsavedWork =>
+      _note.text.trim() != (widget.workOrder.adminNotes ?? '').trim();
 
   @override
   void didUpdateWidget(covariant _NoteCard oldWidget) {
@@ -613,9 +619,15 @@ class _AddTaskForm extends ConsumerStatefulWidget {
   ConsumerState<_AddTaskForm> createState() => _AddTaskFormState();
 }
 
-class _AddTaskFormState extends ConsumerState<_AddTaskForm> {
+class _AddTaskFormState extends ConsumerState<_AddTaskForm>
+    with GuardsUnsavedWork {
   final _title = TextEditingController();
   final _description = TextEditingController();
+
+  /// A task begun and not added (2026-11-25).
+  @override
+  bool get hasUnsavedWork =>
+      _title.text.trim().isNotEmpty || _description.text.trim().isNotEmpty;
   DateTime _due = DateTime.now();
   bool _busy = false;
 

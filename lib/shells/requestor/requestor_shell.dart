@@ -8,6 +8,7 @@ import '../../core/utils/result.dart';
 import '../../core/widgets/offline_banner.dart';
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../mobile/mobile_bottom_bar.dart';
+import '../page_refresh.dart';
 import 'requestor_bottom_bar.dart';
 import 'requestor_header.dart';
 
@@ -47,7 +48,12 @@ class RequestorShell extends ConsumerWidget {
           // A container of its own, so the page route's modal barrier
           // does not hide the header and the offline banner above it from
           // screen readers.
-          Expanded(child: Semantics(container: true, child: child)),
+          Expanded(
+            child: Semantics(
+              container: true,
+              child: PageRefreshFrame(child: child),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: RequestorBottomBar(

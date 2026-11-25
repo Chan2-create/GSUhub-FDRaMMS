@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/breakpoints.dart';
+import '../../../core/navigation/unsaved_work.dart';
 import '../../../core/widgets/console_tabs.dart';
 import '../../../core/widgets/page_header.dart';
 import '../../classification/presentation/keyword_settings_section.dart';
@@ -50,9 +51,15 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with GuardsUnsavedWork {
   SettingsTab _open = SettingsTab.keywords;
   final Set<SettingsTab> _unsaved = {};
+
+  /// Any tab with edits not saved: asked about before the sidebar leaves
+  /// the page (2026-11-25).
+  @override
+  bool get hasUnsavedWork => _unsaved.isNotEmpty;
 
   void _report(SettingsTab tab, {required bool unsaved}) {
     if (_unsaved.contains(tab) == unsaved) return;

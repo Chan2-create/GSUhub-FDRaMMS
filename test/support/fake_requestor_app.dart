@@ -31,6 +31,7 @@ import 'package:gsuhub/features/user_management/data/repositories/user_repositor
 import 'fake_config_repository.dart';
 import 'fake_departments.dart';
 import 'fake_feedback.dart';
+import 'fake_live_sync.dart';
 import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
 import 'fake_session.dart';
@@ -439,6 +440,9 @@ class RequestorHarness {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          // The real LiveSync, over a channel that needs no server (2026-11-25).
+          changeChannelOpenerProvider.overrideWithValue(openFakeChangeChannel),
+          signedInCheckProvider.overrideWithValue(() => true),
           appConfigProvider.overrideWithValue(testAppConfig()),
           startLocationProvider.overrideWithValue(start),
           authServiceProvider.overrideWithValue(auth),

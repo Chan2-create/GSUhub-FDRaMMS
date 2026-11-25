@@ -18,6 +18,7 @@ import 'package:gsuhub/features/qr_codes/presentation/qr_scanner_screen.dart';
 import 'fake_admin_backend.dart' show FakeFileDownloadService;
 import 'fake_config_repository.dart';
 import 'fake_firestore_repositories.dart';
+import 'fake_live_sync.dart';
 import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
 import 'fake_requestor_app.dart';
@@ -118,6 +119,9 @@ class PersonnelHarness {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          // The real LiveSync, over a channel that needs no server (2026-11-25).
+          changeChannelOpenerProvider.overrideWithValue(openFakeChangeChannel),
+          signedInCheckProvider.overrideWithValue(() => true),
           appConfigProvider.overrideWithValue(testAppConfig()),
           startLocationProvider.overrideWithValue(start),
           authServiceProvider.overrideWithValue(auth),

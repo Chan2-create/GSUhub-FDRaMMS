@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../core/widgets/press_scale.dart';
+import '../page_refresh.dart';
 
 /// One tab of [MobileBottomBar].
 class MobileTab {
@@ -120,7 +120,15 @@ class MobileBottomBar extends StatelessWidget {
         label: tab.badge > 0 ? '${tab.label}, ${tab.badge} unread' : tab.label,
         excludeSemantics: true,
         child: InkResponse(
-          onTap: location == tab.path ? null : () => context.go(tab.path),
+          // Pressed again, the tab's page is read again; from a page
+          // under the tab, it returns to the tab's own page first
+          // (2026-11-25).
+          onTap: () => navigateFromNav(
+            context,
+            location: location,
+            target: tab.path,
+            inModule: isSelected,
+          ),
           radius: 30,
           child: Column(
             mainAxisSize: MainAxisSize.min,
