@@ -34,6 +34,7 @@ import 'package:gsuhub/features/work_orders/data/repositories/work_order_reposit
 
 import 'fake_config_repository.dart';
 import 'fake_departments.dart';
+import 'fake_holidays.dart';
 import 'fake_live_sync.dart';
 import 'fake_requestor_app.dart' show FakeConnectivityService;
 import 'fake_session.dart';
@@ -82,6 +83,7 @@ ProviderScope fakeAdminScope({
   FakeFileDownloadService? downloads,
   FakeSessionRepository? sessions,
   FakeDepartmentRepository? departments,
+  FakeHolidayRepository? holidays,
   // A monitor with a clock the test controls, for the session's expiry.
   InactivityMonitor? monitor,
   bool useEmulator = false,
@@ -99,6 +101,11 @@ ProviderScope fakeAdminScope({
     departmentRepositoryProvider.overrideWithValue(
       departments ??
           FakeDepartmentRepository(FakeDepartmentRepository.sample()),
+    ),
+    // None by default: only Saturdays and Sundays are left out of the
+    // date pickers (2026-11-26).
+    holidayRepositoryProvider.overrideWithValue(
+      holidays ?? FakeHolidayRepository(),
     ),
     if (monitor != null) inactivityMonitorProvider.overrideWithValue(monitor),
     appConfigProvider.overrideWithValue(

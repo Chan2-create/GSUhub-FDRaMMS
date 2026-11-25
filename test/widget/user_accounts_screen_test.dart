@@ -84,8 +84,8 @@ void main() {
     await pump(tester);
 
     expect(find.text('Maria Santos'), findsOneWidget);
-    expect(find.text('END USER'), findsOneWidget);
-    expect(find.text('MAINTENANCE'), findsNWidgets(2));
+    expect(find.text('FACULTY'), findsOneWidget);
+    expect(find.text('UTILITY'), findsNWidgets(2));
     expect(find.text('ADMINISTRATOR'), findsOneWidget);
     expect(find.text('INACTIVE'), findsOneWidget);
     expect(find.text('ACTIVE'), findsNWidgets(3));
@@ -99,13 +99,13 @@ void main() {
   ) async {
     await pump(tester);
 
-    await tester.tap(find.text('End Users'));
+    await tester.tap(find.text('Faculty').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Maria Santos'), findsOneWidget);
     expect(find.text('Juan Luna'), findsNothing);
     // One filter drawn twice: the select now names the same role.
-    expect(find.text('End User'), findsWidgets);
+    expect(find.text('Faculty'), findsWidgets);
     expect(find.text('All Roles'), findsNothing);
   });
 

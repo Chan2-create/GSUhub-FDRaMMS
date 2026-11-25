@@ -86,7 +86,7 @@ void main() {
     expect(find.text('Laboratory 3'), findsOneWidget);
     expect(find.text('AWAITING REVIEW'), findsOneWidget);
     expect(find.text('Report received'), findsOneWidget);
-    expect(find.text('Assigned Maintenance Personnel'), findsNothing);
+    expect(find.text('Assigned Utility Personnel'), findsNothing);
     expect(find.text('Rate this Service'), findsNothing);
     // What they filed is still there.
     expect(
@@ -168,7 +168,7 @@ void main() {
     expect(find.text('#WO-0007'), findsOneWidget);
     expect(find.text('Linked Report'), findsOneWidget);
     expect(find.text('In Progress'), findsOneWidget);
-    expect(find.text('Assigned Maintenance Personnel'), findsOneWidget);
+    expect(find.text('Assigned Utility Personnel'), findsOneWidget);
     expect(find.text('Juan Luna'), findsOneWidget);
     expect(find.text('PLUMBING'), findsOneWidget);
     expect(

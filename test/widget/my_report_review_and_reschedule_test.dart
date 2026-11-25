@@ -45,7 +45,7 @@ void main() {
     expect(find.text('Under Review'), findsOneWidget);
   });
 
-  testWidgets('a rescheduled report shows the new date and the reason', (
+  testWidgets('a report scheduled on its page shows the date and the reason', (
     tester,
   ) async {
     final moved = DateTime.now().add(const Duration(days: 4));
@@ -75,15 +75,15 @@ void main() {
     );
     await app.pump(tester, start: RoutePaths.staffReportDetailFor('rep-8'));
 
-    expect(find.text('Rescheduled'), findsOneWidget);
+    expect(find.text('Scheduled'), findsOneWidget);
     final day = DateFormat('EEE, MMM d, y').format(moved);
-    expect(find.text('RESCHEDULED TO ${day.toUpperCase()}'), findsOneWidget);
+    expect(find.text('SCHEDULED FOR ${day.toUpperCase()}'), findsOneWidget);
     expect(
       find.text('"The only electrician is on leave."'),
       findsAtLeastNWidgets(1),
     );
     // On the timeline too.
     final short = DateFormat('MMM d, y').format(moved);
-    expect(find.text('RESCHEDULED TO ${short.toUpperCase()}'), findsOneWidget);
+    expect(find.text('SCHEDULED FOR ${short.toUpperCase()}'), findsOneWidget);
   });
 }

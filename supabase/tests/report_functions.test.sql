@@ -90,8 +90,8 @@ select is(
 );
 select is(
   (select description from public.audit_logs where entity_id = 'r-3'),
-  'Classified as Carpentry; official priority HIGH, raised from the recommended MEDIUM (score 2.40)',
-  '…and the audit says whether the priority departs from the recommendation'
+  'Classified as Carpentry (the reporter chose no type); official priority HIGH, raised from the recommended MEDIUM (score 2.40)',
+  '…and the audit says whether the priority departs from the recommendation, and the reporter''s type (2026-11-26)'
 );
 select is(
   tests.error_of('u-admin', $$select public.record_assessment('r-1', 'electrical', false, 3, 2, 2, 2, 2.4, 'medium', 'high')$$),

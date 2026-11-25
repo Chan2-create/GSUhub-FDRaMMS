@@ -222,7 +222,7 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
             onPressed: () => showCreateAccountDialog(context),
             icon: const Icon(Icons.add, size: 14),
             label: const Text(
-              'Create Maintenance Account',
+              'Create Utility Account',
               style: AppTextStyles.accountsButton,
             ),
             style: FilledButton.styleFrom(

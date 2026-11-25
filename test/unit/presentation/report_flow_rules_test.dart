@@ -317,10 +317,10 @@ void main() {
       );
     });
 
-    test('an approved report moved to a later date reads Rescheduled', () {
+    test('an approved report given a date reads Scheduled', () {
       expect(
         StatusChip.requestorLabelOf(ReportStatus.approved, rescheduled: true),
-        'Rescheduled',
+        'Scheduled',
       );
       expect(StatusChip.requestorLabelOf(ReportStatus.approved), 'In Progress');
     });

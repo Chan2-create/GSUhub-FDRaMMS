@@ -7,6 +7,7 @@ import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/task_status.dart';
 import 'package:gsuhub/core/enums/user_role.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
+import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/utils/display_id.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
@@ -265,9 +266,33 @@ class FirestoreWorkOrderRepository extends FirestoreRepository
   /// As `app.reassign_work_order` does it
   /// (supabase/migrations/*_reassign_work_order.sql, Objective 7.A).
   @override
+  /// The new date only: the reason, the timeline entries and the notices
+  /// are the database function's (2026-11-26), tested in pgTAP.
+  @override
+  Future<Result<void>> reschedule({
+    required String workOrderId,
+    required DateTime scheduledFor,
+    required String reason,
+    required AuditActor actor,
+  }) async {
+    if (reason.trim().isEmpty) {
+      return const Result.failure(
+        ValidationFailure('Give the reason for rescheduling.'),
+      );
+    }
+    return updateDoc(
+      path: _path,
+      id: workOrderId,
+      data: {'scheduledFor': Timestamp.fromDate(scheduledFor.toUtc())},
+    );
+  }
+
+  /// The reason (2026-11-26) is kept by the database function only.
+  @override
   Future<Result<void>> reassign({
     required String workOrderId,
     required String personnelId,
+    required String reason,
     required AuditActor actor,
   }) async {
     // Firestore transactions cannot query: the work's unfinished tasks are

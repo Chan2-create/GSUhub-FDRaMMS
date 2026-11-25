@@ -240,6 +240,6 @@ void main() {
   testWidgets('says so when there is nobody yet', (tester) async {
     await pump(tester, people: const []);
 
-    expect(find.textContaining('No maintenance personnel yet'), findsOneWidget);
+    expect(find.textContaining('No utility personnel yet'), findsOneWidget);
   });
 }

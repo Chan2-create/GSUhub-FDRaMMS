@@ -3,7 +3,7 @@
 
 begin;
 select tests.create_fixtures();
-select plan(20);
+select plan(21);
 
 update public.users set active_task_count = 0 where id = 'u-tech';
 update public.users set active_task_count = 1 where id = 'u-tech2';
@@ -13,7 +13,7 @@ insert into public.tasks (id, work_order_id, title, assigned_to, status, complet
 -- ------------------------------------------------------------ pending work
 
 select is(
-  tests.attempt('u-admin', $$select public.reassign_work_order('w-2', 'u-tech')$$),
+  tests.attempt('u-admin', $$select public.reassign_work_order('w-2', 'u-tech', 'Juan is on leave.')$$),
   'ok',
   'an administrator hands pending work to another technician'
 );
@@ -34,29 +34,29 @@ select is(
 );
 select is(
   (select array[status, note, personnel_name, personnel_specialization] from public.report_status_history
-     where report_id = 'r-2' and note like 'Reassigned%'),
-  array['assigned', 'Reassigned to Marcus Wright.', 'Marcus Wright', 'electrical'],
+     where report_id = 'r-2' and note = 'Juan is on leave.'),
+  array['assigned', 'Juan is on leave.', 'Marcus Wright', 'electrical'],
   '…its report''s history names the new technician, so the requestor''s page does'
 );
 select is(
   (select title || ' / ' || body from public.notifications where recipient_id = 'u-req2' and related_entity_id = 'r-2'
      and title = 'New technician assigned'),
-  'New technician assigned / Your report "Leaking pipe" is now with Marcus Wright.',
+  'New technician assigned / Your report "Leaking pipe" is now with Marcus Wright: Juan is on leave.',
   '…the requestor is told'
 );
 select is(
   (select title || ' / ' || body from public.notifications where recipient_id = 'u-tech' and related_entity_id = 'w-2'),
-  'New work order / You have been assigned "Leaking pipe".',
+  'New work order / You have been assigned "Leaking pipe". Reason: Juan is on leave.',
   '…the new technician is told, as for any assignment'
 );
 select is(
   (select title || ' / ' || body from public.notifications where recipient_id = 'u-tech2' and related_entity_id = 'w-2'),
-  'Work reassigned / #W-2 ("Leaking pipe") was reassigned to Marcus Wright. It is off your list.',
+  'Work reassigned / #W-2 ("Leaking pipe") was reassigned to Marcus Wright. It is off your list. Reason: Juan is on leave.',
   '…and so is the one it was taken from'
 );
 select is(
   (select array[action, description] from public.audit_logs where entity_id = 'w-2' and actor_id = 'u-admin'),
-  array['assigned', 'Reassigned to Marcus Wright (was Juan Luna)'],
+  array['assigned', 'Reassigned to Marcus Wright (was Juan Luna): Juan is on leave.'],
   '…and it is audited'
 );
 
@@ -64,7 +64,7 @@ select is(
 
 update public.users set active_task_count = 1 where id = 'u-tech';
 select is(
-  tests.attempt('u-admin', $$select public.reassign_work_order('w-1', 'u-tech2')$$),
+  tests.attempt('u-admin', $$select public.reassign_work_order('w-1', 'u-tech2', 'Juan is on leave.')$$),
   'ok',
   'work already in progress can be reassigned too'
 );
@@ -74,8 +74,8 @@ select is(
   '…every former holder is relieved of it, never below zero'
 );
 select is(
-  (select array[status, note] from public.report_status_history where report_id = 'r-1' and note like 'Reassigned%'),
-  array['inProgress', 'Reassigned to Juan Luna.'],
+  (select array[status, note] from public.report_status_history where report_id = 'r-1' and note = 'Juan is on leave.'),
+  array['inProgress', 'Juan is on leave.'],
   '…and the history keeps the report''s own status'
 );
 select is(
@@ -87,40 +87,48 @@ select is(
 -- -------------------------------------------------------------- refusals
 
 select is(
-  tests.error_of('u-admin', $$select public.reassign_work_order('w-2', 'u-tech')$$),
+  tests.error_of('u-admin', $$select public.reassign_work_order('w-2', 'u-tech', 'Juan is on leave.')$$),
   'Marcus Wright already has this work order.',
   'not to the technician who already holds it'
 );
 select is(
-  tests.error_of('u-admin', $$select public.reassign_work_order('w-2', 'u-tech-off')$$),
+  tests.error_of('u-admin', $$select public.reassign_work_order('w-2', 'u-tech-off', 'Juan is on leave.')$$),
   'Carlo Bato''s account is inactive and cannot take work.',
   'not to an account that is off'
 );
 select is(
-  tests.error_of('u-admin', $$select public.reassign_work_order('w-2', 'u-req')$$),
-  'Maria Santos is not maintenance personnel.',
-  'not to someone who is not maintenance personnel'
+  tests.error_of('u-admin', $$select public.reassign_work_order('w-2', 'u-req', 'Juan is on leave.')$$),
+  'Maria Santos is not utility personnel.',
+  'not to someone who is not utility personnel'
 );
 update public.work_orders set status = 'forReview' where id = 'w-1';
 select is(
-  tests.error_of('u-admin', $$select public.reassign_work_order('w-1', 'u-tech')$$),
+  tests.error_of('u-admin', $$select public.reassign_work_order('w-1', 'u-tech', 'Juan is on leave.')$$),
   'This work order is For Review. Only work that is pending or in progress can be reassigned.',
   'not work already sent for review'
 );
 select is(
-  tests.error_of('u-admin', $$select public.reassign_work_order('w-x', 'u-tech')$$),
+  tests.error_of('u-admin', $$select public.reassign_work_order('w-x', 'u-tech', 'Juan is on leave.')$$),
   'No work order w-x',
   'not a work order that does not exist'
 );
 select is(
-  tests.attempt('u-tech', $$select public.reassign_work_order('w-2', 'u-tech2')$$),
+  tests.attempt('u-tech', $$select public.reassign_work_order('w-2', 'u-tech2', 'Juan is on leave.')$$),
   'PT403',
   'a technician cannot hand work on'
 );
 select is(
-  tests.attempt('u-req', $$select public.reassign_work_order('w-2', 'u-tech2')$$),
+  tests.attempt('u-req', $$select public.reassign_work_order('w-2', 'u-tech2', 'Juan is on leave.')$$),
   'PT403',
   'nor can a requestor'
+);
+
+-- 2026-11-26: a reassignment says why.
+select is(
+  tests.error_of('u-admin', $$select public.reassign_work_order('w-2', 'u-tech', '  ')$$)
+    || ' | ' || tests.error_of('u-admin', $$select public.reassign_work_order('w-2', 'u-tech')$$),
+  'Give the reason for reassigning. | Give the reason for reassigning.',
+  'a reassignment needs its reason'
 );
 
 select * from finish();

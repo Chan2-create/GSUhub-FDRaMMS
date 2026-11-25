@@ -18,6 +18,7 @@ import 'package:gsuhub/features/qr_codes/presentation/qr_scanner_screen.dart';
 import 'fake_admin_backend.dart' show FakeFileDownloadService;
 import 'fake_config_repository.dart';
 import 'fake_firestore_repositories.dart';
+import 'fake_holidays.dart';
 import 'fake_live_sync.dart';
 import 'fake_notifications.dart';
 import 'fake_report_form_backend.dart';
@@ -60,6 +61,10 @@ class PersonnelHarness {
 
   /// What the app told the database about the session.
   final sessions = FakeSessionRepository();
+
+  /// The administrator's holidays (2026-11-26): none unless a test adds
+  /// some.
+  final holidays = FakeHolidayRepository();
   final push = FakeNotificationService();
   final picker = FakePhotoPicker();
   final storage = FakeStorageService();
@@ -130,6 +135,7 @@ class PersonnelHarness {
           // harness keeps them in the same in-memory Firestore as the rest.
           userRepositoryProvider.overrideWithValue(data.users),
           facilityRepositoryProvider.overrideWithValue(data.facilities),
+          holidayRepositoryProvider.overrideWithValue(holidays),
           damageReportRepositoryProvider.overrideWithValue(data.reports),
           workOrderRepositoryProvider.overrideWithValue(data.workOrders),
           feedbackRepositoryProvider.overrideWithValue(data.feedback),

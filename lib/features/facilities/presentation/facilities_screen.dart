@@ -8,6 +8,7 @@ import '../../../core/constants/breakpoints.dart';
 import '../../../core/data/geo_coordinates.dart';
 import '../../../core/di/repository_providers.dart';
 import '../../../core/enums/item_condition.dart';
+import '../../../core/errors/failures.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/widgets/app_data_table.dart';
 import '../../../core/widgets/async_value_view.dart';
@@ -60,6 +61,12 @@ class FacilitiesScreen extends ConsumerWidget {
       AsyncData(value: Success(:final value)) => value,
       _ => const <Building>[],
     };
+    // The live database without the buildings migration (2026-11-26):
+    // said plainly, and nothing offered that would fail the same way.
+    final notUpdated = switch (buildingsValue) {
+      AsyncData(value: Error(failure: DatabaseUpdateFailure())) => true,
+      _ => false,
+    };
     final rooms = switch (facilities) {
       AsyncData(value: Success(:final value)) => value,
       _ => const <Facility>[],
@@ -106,24 +113,29 @@ class FacilitiesScreen extends ConsumerWidget {
                 'Reports map. Rooms are added to one.',
             trailing: FilledButton.icon(
               key: const ValueKey('add-building'),
-              onPressed: () =>
-                  showBuildingFormDialog(context, buildings: buildings),
+              onPressed: notUpdated
+                  ? null
+                  : () => showBuildingFormDialog(context, buildings: buildings),
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Add Building'),
               style: _consoleButton,
             ),
             contentPadding: EdgeInsets.zero,
-            child: AsyncValueView<List<Building>>(
-              value: buildingsValue,
-              loadingHeight: 120,
-              onRetry: () => ref.invalidate(buildingsProvider),
-              data: (buildings) => buildings.isEmpty
-                  ? const _Empty(
-                      'No buildings yet. Add the campus’s buildings here, '
-                      'then their rooms.',
-                    )
-                  : _BuildingsTable(buildings: buildings, rooms: rooms),
-            ),
+            child: notUpdated
+                ? _DatabaseUpdateNotice(
+                    onRetry: () => ref.invalidate(buildingsProvider),
+                  )
+                : AsyncValueView<List<Building>>(
+                    value: buildingsValue,
+                    loadingHeight: 120,
+                    onRetry: () => ref.invalidate(buildingsProvider),
+                    data: (buildings) => buildings.isEmpty
+                        ? const _Empty(
+                            'No buildings yet. Add the campus’s buildings here, '
+                            'then their rooms.',
+                          )
+                        : _BuildingsTable(buildings: buildings, rooms: rooms),
+                  ),
           ),
           const SizedBox(height: 32),
           SectionCard(
@@ -206,6 +218,49 @@ final ButtonStyle _consoleButton = FilledButton.styleFrom(
   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
 );
+
+/// In place of the buildings when the database has not had the update
+/// that adds them (2026-11-26): what is wrong and who fixes it, not
+/// PostgREST's "schema cache" wording.
+class _DatabaseUpdateNotice extends StatelessWidget {
+  const _DatabaseUpdateNotice({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    key: const ValueKey('buildings-need-update'),
+    padding: const EdgeInsets.all(24),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.system_update_alt, color: AppColors.accountPending),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Buildings are not set up on this system yet',
+                style: AppTextStyles.fieldValue,
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'They need the latest database update, which has not been '
+                'applied here. Until it is, buildings cannot be listed or '
+                'added, and rooms cannot be added to them. The system '
+                'administrator applies it with "npx supabase db push".',
+                style: AppTextStyles.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              TextButton(onPressed: onRetry, child: const Text('Check again')),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 class _Empty extends StatelessWidget {
   const _Empty(this.message);

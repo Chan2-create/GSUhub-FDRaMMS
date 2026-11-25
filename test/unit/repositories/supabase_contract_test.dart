@@ -38,6 +38,7 @@ import 'package:gsuhub/features/inventory/data/repositories/inventory_repository
 import 'package:gsuhub/features/inventory/data/repositories/material_allocation_repository_impl.dart';
 import 'package:gsuhub/features/inventory/data/repositories/material_request_repository_impl.dart';
 import 'package:gsuhub/features/notifications/data/repositories/notification_repository_impl.dart';
+import 'package:gsuhub/features/settings/data/repositories/holiday_repository_impl.dart';
 import 'package:gsuhub/features/tasks/data/repositories/task_repository_impl.dart';
 import 'package:gsuhub/features/tools/data/models/tool_draft.dart';
 import 'package:gsuhub/features/tools/data/repositories/tool_repository_impl.dart';
@@ -168,6 +169,10 @@ void main() {
     await sessions.touch();
     await sessions.state();
 
+    final holidays = HolidayRepositoryImpl(client: client, guard: guard);
+    await holidays.add(DateTime(2026, 11, 30), 'Bonifacio Day');
+    await holidays.remove(DateTime(2026, 11, 30));
+
     final departments = DepartmentRepositoryImpl(client: client, guard: guard);
     await departments.create('Faculty of Nursing');
     await departments.rename('dep-1', 'Faculty of Nursing and Allied Health');
@@ -296,6 +301,13 @@ void main() {
     await workOrders.reassign(
       workOrderId: 'w-1',
       personnelId: 'u-2',
+      reason: 'Ana is on leave.',
+      actor: actor,
+    );
+    await workOrders.reschedule(
+      workOrderId: 'w-1',
+      scheduledFor: DateTime.utc(2026, 12, 2),
+      reason: 'The part arrives on Wednesday.',
       actor: actor,
     );
     await workOrders.setArchived(
@@ -516,7 +528,7 @@ void main() {
   test('every write calls a database function that exists, with the '
       'parameters it takes', () async {
     await exerciseEveryWrite();
-    expect(calls, hasLength(68));
+    expect(calls, hasLength(71));
     for (final (function, params) in calls) {
       final signature = signatures[function];
       expect(

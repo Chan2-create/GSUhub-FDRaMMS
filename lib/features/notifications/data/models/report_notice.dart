@@ -57,13 +57,13 @@ class ReportNotice {
         title: 'Report approved',
         body:
             'Your report $report was approved and will be assigned to '
-            'maintenance personnel.',
+            'utility personnel.',
       ),
       ReportStatus.assigned => ReportNotice(
         type: NotificationType.workOrderAssigned,
         title: 'Personnel assigned',
         body: personnelName == null
-            ? 'Maintenance personnel were assigned to your report $report.'
+            ? 'Utility personnel were assigned to your report $report.'
             : '$personnelName was assigned to your report $report.',
       ),
       ReportStatus.inProgress when from == ReportStatus.forReview =>

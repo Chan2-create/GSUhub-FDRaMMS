@@ -69,7 +69,7 @@ class _TaskAssignmentScreenState extends ConsumerState<TaskAssignmentScreen> {
       children: [
         const PageHeader(
           title: 'Task Assignment',
-          subtitle: 'Assign validated reports to maintenance personnel.',
+          subtitle: 'Assign validated reports to utility personnel.',
         ),
         const SizedBox(height: PageHeader.gapBelow),
         LayoutBuilder(
@@ -406,7 +406,7 @@ class _PersonnelPanelState extends ConsumerState<_PersonnelPanel> {
               value: ref.watch(personnelStreamProvider),
               isEmpty: (people) => people.isEmpty,
               emptyIcon: Icons.people_outline,
-              emptyMessage: 'No maintenance personnel accounts exist yet.',
+              emptyMessage: 'No utility personnel accounts exist yet.',
               onRetry: () => ref.invalidate(personnelStreamProvider),
               data: (people) {
                 // A report picked: its trade only (Table 3.3), as on the

@@ -24,6 +24,8 @@ import '../../features/inventory/data/repositories/material_request_repository.d
 import '../../features/inventory/data/repositories/material_request_repository_impl.dart';
 import '../../features/notifications/data/repositories/notification_repository.dart';
 import '../../features/notifications/data/repositories/notification_repository_impl.dart';
+import '../../features/settings/data/repositories/holiday_repository.dart';
+import '../../features/settings/data/repositories/holiday_repository_impl.dart';
 import '../../features/tasks/data/repositories/task_repository.dart';
 import '../../features/tasks/data/repositories/task_repository_impl.dart';
 import '../../features/tools/data/repositories/tool_repository.dart';
@@ -151,6 +153,15 @@ final materialAllocationRepositoryProvider =
 
 final toolRepositoryProvider = Provider<ToolRepository>(
   (ref) => ToolRepositoryImpl(
+    client: ref.watch(supabaseClientProvider),
+    guard: ref.watch(supabaseCallGuardProvider),
+    live: _liveFor(ref),
+  ),
+);
+
+/// The holidays no work is scheduled on (2026-11-26).
+final holidayRepositoryProvider = Provider<HolidayRepository>(
+  (ref) => HolidayRepositoryImpl(
     client: ref.watch(supabaseClientProvider),
     guard: ref.watch(supabaseCallGuardProvider),
     live: _liveFor(ref),

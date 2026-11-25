@@ -145,11 +145,6 @@ class _Detail extends ConsumerWidget {
                 // "together with the report description, photo evidence,
                 // facility or location details" (§3.4), so the review sits
                 // below them.
-                if (report.duplicateOf != null ||
-                    DuplicateDetector.isFlaggable(report)) ...[
-                  const SizedBox(height: 16),
-                  PossibleDuplicatesCard(report: report),
-                ],
                 // The type and priority are confirmed once the review has
                 // started (2026-11-26); until then the page says how.
                 if (report.canBeAssessed &&
@@ -166,6 +161,12 @@ class _Detail extends ConsumerWidget {
             );
             final side = Column(
               children: [
+                // Narrow and folded (2026-11-26): a count that opens to
+                // the list, and nothing at all when there is none. It
+                // leaves its own gap below when it shows.
+                if (report.duplicateOf != null ||
+                    DuplicateDetector.isFlaggable(report))
+                  PossibleDuplicatesCard(report: report),
                 _ClassificationCard(report: report),
                 const SizedBox(height: 16),
                 _LocationCard(report: report),
@@ -216,10 +217,11 @@ class _ReviewActionsState extends ConsumerState<_ReviewActions> {
 
   bool get _busy => _moving != null;
 
-  /// Whether the review below has confirmed the damage type and the
-  /// official priority, which approving waits for.
-  bool get _reviewed =>
-      widget.report.category != null && widget.report.isPriorityConfirmed;
+  /// Whether the review below has confirmed the official priority, which
+  /// approving waits for. The damage type does not hold it up
+  /// (2026-11-26): it starts as the reporter's choice, so the review only
+  /// confirms or changes it, in the same save.
+  bool get _reviewed => widget.report.isPriorityConfirmed;
 
   /// Makes a move and says how it went: [done] once the database has
   /// confirmed it, or why not, with a way to try again. By then the page
@@ -287,8 +289,8 @@ class _ReviewActionsState extends ConsumerState<_ReviewActions> {
       if (status.canTransitionTo(ReportStatus.approved))
         _HintWhen(
           !_reviewed,
-          'Confirm the damage type and official priority in the review '
-          'below first.',
+          'Confirm the official priority in the review below first. The '
+          "damage type is already filled in with the reporter's choice.",
           FilledButton(
             key: const ValueKey('approve-report'),
             onPressed: _busy || !_reviewed
@@ -368,8 +370,7 @@ class _ReviewSteps extends StatelessWidget {
     }
     return switch (status) {
       ReportStatus.submitted => 0,
-      ReportStatus.underReview =>
-        report.category != null && report.isPriorityConfirmed ? 2 : 1,
+      ReportStatus.underReview => report.isPriorityConfirmed ? 2 : 1,
       ReportStatus.approved => 3,
       _ => null,
     };
@@ -699,10 +700,11 @@ class _ClassificationCard extends StatelessWidget {
           ? 'No keyword matched, so an administrator classifies it.'
           : null;
     }
-    if (chosen == null) return 'The requestor did not choose a type.';
+    if (chosen == null) return 'The reporter did not choose a type.';
     return official == chosen
-        ? "Confirms the requestor's choice."
-        : "Changed from the requestor's ${chosen.label}, which is kept above.";
+        ? "Confirms the reporter's choice."
+        : "Changed by the administrator from the reporter's ${chosen.label}, "
+              'which is kept above.';
   }
 
   /// How the official priority stands against what the requestor chose.
@@ -1002,13 +1004,23 @@ List<String> reviewDetailsOf(AuditLogEntry entry) {
   }
 
   final requestor = changes['requestor'];
+  final typePair = changes['category'];
+  final confirmedType = typePair is Map ? typePair['to'] : null;
+  final reporterType = requestor is Map ? requestor['category'] : null;
   return [
-    change('Classification', changes['category'], category),
+    // Against what the reporter chose on the phone (2026-11-26).
+    if (requestor is Map)
+      reporterType == null
+          ? 'Damage type: ${category(confirmedType)} (the reporter chose none)'
+          : reporterType == confirmedType
+          ? "Damage type: the reporter's ${category(reporterType)}, kept"
+          : "Damage type: changed from the reporter's "
+                '${category(reporterType)} to ${category(confirmedType)}'
+    else
+      change('Classification', typePair, category),
     change('Official priority', changes['officialPriority'], priority),
     if (requestor is Map)
-      'The requestor chose: '
-          '${requestor['category'] == null ? 'no damage type' : category(requestor['category'])}, '
-          '${priority(requestor['priority'])} priority',
+      "The reporter's urgency: ${priority(requestor['priority'])}",
   ];
 }
 

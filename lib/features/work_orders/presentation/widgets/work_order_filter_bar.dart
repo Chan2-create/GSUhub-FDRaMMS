@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -10,8 +12,9 @@ import '../../../../core/enums/work_order_status.dart';
 import '../../../../core/widgets/filter_select.dart';
 import '../work_order_providers.dart';
 
-/// Search, status, priority, date range, Apply, and the Table/Kanban
-/// toggle (Figma `234:650`).
+/// Search, status, priority, date range, and the Table/Kanban toggle
+/// (Figma `234:650`). No Apply since 2026-11-26: the list follows each
+/// filter as it changes, and the search a moment after typing stops.
 class WorkOrderFilterBar extends ConsumerStatefulWidget {
   const WorkOrderFilterBar({super.key});
 
@@ -20,18 +23,35 @@ class WorkOrderFilterBar extends ConsumerStatefulWidget {
 }
 
 class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
-  final _searchController = TextEditingController();
+  late final _searchController = TextEditingController(
+    text: ref.read(workOrderFiltersProvider).search,
+  );
+  Timer? _debounce;
+
+  /// How long the search waits after the last key before it narrows the
+  /// list: not on every keystroke.
+  static const Duration searchDelay = Duration(milliseconds: 300);
+
+  void _searchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(searchDelay, () {
+      if (mounted) {
+        ref.read(workOrderFiltersProvider.notifier).setSearch(value);
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final draft = ref.watch(workOrderFilterDraftProvider);
-    final draftController = ref.read(workOrderFilterDraftProvider.notifier);
+    final filters = ref.watch(workOrderFiltersProvider);
+    final controller = ref.read(workOrderFiltersProvider.notifier);
     final mode = ref.watch(workOrderViewModeProvider);
     final archived = ref.watch(showArchivedWorkOrdersProvider);
 
@@ -50,9 +70,14 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
           SizedBox(
             width: 320,
             child: TextField(
+              key: const ValueKey('work-order-search'),
               controller: _searchController,
-              onChanged: draftController.setSearch,
-              onSubmitted: (_) => _apply(),
+              onChanged: _searchChanged,
+              // Enter applies it at once.
+              onSubmitted: (value) {
+                _debounce?.cancel();
+                controller.setSearch(value);
+              },
               style: AppTextStyles.inputText,
               decoration: InputDecoration(
                 isDense: true,
@@ -97,8 +122,8 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
             placeholder: 'All Statuses',
             style: FilterSelectStyle.dense,
             width: 160,
-            value: draft.status,
-            onChanged: draftController.setStatus,
+            value: filters.status,
+            onChanged: controller.setStatus,
             options: [
               const FilterOption(value: null, label: 'All Statuses'),
               for (final status in WorkOrderStatus.values)
@@ -109,8 +134,8 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
             placeholder: 'All Priorities',
             style: FilterSelectStyle.dense,
             width: 160,
-            value: draft.priority,
-            onChanged: draftController.setPriority,
+            value: filters.priority,
+            onChanged: controller.setPriority,
             options: [
               const FilterOption(value: null, label: 'All Priorities'),
               for (final level in PriorityLevel.values)
@@ -118,20 +143,8 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
             ],
           ),
           _DateRangeSelect(
-            value: draft.dateRange,
-            onChanged: draftController.setDateRange,
-          ),
-          FilledButton(
-            onPressed: _apply,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.textOnDark,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Apply', style: AppTextStyles.buttonLabel),
+            value: filters.dateRange,
+            onChanged: controller.setDateRange,
           ),
           _ViewToggle(
             mode: mode,
@@ -153,10 +166,6 @@ class _WorkOrderFilterBarState extends ConsumerState<WorkOrderFilterBar> {
       ),
     );
   }
-
-  void _apply() => ref
-      .read(appliedWorkOrderFiltersProvider.notifier)
-      .apply(ref.read(workOrderFilterDraftProvider));
 }
 
 class _DateRangeSelect extends StatelessWidget {

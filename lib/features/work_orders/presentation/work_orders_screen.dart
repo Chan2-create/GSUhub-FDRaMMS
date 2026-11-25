@@ -126,7 +126,7 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(workOrderViewModeProvider);
-    final filters = ref.watch(appliedWorkOrderFiltersProvider);
+    final filters = ref.watch(workOrderFiltersProvider);
 
     const emptyMessage = 'No work orders match these filters.';
     const noneYet =

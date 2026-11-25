@@ -386,7 +386,7 @@ void main() {
       expect(currentPath(tester), RoutePaths.staffProfile);
       // The profile: who they are, and what their account is.
       expect(find.text('Maria Santos'), findsOneWidget);
-      expect(find.text('Faculty / Staff'), findsWidgets);
+      expect(find.text('Faculty'), findsWidgets);
       expect(find.text('Active account'), findsOneWidget);
 
       await tester.tap(find.text('Home'));

@@ -96,8 +96,8 @@ select is(
 update public.damage_reports set status = 'approved', category = 'plumbing', official_priority = 'low' where id = 'r-unrated';
 select is(
   tests.error_of('u-admin', $$select public.assign_work_order('r-unrated', 'u-req2')$$),
-  'Ana Gomez is not maintenance personnel.',
-  'only to maintenance personnel'
+  'Ana Gomez is not utility personnel.',
+  'only to utility personnel'
 );
 select is(
   tests.error_of('u-admin', $$select public.assign_work_order('r-unrated', 'u-tech-off')$$),

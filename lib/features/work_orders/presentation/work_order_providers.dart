@@ -4,6 +4,7 @@ import '../../../core/di/repository_providers.dart';
 import '../../../core/enums/date_range_filter.dart';
 import '../../../core/enums/priority_level.dart';
 import '../../../core/enums/work_order_status.dart';
+import '../../../core/utils/priority_order.dart';
 import '../../../core/utils/result.dart';
 import '../../user_management/presentation/personnel_providers.dart';
 import '../data/models/work_order.dart';
@@ -15,9 +16,9 @@ final workOrdersStreamProvider = StreamProvider<Result<List<WorkOrder>>>(
 
 /// The work-order filter bar's state.
 ///
-/// The design puts an explicit **Apply** button on this bar, so a draft is
-/// edited and only committed on press — unlike the reports filters, which
-/// take effect immediately. Both are what their screen draws.
+/// Taking effect as each filter changes, as the Damage Reports filters do
+/// (2026-11-26): the design's Apply button is gone, and the search is
+/// applied a moment after typing stops.
 class WorkOrderFilters {
   const WorkOrderFilters({
     this.search = '',
@@ -77,8 +78,8 @@ class WorkOrderFilters {
   }
 }
 
-/// The filters being edited, before Apply.
-class WorkOrderFilterDraft extends Notifier<WorkOrderFilters> {
+/// The filters in force: each change applies at once.
+class WorkOrderFiltersController extends Notifier<WorkOrderFilters> {
   @override
   WorkOrderFilters build() => const WorkOrderFilters();
 
@@ -94,22 +95,20 @@ class WorkOrderFilterDraft extends Notifier<WorkOrderFilters> {
       state = state.copyWith(dateRange: value);
 }
 
-final workOrderFilterDraftProvider =
-    NotifierProvider<WorkOrderFilterDraft, WorkOrderFilters>(
-      WorkOrderFilterDraft.new,
+final workOrderFiltersProvider =
+    NotifierProvider<WorkOrderFiltersController, WorkOrderFilters>(
+      WorkOrderFiltersController.new,
     );
 
-/// The filters actually in force.
-class AppliedWorkOrderFilters extends Notifier<WorkOrderFilters> {
-  @override
-  WorkOrderFilters build() => const WorkOrderFilters();
-
-  void apply(WorkOrderFilters filters) => state = filters;
-}
-
-final appliedWorkOrderFiltersProvider =
-    NotifierProvider<AppliedWorkOrderFilters, WorkOrderFilters>(
-      AppliedWorkOrderFilters.new,
+/// The order of Work Order Management (2026-11-26): by priority, Critical
+/// first, the oldest first within each, as the Damage Reports list.
+int workOrdersByPriorityThenOldest(WorkOrder a, WorkOrder b) =>
+    byPriorityThenOldestOf(
+      a,
+      b,
+      priority: (workOrder) => workOrder.priority,
+      since: (workOrder) => workOrder.createdAt,
+      id: (workOrder) => workOrder.id,
     );
 
 enum WorkOrderViewMode { table, kanban }
@@ -128,8 +127,7 @@ final workOrderViewModeProvider =
     );
 
 /// The archive instead of the board (2026-11-08): archived work orders
-/// only, or none of them. Takes effect at once, unlike the Apply filters:
-/// it chooses which list, not how to narrow it.
+/// only, or none of them. It chooses which list, not how to narrow it.
 class ShowArchivedWorkOrders extends Notifier<bool> {
   @override
   bool build() => false;
@@ -140,10 +138,11 @@ class ShowArchivedWorkOrders extends Notifier<bool> {
 final showArchivedWorkOrdersProvider =
     NotifierProvider<ShowArchivedWorkOrders, bool>(ShowArchivedWorkOrders.new);
 
-/// Work orders passing the applied filters.
+/// Work orders passing the filters, by priority then oldest first: the
+/// table and each Kanban column.
 final filteredWorkOrdersProvider =
     Provider<AsyncValue<Result<List<WorkOrder>>>>((ref) {
-      final filters = ref.watch(appliedWorkOrderFiltersProvider);
+      final filters = ref.watch(workOrderFiltersProvider);
       final assignees = ref.watch(personnelNamesProvider);
       final archived = ref.watch(showArchivedWorkOrdersProvider);
 
@@ -151,13 +150,15 @@ final filteredWorkOrdersProvider =
           .watch(workOrdersStreamProvider)
           .whenData(
             (result) => result.map(
-              (workOrders) => workOrders
-                  .where(
-                    (workOrder) =>
-                        workOrder.isArchived == archived &&
-                        filters.matches(workOrder, assignees: assignees),
-                  )
-                  .toList(growable: false),
+              (workOrders) =>
+                  workOrders
+                      .where(
+                        (workOrder) =>
+                            workOrder.isArchived == archived &&
+                            filters.matches(workOrder, assignees: assignees),
+                      )
+                      .toList()
+                    ..sort(workOrdersByPriorityThenOldest),
             ),
           );
     });
