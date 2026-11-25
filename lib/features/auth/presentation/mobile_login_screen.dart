@@ -154,11 +154,12 @@ class _MobileLoginScreenState extends ConsumerState<MobileLoginScreen> {
                     },
             ),
             const AuthGap(16),
-            // Personnel sign in here too (Objective 5); their accounts come
-            // from the console (2.C), so Create Account is not theirs.
+            // Personnel sign in here too (Objective 5). Since 2026-11-26
+            // they may also sign up, as Utility, besides the accounts the
+            // console makes (2.C).
             const Text(
-              'Maintenance personnel: GSU creates your account. Sign in '
-              'with the email it was made for.',
+              'Utility personnel: sign up as Utility, or sign in with the '
+              'account GSU made for you.',
               textAlign: TextAlign.center,
               style: AppTextStyles.authSubtitle,
             ),

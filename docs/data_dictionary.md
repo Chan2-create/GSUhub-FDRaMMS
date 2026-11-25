@@ -189,6 +189,26 @@ without counting as activity. The apps sign the person out with the
 reason's notice. The audit entry says the sessions were ended
 (`changes.sessionsEnded`).
 
+## holidays (2026-11-26)
+
+The days no work is scheduled on, besides Saturdays and Sundays, kept by
+the administrator in Settings → Holidays (architecture_decisions §47).
+Model: `Holiday`. **DERIVED** — the adviser's consultation; Philippine
+holidays move every year, so none are entered by the app.
+
+| Field | Type | Required | Description | Source |
+|---|---|---|---|---|
+| `day` | date | ✔ | The calendar day; one holiday a day (primary key) | Adviser |
+| `name` | String | ✔ | "Bonifacio Day", up to 120 | Adviser |
+| `createdAt` | DateTime (UTC) | ✔ | | **DERIVED** |
+
+Read by any active account (the date pickers). Changed only by
+`add_holiday` and `remove_holiday`, administrators only, audited with
+`entityType: holidays`. `app.require_working_day` refuses a weekend or
+a holiday, read as the Philippine calendar day, in `assign_work_order`
+(target date), `reschedule_report`, `reschedule_work_order` and
+`add_task` (due date).
+
 ## departments (2026-11-17)
 
 The departments and faculties an account belongs to, kept by the
@@ -1025,13 +1045,15 @@ fresh sign-in starts a new session.
 | `facilities`, `assets` | `create_facility`, `update_facility`, `set_facility_active`, `create_asset`, `update_asset`, `set_asset_active` | administrator; a code is unique across rooms, equipment, materials and tools still in use. A room takes `building_id` and `floor` (2026-11-26); one given by building name only finds, or registers, that building |
 | | `delete_facility`, `delete_asset` | administrator, unless open reports (or, for a room, open work orders or equipment) depend on it; marks it deleted (2026-11-08) |
 | `damage_reports` | `submit_report` | an active requestor, as themselves (3.C) |
-| | `reschedule_report` | administrator; an approved report with no work order; a reason (up to 500) and a date not past; the report stays approved; a timeline entry and the requestor's notice (2026-11-26) |
-| | `record_assessment`, `transition_report`, `merge_duplicates`, `keep_separate` | administrator (4.A–4.C). `record_assessment` takes an optional `reason` and `expected_updated_at`: it never touches `requestor_category` or `requestor_priority` (a trigger refuses any change to them, `PT409`), refuses a report changed since `expected_updated_at` (`PT409`, naming who), writes nothing when nothing would change, and audits the requestor's choices, the classification and official priority from and to, and the reason (2026-11-16, §42) |
+| | `reschedule_report` | administrator; an approved report with no work order: its **schedule** on the report page ("scheduled for"); a reason (up to 500) and a working day not past; the report stays approved; a timeline entry and the requestor's notice (2026-11-26, §46, §47) |
+| | `record_assessment`, `transition_report`, `merge_duplicates`, `keep_separate` | administrator (4.A–4.C). `record_assessment` takes an optional `reason` and `expected_updated_at`: it never touches `requestor_category` or `requestor_priority` (a trigger refuses any change to them, `PT409`), refuses a report changed since `expected_updated_at` (`PT409`, naming who), writes nothing when nothing would change, and audits the requestor's choices, the classification and official priority from and to, and the reason (2026-11-16, §42); the entry says whether the type kept the reporter's choice or changed it (`reporterCategoryKept`, 2026-11-26) |
 | | `rate_service` (closes it) | the person who filed it, once, when completed (3.C) |
 | | `set_report_archived` | administrator; archives a closed, merged or rejected report, or restores one (2026-11-08) |
 | `work_orders` | `assign_work_order`, `update_admin_notes` | administrator |
 | | `set_work_order_archived` | administrator; archives a completed work order, or restores one (2026-11-08) |
-| | `reassign_work_order` | administrator, while the work is pending or in progress, to one other active technician (7.A) |
+| | `reassign_work_order` | administrator, while the work is pending or in progress, to one other active technician (7.A), with a required reason (up to 500) on the work order's and the report's history and in the notices to the requestor and the new and former technicians (2026-11-26) |
+| | `reschedule_work_order` | administrator, while the work is pending or in progress and not archived: a new target date, a working day not past, and a required reason; the report keeps its status; a timeline entry, the requestor's and the holders' notices, the work order's audit (2026-11-26) |
+| `holidays` | `add_holiday`, `remove_holiday` | administrator; one holiday a day (2026-11-26) |
 | | `set_work_order_status` | starting the work only, pending to in progress: the technician assigned, or an administrator. For Review comes from `submit_accomplishment`; Completed and the send-back from `review_accomplishment` (7.B) |
 | `tasks` | `add_task`, `delete_task` | administrator (a task that is done stays) |
 | | `set_task_status`, `add_proof_photos` | the technician it is assigned to, or an administrator, while the work is open |

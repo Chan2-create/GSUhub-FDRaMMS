@@ -38,7 +38,7 @@ class PersonnelScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: 'Maintenance Personnel',
+          title: 'Utility Personnel',
           subtitle:
               'Manage and monitor GSU maintenance staff availability and '
               'workloads.',
@@ -74,7 +74,7 @@ class _MetricRow extends ConsumerWidget {
         label: 'TOTAL STAFF',
         iconAsset: 'assets/icons/stat_staff_total.svg',
         value: data?.total,
-        definition: 'Maintenance personnel with active accounts.',
+        definition: 'Utility personnel with active accounts.',
         isLoading: isLoading,
         hasError: hasError,
       ),
@@ -342,7 +342,7 @@ class _StaffTable extends ConsumerWidget {
                   emptyIcon: Icons.engineering_outlined,
                   emptyMessage: filtering
                       ? 'No personnel match these filters.'
-                      : 'No maintenance personnel yet. Use Add Personnel to '
+                      : 'No utility personnel yet. Use Add Personnel to '
                             'create the first account.',
                   onRetry: () => ref.invalidate(personnelStreamProvider),
                   data: (people) => Column(

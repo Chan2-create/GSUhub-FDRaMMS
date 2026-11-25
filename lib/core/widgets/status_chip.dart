@@ -107,7 +107,8 @@ class StatusChip extends StatelessWidget {
     bool rescheduled = false,
   }) {
     if (status == ReportStatus.underReview) return 'Under Review';
-    if (rescheduled && status == ReportStatus.approved) return 'Rescheduled';
+    // Given its date on the report page (2026-11-26): a schedule.
+    if (rescheduled && status == ReportStatus.approved) return 'Scheduled';
     final progress = status.progress;
     return progress == ReportProgress.closedOut
         ? _sentenceCase(status.label)

@@ -19,16 +19,17 @@ enum UserRole {
   /// — its role chip in capitals, its legend as-is. The single source:
   /// screens read this rather than keeping their own map.
   String get label => switch (this) {
-    UserRole.requestor => 'End User',
-    UserRole.maintenancePersonnel => 'Maintenance',
+    // Faculty and Utility since 2026-11-26, the words Create Account uses.
+    UserRole.requestor => 'Faculty',
+    UserRole.maintenancePersonnel => 'Utility',
     UserRole.admin => 'Administrator',
   };
 
   /// How a person's own role is named to them, on their profile: the
   /// manuscript's words for the three kinds of user (§1.5).
   String get profileLabel => switch (this) {
-    UserRole.requestor => 'Faculty / Staff',
-    UserRole.maintenancePersonnel => 'Maintenance Personnel',
+    UserRole.requestor => 'Faculty',
+    UserRole.maintenancePersonnel => 'Utility Personnel',
     UserRole.admin => 'GSU Administrator',
   };
 
@@ -50,8 +51,8 @@ enum UserRole {
 
   /// The User Accounts tab that lists this role.
   String get tabLabel => switch (this) {
-    UserRole.requestor => 'End Users',
-    UserRole.maintenancePersonnel => 'Maintenance Personnel',
+    UserRole.requestor => 'Faculty',
+    UserRole.maintenancePersonnel => 'Utility Personnel',
     UserRole.admin => 'Administrators',
   };
 

@@ -5,6 +5,7 @@ import '../../../core/errors/failures.dart';
 import '../../../core/utils/result.dart';
 import '../../accomplishment/data/models/accomplishment_report.dart';
 import '../../audit/data/models/audit_actor.dart';
+import '../../audit/data/models/audit_log_entry.dart';
 import '../../audit/presentation/current_actor_provider.dart';
 import '../../tasks/data/models/maintenance_task.dart';
 import '../../tools/data/models/tool_loan.dart';
@@ -18,6 +19,23 @@ final workOrderDetailProvider = StreamProvider.autoDispose
     .family<Result<WorkOrder>, String>(
       (ref, id) => ref.watch(workOrderRepositoryProvider).watchById(id),
     );
+
+/// What was done to one work order (2026-11-26): its audit entries, read
+/// again whenever the work order itself changes, as a report's history is.
+final workOrderHistoryProvider = FutureProvider.autoDispose
+    .family<Result<List<AuditLogEntry>>, String>((ref, id) {
+      ref.watch(
+        workOrderDetailProvider(id).select(
+          (workOrder) => switch (workOrder.value) {
+            Success(:final value) => value.updatedAt,
+            _ => null,
+          },
+        ),
+      );
+      return ref
+          .read(auditLogRepositoryProvider)
+          .getForEntity(entityType: 'work_orders', entityId: id);
+    });
 
 final workOrderTasksProvider = StreamProvider.autoDispose
     .family<Result<List<MaintenanceTask>>, String>(
@@ -91,12 +109,30 @@ class WorkOrderDetailController {
   Future<Result<void>> reassign({
     required String workOrderId,
     required String personnelId,
+    required String reason,
   }) => _act(
     (actor) => _ref
         .read(workOrderRepositoryProvider)
         .reassign(
           workOrderId: workOrderId,
           personnelId: personnelId,
+          reason: reason,
+          actor: actor,
+        ),
+  );
+
+  /// Moves the work to [scheduledFor], with [reason] (2026-11-26).
+  Future<Result<void>> reschedule({
+    required String workOrderId,
+    required DateTime scheduledFor,
+    required String reason,
+  }) => _act(
+    (actor) => _ref
+        .read(workOrderRepositoryProvider)
+        .reschedule(
+          workOrderId: workOrderId,
+          scheduledFor: scheduledFor,
+          reason: reason,
           actor: actor,
         ),
   );

@@ -383,7 +383,8 @@ void main() {
       expect(find.text('OFFICIAL CLASSIFICATION'), findsOneWidget);
       expect(
         find.text(
-          "Changed from the requestor's Electrical, which is kept above.",
+          "Changed by the administrator from the reporter's Electrical, "
+          'which is kept above.',
         ),
         findsOneWidget,
       );
@@ -487,15 +488,15 @@ void main() {
       );
 
       expect(find.textContaining('Reason: A burst pipe.'), findsOneWidget);
+      // Against what the reporter chose (2026-11-26).
       expect(
-        find.text('Classification: Electrical → Plumbing'),
+        find.text(
+          "Damage type: changed from the reporter's Electrical to Plumbing",
+        ),
         findsOneWidget,
       );
       expect(find.text('Official priority: Critical'), findsOneWidget);
-      expect(
-        find.text('The requestor chose: Electrical, High priority'),
-        findsOneWidget,
-      );
+      expect(find.text("The reporter's urgency: High"), findsOneWidget);
       expect(find.text('Ramon Dela Cruz'), findsOneWidget);
     });
   });
@@ -636,12 +637,20 @@ void main() {
       ),
     ];
 
+    // Folded in the side column since 2026-11-26: a count that opens.
+    Future<void> unfold(WidgetTester tester) => tapVisible(
+      tester,
+      find.byKey(const ValueKey('possible-duplicates-toggle')),
+    );
+
     testWidgets('lists the report it may duplicate, with the reasons', (
       tester,
     ) async {
       await open(tester, 'rep-2', reports: pair());
 
-      expect(find.text('Possible duplicates (1)'), findsOneWidget);
+      expect(find.text('1 possible duplicate'), findsOneWidget);
+      expect(find.text('Lights flicker'), findsNothing, reason: 'folded');
+      await unfold(tester);
       expect(find.text('Lights flicker'), findsOneWidget);
       expect(
         find.textContaining('same damage type (Electrical)'),
@@ -655,6 +664,7 @@ void main() {
     ) async {
       final repository = await open(tester, 'rep-2', reports: pair());
 
+      await unfold(tester);
       await tapVisible(tester, find.text('Merge this report into #REP-1'));
       expect(find.text('Merge as a duplicate?'), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, 'Merge'));
@@ -662,28 +672,26 @@ void main() {
 
       expect(repository.merges.single.parentReportId, 'rep-1');
       expect(repository.merges.single.duplicateReportIds, ['rep-2']);
-      expect(find.text('Merged as a duplicate'), findsOneWidget);
-      expect(
-        find.text('GSU is tracking this damage under #REP-1.'),
-        findsOneWidget,
-      );
+      expect(find.text('Merged as a duplicate of #REP-1.'), findsOneWidget);
     });
 
     testWidgets('cancelling the merge changes nothing', (tester) async {
       final repository = await open(tester, 'rep-2', reports: pair());
 
+      await unfold(tester);
       await tapVisible(tester, find.text('Merge this report into #REP-1'));
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
       expect(repository.merges, isEmpty);
-      expect(find.text('Possible duplicates (1)'), findsOneWidget);
+      expect(find.text('1 possible duplicate'), findsOneWidget);
     });
 
     testWidgets('keeps the two separate', (tester) async {
       final repository = await open(tester, 'rep-1', reports: pair());
 
       // From the earlier report, the later one is the one to fold in.
+      await unfold(tester);
       expect(find.text('Merge #REP-2 into this report'), findsOneWidget);
 
       await tapVisible(tester, find.text('Keep separate'));
@@ -693,8 +701,12 @@ void main() {
         otherReportId: 'rep-2',
       ));
       expect(find.text('Kept separate from #REP-2.'), findsOneWidget);
-      expect(find.text('Possible duplicates'), findsOneWidget);
-      expect(find.textContaining('None found.'), findsOneWidget);
+      // None left: the card takes no space at all.
+      expect(find.textContaining('possible duplicate'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('possible-duplicates-toggle')),
+        findsNothing,
+      );
     });
   });
 }

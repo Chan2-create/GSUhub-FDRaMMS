@@ -88,6 +88,17 @@ abstract interface class WorkOrderRepository {
   Future<Result<void>> reassign({
     required String workOrderId,
     required String personnelId,
+    required String reason,
+    required AuditActor actor,
+  });
+
+  /// Moves open work to [scheduledFor], a working day, with [reason]
+  /// (2026-11-26). The report keeps its status; the date and the reason go
+  /// on its timeline, to its requestor and to whoever holds the work.
+  Future<Result<void>> reschedule({
+    required String workOrderId,
+    required DateTime scheduledFor,
+    required String reason,
     required AuditActor actor,
   });
 

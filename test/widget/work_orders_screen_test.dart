@@ -220,22 +220,24 @@ void main() {
   });
 
   group('filters', () {
-    testWidgets('take effect only when Apply is pressed', (tester) async {
+    // No Apply since 2026-11-26: a filter takes effect as it changes, and
+    // the search a moment after typing stops.
+    testWidgets('the search applies itself a moment after typing', (
+      tester,
+    ) async {
       await pump(tester, [
         order(id: 'w1', title: 'Window Gasket'),
         order(id: 'w2', title: 'HVAC Repair'),
       ]);
+      expect(find.text('Apply'), findsNothing);
 
       await tester.enterText(find.byType(TextField), 'HVAC');
-      await tester.pumpAndSettle();
-
-      // The design puts an explicit Apply on this bar, so typing alone
-      // changes nothing.
+      await tester.pump(const Duration(milliseconds: 100));
+      // Not on every keystroke.
       expect(find.text('Window Gasket'), findsOneWidget);
 
-      await tester.tap(find.text('Apply'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
-
       expect(find.text('HVAC Repair'), findsOneWidget);
       expect(find.text('Window Gasket'), findsNothing);
     });
@@ -249,12 +251,38 @@ void main() {
       ]);
 
       await tester.enterText(find.byType(TextField), 'Library');
-      await tester.tap(find.text('Apply'));
+      await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
 
       expect(find.text('Window Gasket'), findsOneWidget);
       expect(find.text('HVAC Repair'), findsNothing);
     });
+
+    testWidgets('Enter applies the search at once', (tester) async {
+      await pump(tester, [
+        order(id: 'w1', title: 'Window Gasket'),
+        order(id: 'w2', title: 'HVAC Repair'),
+      ]);
+
+      await tester.enterText(find.byType(TextField), 'HVAC');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(find.text('Window Gasket'), findsNothing);
+      await tester.pumpAndSettle();
+    });
+  });
+
+  testWidgets('work orders are listed by priority, Critical first, the oldest '
+      'first within each (2026-11-26)', (tester) async {
+    await pump(tester, [
+      order(id: 'w1', title: 'Low job', priority: PriorityLevel.low),
+      order(id: 'w2', title: 'Critical job', priority: PriorityLevel.critical),
+      order(id: 'w3', title: 'High job', priority: PriorityLevel.high),
+    ]);
+    // The Kanban column holds all three, in that order.
+    double top(String title) => tester.getTopLeft(find.text(title)).dy;
+    expect(top('Critical job'), lessThan(top('High job')));
+    expect(top('High job'), lessThan(top('Low job')));
   });
 
   group('view toggle', () {

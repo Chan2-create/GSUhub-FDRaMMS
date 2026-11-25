@@ -105,6 +105,15 @@ abstract final class SupabaseErrorMapper {
       'PGRST116' => const NotFoundFailure(
         'The requested record no longer exists.',
       ),
+      // A table, column or function the app calls is not in the
+      // database: its migration was not pushed (2026-11-26, "Could not
+      // find the table 'public.buildings' in the schema cache").
+      'PGRST202' ||
+      'PGRST204' ||
+      'PGRST205' ||
+      '42883' ||
+      '42P01' ||
+      '42703' => const DatabaseUpdateFailure(),
       '23505' => const ValidationFailure('That record already exists.'),
       '23503' => const ValidationFailure(
         'That refers to a record that no longer exists.',

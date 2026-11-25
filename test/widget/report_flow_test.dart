@@ -8,6 +8,7 @@ import 'package:gsuhub/core/enums/report_status.dart';
 import 'package:gsuhub/core/enums/work_order_status.dart';
 import 'package:gsuhub/core/routing/route_paths.dart';
 import 'package:gsuhub/core/utils/result.dart';
+import 'package:gsuhub/core/widgets/working_day_picker.dart';
 import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/damage_reports/presentation/report_detail_screen.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
@@ -27,6 +28,7 @@ void main() {
     DamageCategory? category = DamageCategory.electrical,
     PriorityLevel? officialPriority,
     String? workOrderId,
+    DamageCategory? requestorCategory,
   }) => DamageReport(
     id: 'rep-1',
     reporterId: 'faculty-1',
@@ -35,6 +37,7 @@ void main() {
     description: 'The lights flicker and buzz.',
     category: category,
     classifiedAutomatically: true,
+    requestorCategory: requestorCategory,
     facilityId: 'fac-1',
     facilityName: 'Science Building',
     requestorPriority: PriorityLevel.medium,
@@ -156,9 +159,46 @@ void main() {
     );
   });
 
-  testWidgets('Approve waits for the confirmed type and official priority', (
-    tester,
-  ) async {
+  testWidgets("the damage type starts as the reporter's choice, and changing "
+      'it says so (2026-11-26)', (tester) async {
+    await open(
+      tester,
+      report(
+        status: ReportStatus.underReview,
+        // The keywords found Electrical; the reporter chose Plumbing.
+        requestorCategory: DamageCategory.plumbing,
+      ),
+    );
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('reporter-type')),
+        matching: find.text('Plumbing'),
+      ),
+      findsOneWidget,
+    );
+    final note = find.byKey(const ValueKey('type-change-note'));
+    expect(
+      tester.widget<Text>(note).data,
+      "Filled in with the reporter's choice, Plumbing. Confirm it, or choose "
+      'another type.',
+    );
+
+    final dropdown = find.byType(DropdownButtonFormField<DamageCategory>);
+    await tester.ensureVisible(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Electrical').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Text>(note).data,
+      startsWith("Changed from the reporter's Plumbing to Electrical."),
+    );
+  });
+
+  testWidgets('Approve waits for the confirmed official priority, not for a '
+      'type that is already there', (tester) async {
     await open(tester, report(status: ReportStatus.underReview));
     FilledButton approve() => tester.widget<FilledButton>(
       find.byKey(const ValueKey('approve-report')),
@@ -254,9 +294,8 @@ void main() {
     );
   });
 
-  testWidgets('Reschedule needs a reason and a date, and shows both', (
-    tester,
-  ) async {
+  testWidgets('Schedule (not Reschedule, on the report page) needs a reason '
+      'and a date, and shows both', (tester) async {
     final backend = await open(
       tester,
       report(
@@ -265,29 +304,35 @@ void main() {
       ),
     );
 
-    await tapVisible(tester, find.byKey(const ValueKey('reschedule-report')));
-    await tester.tap(find.byKey(const ValueKey('reschedule-save')));
+    await tapVisible(tester, find.byKey(const ValueKey('schedule-report')));
+    await tester.tap(find.byKey(const ValueKey('schedule-save')));
     await tester.pumpAndSettle();
     expect(find.text('Give the reason the work has to wait.'), findsOneWidget);
-    expect(find.text('Choose the date it is moved to.'), findsOneWidget);
+    expect(find.text('Choose the date it is scheduled for.'), findsOneWidget);
     expect(backend.reports.reschedules, isEmpty);
 
     await tester.enterText(
-      find.byKey(const ValueKey('reschedule-reason')),
+      find.byKey(const ValueKey('schedule-reason')),
       'The only electrician is on leave.',
     );
-    await tester.tap(find.byKey(const ValueKey('reschedule-date')));
+    await tester.tap(find.byKey(const ValueKey('schedule-date')));
     await tester.pumpAndSettle();
-    // The picker opens on tomorrow; OK keeps it.
+    // The picker opens on the next working day; OK keeps it.
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('reschedule-save')));
+    await tester.tap(find.byKey(const ValueKey('schedule-save')));
     await tester.pumpAndSettle();
 
     final asked = backend.reports.reschedules.single;
     expect(asked.reason, 'The only electrician is on leave.');
-    final tomorrow = DateUtils.dateOnly(now).add(const Duration(days: 1));
-    expect(asked.rescheduledTo, tomorrow);
+    // Tomorrow, or the next working day when tomorrow is a weekend
+    // (2026-11-26).
+    final expected = WorkingDays.firstFrom(
+      DateUtils.dateOnly(now).add(const Duration(days: 1)),
+      const {},
+      last: now.add(const Duration(days: 30)),
+    );
+    expect(asked.rescheduledTo, expected);
     expect(
       find.textContaining('The requestor has been told why'),
       findsOneWidget,
@@ -297,7 +342,7 @@ void main() {
       find.textContaining(': The only electrician is on leave.'),
       findsOneWidget,
     );
-    expect(find.text('Reschedule again'), findsOneWidget);
+    expect(find.text('Change schedule'), findsOneWidget);
   });
 
   testWidgets('an assigned report leads to its work order', (tester) async {

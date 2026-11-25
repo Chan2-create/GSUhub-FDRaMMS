@@ -31,7 +31,7 @@ void main() {
     expect(find.text('MS'), findsOneWidget);
     expect(find.text('Maria Santos'), findsOneWidget);
     expect(find.text('Active account'), findsOneWidget);
-    expect(find.text('Faculty / Staff'), findsWidgets);
+    expect(find.text('Faculty'), findsWidgets);
 
     // Contact: what is on file, and plainly what is not.
     expect(find.text('Contact'), findsOneWidget);
@@ -58,7 +58,7 @@ void main() {
     await app.pump(tester, start: RoutePaths.personnelProfile);
 
     expect(find.text('Marcus Wright'), findsOneWidget);
-    expect(find.text('Maintenance Personnel'), findsWidgets);
+    expect(find.text('Utility Personnel'), findsWidgets);
 
     await reveal(tester, find.text('Work'));
     expect(find.text('Electrical'), findsOneWidget);

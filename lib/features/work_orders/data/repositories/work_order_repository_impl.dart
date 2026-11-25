@@ -105,6 +105,7 @@ class WorkOrderRepositoryImpl extends SupabaseRepository
   Future<Result<void>> reassign({
     required String workOrderId,
     required String personnelId,
+    required String reason,
     required AuditActor actor,
   }) async =>
       // Once: a retry after a first attempt landed would name the
@@ -112,7 +113,20 @@ class WorkOrderRepositoryImpl extends SupabaseRepository
       (await rpcOnce<dynamic>('reassign_work_order', {
         'work_order_id': workOrderId,
         'personnel_id': personnelId,
+        'reason': reason.trim(),
       })).map((_) {});
+
+  @override
+  Future<Result<void>> reschedule({
+    required String workOrderId,
+    required DateTime scheduledFor,
+    required String reason,
+    required AuditActor actor,
+  }) => rpc('reschedule_work_order', {
+    'work_order_id': workOrderId,
+    'scheduled_for': SupabaseRepository.time(scheduledFor),
+    'reason': reason.trim(),
+  });
 
   @override
   Future<Result<void>> setArchived({

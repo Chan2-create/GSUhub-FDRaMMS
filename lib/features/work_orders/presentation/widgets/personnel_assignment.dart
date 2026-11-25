@@ -9,6 +9,7 @@ import '../../../../core/enums/account_status.dart';
 import '../../../../core/enums/work_order_status.dart';
 import '../../../../core/widgets/person_avatar.dart';
 import '../../../damage_reports/data/models/damage_report.dart';
+import '../../../settings/presentation/holiday_providers.dart';
 import '../../../user_management/data/models/app_user.dart';
 import '../../../user_management/presentation/personnel_directory_providers.dart';
 import '../../../user_management/presentation/personnel_providers.dart';
@@ -303,17 +304,17 @@ class AssignmentChoice {
 /// `WorkOrder.scheduledFor`, which already existed and which the OVERDUE
 /// metric is measured against — without it that card could only ever read
 /// zero. A rescheduled report offers the date it was moved to.
-class AssignDialog extends StatefulWidget {
+class AssignDialog extends ConsumerStatefulWidget {
   const AssignDialog({required this.report, required this.person, super.key});
 
   final DamageReport report;
   final AppUser person;
 
   @override
-  State<AssignDialog> createState() => _AssignDialogState();
+  ConsumerState<AssignDialog> createState() => _AssignDialogState();
 }
 
-class _AssignDialogState extends State<AssignDialog> {
+class _AssignDialogState extends ConsumerState<AssignDialog> {
   late DateTime? _target = _startingTarget();
 
   DateTime? _startingTarget() {
@@ -404,15 +405,14 @@ class _AssignDialogState extends State<AssignDialog> {
     );
   }
 
+  /// A working day only: no Saturday, Sunday or holiday (2026-11-26).
   Future<void> _pickDate() async {
-    // From the start of today, so a date picked today can be opened again.
-    final today = DateUtils.dateOnly(DateTime.now());
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _target ?? today.add(const Duration(days: 3)),
-      firstDate: today,
-      lastDate: today.add(const Duration(days: 365)),
+    final picked = await pickSchedulingDay(
+      context,
+      ref,
+      initial: _target ?? DateTime.now().add(const Duration(days: 3)),
+      helpText: 'Target completion',
     );
-    if (picked != null) setState(() => _target = picked);
+    if (picked != null && mounted) setState(() => _target = picked);
   }
 }

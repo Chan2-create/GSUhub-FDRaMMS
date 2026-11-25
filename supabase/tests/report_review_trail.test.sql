@@ -46,7 +46,7 @@ select is(
   (select array[actor_id, actor_name, description] from public.audit_logs
      where entity_id = 'r-f' and action = 'updated'),
   array['u-admin', 'Ramon Dela Cruz',
-    'Classified as Plumbing; official priority CRITICAL as recommended (score 3.70). '
+    'Classified as Plumbing, changed from the reporter''s Electrical; official priority CRITICAL as recommended (score 3.70). '
     || 'Reason: A burst pipe behind the outlet, not the wiring.'],
   'the audit entry names the administrator and carries the reason'
 );

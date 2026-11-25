@@ -3271,3 +3271,96 @@ App:
   `widget/my_report_review_and_reschedule_test.dart`.
 - Updated: the map, reports, facilities, sign-up, alerts, sidebar,
   Task Assignment, delete, nav-reselect and router tests.
+
+## 47. Follow-up to the consultation: the reporter's type, Schedule and Reschedule, working days, live work-order filters, Faculty and Utility (2026-11-26)
+
+The second brief of the day. New migration:
+`20261126180000_scheduling_holidays_and_labels.sql`; its pgTAP file is
+`scheduling_holidays.test.sql`.
+
+**1. "Could not find the table 'public.buildings' in the schema cache."**
+The live project's migration history ended at `20261117102846`:
+`20261126101500` (buildings, Faculty or Utility, rescheduling, the
+badges) was never pushed. The migration itself is sound. It applies on
+the local stack (`npx supabase db reset --local`, Postgres 17), the
+facility and buildings pgTAP files pass there, and the local API finds
+`create_building`.
+- *The fix is to push it* (with this one): `npx supabase db push --remote`.
+  If PostgREST still answers from its old cache, run
+  `notify pgrst, 'reload schema';`.
+- *Until then.* A missing table, column or function (PGRST202, PGRST204,
+  PGRST205, 42883, 42P01, 42703) maps to a new `DatabaseUpdateFailure`,
+  which says a database update is needed. The Facilities page shows a
+  notice in place of the buildings and disables Add Building.
+
+**2. The damage type comes from the reporter.**
+- *What the review starts with.* The type is filled in with what the
+  reporter chose on the phone, or with the rule-based classification
+  when they chose none. Once the review has been saved, it starts with
+  the type that was confirmed.
+- *Shown on the panel.* A "Reporter's choice" chip, and a line saying
+  whether the box keeps that choice or changes it.
+- *Approve.* It waits for the official priority only. The type is
+  already there, and the same save confirms or changes it.
+- *History.* `record_assessment`'s audit entry now says "the reporter's
+  choice", "changed from the reporter's …" or "the reporter chose no
+  type". The page's history spells it out the same way.
+
+**3. Possible duplicates, compact.** The card moved to the narrow side
+column, folded: "2 possible duplicates" opens to the list. With none
+found, or while they are being looked for, it takes no space. Merge and
+Keep separate are unchanged.
+
+**4. Schedule first; reschedule and reassign from the work order.**
+- *On the report page*, the button is now Schedule. It is the report's
+  first date. The function keeps its name, `reschedule_report`, and now
+  says "scheduled", and the requestor reads "Scheduled".
+- *Reschedule, on the work order.* `reschedule_work_order` takes a
+  working day and a required reason. The report keeps its status; a
+  timeline entry carries the date and the reason. The requestor and
+  everyone holding the work are notified, and it is audited on the work
+  order.
+- *Reassign staff, on the work order.* The dialog lists the work's trade
+  only, as the report page does, with availability and current work.
+  `reassign_work_order` now requires a reason, which goes on both
+  histories and to the requestor and the new and former technicians. Its
+  inline Reassign link is gone.
+- *History card.* The work order page has a History card listing what
+  was done to it.
+- *Working days.* Every scheduling date picker opens through one helper,
+  `pickSchedulingDay`, which calls `showWorkingDayPicker`:
+  - Saturdays, Sundays and holidays cannot be picked.
+  - It opens on the next working day, which also keeps Flutter from
+    throwing on an unselectable initial date.
+  - It covers the Schedule dialog, the Assign dialog's target date,
+    Reschedule, and a task's due date.
+- *Holidays.* Holidays are the new `holidays` table, kept in Settings →
+  Holidays. Nothing is entered for the administrator, because the
+  Philippine dates move every year.
+- *The database checks too.* `app.require_working_day` refuses a
+  weekend or holiday in `assign_work_order`, `reschedule_report`,
+  `reschedule_work_order` and `add_task`. It reads the date as the
+  Philippine calendar day (UTC+8).
+- *A Riverpod 3 detail.* A provider nothing listens to is paused, so
+  `pickSchedulingDay` listens to the holidays while it reads them.
+  Without that, `.future` never completed.
+
+**5. Work Order Management.**
+- *Order.* Work orders are listed by priority, then oldest first, the
+  same as Damage Reports. Both use one comparison,
+  `core/utils/priority_order.dart`.
+- *Filters.* The Apply button is gone. Each filter takes effect as it
+  changes, and the search 300 ms after typing stops (Enter applies it at
+  once). The separate draft and applied filters became one
+  `workOrderFiltersProvider`.
+
+**6. Faculty and Utility.**
+- *The role labels.* End User became Faculty and Maintenance became
+  Utility. The User Accounts tabs read Faculty, Utility Personnel and
+  Administrators, and the profile shows Faculty or Utility Personnel.
+- *The wording around them.* The Personnel page title, Create Utility
+  Account, Task Assignment, the sign-in note (Utility personnel can now
+  sign up), the terms notice, the requestor's "Assigned Utility
+  Personnel" card, and the notices and refusals the database writes.
+- *What did not change.* The stored role values, and the trade names of
+  Table 3.3 (such as "Structural Maintenance Personnel").

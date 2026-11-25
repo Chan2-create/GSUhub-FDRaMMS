@@ -219,7 +219,7 @@ class _RescheduledCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _NoteCard(
     label:
-        'Rescheduled to '
+        'Scheduled for '
         '${DateFormat('EEE, MMM d, y').format(report.rescheduledTo!.toLocal())}',
     body: report.rescheduleReason ?? 'GSU did not give a reason.',
     quoted: report.rescheduleReason != null,
@@ -528,7 +528,7 @@ class _StaffCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = assignment.personnelName ?? 'GSU maintenance personnel';
+    final name = assignment.personnelName ?? 'GSU utility personnel';
     final trade = assignment.personnelSpecialization;
     final assignedOn = assignment.at.toLocal();
     final format = assignedOn.year == DateTime.now().year
@@ -538,7 +538,7 @@ class _StaffCard extends StatelessWidget {
     return _PlainCard(
       children: [
         const Text(
-          'Assigned Maintenance Personnel',
+          'Assigned Utility Personnel',
           style: AppTextStyles.trackingCardLabel,
         ),
         const SizedBox(height: 16),
@@ -659,11 +659,26 @@ class _TimelineItem extends StatelessWidget {
 
   /// The step's name: its status, or for a rescheduling the new date
   /// (2026-11-26).
-  String get _label => switch (entry.rescheduledTo) {
-    final moved? =>
-      'Rescheduled to ${DateFormat('MMM d, y').format(moved.toLocal())}',
-    null => entry.status.timelineLabel,
-  };
+  /// The step's name: its status; or, for an entry that did not move the
+  /// report (2026-11-26), what it did: the date the report was scheduled
+  /// for, before it was assigned; the date its work was rescheduled to,
+  /// after; or who the work was reassigned to. The note says why.
+  String get _label {
+    final moved = entry.rescheduledTo;
+    final when = moved == null
+        ? ''
+        : DateFormat('MMM d, y').format(moved.toLocal());
+    final person = entry.personnelName;
+    return switch (entry.status) {
+      ReportStatus.approved when moved != null => 'Scheduled for $when',
+      _ when moved != null => 'Rescheduled to $when',
+      ReportStatus.assigned when person != null && entry.note != null =>
+        'Reassigned to $person',
+      final status when status != ReportStatus.assigned && person != null =>
+        'Reassigned to $person',
+      _ => entry.status.timelineLabel,
+    };
+  }
 
   String get _text {
     final label = _label;

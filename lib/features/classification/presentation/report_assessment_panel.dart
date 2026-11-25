@@ -210,6 +210,8 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm>
       children: [
         const _Heading('Damage type'),
         const SizedBox(height: 8),
+        _ReporterType(chosen: report.requestorCategory),
+        const SizedBox(height: 8),
         SizedBox(
           width: 320,
           child: DropdownButtonFormField<DamageCategory>(
@@ -230,14 +232,13 @@ class _AssessmentFormState extends ConsumerState<_AssessmentForm>
           ),
         ),
         const SizedBox(height: 8),
-        _KeywordEvidence(result: _keywords),
+        _TypeChangeNote(
+          chosen: report.requestorCategory,
+          current: category,
+          fromKeywords: _keywords.category,
+        ),
         const SizedBox(height: 4),
-        Text(switch (report.requestorCategory) {
-          final chosen? =>
-            'The requestor chose ${chosen.label}. It stays on the report as '
-                'their choice, whichever type you confirm.',
-          null => 'The requestor did not choose a damage type.',
-        }, style: AppTextStyles.bodySmall),
+        _KeywordEvidence(result: _keywords),
         const _Divider(),
         const _Heading('Priority criteria'),
         const SizedBox(height: 4),
@@ -392,6 +393,84 @@ class _Divider extends StatelessWidget {
     padding: EdgeInsets.symmetric(vertical: 20),
     child: Divider(height: 1, color: AppColors.border),
   );
+}
+
+/// "Reporter's choice: Electrical": the type the person who filed the
+/// report picked on the phone (2026-11-26), kept as filed whatever is
+/// confirmed.
+class _ReporterType extends StatelessWidget {
+  const _ReporterType({required this.chosen});
+
+  final DamageCategory? chosen;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 8,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      const Text("Reporter's choice:", style: AppTextStyles.bodySmall),
+      Container(
+        key: const ValueKey('reporter-type'),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceMuted,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          chosen?.label ?? 'None chosen',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+/// Whether the type in the box keeps the reporter's choice or changes it,
+/// and where it came from when they chose none.
+class _TypeChangeNote extends StatelessWidget {
+  const _TypeChangeNote({
+    required this.chosen,
+    required this.current,
+    required this.fromKeywords,
+  });
+
+  final DamageCategory? chosen;
+  final DamageCategory? current;
+  final DamageCategory? fromKeywords;
+
+  @override
+  Widget build(BuildContext context) {
+    final picked = current;
+    final reporter = chosen;
+    final changed = reporter != null && picked != null && picked != reporter;
+    final text = switch ((reporter, picked)) {
+      (null, null) =>
+        'The reporter chose no type and no keyword matched: choose it.',
+      (null, final type?) when type == fromKeywords =>
+        'The reporter chose no type: filled in from the rule-based '
+            'classification. Confirm it, or choose another.',
+      (null, _) => 'The reporter chose no type.',
+      (final type?, _) when !changed =>
+        "Filled in with the reporter's choice, ${type.label}. Confirm it, "
+            'or choose another type.',
+      (final type?, final now) =>
+        "Changed from the reporter's ${type.label} to ${now!.label}. Saving "
+            "records the change in the report's history; the reporter's "
+            'choice stays on the report.',
+    };
+    return Text(
+      text,
+      key: const ValueKey('type-change-note'),
+      style: AppTextStyles.bodySmall.copyWith(
+        color: changed ? AppColors.accountPending : null,
+        fontWeight: changed ? FontWeight.w600 : null,
+      ),
+    );
+  }
 }
 
 /// Why the panel suggests the type it does: which keywords were found.

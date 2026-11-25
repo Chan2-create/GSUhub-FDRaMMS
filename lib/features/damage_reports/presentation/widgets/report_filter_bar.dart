@@ -82,7 +82,7 @@ class ReportFilterBar extends ConsumerWidget {
             value: view.status,
             onChanged: controller.setStatus,
             options: [
-              const FilterOption(value: null, label: 'All statuses'),
+              const FilterOption(value: null, label: 'All status'),
               for (final status in ReportStatus.values)
                 FilterOption(value: status, label: status.label),
             ],

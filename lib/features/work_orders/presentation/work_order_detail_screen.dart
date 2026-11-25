@@ -6,8 +6,6 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
-import '../../../core/enums/account_status.dart';
-import '../../../core/enums/personnel_availability.dart';
 import '../../../core/enums/task_status.dart';
 import '../../../core/enums/work_order_status.dart';
 import '../../../core/navigation/unsaved_work.dart';
@@ -18,17 +16,22 @@ import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/status_chip.dart';
+import '../../../core/widgets/working_day_picker.dart';
 import '../../accomplishment/data/models/accomplishment_report.dart';
 import '../../accomplishment/data/models/recorded_material.dart';
 import '../../accomplishment/presentation/material_sheets.dart';
+import '../../audit/data/models/audit_log_entry.dart';
 import '../../inventory/presentation/widgets/allocated_materials_card.dart';
+import '../../settings/presentation/holiday_providers.dart';
 import '../../tasks/data/models/maintenance_task.dart';
 import '../../tasks/data/repositories/task_repository_impl.dart';
 import '../../tasks/domain/task_day.dart';
 import '../../tools/data/models/tool_loan.dart';
+import '../../user_management/data/models/app_user.dart';
 import '../../user_management/presentation/personnel_providers.dart';
 import '../data/models/work_order.dart';
 import 'personnel/personnel_providers.dart';
+import 'widgets/personnel_assignment.dart';
 import 'widgets/work_order_archive.dart';
 import 'work_order_detail_controller.dart';
 
@@ -40,6 +43,12 @@ import 'work_order_detail_controller.dart';
 /// No Figma frame exists for it; it follows the report page's layout and
 /// components. Opened from a work order's number on the board or in the
 /// table.
+///
+/// **2026-11-26:** Reschedule and Reassign staff are here, and only here:
+/// the report page schedules a report once; a work order already raised is
+/// rescheduled or handed to someone else from its own page, each with a
+/// required reason the requestor and the personnel concerned are told. The
+/// History card lists what was done to it.
 class WorkOrderDetailScreen extends ConsumerWidget {
   const WorkOrderDetailScreen({required this.workOrderId, super.key});
 
@@ -90,20 +99,52 @@ class _Detail extends ConsumerWidget {
             PriorityChip(level: workOrder.priority),
           ],
         ),
-        // Work orders are archived, never deleted (2026-11-08).
-        if (workOrder.isArchived || workOrder.canBeArchived) ...[
+        // Open work: rescheduled or handed on from here, with a reason
+        // (2026-11-26). Work orders are archived, never deleted
+        // (2026-11-08).
+        if ((open && !workOrder.isArchived) ||
+            workOrder.isArchived ||
+            workOrder.canBeArchived) ...[
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () => confirmWorkOrderArchive(context, workOrder),
-            icon: Icon(
-              workOrder.isArchived
-                  ? Icons.unarchive_outlined
-                  : Icons.archive_outlined,
-              size: 18,
-            ),
-            label: Text(
-              workOrder.isArchived ? 'Restore from archive' : 'Archive',
-            ),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              if (open && !workOrder.isArchived) ...[
+                OutlinedButton.icon(
+                  key: const ValueKey('reschedule-work-order'),
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) =>
+                        _RescheduleWorkOrderDialog(workOrder: workOrder),
+                  ),
+                  icon: const Icon(Icons.event_repeat_outlined, size: 18),
+                  label: const Text('Reschedule'),
+                ),
+                OutlinedButton.icon(
+                  key: const ValueKey('reassign-work-order'),
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => _ReassignDialog(workOrder: workOrder),
+                  ),
+                  icon: const Icon(Icons.swap_horiz, size: 18),
+                  label: const Text('Reassign staff'),
+                ),
+              ],
+              if (workOrder.isArchived || workOrder.canBeArchived)
+                OutlinedButton.icon(
+                  onPressed: () => confirmWorkOrderArchive(context, workOrder),
+                  icon: Icon(
+                    workOrder.isArchived
+                        ? Icons.unarchive_outlined
+                        : Icons.archive_outlined,
+                    size: 18,
+                  ),
+                  label: Text(
+                    workOrder.isArchived ? 'Restore from archive' : 'Archive',
+                  ),
+                ),
+            ],
           ),
         ],
         const SizedBox(height: 24),
@@ -115,6 +156,8 @@ class _Detail extends ConsumerWidget {
                 _AccomplishmentCard(workOrder: workOrder),
                 const SizedBox(height: 16),
                 _TasksCard(workOrder: workOrder, open: open),
+                const SizedBox(height: 16),
+                _HistoryCard(workOrder: workOrder),
               ],
             );
             final side = Column(
@@ -224,36 +267,15 @@ class _DetailsCard extends ConsumerWidget {
               style: AppTextStyles.fieldValue,
             ),
           ),
+          // Reassigned from Reassign staff, above (2026-11-26).
           _Field(
             'Assigned to',
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              children: [
-                Text(
-                  workOrder.assignedPersonnelIds
-                      .map((id) => names[id] ?? id)
-                      .join(', ')
-                      .ifEmpty('Nobody'),
-                  style: AppTextStyles.fieldValue,
-                ),
-                // Open work only (Objective 7.A): work sent for review is
-                // the sign-off's to settle first.
-                if (MyWork.isOpen(workOrder.status))
-                  TextButton(
-                    onPressed: () => showDialog<void>(
-                      context: context,
-                      builder: (context) =>
-                          _ReassignDialog(workOrder: workOrder),
-                    ),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text('Reassign'),
-                  ),
-              ],
+            Text(
+              workOrder.assignedPersonnelIds
+                  .map((id) => names[id] ?? id)
+                  .join(', ')
+                  .ifEmpty('Nobody'),
+              style: AppTextStyles.fieldValue,
             ),
           ),
           _Field(
@@ -292,10 +314,12 @@ extension on String {
   String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }
 
-/// Hands open work to another technician (Objective 7.A; manuscript §3.4:
-/// "Modify report priorities and assignments when necessary"). No design
-/// covers it: a plain list of the active technicians, those of the work's
-/// trade first, then the least busy, as Task Assignment ranks them.
+/// Reassign staff (Objective 7.A; manuscript §3.4: "Modify report
+/// priorities and assignments when necessary"; reworked 2026-11-26): the
+/// personnel of the work's trade only (Table 3.3), as the report page
+/// lists them, each with their availability and current work, and a
+/// required reason. The requestor, the new technician and the one it is
+/// taken from are told, with the reason.
 class _ReassignDialog extends ConsumerStatefulWidget {
   const _ReassignDialog({required this.workOrder});
 
@@ -306,106 +330,154 @@ class _ReassignDialog extends ConsumerStatefulWidget {
 }
 
 class _ReassignDialogState extends ConsumerState<_ReassignDialog> {
+  final _reason = TextEditingController();
   String? _chosen;
+  String? _error;
   bool _busy = false;
 
-  static String _availability(PersonnelAvailability? availability) =>
-      switch (availability) {
-        PersonnelAvailability.available || null => 'Available',
-        PersonnelAvailability.busy => 'Busy',
-        PersonnelAvailability.onLeave => 'On leave',
-      };
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
 
   Future<void> _save() async {
     final chosen = _chosen;
-    if (chosen == null) return;
-    setState(() => _busy = true);
+    final reason = _reason.text.trim();
+    if (chosen == null) {
+      setState(() => _error = 'Choose who takes the work.');
+      return;
+    }
+    if (reason.isEmpty) {
+      setState(() => _error = 'Give the reason for reassigning.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     final result = await ref
         .read(workOrderDetailControllerProvider)
-        .reassign(workOrderId: widget.workOrder.id, personnelId: chosen);
+        .reassign(
+          workOrderId: widget.workOrder.id,
+          personnelId: chosen,
+          reason: reason,
+        );
     if (!mounted) return;
     final name = ref.read(personnelNamesProvider)[chosen] ?? 'them';
-    if (result is Success) Navigator.of(context).pop();
-    setState(() => _busy = false);
-    _report(context, result, 'Reassigned to $name. They have been told.');
+    switch (result) {
+      case Success():
+        Navigator.of(context).pop();
+        _report(
+          context,
+          result,
+          'Reassigned to $name. They, the one it was taken from and the '
+          'requestor have been told why.',
+        );
+      case Error(:final failure):
+        setState(() {
+          _busy = false;
+          _error = failure.message;
+        });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final workOrder = widget.workOrder;
-    final people = switch (ref.watch(personnelStreamProvider)) {
-      AsyncData(value: Success(:final value)) =>
-        [
-          for (final person in value)
-            if (person.accountStatus == AccountStatus.active &&
-                !workOrder.assignedPersonnelIds.contains(person.id))
-              person,
-        ]..sort((a, b) {
-          final trade =
-              (b.specialization == workOrder.category ? 1 : 0) -
-              (a.specialization == workOrder.category ? 1 : 0);
-          if (trade != 0) return trade;
-          final load = a.activeTaskCount.compareTo(b.activeTaskCount);
-          return load != 0 ? load : a.fullName.compareTo(b.fullName);
-        }),
+    final workload = ref.watch(personnelWorkloadProvider);
+    final List<AppUser>? people = switch (ref.watch(personnelStreamProvider)) {
+      AsyncData(value: Success(:final value)) => [
+        for (final person in personnelOfTrade(value, workOrder.category))
+          if (!workOrder.assignedPersonnelIds.contains(person.id) &&
+              AssignmentAvailability.of(
+                person,
+                held: (workload[person.id] ?? const []).length,
+              ).canTakeWork)
+            person,
+      ],
       _ => null,
     };
 
     return AlertDialog(
-      title: const Text('Reassign this work order'),
+      title: const Text('Reassign staff'),
       content: SizedBox(
-        width: 460,
-        child: switch (people) {
-          null => const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          [] => const Text(
-            'No other active technician can take it.',
-            style: AppTextStyles.bodySmall,
-          ),
-          final people => Column(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Its unfinished tasks go with it. The requestor, the new '
-                'technician and the one it is taken from are told.',
+              Text(
+                '${workOrder.category.label} work goes to '
+                '${workOrder.category.assignedPersonnelLabel} (Table 3.3). '
+                'Its unfinished tasks go with it.',
                 style: AppTextStyles.bodySmall,
               ),
               const SizedBox(height: 12),
-              // Up to 360 tall, and less on a short phone, where a fixed
-              // 360 ran past the bottom of the dialog: the list scrolls.
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 360),
+              switch (people) {
+                null => const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                [] => Text(
+                  'No other ${workOrder.category.assignedPersonnelLabel} '
+                  'can take it now. Reschedule it instead, until someone '
+                  'can.',
+                  style: AppTextStyles.bodySmall,
+                ),
+                final people => ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
                   child: RadioGroup<String>(
                     groupValue: _chosen,
-                    onChanged: (id) => setState(() => _chosen = id),
+                    onChanged: (id) => setState(() {
+                      _chosen = id;
+                      _error = null;
+                    }),
                     child: ListView(
                       shrinkWrap: true,
                       children: [
                         for (final person in people)
                           RadioListTile<String>(
+                            key: ValueKey('reassign-to-${person.id}'),
                             value: person.id,
                             title: Text(person.fullName),
                             subtitle: Text(
-                              [
-                                person.specialization?.label ?? 'No trade set',
-                                _availability(person.availability),
-                                '${person.activeTaskCount} open '
-                                    'work order${person.activeTaskCount == 1 ? '' : 's'}',
-                              ].join(' · '),
+                              '${AssignmentAvailability.of(person, held: (workload[person.id] ?? const []).length).label}'
+                              ' · ${workloadSummary(workload[person.id] ?? const [])}',
                             ),
                           ),
                       ],
                     ),
                   ),
                 ),
+              },
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('reassign-reason'),
+                controller: _reason,
+                enabled: !_busy,
+                maxLines: 3,
+                maxLength: 500,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for reassigning',
+                  hintText: 'e.g. Ana is on leave this week.',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
               ),
+              if (_error case final message?)
+                Text(
+                  message,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
             ],
           ),
-        },
+        ),
       ),
       actions: [
         TextButton(
@@ -413,12 +485,221 @@ class _ReassignDialogState extends ConsumerState<_ReassignDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: _busy || _chosen == null ? null : _save,
+          key: const ValueKey('reassign-save'),
+          onPressed: _busy || people == null || people.isEmpty ? null : _save,
           child: Text(_busy ? 'Saving…' : 'Reassign'),
         ),
       ],
     );
   }
+}
+
+/// Reschedule (2026-11-26): a new target date, a working day, and the
+/// required reason, which go on the work order's and the report's history
+/// and to the requestor and whoever holds the work.
+class _RescheduleWorkOrderDialog extends ConsumerStatefulWidget {
+  const _RescheduleWorkOrderDialog({required this.workOrder});
+
+  final WorkOrder workOrder;
+
+  @override
+  ConsumerState<_RescheduleWorkOrderDialog> createState() =>
+      _RescheduleWorkOrderDialogState();
+}
+
+class _RescheduleWorkOrderDialogState
+    extends ConsumerState<_RescheduleWorkOrderDialog> {
+  final _reason = TextEditingController();
+  DateTime? _date;
+  String? _error;
+  bool _busy = false;
+
+  static final DateFormat _day = DateFormat('EEE, MMM d, y');
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick() async {
+    final picked = await pickSchedulingDay(
+      context,
+      ref,
+      initial: _date ?? DateTime.now().add(const Duration(days: 1)),
+      helpText: 'Reschedule to',
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _date = picked;
+        _error = null;
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    final reason = _reason.text.trim();
+    final date = _date;
+    if (date == null) {
+      setState(() => _error = 'Choose the new date.');
+      return;
+    }
+    if (reason.isEmpty) {
+      setState(() => _error = 'Give the reason for rescheduling.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final result = await ref
+        .read(workOrderDetailControllerProvider)
+        .reschedule(
+          workOrderId: widget.workOrder.id,
+          scheduledFor: date,
+          reason: reason,
+        );
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        Navigator.of(context).pop();
+        _report(
+          context,
+          result,
+          'Rescheduled to ${_day.format(date)}. The requestor and the '
+          'technician have been told why.',
+        );
+      case Error(:final failure):
+        setState(() {
+          _busy = false;
+          _error = failure.message;
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = widget.workOrder.scheduledFor?.toLocal();
+    return AlertDialog(
+      title: const Text('Reschedule this work order'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                current == null
+                    ? 'It has no target date yet.'
+                    : 'Now due ${_day.format(current)}.',
+                style: AppTextStyles.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _date == null
+                          ? 'No new date chosen'
+                          : 'New date: ${_day.format(_date!)}',
+                      style: AppTextStyles.fieldValue,
+                    ),
+                  ),
+                  TextButton(
+                    key: const ValueKey('reschedule-work-order-date'),
+                    onPressed: _busy ? null : _pick,
+                    child: Text(_date == null ? 'Choose date' : 'Change'),
+                  ),
+                ],
+              ),
+              const Text(
+                'Weekdays only; Saturdays, Sundays and the holidays in '
+                'Settings cannot be picked.',
+                style: AppTextStyles.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('reschedule-work-order-reason'),
+                controller: _reason,
+                enabled: !_busy,
+                maxLines: 3,
+                maxLength: 500,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for rescheduling',
+                  hintText: 'e.g. The replacement part arrives on Monday.',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
+              ),
+              if (_error case final message?)
+                Text(
+                  message,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('reschedule-work-order-save'),
+          onPressed: _busy ? null : _save,
+          child: Text(_busy ? 'Saving…' : 'Reschedule'),
+        ),
+      ],
+    );
+  }
+}
+
+/// What was done to the work order, newest first: its assignment, moves,
+/// reschedulings and reassignments with their reasons (2026-11-26).
+class _HistoryCard extends ConsumerWidget {
+  const _HistoryCard({required this.workOrder});
+
+  final WorkOrder workOrder;
+
+  static final DateFormat _when = DateFormat('MMM d, y · h:mm a');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => SectionCard(
+    title: 'History',
+    child: AsyncValueView<List<AuditLogEntry>>(
+      value: ref.watch(workOrderHistoryProvider(workOrder.id)),
+      loadingHeight: 60,
+      onRetry: () => ref.invalidate(workOrderHistoryProvider(workOrder.id)),
+      isEmpty: (entries) => entries.isEmpty,
+      emptyMessage: 'Nothing recorded yet.',
+      data: (entries) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final entry in entries.reversed)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.description, style: AppTextStyles.fieldValue),
+                  Text(
+                    '${entry.actorName} · '
+                    '${_when.format(entry.timestamp.toLocal())}',
+                    style: AppTextStyles.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// The note shown at the top of the work order on the technician's phone.
@@ -628,7 +909,15 @@ class _AddTaskFormState extends ConsumerState<_AddTaskForm>
   @override
   bool get hasUnsavedWork =>
       _title.text.trim().isNotEmpty || _description.text.trim().isNotEmpty;
-  DateTime _due = DateTime.now();
+
+  /// Today, or the next working day when today is not one (2026-11-26).
+  DateTime _due =
+      WorkingDays.firstFrom(
+        DateTime.now(),
+        const {},
+        last: DateTime.now().add(const Duration(days: 7)),
+      ) ??
+      DateTime.now();
   bool _busy = false;
 
   @override
@@ -638,15 +927,15 @@ class _AddTaskFormState extends ConsumerState<_AddTaskForm>
     super.dispose();
   }
 
+  /// A working day only: no Saturday, Sunday or holiday (2026-11-26).
   Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _due,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: now.add(const Duration(days: 365)),
+    final picked = await pickSchedulingDay(
+      context,
+      ref,
+      initial: _due,
+      helpText: 'Due on',
     );
-    if (picked != null) setState(() => _due = picked);
+    if (picked != null && mounted) setState(() => _due = picked);
   }
 
   Future<void> _add() async {

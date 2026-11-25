@@ -57,7 +57,7 @@ abstract final class TermsNotice {
     ),
     (
       'Who can see it',
-      'GSU administrators, and the maintenance personnel assigned to your '
+      'GSU administrators, and the utility personnel assigned to your '
           'report. Your information is not sold or shared with anyone outside '
           'the university, except the cloud services that host GSUhub on the '
           "university's behalf, or where the law requires it.",

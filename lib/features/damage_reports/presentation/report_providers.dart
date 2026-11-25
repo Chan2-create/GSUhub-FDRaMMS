@@ -4,6 +4,7 @@ import '../../../core/constants/damage_categories.dart';
 import '../../../core/di/repository_providers.dart';
 import '../../../core/enums/priority_level.dart';
 import '../../../core/enums/report_status.dart';
+import '../../../core/utils/priority_order.dart';
 import '../../../core/utils/result.dart';
 import '../../work_orders/data/models/work_order.dart';
 import '../../work_orders/presentation/work_order_providers.dart';
@@ -121,14 +122,14 @@ final reportsViewProvider =
 /// ones. The priority is the one the report is listed under: the official
 /// one once confirmed, the requestor's until then. Changing a report's
 /// priority moves it, since the list is live.
-int byPriorityThenOldest(DamageReport a, DamageReport b) {
-  final byPriority = b.effectivePriority.index.compareTo(
-    a.effectivePriority.index,
-  );
-  if (byPriority != 0) return byPriority;
-  final byAge = a.submittedAt.compareTo(b.submittedAt);
-  return byAge != 0 ? byAge : a.id.compareTo(b.id);
-}
+int byPriorityThenOldest(DamageReport a, DamageReport b) =>
+    byPriorityThenOldestOf(
+      a,
+      b,
+      priority: (report) => report.effectivePriority,
+      since: (report) => report.submittedAt,
+      id: (report) => report.id,
+    );
 
 /// Reports matching the current filters, by priority then oldest first
 /// ([byPriorityThenOldest]).

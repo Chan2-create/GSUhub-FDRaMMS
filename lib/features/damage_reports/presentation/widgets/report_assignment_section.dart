@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/widgets/async_value_view.dart';
 import '../../../../core/widgets/section_card.dart';
+import '../../../settings/presentation/holiday_providers.dart';
 import '../../../user_management/data/models/app_user.dart';
 import '../../../user_management/presentation/personnel_providers.dart';
 import '../../../work_orders/presentation/widgets/personnel_assignment.dart';
@@ -20,8 +21,12 @@ import '../report_review_controller.dart';
 /// Lists the personnel of the report's trade only (Table 3.3), each with
 /// their availability and the work they hold now. Assigning raises the
 /// work order, moves the report to Assigned and notifies the technician
-/// and the requestor. When nobody, or no equipment, is free, Reschedule
-/// moves the work to a date, with a reason; both reach the requestor.
+/// and the requestor. When nobody, or no equipment, is free, Schedule sets
+/// the date the work waits for, with a reason; both reach the requestor.
+///
+/// **Schedule, not Reschedule (2026-11-26):** when a report is first
+/// handled the administrator is scheduling it. Once a work order exists,
+/// rescheduling and reassigning are done from the work order's page.
 class ReportAssignmentSection extends ConsumerWidget {
   const ReportAssignmentSection({required this.report, super.key});
 
@@ -37,18 +42,18 @@ class ReportAssignmentSection extends ConsumerWidget {
           ? 'Confirm the damage type first: it decides who can take the work.'
           : '${category.label} reports go to '
                 '${category.assignedPersonnelLabel} (Table 3.3). Choose who '
-                'takes it, or reschedule it when nobody can yet.',
+                'takes it, or schedule it when nobody can yet.',
       trailing: OutlinedButton.icon(
-        key: const ValueKey('reschedule-report'),
-        onPressed: () => showRescheduleDialog(context, ref, report),
+        key: const ValueKey('schedule-report'),
+        onPressed: () => showScheduleDialog(context, ref, report),
         icon: const Icon(Icons.event_outlined, size: 18),
-        label: Text(report.isRescheduled ? 'Reschedule again' : 'Reschedule'),
+        label: Text(report.isRescheduled ? 'Change schedule' : 'Schedule'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (report.isRescheduled) ...[
-            RescheduledNotice(report: report),
+            ScheduledNotice(report: report),
             const SizedBox(height: 16),
           ],
           if (!report.isAssignable)
@@ -67,7 +72,7 @@ class ReportAssignmentSection extends ConsumerWidget {
                 if (matching.isEmpty) {
                   return Text(
                     'No ${category!.assignedPersonnelLabel} account is '
-                    'registered. Reschedule the report until one can take '
+                    'registered. Schedule the report until one can take '
                     'it, or add one in User Accounts.',
                     style: AppTextStyles.bodySmall,
                   );
@@ -90,10 +95,10 @@ class ReportAssignmentSection extends ConsumerWidget {
   }
 }
 
-/// "Rescheduled to Dec 1, 2026" and why, while the report waits for that
+/// "Scheduled for Dec 1, 2026" and why, while the report waits for that
 /// date.
-class RescheduledNotice extends StatelessWidget {
-  const RescheduledNotice({required this.report, super.key});
+class ScheduledNotice extends StatelessWidget {
+  const ScheduledNotice({required this.report, super.key});
 
   final DamageReport report;
 
@@ -120,7 +125,7 @@ class RescheduledNotice extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            'Rescheduled to '
+            'Scheduled for '
             '${_date.format(report.rescheduledTo!.toLocal())}: '
             '${report.rescheduleReason ?? 'no reason recorded'}',
             style: AppTextStyles.bodySmall.copyWith(
@@ -134,8 +139,8 @@ class RescheduledNotice extends StatelessWidget {
 }
 
 /// Asks for the reason and the date the work is moved to, both required,
-/// and reschedules the report.
-Future<void> showRescheduleDialog(
+/// and schedules the report.
+Future<void> showScheduleDialog(
   BuildContext context,
   WidgetRef ref,
   DamageReport report,
@@ -143,29 +148,29 @@ Future<void> showRescheduleDialog(
   final messenger = ScaffoldMessenger.of(context);
   final moved = await showDialog<DateTime>(
     context: context,
-    builder: (_) => _RescheduleDialog(report: report),
+    builder: (_) => _ScheduleDialog(report: report),
   );
   if (moved == null) return;
   messenger.showSnackBar(
     SnackBar(
       content: Text(
-        'Rescheduled to ${DateFormat('MMM d, y').format(moved)}. The '
+        'Scheduled for ${DateFormat('MMM d, y').format(moved)}. The '
         'requestor has been told why.',
       ),
     ),
   );
 }
 
-class _RescheduleDialog extends ConsumerStatefulWidget {
-  const _RescheduleDialog({required this.report});
+class _ScheduleDialog extends ConsumerStatefulWidget {
+  const _ScheduleDialog({required this.report});
 
   final DamageReport report;
 
   @override
-  ConsumerState<_RescheduleDialog> createState() => _RescheduleDialogState();
+  ConsumerState<_ScheduleDialog> createState() => _ScheduleDialogState();
 }
 
-class _RescheduleDialogState extends ConsumerState<_RescheduleDialog> {
+class _ScheduleDialogState extends ConsumerState<_ScheduleDialog> {
   static const int reasonLimit = 500;
 
   late final _reason = TextEditingController(
@@ -183,15 +188,15 @@ class _RescheduleDialogState extends ConsumerState<_RescheduleDialog> {
     super.dispose();
   }
 
+  /// A working day only: no Saturday, Sunday or holiday (2026-11-26).
   Future<void> _pickDate() async {
-    final today = DateUtils.dateOnly(DateTime.now());
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date ?? today.add(const Duration(days: 1)),
-      firstDate: today,
-      lastDate: today.add(const Duration(days: 365)),
+    final picked = await pickSchedulingDay(
+      context,
+      ref,
+      initial: _date ?? DateTime.now().add(const Duration(days: 1)),
+      helpText: 'Schedule for',
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() {
         _date = picked;
         _dateError = null;
@@ -205,7 +210,9 @@ class _RescheduleDialogState extends ConsumerState<_RescheduleDialog> {
       _reasonError = reason.isEmpty
           ? 'Give the reason the work has to wait.'
           : null;
-      _dateError = _date == null ? 'Choose the date it is moved to.' : null;
+      _dateError = _date == null
+          ? 'Choose the date it is scheduled for.'
+          : null;
       _error = null;
     });
     if (_reasonError != null || _dateError != null) return;
@@ -226,7 +233,7 @@ class _RescheduleDialogState extends ConsumerState<_RescheduleDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Reschedule this report'),
+    title: const Text('Schedule this report'),
     content: SizedBox(
       width: 460,
       child: SingleChildScrollView(
@@ -237,12 +244,13 @@ class _RescheduleDialogState extends ConsumerState<_RescheduleDialog> {
             const Text(
               'For when no personnel or equipment is available yet. The '
               'report stays approved, waiting for the date; the requestor '
-              'sees the date and the reason.',
+              'sees the date and the reason. Weekdays only: Saturdays, '
+              'Sundays and the holidays in Settings cannot be picked.',
               style: AppTextStyles.bodySmall,
             ),
             const SizedBox(height: 16),
             TextField(
-              key: const ValueKey('reschedule-reason'),
+              key: const ValueKey('schedule-reason'),
               controller: _reason,
               enabled: !_busy,
               autofocus: true,
@@ -265,12 +273,12 @@ class _RescheduleDialogState extends ConsumerState<_RescheduleDialog> {
                   child: Text(
                     _date == null
                         ? 'No date chosen'
-                        : 'Moved to ${DateFormat('EEE, MMM d, y').format(_date!)}',
+                        : 'Scheduled for ${DateFormat('EEE, MMM d, y').format(_date!)}',
                     style: AppTextStyles.fieldValue,
                   ),
                 ),
                 TextButton(
-                  key: const ValueKey('reschedule-date'),
+                  key: const ValueKey('schedule-date'),
                   onPressed: _busy ? null : _pickDate,
                   child: Text(_date == null ? 'Choose date' : 'Change'),
                 ),
@@ -298,9 +306,9 @@ class _RescheduleDialogState extends ConsumerState<_RescheduleDialog> {
         child: const Text('Cancel'),
       ),
       FilledButton(
-        key: const ValueKey('reschedule-save'),
+        key: const ValueKey('schedule-save'),
         onPressed: _busy ? null : _save,
-        child: Text(_busy ? 'Saving…' : 'Reschedule'),
+        child: Text(_busy ? 'Saving…' : 'Schedule'),
       ),
     ],
   );

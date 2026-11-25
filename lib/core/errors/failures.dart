@@ -24,6 +24,20 @@ final class ServerFailure extends Failure {
   const ServerFailure(super.message);
 }
 
+/// The database is behind this version of the app (2026-11-26): a table
+/// or function the app asks for is not there, because its migration has
+/// not been applied to the project yet. PostgREST says so as a
+/// "schema cache" error, which means nothing to the person using the app;
+/// this says what to do instead.
+final class DatabaseUpdateFailure extends ServerFailure {
+  const DatabaseUpdateFailure([super.message = defaultMessage]);
+
+  static const String defaultMessage =
+      'This part of GSUhub needs a database update that has not been '
+      'applied yet. Ask the system administrator to apply the latest '
+      'update (npx supabase db push), then try again.';
+}
+
 final class PermissionFailure extends Failure {
   const PermissionFailure(super.message);
 }

@@ -25,11 +25,20 @@ class AssessmentDraft {
   /// Starts from what [report] already carries: a saved assessment, or the
   /// keyword classifier's category — the one stored when it was filed, or
   /// else [suggestion], the dictionary's match today.
+  /// The damage type starts as the official one once decided; until then
+  /// as the reporter chose it on the phone, or, when they chose none, as
+  /// the rule-based classification found it (2026-11-26): the
+  /// administrator confirms or changes it, never has to pick one that is
+  /// already there.
   factory AssessmentDraft.of(
     DamageReport report, {
     DamageCategory? suggestion,
   }) => AssessmentDraft(
-    category: report.category ?? suggestion,
+    category:
+        report.officialCategory ??
+        report.requestorCategory ??
+        report.category ??
+        suggestion,
     ratings: {
       PrioritizationCriterion.severity: ?report.severityRating,
       PrioritizationCriterion.safetyRisk: ?report.safetyRiskRating,

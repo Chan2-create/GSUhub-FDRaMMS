@@ -431,7 +431,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
     final roleNotice = _roleNotice;
 
     return AlertDialog(
-      title: Text(_isEdit ? 'Edit account' : 'Create maintenance account'),
+      title: Text(_isEdit ? 'Edit account' : 'Create utility account'),
       content: SizedBox(
         width: 460,
         child: Form(

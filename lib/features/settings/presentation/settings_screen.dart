@@ -7,6 +7,7 @@ import '../../../core/widgets/page_header.dart';
 import '../../classification/presentation/keyword_settings_section.dart';
 import '../../classification/presentation/scoring_settings_section.dart';
 import '../../user_management/presentation/departments_settings_section.dart';
+import 'holidays_settings_section.dart';
 
 /// The things Settings holds, one tab each.
 enum SettingsTab {
@@ -15,7 +16,10 @@ enum SettingsTab {
   duplicates('Duplicate detection', 760),
 
   /// The departments and faculties accounts choose from (2026-11-17).
-  departments('Departments', 760);
+  departments('Departments', 760),
+
+  /// The days no work is scheduled on (2026-11-26).
+  holidays('Holidays', 760);
 
   const SettingsTab(this.label, this.maxWidth);
 
@@ -78,6 +82,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     ),
     // Saved entry by entry: never anything unsaved to mark.
     SettingsTab.departments => const DepartmentsSettingsSection(),
+    SettingsTab.holidays => const HolidaysSettingsSection(),
   };
 
   @override
@@ -89,8 +94,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         const PageHeader(
           title: 'Settings',
           subtitle:
-              'The rules GSUhub applies to incoming damage reports, and the '
-              'departments accounts belong to.',
+              'The rules GSUhub applies to incoming damage reports, the '
+              'departments accounts belong to, and the holidays no work is '
+              'scheduled on.',
         ),
         const SizedBox(height: PageHeader.gapBelow),
         ConsoleTabBar<SettingsTab>(

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -129,6 +130,44 @@ void main() {
     );
   });
 
+  testWidgets('Reschedule asks for a working day and a reason, and moves the '
+      'target date (2026-11-26)', (tester) async {
+    final app = await console(tester);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('reschedule-work-order')),
+    );
+    await tester.tap(find.byKey(const ValueKey('reschedule-work-order')));
+    await tester.pumpAndSettle();
+    expect(find.text('Reschedule this work order'), findsOneWidget);
+
+    // Both are required.
+    await tester.tap(find.byKey(const ValueKey('reschedule-work-order-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose the new date.'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('reschedule-work-order-date')));
+    await tester.pumpAndSettle();
+    // The picker opens on a working day; OK keeps it.
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('reschedule-work-order-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('Give the reason for rescheduling.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('reschedule-work-order-reason')),
+      'The replacement ballast arrives next week.',
+    );
+    await tester.tap(find.byKey(const ValueKey('reschedule-work-order-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Rescheduled to'), findsOneWidget);
+    final saved = await app.read(TableNames.workOrders, 'wo-1');
+    final day = (saved['scheduledFor'] as Timestamp).toDate().toLocal();
+    expect(day.weekday, lessThan(DateTime.saturday));
+  });
+
   testWidgets('the administrator reassigns open work, and everyone is told', (
     tester,
   ) async {
@@ -136,20 +175,32 @@ void main() {
     await app.data.addPersonnel('personnel-2', fullName: 'Juan Luna');
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.widgetWithText(TextButton, 'Reassign'));
-    await tester.tap(find.widgetWithText(TextButton, 'Reassign'));
+    // Reassign staff, at the top of the work order (2026-11-26).
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('reassign-work-order')),
+    );
+    await tester.tap(find.byKey(const ValueKey('reassign-work-order')));
     await tester.pumpAndSettle();
-    expect(find.text('Reassign this work order'), findsOneWidget);
+    expect(find.text('Reassign staff'), findsWidgets);
+    expect(
+      find.textContaining('Electrical work goes to Electrician'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Juan Luna'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Reassign'));
+    // A reason is required.
+    await tester.tap(find.byKey(const ValueKey('reassign-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('Give the reason for reassigning.'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('reassign-reason')),
+      'Marcus is on leave this week.',
+    );
+    await tester.tap(find.byKey(const ValueKey('reassign-save')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Reassigned to Juan Luna. They have been told.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Reassigned to Juan Luna.'), findsOneWidget);
     final workOrder = await app.read(TableNames.workOrders, 'wo-1');
     expect(workOrder['assignedPersonnelIds'], ['personnel-2']);
     final task = await app.read(TableNames.tasks, 'task-1');

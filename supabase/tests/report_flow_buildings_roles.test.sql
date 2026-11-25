@@ -142,7 +142,7 @@ select is(
 );
 select is(
   tests.error_of('u-admin', $$select public.reschedule_report('r-3', 'No electrician free', null)$$),
-  'Choose the date the work is moved to.',
+  'Choose the date the work is scheduled for.',
   '…and a date'
 );
 select is(
@@ -151,13 +151,13 @@ select is(
   '…not one already past'
 );
 select is(
-  tests.error_of('u-admin', $$select public.reschedule_report('r-1', 'Wait', now() + interval '3 days')$$),
-  'Only an approved report that is not assigned yet can be rescheduled. This one is IN PROGRESS.',
+  tests.error_of('u-admin', $$select public.reschedule_report('r-1', 'Wait', (select d::timestamptz from generate_series(current_date + 5, current_date + 12, interval '1 day') d where extract(isodow from d) < 6 order by d limit 1))$$),
+  'Only an approved report that is not assigned yet can be scheduled here. This one is IN PROGRESS; reschedule it from its work order.',
   'only an approved report waiting for assignment'
 );
 select is(
   tests.attempt('u-admin', $$select public.reschedule_report('r-3', 'The only electrician is on leave.',
-      date_trunc('day', now()) + interval '5 days')$$),
+      (select d::timestamptz from generate_series(current_date + 5, current_date + 12, interval '1 day') d where extract(isodow from d) < 6 order by d limit 1))$$),
   'ok',
   'an administrator reschedules an approved report'
 );
@@ -165,28 +165,28 @@ select is(
   (select array[status, reschedule_reason, rescheduled_to::date::text]
      from public.damage_reports where id = 'r-3'),
   array['approved', 'The only electrician is on leave.',
-        (date_trunc('day', now()) + interval '5 days')::date::text],
+        (select d::timestamptz from generate_series(current_date + 5, current_date + 12, interval '1 day') d where extract(isodow from d) < 6 order by d limit 1)::date::text],
   '…it stays approved, with the reason and the date'
 );
 select is(
   (select array[status, note, rescheduled_to::date::text] from public.report_status_history
      where report_id = 'r-3' and rescheduled_to is not null),
   array['approved', 'The only electrician is on leave.',
-        (date_trunc('day', now()) + interval '5 days')::date::text],
+        (select d::timestamptz from generate_series(current_date + 5, current_date + 12, interval '1 day') d where extract(isodow from d) < 6 order by d limit 1)::date::text],
   '…both on its timeline, which the requestor reads'
 );
 select is(
   (select title || ': ' || body from public.notifications
-     where recipient_id = 'u-req' and related_entity_id = 'r-3' and title = 'Report rescheduled'),
-  'Report rescheduled: The work on your report "Broken chair" is rescheduled to '
-    || to_char(date_trunc('day', now()) + interval '5 days 8 hours', 'FMMon FMDD, YYYY')
+     where recipient_id = 'u-req' and related_entity_id = 'r-3' and title = 'Report scheduled'),
+  'Report scheduled: The work on your report "Broken chair" is scheduled for '
+    || to_char((select d::timestamptz from generate_series(current_date + 5, current_date + 12, interval '1 day') d where extract(isodow from d) < 6 order by d limit 1) + interval '8 hours', 'FMMon FMDD, YYYY')
     || ': The only electrician is on leave.',
   '…and the requestor is told why and until when'
 );
 select is(
   tests.query_as('u-req', $$select reschedule_reason || ' ' || rescheduled_to::date::text
      from public.damage_reports where id = 'r-3'$$),
-  'The only electrician is on leave. ' || (date_trunc('day', now()) + interval '5 days')::date::text,
+  'The only electrician is on leave. ' || (select d::timestamptz from generate_series(current_date + 5, current_date + 12, interval '1 day') d where extract(isodow from d) < 6 order by d limit 1)::date::text,
   'the requestor reads both on the report'
 );
 select is(
