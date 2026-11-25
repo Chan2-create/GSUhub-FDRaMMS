@@ -205,29 +205,23 @@ void main() {
       expect(find.text('INACTIVE'), findsOneWidget);
     });
 
-    testWidgets('ranks the matching trade first without hiding the rest', (
-      tester,
-    ) async {
-      // The administrator keeps the final say — the plumber stays on
-      // screen for an electrical job, just not at the top.
+    testWidgets('with a report picked, lists its trade only (Table 3.3, '
+        '2026-11-26)', (tester) async {
+      // Until 2026-11-26 the other trades stayed on screen, lower down;
+      // the adviser asked for a lights report to list electricians only,
+      // as the report's own page does.
       await pump(
         tester,
         reports: [approved(id: 'rep-1', title: 'Flickering Lights')],
         personnel: [plumber, electrician],
       );
+      expect(find.text('Juan Luna'), findsOneWidget, reason: 'none picked');
 
       await tester.tap(find.text('Assign').first);
       await tester.pumpAndSettle();
 
-      final names = tester
-          .widgetList<Text>(find.byType(Text))
-          .map((text) => text.data)
-          .whereType<String>()
-          .toList();
-      expect(
-        names.indexOf('Marcus Wright'),
-        lessThan(names.indexOf('Juan Luna')),
-      );
+      expect(find.text('Marcus Wright'), findsOneWidget);
+      expect(find.text('Juan Luna'), findsNothing);
     });
 
     testWidgets('cannot assign before a report is chosen', (tester) async {
@@ -301,7 +295,7 @@ void main() {
       expect(find.textContaining('assigned to Marcus Wright'), findsOneWidget);
     });
 
-    testWidgets('warns when the trade does not match, without blocking', (
+    testWidgets('with nobody of the trade, it says so, and to reschedule', (
       tester,
     ) async {
       final repository = await pump(
@@ -310,14 +304,12 @@ void main() {
         personnel: [plumber],
       );
 
-      await selectAndAssign(tester);
-
-      expect(find.textContaining('usually handled by a'), findsOneWidget);
-
-      await tester.tap(find.widgetWithText(FilledButton, 'Assign'));
+      await tester.tap(find.text('Assign').first);
       await tester.pumpAndSettle();
 
-      expect(repository.assignments, hasLength(1));
+      expect(find.textContaining('No Electrician accounts.'), findsOneWidget);
+      expect(find.textContaining('reschedule the report'), findsOneWidget);
+      expect(repository.assignments, isEmpty);
     });
 
     testWidgets('surfaces a refusal from the repository', (tester) async {

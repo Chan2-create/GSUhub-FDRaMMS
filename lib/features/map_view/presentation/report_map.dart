@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../damage_reports/data/models/damage_report.dart';
+import '../../facilities/data/models/building.dart';
 import 'widgets/geo_tag_map.dart';
 
 /// Where a report says it is: its facility, then the requestor's own
@@ -29,16 +30,25 @@ String placeOf(DamageReport report) {
 ///
 /// Every report in [reports] must carry coordinates. With [interactive]
 /// off the map is a still preview: no panning, no controls.
+///
+/// [buildings] are the campus buildings the administrator pinned on the
+/// Facilities page (2026-11-26), drawn under the reports' pins so a report
+/// is read against the building it is in. Those without a pin are left
+/// out. Between them, [reports] and [buildings] must give the map at least
+/// one point.
 class ReportMap extends ConsumerStatefulWidget {
   const ReportMap({
     required this.reports,
     super.key,
+    this.buildings = const [],
     this.selectedId,
     this.onSelect,
     this.interactive = true,
   });
 
   final List<DamageReport> reports;
+
+  final List<Building> buildings;
 
   /// The report whose pin is drawn selected; the map moves to it when
   /// this changes.
@@ -62,8 +72,17 @@ class _ReportMapState extends ConsumerState<ReportMap> {
   static LatLng _pointOf(DamageReport report) =>
       LatLng(report.coordinates!.latitude, report.coordinates!.longitude);
 
+  /// The buildings that have a pin.
+  List<(Building, LatLng)> get _pinnedBuildings => [
+    for (final building in widget.buildings)
+      if (building.coordinates case final point?)
+        (building, LatLng(point.latitude, point.longitude)),
+  ];
+
+  /// Everything on the map, reports first: what "every pin" fits.
   List<LatLng> get _points => [
     for (final report in widget.reports) _pointOf(report),
+    for (final (_, point) in _pinnedBuildings) point,
   ];
 
   /// Every pin in view. Null when they all share one point: there is no
@@ -152,6 +171,14 @@ class _ReportMapState extends ConsumerState<ReportMap> {
             ref.watch(mapTileLayerProvider),
             MarkerLayer(
               markers: [
+                // Under the reports' pins.
+                for (final (building, point) in _pinnedBuildings)
+                  Marker(
+                    point: point,
+                    width: _BuildingPin.size,
+                    height: _BuildingPin.size,
+                    child: _BuildingPin(building: building),
+                  ),
                 for (final report in ordered)
                   Marker(
                     point: _pointOf(report),
@@ -248,6 +275,35 @@ class _Pin extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A building's pin (2026-11-26): the building glyph on white, smaller
+/// than a report's pin and never selected, so the reports stand out.
+class _BuildingPin extends StatelessWidget {
+  const _BuildingPin({required this.building});
+
+  final Building building;
+
+  static const double size = 28;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: building.name,
+    child: Semantics(
+      label: 'Building: ${building.name}',
+      image: true,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.primary, width: 1.5),
+          boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 3)],
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.apartment, size: 16, color: AppColors.primary),
+      ),
+    ),
+  );
 }
 
 /// Zoom in, zoom out, and back to every pin: the map answers the mouse

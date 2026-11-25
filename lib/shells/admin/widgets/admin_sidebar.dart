@@ -130,7 +130,7 @@ class _NavTile extends StatelessWidget {
       selected: isActive,
       button: true,
       enabled: item.isEnabled,
-      label: badge > 0 ? '${item.label}, $badge low on stock' : null,
+      label: badge > 0 ? '${item.label}, $badge unread' : null,
       child: InkWell(
         onTap: item.isEnabled ? () => _go(context) : null,
         child: Container(
@@ -217,7 +217,7 @@ class _NavTile extends StatelessWidget {
       selected: isActive,
       button: true,
       enabled: item.isEnabled,
-      label: badge > 0 ? '${item.label}, $badge low on stock' : item.label,
+      label: badge > 0 ? '${item.label}, $badge unread' : item.label,
       excludeSemantics: true,
       child: InkWell(
         onTap: item.isEnabled ? () => _go(context) : null,

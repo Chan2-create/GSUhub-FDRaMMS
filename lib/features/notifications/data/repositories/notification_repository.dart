@@ -27,4 +27,8 @@ abstract interface class NotificationRepository {
   Future<Result<void>> markAsRead(String notificationId);
 
   Future<Result<void>> markAllAsRead(String userId);
+
+  /// Marks the caller's own among [notificationIds] read, together: the
+  /// notices of one navigation section, as it opens (2026-11-26).
+  Future<Result<void>> markManyAsRead(List<String> notificationIds);
 }

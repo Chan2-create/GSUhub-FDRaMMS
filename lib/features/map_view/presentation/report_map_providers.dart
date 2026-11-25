@@ -72,19 +72,8 @@ final selectedMapReportProvider =
       MapSelectionController.new,
     );
 
-/// The open reports only, whatever the Map View's filter says: the
-/// Damage Reports page's "Campus View" preview.
-final openReportMapProvider = Provider<AsyncValue<Result<ReportMapData>>>(
-  (ref) => ref
-      .watch(reportsStreamProvider)
-      .whenData(
-        (result) => result.map(
-          (reports) => ReportMapData.from(reports, includeFinished: false),
-        ),
-      ),
-);
-
-/// The Map View's reports, live from the same feed as the reports table.
+/// The campus map's reports, live from the same feed as the reports
+/// table.
 final reportMapProvider = Provider<AsyncValue<Result<ReportMapData>>>((ref) {
   final includeFinished = ref.watch(mapIncludesFinishedProvider);
   return ref

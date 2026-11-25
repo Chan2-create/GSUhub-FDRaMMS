@@ -4,7 +4,7 @@
 
 begin;
 select tests.create_fixtures();
-select plan(37);
+select plan(29);
 
 -- ------------------------------------------------------------ tools
 
@@ -120,54 +120,17 @@ select is(
 );
 
 -- ------------------------------------------------------------ accounts
+-- Since 2026-11-26 accounts are deactivated, never deleted: the function
+-- is gone.
 
 select is(
-  tests.attempt('u-tech', $$select public.delete_account('u-pending')$$),
-  'PT403',
-  'a technician does not delete accounts'
-);
-select is(
-  tests.error_of('u-admin', $$select public.delete_account('u-admin')$$),
-  'You cannot delete your own account. Ask another administrator.',
-  'an administrator cannot delete their own'
-);
-select is(
-  tests.error_of('u-admin', $$select public.delete_account('u-tech')$$),
-  'Marcus Wright is assigned to 1 open work order. Reassign it first.',
-  'a technician with open work is kept'
-);
-update public.work_orders set status = 'completed' where id = 'w-2';
-select is(
-  tests.error_of('u-admin', $$select public.delete_account('u-tech2')$$),
-  'Juan Luna still has Pipe Wrench on loan. Check it in first.',
-  'and one with a tool out'
-);
-select is(
-  tests.error_of('u-admin', $$select public.delete_account('u-req')$$),
-  'Maria Santos has records in GSUhub (reports, work or history), so the account stays to keep them. Deactivate it instead.',
-  'an account with records is kept, to be deactivated'
-);
-select is(
-  (select count(*)::int from public.users where id = 'u-req')
-    + (select count(*)::int from public.notifications where recipient_id = 'u-req'),
-  2,
-  '…and nothing of it was removed'
-);
-select is(
-  tests.attempt('u-admin', $$select public.delete_account('u-pending')$$),
-  'ok',
-  'a sign-up with no records is deleted'
-);
-select is(
-  (select count(*)::int from public.users where id = 'u-pending'),
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where p.proname = 'delete_account' and n.nspname in ('public', 'app')),
   0,
-  '…its profile is gone'
+  'there is no way to delete an account; it is deactivated instead'
 );
-select is(
-  (select description from public.audit_logs where entity_type = 'users' and entity_id = 'u-pending'),
-  'Deleted the account of Liza Tan (pending@test.ph)',
-  '…and it is audited'
-);
+-- The work order the archive tests below expect finished.
+update public.work_orders set status = 'completed' where id = 'w-2';
 
 -- ------------------------------------------------------------ archiving
 

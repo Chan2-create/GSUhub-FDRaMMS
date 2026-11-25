@@ -34,14 +34,15 @@ class StatusChip extends StatelessWidget {
   /// Chip for a report in the faculty and staff app (Objective 3.A): its
   /// [ReportProgress] stage, white on the home screen's colours (Figma
   /// `170:2050`). [large] is My Reports' size (`169:1251`); the default is
-  /// the home screen's.
-  factory StatusChip.requestor(ReportStatus status, {bool large = false}) {
-    final progress = status.progress;
+  /// the home screen's. [rescheduled] for an approved report moved to a
+  /// later date ([DamageReport.isRescheduled]).
+  factory StatusChip.requestor(
+    ReportStatus status, {
+    bool large = false,
+    bool rescheduled = false,
+  }) {
     return StatusChip._(
-      // A report that ended without work says how it ended.
-      label: progress == ReportProgress.closedOut
-          ? _sentenceCase(status.label)
-          : progress.label,
+      label: requestorLabelOf(status, rescheduled: rescheduled),
       background: requestorColorOf(status),
       foreground: Colors.white,
       style: large
@@ -97,6 +98,22 @@ class StatusChip extends StatelessWidget {
   static String _sentenceCase(String text) =>
       text[0] + text.substring(1).toLowerCase();
 
+  /// What the faculty and staff app calls [status]: its stage, except a
+  /// report under review, which says so (2026-11-26: "Pending" after Start
+  /// review read as nothing having happened), one rescheduled, and one
+  /// that ended without work, which says how it ended.
+  static String requestorLabelOf(
+    ReportStatus status, {
+    bool rescheduled = false,
+  }) {
+    if (status == ReportStatus.underReview) return 'Under Review';
+    if (rescheduled && status == ReportStatus.approved) return 'Rescheduled';
+    final progress = status.progress;
+    return progress == ReportProgress.closedOut
+        ? _sentenceCase(status.label)
+        : progress.label;
+  }
+
   /// The design shows only three chip treatments (red / blue / green), but
   /// `ReportStatus` has eleven values. They collapse by meaning: anything
   /// awaiting an administrator is "pending" red, anything actively moving
@@ -104,24 +121,28 @@ class StatusChip extends StatelessWidget {
   /// merged/rejected/archived states are neutral grey — they are outcomes,
   /// not work.
   static (Color, Color) _reportPalette(ReportStatus status) =>
-      switch (status.progress) {
-        ReportProgress.pending => (
-          AppColors.statusPendingBackground,
-          AppColors.statusPendingForeground,
-        ),
-        ReportProgress.inProgress => (
-          AppColors.statusInProgressBackground,
-          AppColors.statusInProgressForeground,
-        ),
-        ReportProgress.completed => (
-          AppColors.statusResolvedBackground,
-          AppColors.statusResolvedForeground,
-        ),
-        ReportProgress.closedOut => (
-          AppColors.statusNeutralBackground,
-          AppColors.statusNeutralForeground,
-        ),
-      };
+      status == ReportStatus.underReview
+      // Under review, in its own amber: in PENDING's red it read as not
+      // yet started (2026-11-26).
+      ? (AppColors.statusReviewBackground, AppColors.statusReviewForeground)
+      : switch (status.progress) {
+          ReportProgress.pending => (
+            AppColors.statusPendingBackground,
+            AppColors.statusPendingForeground,
+          ),
+          ReportProgress.inProgress => (
+            AppColors.statusInProgressBackground,
+            AppColors.statusInProgressForeground,
+          ),
+          ReportProgress.completed => (
+            AppColors.statusResolvedBackground,
+            AppColors.statusResolvedForeground,
+          ),
+          ReportProgress.closedOut => (
+            AppColors.statusNeutralBackground,
+            AppColors.statusNeutralForeground,
+          ),
+        };
 
   @override
   Widget build(BuildContext context) => DecoratedBox(

@@ -341,7 +341,10 @@ class _RecentReportRow extends StatelessWidget {
                           children: [
                             if (category != null)
                               HomeCategoryPill(category: category),
-                            StatusChip.requestor(report.status),
+                            StatusChip.requestor(
+                              report.status,
+                              rescheduled: report.isRescheduled,
+                            ),
                           ],
                         ),
                       ],

@@ -4,6 +4,33 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 
+/// A red bubble with a number: the bell's unread count.
+class _CountBubble extends StatelessWidget {
+  const _CountBubble({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minWidth: 16),
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+    decoration: BoxDecoration(
+      color: AppColors.notificationBadge,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      count > 99 ? '99+' : '$count',
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        height: 1.3,
+      ),
+    ),
+  );
+}
+
 /// The mobile app's header: the GSUhub mark, the bell, and the gold rule
 /// beneath (Figma `165:137`, top 77px). The faculty and staff app (3.A)
 /// and the personnel app (Objective 5, Figure 24) draw the same one.
@@ -11,7 +38,7 @@ class MobileHeader extends StatelessWidget {
   const MobileHeader({
     required this.alertsPath,
     super.key,
-    this.hasUnread = false,
+    this.unreadCount = 0,
   });
 
   /// The header's height in the design, rule excluded.
@@ -20,9 +47,10 @@ class MobileHeader extends StatelessWidget {
   /// Where the bell leads: the app's notifications.
   final String alertsPath;
 
-  /// Unread notifications: a red dot on the bell, as the personnel
-  /// dashboard draws it (Figure 24).
-  final bool hasUnread;
+  /// Unread notifications, as a number on the bell (2026-11-26; until
+  /// then a red dot, as the personnel dashboard draws it, Figure 24). The
+  /// bell opens the whole list.
+  final int unreadCount;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -52,8 +80,8 @@ class MobileHeader extends StatelessWidget {
                   top: 18,
                   right: 11,
                   child: Tooltip(
-                    message: hasUnread
-                        ? 'Notifications, some unread'
+                    message: unreadCount > 0
+                        ? 'Notifications, $unreadCount unread'
                         : 'Notifications',
                     child: IconButton(
                       onPressed: () => context.go(alertsPath),
@@ -71,19 +99,11 @@ class MobileHeader extends StatelessWidget {
                               BlendMode.srcIn,
                             ),
                           ),
-                          if (hasUnread)
-                            const Positioned(
-                              top: -2,
-                              right: -3,
-                              child: SizedBox.square(
-                                dimension: 8,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.notificationBadge,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
+                          if (unreadCount > 0)
+                            Positioned(
+                              top: -7,
+                              right: -11,
+                              child: _CountBubble(count: unreadCount),
                             ),
                         ],
                       ),

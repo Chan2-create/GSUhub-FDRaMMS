@@ -28,6 +28,7 @@ import 'package:gsuhub/features/classification/data/repositories/config_reposito
 import 'package:gsuhub/features/damage_reports/data/models/report_assessment.dart';
 import 'package:gsuhub/features/damage_reports/data/models/report_submission.dart';
 import 'package:gsuhub/features/damage_reports/data/repositories/damage_report_repository_impl.dart';
+import 'package:gsuhub/features/facilities/data/models/building.dart';
 import 'package:gsuhub/features/facilities/data/models/facility_draft.dart';
 import 'package:gsuhub/features/facilities/data/repositories/facility_repository_impl.dart';
 import 'package:gsuhub/features/feedback/data/repositories/feedback_repository_impl.dart';
@@ -58,28 +59,39 @@ import '../../support/test_app_config.dart';
 /// the function".
 typedef _Signature = ({Set<String> all, Set<String> required});
 
+/// The API as the migrations leave it, in the order they run: a function
+/// declared again replaces its earlier signature, and one dropped
+/// (`drop function public.x(...)`) is gone until declared again
+/// (2026-11-26: `delete_account` was dropped, `register_self` replaced).
 Map<String, _Signature> _sqlSignatures() {
   final signatures = <String, _Signature>{};
-  final declaration = RegExp(
-    r'create or replace function public\.(\w+)\s*\(([^)]*)\)',
+  final statement = RegExp(
+    r'(create or replace|drop) function public\.(\w+)\s*\(([^)]*)\)',
     caseSensitive: false,
   );
-  final files = Directory('supabase/migrations')
-      .listSync()
-      .whereType<File>()
-      .where((file) => file.path.endsWith('.sql'));
+  final files =
+      Directory('supabase/migrations')
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.sql'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
   for (final file in files) {
-    for (final match in declaration.allMatches(file.readAsStringSync())) {
+    for (final match in statement.allMatches(file.readAsStringSync())) {
+      if (match.group(1)!.toLowerCase() == 'drop') {
+        signatures.remove(match.group(2)!);
+        continue;
+      }
       final all = <String>{};
       final required = <String>{};
-      for (final parameter in match.group(2)!.split(',')) {
+      for (final parameter in match.group(3)!.split(',')) {
         final text = parameter.trim();
         if (text.isEmpty) continue;
         final name = text.split(RegExp(r'\s+')).first;
         all.add(name);
         if (!text.toLowerCase().contains(' default ')) required.add(name);
       }
-      signatures[match.group(1)!] = (all: all, required: required);
+      signatures[match.group(2)!] = (all: all, required: required);
     }
   }
   return signatures;
@@ -166,7 +178,6 @@ void main() {
     await users.createAccount(user: user, actor: actor);
     await users.updateAccount(updated: user, actor: actor);
     await users.setAccountStatus('u-1', AccountStatus.inactive, actor: actor);
-    await users.deleteAccount('u-3', actor: actor);
     await users.setFcmToken('u-1', 'token');
 
     final facilities = FacilityRepositoryImpl(client: client, guard: guard);
@@ -201,6 +212,18 @@ void main() {
     );
     await facilities.deleteAsset(assetId: 'a-1', actor: actor);
     await facilities.deleteFacility(facilityId: 'f-1', actor: actor);
+    const building = BuildingDraft(
+      name: 'Engineering Building',
+      latitude: 6.9318,
+      longitude: 126.2551,
+    );
+    await facilities.createBuilding(draft: building, actor: actor);
+    await facilities.updateBuilding(
+      buildingId: 'b-1',
+      draft: building,
+      actor: actor,
+    );
+    await facilities.deleteBuilding(buildingId: 'b-1', actor: actor);
 
     final reports = DamageReportRepositoryImpl(client: client, guard: guard);
     await reports.submit(
@@ -238,6 +261,12 @@ void main() {
       to: ReportStatus.rejected,
       actor: actor,
       reason: 'Not ours.',
+    );
+    await reports.reschedule(
+      reportId: 'r-1',
+      reason: 'No electrician free.',
+      rescheduledTo: DateTime.utc(2026, 12, 2),
+      actor: actor,
     );
     await reports.mergeDuplicates(
       parentReportId: 'r-1',
@@ -290,6 +319,7 @@ void main() {
     );
     await notifications.markAsRead('n-1');
     await notifications.markAllAsRead('u-1');
+    await notifications.markManyAsRead(['n-1', 'n-2']);
 
     final config = ConfigRepositoryImpl(client: client, guard: guard);
     await config.updateClassificationRules(
@@ -486,7 +516,7 @@ void main() {
   test('every write calls a database function that exists, with the '
       'parameters it takes', () async {
     await exerciseEveryWrite();
-    expect(calls, hasLength(64));
+    expect(calls, hasLength(68));
     for (final (function, params) in calls) {
       final signature = signatures[function];
       expect(

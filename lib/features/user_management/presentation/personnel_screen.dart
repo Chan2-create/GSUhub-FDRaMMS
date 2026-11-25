@@ -549,16 +549,6 @@ class _Actions extends ConsumerWidget {
               showEditAccountDialog(context, person: person, isSelf: isSelf),
           icon: SvgPicture.asset('assets/icons/action_edit_pencil.svg'),
         ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: isSelf
-              ? 'You cannot delete your own account.'
-              : 'Delete the account of ${person.fullName}',
-          onPressed: isSelf
-              ? null
-              : () => confirmDeleteAccount(context, ref, person: person),
-          icon: const Icon(Icons.delete_outline, size: 20),
-        ),
         Tooltip(
           message: onLeave
               ? '${person.fullName} is on leave.'

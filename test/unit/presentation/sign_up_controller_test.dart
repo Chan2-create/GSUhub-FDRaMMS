@@ -11,9 +11,10 @@ import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 
 import '../../support/fake_admin_backend.dart';
 
-/// Faculty and staff self-registration (Objective 3.A): what the form
-/// refuses, and that a complete one creates a requestor awaiting approval
-/// — never an active account, never another role.
+/// Self-registration (Objective 3.A): what the form refuses, and that a
+/// complete one creates an account awaiting approval in the role chosen,
+/// Faculty or Utility (2026-11-26) — never an active account, never an
+/// administrator. No department is asked for.
 void main() {
   late FakeAuthService auth;
   late FakeUserRepository users;
@@ -39,18 +40,16 @@ void main() {
     String email = ' Liza.Tan@DORSU.edu.ph ',
     String password = 'Horse#Bat12',
     String? confirm,
-    String? department = 'Faculty of Business and Management',
+    UserRole? role = UserRole.requestor,
     String contactNumber = '',
-    bool departmentRequired = true,
     bool acceptedTerms = true,
   }) => controller().register(
     fullName: fullName,
     email: email,
     password: password,
     confirmPassword: confirm ?? password,
-    department: department,
+    role: role,
     contactNumber: contactNumber,
-    departmentRequired: departmentRequired,
     acceptedTerms: acceptedTerms,
   );
 
@@ -62,12 +61,11 @@ void main() {
           email: '',
           password: '',
           confirmPassword: '',
-          departmentRequired: true,
         ).keys,
         unorderedEquals({
           SignUpField.fullName,
           SignUpField.email,
-          SignUpField.department,
+          SignUpField.role,
           SignUpField.password,
           SignUpField.confirmPassword,
           SignUpField.terms,
@@ -75,20 +73,22 @@ void main() {
       );
     });
 
-    test('a department is required only while the list has any', () {
-      Map<SignUpField, String> errors({required bool required}) =>
+    test('Faculty or Utility must be chosen, and nothing else', () {
+      Map<SignUpField, String> errors(UserRole? role) =>
           SignUpController.validate(
             fullName: 'Liza Mae Tan',
             email: 'liza.tan@dorsu.edu.ph',
             password: 'Horse#Bat12',
             confirmPassword: 'Horse#Bat12',
-            departmentRequired: required,
+            role: role,
             acceptedTerms: true,
           );
-      expect(errors(required: true), {
-        SignUpField.department: 'Choose your department or faculty.',
+      expect(errors(null), {SignUpField.role: 'Choose Faculty or Utility.'});
+      expect(errors(UserRole.admin), {
+        SignUpField.role: 'Choose Faculty or Utility.',
       });
-      expect(errors(required: false), isEmpty);
+      expect(errors(UserRole.requestor), isEmpty);
+      expect(errors(UserRole.maintenancePersonnel), isEmpty);
     });
 
     test('a mobile number, when given, is a Philippine one', () {
@@ -98,6 +98,7 @@ void main() {
         password: 'Horse#Bat12',
         confirmPassword: 'Horse#Bat12',
         contactNumber: '12345',
+        role: UserRole.requestor,
         acceptedTerms: true,
       );
       expect(errors.keys, [SignUpField.contactNumber]);
@@ -133,6 +134,7 @@ void main() {
         email: 'liza.tan@',
         password: 'short',
         confirmPassword: 'different',
+        role: UserRole.requestor,
         acceptedTerms: true,
       );
 
@@ -152,6 +154,7 @@ void main() {
           email: 'liza.tan@gmail.com',
           password: 'Horse#Bat12',
           confirmPassword: 'Horse#Bat12',
+          role: UserRole.requestor,
           acceptedTerms: true,
         ),
         isEmpty,
@@ -165,6 +168,7 @@ void main() {
             email: 'liza.tan@dorsu.edu.ph',
             password: 'Horse#Bat12',
             confirmPassword: 'Horse#Bat12',
+            role: UserRole.requestor,
             acceptedTerms: accepted,
           );
       expect(errors(accepted: false), {
@@ -185,9 +189,25 @@ void main() {
       expect(profile.email, 'liza.tan@dorsu.edu.ph');
       expect(profile.role, UserRole.requestor);
       expect(profile.accountStatus, AccountStatus.pending);
-      expect(profile.department, 'Faculty of Business and Management');
+      expect(profile.department, isNull, reason: 'no department is asked for');
       expect(profile.contactNumber, isNull);
       expect(container.read(signUpControllerProvider).errorMessage, isNull);
+    });
+
+    test('Utility signs up a maintenance account, still awaiting approval '
+        '(2026-11-26)', () async {
+      expect(await register(role: UserRole.maintenancePersonnel), isTrue);
+      final profile = users.created.single;
+      expect(profile.role, UserRole.maintenancePersonnel);
+      expect(profile.accountStatus, AccountStatus.pending);
+    });
+
+    test('without a role chosen, nothing is sent', () async {
+      expect(await register(role: null), isFalse);
+      expect(auth.registered, isEmpty);
+      expect(container.read(signUpControllerProvider).errors.keys, [
+        SignUpField.role,
+      ]);
     });
 
     test('a mobile number is saved without its spaces and dashes', () async {

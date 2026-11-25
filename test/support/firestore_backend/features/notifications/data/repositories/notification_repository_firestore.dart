@@ -63,6 +63,17 @@ class FirestoreNotificationRepository extends FirestoreRepository
     data: {'isRead': true, 'readAt': FirestoreRepository.serverNow},
   );
 
+  /// One by one: the Firestore backend predates the database function
+  /// that reads a section's notices together (2026-11-26).
+  @override
+  Future<Result<void>> markManyAsRead(List<String> notificationIds) async {
+    for (final id in notificationIds) {
+      final result = await markAsRead(id);
+      if (result.isFailure) return result;
+    }
+    return const Result.success(null);
+  }
+
   @override
   Future<Result<void>> markAllAsRead(String userId) async {
     final unread = await getMany(

@@ -3122,3 +3122,152 @@ slow read and gives up on one that never answers, leaves a view out of
 sight for later); `unit/presentation/page_refresh_test.dart` (busy
 meanwhile, one refresh for many presses, failures counted, the
 dashboard's recent activity read again only when shown).
+
+## 46. The adviser's consultation: one page from review to assignment, the map on Damage Reports, buildings, Faculty or Utility, numbered badges (2026-11-26)
+
+Seven changes the capstone adviser asked for at the consultation. New
+migration: `20261126101500_report_flow_buildings_and_roles.sql`; its
+pgTAP file is `report_flow_buildings_roles.test.sql`.
+
+**1. A report is handled from start to finish on its own page.**
+The flow on `report_detail_screen.dart` is now Pending → Start review
+(Under Review) → confirm the damage type and official priority →
+Approve or Reject → assign or reschedule → Assigned → In Progress →
+Completed. A row of four step chips at the top shows where the report is.
+- *Why the adviser saw "Pending" after Start review.* The database was
+  never wrong: `transition_report` set `underReview`, and the live audit
+  trail shows it. Two displays hid it. The phone apps show three stages,
+  and Under Review was collapsed into "Pending". On the console, the
+  UNDER REVIEW chip used PENDING's red, so it read as not started. Now
+  the phones say "Under Review" (`StatusChip.requestorLabelOf`), and the
+  console chip has its own amber (`AppColors.statusReview*`).
+- *Before the review starts*, the type-and-priority panel is replaced by
+  a note telling the administrator to press Start review.
+- *Approve waits* until the review has confirmed the damage type and the
+  official priority. Assigning needs both (the database already refused
+  without them), and assigning now comes straight after approval.
+- *Once approved*, an "Assign personnel" section appears on the same page
+  (`widgets/report_assignment_section.dart`). It lists only the
+  personnel of the report's trade, per Table 3.3: a lights report shows
+  electricians only. This replaces the earlier decision to rank the
+  matching trade first without hiding the rest (`rankedForCategory`).
+  Each person shows their availability (Available, Busy, On leave,
+  Inactive) and the work orders they hold now, the first two by name.
+- *Shared, not duplicated.* The report page and Task Assignment use the
+  same pieces in `work_orders/presentation/widgets/personnel_assignment.dart`:
+  the trade filter, the workload, the person row, the Assign dialog and
+  the call. Task Assignment applies the same trade filter once a report
+  is picked.
+- *Assigning* is the same `assign_work_order` as before: it raises the
+  work order, moves the report to Assigned, and notifies the technician
+  ("New work order") and the requestor ("Personnel assigned").
+- *Reschedule* is for when nobody, or no equipment, is free.
+  `reschedule_report` requires a reason (at most 500 characters) and a
+  date that is today or later. The report stays Approved and waiting.
+  `damage_reports.rescheduled_to` and `reschedule_reason` hold the
+  latest one. A `report_status_history` entry carries `rescheduled_to`,
+  so the requestor's timeline shows "Rescheduled to …" with the reason.
+  The requestor is also notified. On the phone, the report reads
+  "Rescheduled", with a card giving the date and the reason. The Assign
+  dialog opens on the rescheduled date as the target.
+- Task Assignment and Work Orders stay, for reassigning and following
+  the work later. They are no longer a required step.
+
+**2. The map is on Damage Reports.** Map View left the sidebar. The
+page's still preview, with its Open Map View button, became the whole
+map (`map_view/presentation/report_map_panel.dart`, formerly
+`report_map_screen.dart`). It can be zoomed, panned, and filtered to
+include finished reports, and a pin opens its report. `/admin/map`
+redirects to `/admin/reports`, so old links and bookmarks still land on
+the map. `report_side_panels.dart` was deleted (its one widget was the
+preview).
+
+**3. Buildings.** New table `buildings`: name (one of each name among
+those not deleted), an optional description and pin, and soft delete.
+Anyone signed in can read it; it is on Realtime. Rooms
+(`facilities`) gain `building_id` and `floor`.
+- *Functions.* `create_building`, `update_building` and
+  `delete_building`, for administrators, each audited. A rename carries
+  over to the building's rooms. A building with rooms still in it is
+  not deleted.
+- *Rooms.* `create_facility` and `update_facility` take `building_id`
+  and `floor`. The building's name is still accepted, so the console of
+  before this change keeps working: it finds the building by name, or
+  registers it.
+- *No seeding.* The migration creates a building only for each
+  building name a room still in use carries. The live database, whose
+  only room is deleted, gets none.
+- *Facilities page.* A Buildings section, then rooms, which are added
+  into a chosen building, on a floor, each with an optional pin. "Pick
+  on map" uses the report form's pin picker.
+- *Report form and map.* The report form lists rooms with their floor,
+  from this data. The map draws the buildings' pins under the reports'.
+  The only fixed point left is where the pin picker opens when nothing
+  has a pin yet (`campusFallbackCentre`). It is never stored.
+
+**4. Faculty or Utility.** Create Account asks "I am a: Faculty or
+Utility" in place of the department.
+- *What is saved.* `register_self(…, role)` saves the role: Faculty is
+  a requestor, Utility is maintenance personnel. Nobody can sign up as
+  an administrator. The account waits for approval as before, so
+  choosing grants nothing. After approval, the role decides which app
+  opens, as it always has.
+- *What the administrator sees.* The administrators' notice, the
+  User Accounts row and the approval dialog all say what the person
+  signed up as. A Utility account is approved with its trade, chosen in
+  the dialog; `set_account_status` refuses one without, since
+  assignments are routed by trade.
+- *Department.* No department is asked for, and none is required by
+  the database. A department given is still checked against the list
+  (Settings → Departments and the account dialog keep it).
+- *FACET and FTED.* They were never in the code or the seed. They are
+  two rows of the live `departments` table, added from Settings →
+  Departments (2026-11-18, 2026-11-20), and one faculty account names
+  FACET. They are no longer offered at sign-up. They were not deleted:
+  that is live data, and Chris was asked first.
+
+**5. Numbered badges; Notifications left the sidebar.**
+- *Counts* (`notifications/presentation/nav_badges.dart`). Each item of
+  the console's sidebar and the phones' bottom bars counts, as a number,
+  the unread notices about its section:
+  - console: reports → Damage Reports; work orders → Work Order
+    Management; materials, stock and tools → Inventory Management;
+    sign-ups → User Accounts.
+  - faculty and staff app: everything → Reports.
+  - maintenance app: tasks → Tasks; tools and material answers →
+    Materials; the rest of the work → Home.
+- *Clearing.* Opening a section, or any page under it, reads its notices
+  (`NavBadgeClearer`, through the new `mark_notifications_read`, which
+  touches the caller's own notices only).
+- *The full list.* The bell in each header stays the way to the whole
+  list, now with a number too. The faculty app lost its Alerts tab;
+  `MobileBottomBar` now takes three tabs as well as four, with the
+  button kept in the middle. Back from the notifications returns Home in
+  both phone apps.
+- *Inventory's count.* Inventory's badge was the low-stock count. It is
+  now its unread notices, which include the low-stock ones, so opening
+  it clears it. The page still shows the low-stock figure.
+
+**6. No Delete account.** Gone from User Accounts and the Personnel
+directory. `delete_account` is dropped from the database. Accounts are
+deactivated, so the records they made keep their name.
+
+**7. Damage Reports by priority.** Critical, High, Medium, Low, and the
+oldest first within each (`byPriorityThenOldest`). The priority is the
+one the report is listed under: the official one once confirmed, the
+requestor's until then. The list is live, so a changed priority moves
+the report at once.
+
+**Tests.** Database, in `report_flow_buildings_roles.test.sql` (38):
+buildings and rooms, rescheduling, Faculty or Utility and the trade on
+approval, a section's notices read. Updated for the changes:
+`account_functions`, `account_sessions`, `admin_notifications`,
+`console_delete_archive` and `facility_functions`. The contract test
+now follows the migrations in order, drops included.
+
+App:
+- New: `unit/presentation/report_flow_rules_test.dart`,
+  `widget/report_flow_test.dart`, `widget/nav_badges_test.dart` and
+  `widget/my_report_review_and_reschedule_test.dart`.
+- Updated: the map, reports, facilities, sign-up, alerts, sidebar,
+  Task Assignment, delete, nav-reselect and router tests.

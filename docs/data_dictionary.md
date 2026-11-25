@@ -209,6 +209,27 @@ the accounts that name it) and `set_department_active`, administrators
 only, each audited with `entityType: departments`. The migration seeded
 it with the departments accounts already named.
 
+## buildings (2026-11-26)
+
+The campus buildings, kept by the administrator on the Facilities page,
+each with its pin on the Damage Reports map (architecture_decisions §46).
+Model: `Building`. **DERIVED** — the adviser's consultation.
+
+| Field | Type | Required | Description | Source |
+|---|---|---|---|---|
+| `name` | String | ✔ | One building of a name, whatever the case, among those not deleted | Adviser |
+| `description` | String | — | Wayfinding words, up to 200 | Adviser |
+| `coordinates` | latitude, longitude | — | The building's pin; both or neither | Adviser |
+| `deletedAt` | DateTime (UTC) | — | Deleted once it has no rooms; out of every list | **DERIVED** |
+| `createdAt`, `updatedAt` | DateTime (UTC) | ✔ | | **DERIVED** |
+
+Read by any active account (the report form, the map). Changed only by
+`create_building`, `update_building` (a new name is carried to its
+rooms) and `delete_building` (refused while rooms are in it),
+administrators only, audited with `entityType: buildings`. The
+migration made one only for each building name a room still in use
+carried: none were entered for the administrator.
+
 ## facilities
 
 Model: `Facility`. **Largely DERIVED** — the manuscript establishes that
@@ -218,7 +239,9 @@ BUILDING / ROOM pair (Fig 21), but gives no field list.
 | Field | Type | Required | Description | Source |
 |---|---|---|---|---|
 | `name` | String | ✔ | Display name | Fig 21 |
-| `buildingName` | String | ✔ | Building | Fig 21 |
+| `buildingName` | String | ✔ | Building, as the report form lists it: its building's name | Fig 21 |
+| `buildingId` | String → `buildings` | — | The building chosen (2026-11-26); null only for a room deleted before buildings were kept | Adviser |
+| `floor` | String | — | "2nd floor", up to 40; shown beside the room on the report form (2026-11-26) | Adviser |
 | `roomIdentifier` | String | — | Room / sub-area | Fig 21 |
 | `locationDescription` | String | — | Wayfinding detail | **DERIVED** |
 | `coordinates` | GeoPoint | — | Reference point | **DERIVED** |
@@ -285,6 +308,8 @@ Model: `DamageReport`. The primary input to the whole lifecycle (§1.7).
 | `reviewedBy` | String → `users` | — | | §1.2 |
 | `reviewedAt` | DateTime (UTC) | — | | **DERIVED** |
 | `rejectionReason` | String | — | Required when `status == rejected`; null otherwise | **DERIVED** |
+| `rescheduledTo` | DateTime (UTC) | — | The date an approved report nobody can take yet is moved to (2026-11-26, §46); shown to the requestor | Adviser |
+| `rescheduleReason` | String | — | Why, up to 500; required with it | Adviser |
 | `submittedAt`, `updatedAt` | DateTime (UTC) | ✔ | | §1.5 |
 | `archivedAt` | DateTime (UTC) | — | Out of the console’s lists (the Archived filter); status, timeline and audit untouched. Not the ARCHIVED status. Only a closed, merged or rejected report (2026-11-08, §24) | **DERIVED** |
 
@@ -352,6 +377,7 @@ how progress is stored.
 | `note` | String | — | A rejection's reason |
 | `personnelName` | String | — | On `assigned`: who will do the work. **Denormalized** — a requestor cannot read `users` |
 | `personnelSpecialization` | enum `DamageCategory` | — | On `assigned`: their trade |
+| `rescheduledTo` | DateTime (UTC) | — | On an entry that rescheduled the report rather than moved it (2026-11-26): the new date; `note` is why |
 
 Written in the same transaction as the move by every repository method
 that moves a report: `submit`, `transitionStatus`, `mergeDuplicates`,
@@ -739,7 +765,7 @@ A recipient marks one read (`mark_notification_read`) and nothing else.
 | Recipient | When | `type` | `relatedEntityType` |
 |---|---|---|---|
 | The reporter (3.B) | received | `reportAcknowledged` | `damage_reports` |
-| | approved, work started or resumed, rejected, merged, reassigned (7.A) | `statusUpdate` | `damage_reports` |
+| | approved, work started or resumed, rejected, merged, reassigned (7.A), rescheduled (2026-11-26) | `statusUpdate` | `damage_reports` |
 | | assigned | `workOrderAssigned` | `damage_reports` |
 | | completed | `maintenanceCompleted` | `damage_reports` |
 | The technician (5.A–6.B) | a work order assigned or reassigned to them | `workOrderAssigned` | `work_orders` |
@@ -988,16 +1014,18 @@ fresh sign-in starts a new session.
 
 | Table | Function | Who may call it |
 |---|---|---|
-| `users` | `register_self` | someone signed in with no profile yet: becomes a pending requestor under their sign-in email (3.A); a department from `departments` is required while it has active ones, and a mobile number, if given, must be a Philippine one (2026-11-17) |
-| | `create_account`, `update_account`, `set_account_status` | administrator; never their own role or status, never the role of someone holding work. The email, department and mobile number are checked as for `register_self`. Deactivating, or changing the role, ends every session the account has (2026-11-17) |
+| `users` | `register_self` | someone signed in with no profile yet: becomes a pending account under their sign-in email (3.A), in the `role` they chose, Faculty (`requestor`) or Utility (`maintenancePersonnel`), never `admin` (2026-11-26); no department is required (one given must be on the list), and a mobile number, if given, must be a Philippine one (2026-11-17) |
+| | `create_account`, `update_account`, `set_account_status` | administrator; never their own role or status, never the role of someone holding work. The email, department and mobile number are checked as for `register_self`. Deactivating, or changing the role, ends every session the account has (2026-11-17). A Utility sign-up is approved only with its trade (2026-11-26) |
 | | `session_state` | anyone signed in: where their own session stands (`active`, `deactivated`, `roleChanged`, `idle`), without counting as activity (2026-11-17) |
 | | `set_fcm_token` | the account itself |
-| | `delete_account` | administrator; never their own, never one with open work or a tool on loan, never one any record names (deactivate that one); removes the profile and its notifications (2026-11-08) |
+| | ~~`delete_account`~~ | dropped on 2026-11-26: accounts are deactivated, never deleted (§46) |
 | `app.user_activity` | `touch_session` | the signed-in account itself: records that it is active now, at most once a minute; refused with `PT401` once 15 idle minutes have ended the session (2026-11-14; 15 from 2026-11-15), or an administrator has (2026-11-17) |
 | `departments` | `create_department`, `rename_department`, `set_department_active` | administrator; a name only once, whatever the case; a rename also renames it on the accounts that name it (2026-11-17) |
-| `facilities`, `assets` | `create_facility`, `update_facility`, `set_facility_active`, `create_asset`, `update_asset`, `set_asset_active` | administrator; a code is unique across rooms, equipment, materials and tools still in use |
+| `buildings` | `create_building`, `update_building`, `delete_building` | administrator; a name once among those not deleted; a pin both halves or neither; a rename carries to the rooms; a building with rooms is kept (2026-11-26) |
+| `facilities`, `assets` | `create_facility`, `update_facility`, `set_facility_active`, `create_asset`, `update_asset`, `set_asset_active` | administrator; a code is unique across rooms, equipment, materials and tools still in use. A room takes `building_id` and `floor` (2026-11-26); one given by building name only finds, or registers, that building |
 | | `delete_facility`, `delete_asset` | administrator, unless open reports (or, for a room, open work orders or equipment) depend on it; marks it deleted (2026-11-08) |
 | `damage_reports` | `submit_report` | an active requestor, as themselves (3.C) |
+| | `reschedule_report` | administrator; an approved report with no work order; a reason (up to 500) and a date not past; the report stays approved; a timeline entry and the requestor's notice (2026-11-26) |
 | | `record_assessment`, `transition_report`, `merge_duplicates`, `keep_separate` | administrator (4.A–4.C). `record_assessment` takes an optional `reason` and `expected_updated_at`: it never touches `requestor_category` or `requestor_priority` (a trigger refuses any change to them, `PT409`), refuses a report changed since `expected_updated_at` (`PT409`, naming who), writes nothing when nothing would change, and audits the requestor's choices, the classification and official priority from and to, and the reason (2026-11-16, §42) |
 | | `rate_service` (closes it) | the person who filed it, once, when completed (3.C) |
 | | `set_report_archived` | administrator; archives a closed, merged or rejected report, or restores one (2026-11-08) |
@@ -1026,7 +1054,7 @@ fresh sign-in starts a new session.
 | | (lapsing, reminders, overdue) | `app.sweep_tool_requests`, every five minutes from pg_cron; no app user can run it |
 | `app_config` | `update_config` | administrator; a setting the app could not read is refused (7.A) |
 | `report_status_history`, `notifications`, `audit_logs` | written by the function that makes the change, in the same transaction; the administrators' notices by triggers on the change (7.A) | — |
-| `notifications` | `mark_notification_read`, `mark_all_notifications_read` | the recipient |
+| `notifications` | `mark_notification_read`, `mark_all_notifications_read`, `mark_notifications_read` (a section's, as it opens, 2026-11-26) | the recipient; another's are never touched |
 
 **Append-only, for everyone, the database owner included:**
 `inventory_transactions`, `audit_logs` and `report_status_history` refuse

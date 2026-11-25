@@ -52,6 +52,20 @@ final unreadNotificationCountProvider = StreamProvider.autoDispose<Result<int>>(
   },
 );
 
+/// The signed-in person's unread notifications, live: what the
+/// navigation's numbered badges count (2026-11-26), each section its own
+/// ([badgeCountsOf] in nav_badges.dart).
+final unreadNoticesProvider =
+    StreamProvider.autoDispose<Result<List<AppNotification>>>((ref) {
+      final uid = _signedInUid(ref);
+      if (uid == null) {
+        return Stream.value(const Result.success(<AppNotification>[]));
+      }
+      return ref
+          .watch(notificationRepositoryProvider)
+          .watchForUser(uid, unreadOnly: true);
+    });
+
 /// Marking notifications read, for the signed-in requestor.
 class NotificationActions {
   const NotificationActions(this._ref);
@@ -60,6 +74,15 @@ class NotificationActions {
 
   Future<Result<void>> markRead(String notificationId) =>
       _ref.read(notificationRepositoryProvider).markAsRead(notificationId);
+
+  /// Reads [notificationIds] together: a section's notices, as it opens
+  /// (2026-11-26).
+  Future<Result<void>> markManyRead(List<String> notificationIds) =>
+      notificationIds.isEmpty
+      ? Future.value(const Result.success(null))
+      : _ref
+            .read(notificationRepositoryProvider)
+            .markManyAsRead(notificationIds);
 
   Future<Result<void>> markAllRead() async {
     final uid =

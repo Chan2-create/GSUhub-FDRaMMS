@@ -25,6 +25,8 @@ class Facility {
     this.roomIdentifier,
     this.locationDescription,
     this.coordinates,
+    this.buildingId,
+    this.floor,
   }) {
     RecordConverters.validateNotBlank(name, 'name');
     RecordConverters.validateNotBlank(buildingName, 'buildingName');
@@ -51,6 +53,8 @@ class Facility {
       createdAt: RecordConverters.requireDate(data, 'createdAt'),
       updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
       deletedAt: RecordConverters.optionalDate(data, 'deletedAt'),
+      buildingId: RecordConverters.optional<String>(data, 'buildingId'),
+      floor: RecordConverters.optional<String>(data, 'floor'),
     );
   }
 
@@ -60,6 +64,15 @@ class Facility {
   final String name;
 
   final String buildingName;
+
+  /// The [Building] the room belongs to (2026-11-26); [buildingName] is its
+  /// name, kept on the room for the report form and the reports. Null only
+  /// for a room deleted before buildings were kept.
+  final String? buildingId;
+
+  /// The floor the room is on, as the administrator writes it: "2nd
+  /// floor", "Ground floor". Optional.
+  final String? floor;
 
   /// Room or sub-area, e.g. "Room 101" (Figure 21). Null for
   /// whole-building or outdoor facilities.
@@ -104,6 +117,8 @@ class Facility {
     'createdAt': createdAt,
     'updatedAt': updatedAt,
     'deletedAt': deletedAt,
+    'buildingId': buildingId,
+    'floor': floor,
   };
 
   Facility copyWith({
@@ -118,6 +133,8 @@ class Facility {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
+    String? buildingId,
+    String? floor,
   }) => Facility(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -130,6 +147,8 @@ class Facility {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt ?? this.deletedAt,
+    buildingId: buildingId ?? this.buildingId,
+    floor: floor ?? this.floor,
   );
 
   @override
@@ -146,7 +165,9 @@ class Facility {
           other.isActive == isActive &&
           other.createdAt == createdAt &&
           other.updatedAt == updatedAt &&
-          other.deletedAt == deletedAt;
+          other.deletedAt == deletedAt &&
+          other.buildingId == buildingId &&
+          other.floor == floor;
 
   @override
   int get hashCode => Object.hash(
@@ -161,6 +182,8 @@ class Facility {
     createdAt,
     updatedAt,
     deletedAt,
+    buildingId,
+    floor,
   );
 
   @override

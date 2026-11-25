@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
@@ -20,6 +19,7 @@ import '../../damage_reports/presentation/report_providers.dart';
 import '../../user_management/data/models/app_user.dart';
 import '../../user_management/presentation/personnel_providers.dart';
 import 'assignment_controller.dart';
+import 'widgets/personnel_assignment.dart';
 
 /// Task Assignment (Figma node `61:4970`, content area only).
 ///
@@ -27,6 +27,12 @@ import 'assignment_controller.dart';
 /// can take them. Picking a report on the left enables the Assign buttons
 /// on the right — the design shows both panels live at once, and an assign
 /// action needs both halves.
+///
+/// Since 2026-11-26 a report is assigned on its own page, straight after
+/// its approval; this screen stays for assigning from the queue and for
+/// looking over who holds what. Both use the same pieces
+/// (widgets/personnel_assignment.dart), and with a report picked the panel
+/// lists its trade only (Table 3.3), as the report page does.
 class TaskAssignmentScreen extends ConsumerStatefulWidget {
   const TaskAssignmentScreen({super.key, this.preselectedReportId});
 
@@ -403,23 +409,24 @@ class _PersonnelPanelState extends ConsumerState<_PersonnelPanel> {
               emptyMessage: 'No maintenance personnel accounts exist yet.',
               onRetry: () => ref.invalidate(personnelStreamProvider),
               data: (people) {
-                final visible = _tradeFilter == null
-                    ? people
-                    : people
-                          .where(
-                            (person) =>
-                                person.specialization?.assignedPersonnelLabel ==
-                                _tradeFilter!.assignedPersonnelLabel,
-                          )
-                          .toList();
-
-                // Ranked against the selected report's trade, so the right
-                // people surface first without anyone being hidden.
-                final ranked = rankedForCategory(visible, selected?.category);
+                // A report picked: its trade only (Table 3.3), as on the
+                // report's page. None picked: everyone, or the trade the
+                // filter names.
+                final category = selected?.category;
+                final trade = category ?? _tradeFilter;
+                final ranked = category != null
+                    ? personnelOfTrade(people, category)
+                    : trade == null
+                    ? rankedForCategory(people, null)
+                    : personnelOfTrade(people, trade);
 
                 if (ranked.isEmpty) {
-                  return const Text(
-                    'No personnel match this trade.',
+                  return Text(
+                    trade == null
+                        ? 'No personnel match this trade.'
+                        : 'No ${trade.assignedPersonnelLabel} accounts. '
+                              'When nobody can take the work, reschedule '
+                              'the report on its page.',
                     style: AppTextStyles.bodySmall,
                   );
                 }
@@ -576,43 +583,20 @@ class _PersonnelRowState extends ConsumerState<_PersonnelRow> {
     );
   }
 
+  /// The same confirmation and call as the report's own page.
   Future<void> _assign() async {
     final report = widget.report;
     if (report == null) return;
-
-    final confirmation = await showDialog<_AssignmentChoice>(
-      context: context,
-      builder: (_) => _AssignDialog(report: report, person: widget.person),
+    await assignReportTo(
+      context,
+      ref,
+      report,
+      widget.person,
+      onConfirmed: () {
+        if (mounted) setState(() => _busy = true);
+      },
     );
-    if (confirmation == null || !mounted) return;
-
-    setState(() => _busy = true);
-    final result = await ref
-        .read(assignmentControllerProvider)
-        .assign(
-          reportId: report.id,
-          personnelId: widget.person.id,
-          targetCompletion: confirmation.targetCompletion,
-        );
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    final messenger = ScaffoldMessenger.of(context);
-    result.fold(
-      (_) => messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            '${report.title} assigned to ${widget.person.fullName}.',
-          ),
-        ),
-      ),
-      (failure) => messenger.showSnackBar(
-        SnackBar(
-          content: Text(failure.message),
-          backgroundColor: AppColors.error,
-        ),
-      ),
-    );
+    if (mounted) setState(() => _busy = false);
   }
 }
 
@@ -649,114 +633,3 @@ class _PersonnelHeaderRow extends StatelessWidget {
 
 /// Shared by the header and the rows so the Action column lines up.
 const double _actionColumnWidth = 104;
-
-class _AssignmentChoice {
-  const _AssignmentChoice({this.targetCompletion});
-
-  final DateTime? targetCompletion;
-}
-
-/// Confirms the pairing and offers a target completion date.
-///
-/// The date is optional and is not in the Figma flow. It writes to
-/// `WorkOrder.scheduledFor`, which already existed and which the OVERDUE
-/// metric is measured against — without it that card could only ever read
-/// zero.
-class _AssignDialog extends StatefulWidget {
-  const _AssignDialog({required this.report, required this.person});
-
-  final DamageReport report;
-  final AppUser person;
-
-  @override
-  State<_AssignDialog> createState() => _AssignDialogState();
-}
-
-class _AssignDialogState extends State<_AssignDialog> {
-  DateTime? _target;
-
-  @override
-  Widget build(BuildContext context) {
-    final trade = widget.person.specialization?.assignedPersonnelLabel;
-    final category = widget.report.category;
-    final mismatched =
-        category != null &&
-        trade != null &&
-        trade != category.assignedPersonnelLabel;
-
-    return AlertDialog(
-      title: const Text('Assign this report'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(widget.report.title, style: AppTextStyles.workOrderTitle),
-          const SizedBox(height: 4),
-          Text(
-            'To ${widget.person.fullName}'
-            '${trade == null ? '' : ' · $trade'}',
-            style: AppTextStyles.bodySmall,
-          ),
-          if (mismatched) ...[
-            const SizedBox(height: 12),
-            // A warning, not a block: the manuscript routes categories to
-            // trades, but the administrator decides — the matching person
-            // may be on leave.
-            Text(
-              'This is a ${category.label} report, usually handled by a '
-              '${category.assignedPersonnelLabel}.',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.priorityHighForeground,
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _target == null
-                      ? 'No target completion date'
-                      : 'Target: ${DateFormat('MMM d, y').format(_target!)}',
-                  style: AppTextStyles.fieldValue,
-                ),
-              ),
-              TextButton(
-                onPressed: _pickDate,
-                child: Text(_target == null ? 'Set date' : 'Change'),
-              ),
-              if (_target != null)
-                TextButton(
-                  onPressed: () => setState(() => _target = null),
-                  child: const Text('Clear'),
-                ),
-            ],
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () =>
-              Navigator.of(context)
-                  .pop(_AssignmentChoice(targetCompletion: _target)),
-          child: const Text('Assign'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _target ?? now.add(const Duration(days: 3)),
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (picked != null) setState(() => _target = picked);
-  }
-}

@@ -26,6 +26,7 @@ import '../data/models/damage_report.dart';
 import 'report_providers.dart';
 import 'report_review_controller.dart';
 import 'widgets/report_archive.dart';
+import 'widgets/report_assignment_section.dart';
 
 /// One damage report in full.
 ///
@@ -36,6 +37,13 @@ import 'widgets/report_archive.dart';
 /// Read-only apart from the review decisions: the status moves (2.B), and
 /// the damage type, priority criteria and official priority, with any
 /// possible duplicates (Objectives 4.A–4.C).
+///
+/// **2026-11-26** (the adviser's consultation): a report is handled from
+/// start to finish here. Pending → Start review (Under Review) → confirm
+/// the type and official priority → Approve or Reject → assign personnel
+/// of its trade, or reschedule, on this page → Assigned → In Progress →
+/// Completed. Task Assignment and Work Orders stay, for reassigning and
+/// following the work later, and are no longer a required step.
 class ReportDetailScreen extends ConsumerWidget {
   const ReportDetailScreen({required this.reportId, super.key});
 
@@ -105,7 +113,17 @@ class _Detail extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 24),
+        _ReviewSteps(report: report),
+        const SizedBox(height: 16),
         _ReviewActions(report: report),
+        // Approved: the assignment comes next, right here.
+        if (report.awaitsAssignment) ...[
+          const SizedBox(height: 24),
+          ReportAssignmentSection(report: report),
+        ] else if (report.workOrderId case final workOrderId?) ...[
+          const SizedBox(height: 24),
+          _AssignedNotice(report: report, workOrderId: workOrderId),
+        ],
         const SizedBox(height: 24),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -132,9 +150,15 @@ class _Detail extends ConsumerWidget {
                   const SizedBox(height: 16),
                   PossibleDuplicatesCard(report: report),
                 ],
-                if (report.canBeAssessed) ...[
+                // The type and priority are confirmed once the review has
+                // started (2026-11-26); until then the page says how.
+                if (report.canBeAssessed &&
+                    report.status != ReportStatus.submitted) ...[
                   const SizedBox(height: 16),
                   ReportAssessmentPanel(report: report),
+                ] else if (report.canBeAssessed) ...[
+                  const SizedBox(height: 16),
+                  const _StartReviewNote(),
                 ],
                 const SizedBox(height: 16),
                 _HistoryCard(reportId: report.id, report: report),
@@ -192,6 +216,11 @@ class _ReviewActionsState extends ConsumerState<_ReviewActions> {
 
   bool get _busy => _moving != null;
 
+  /// Whether the review below has confirmed the damage type and the
+  /// official priority, which approving waits for.
+  bool get _reviewed =>
+      widget.report.category != null && widget.report.isPriorityConfirmed;
+
   /// Makes a move and says how it went: [done] once the database has
   /// confirmed it, or why not, with a way to try again. By then the page
   /// already shows what the database holds.
@@ -247,20 +276,32 @@ class _ReviewActionsState extends ConsumerState<_ReviewActions> {
               : () => _run(
                   ReportStatus.underReview,
                   () => controller.startReview(report.id),
-                  done: 'Review started.',
+                  done:
+                      'Review started: the report is Under Review. Confirm '
+                      'its type and priority below.',
                 ),
           child: _label(ReportStatus.underReview, 'Start review'),
         ),
+      // Approved once the type and official priority are confirmed in the
+      // review below (2026-11-26): assigning needs both, and it comes next.
       if (status.canTransitionTo(ReportStatus.approved))
-        FilledButton(
-          onPressed: _busy
-              ? null
-              : () => _run(
-                  ReportStatus.approved,
-                  () => controller.approve(report.id),
-                  done: 'Report approved.',
-                ),
-          child: _label(ReportStatus.approved, 'Approve'),
+        _HintWhen(
+          !_reviewed,
+          'Confirm the damage type and official priority in the review '
+          'below first.',
+          FilledButton(
+            key: const ValueKey('approve-report'),
+            onPressed: _busy || !_reviewed
+                ? null
+                : () => _run(
+                    ReportStatus.approved,
+                    () => controller.approve(report.id),
+                    done:
+                        'Report approved. Assign personnel or reschedule it '
+                        'below.',
+                  ),
+            child: _label(ReportStatus.approved, 'Approve'),
+          ),
         ),
       if (status.canTransitionTo(ReportStatus.rejected))
         OutlinedButton(
@@ -300,6 +341,173 @@ class _ReviewActionsState extends ConsumerState<_ReviewActions> {
       done: 'Report rejected.',
     );
   }
+}
+
+/// Where the report is on the way from Pending to Assigned (2026-11-26),
+/// so the next step on this page is plain.
+class _ReviewSteps extends StatelessWidget {
+  const _ReviewSteps({required this.report});
+
+  final DamageReport report;
+
+  static const _steps = [
+    'Start review',
+    'Confirm type and priority',
+    'Approve or reject',
+    'Assign or reschedule',
+  ];
+
+  /// The step to do now, 0–3; 4 once assigned; null for a report that
+  /// left this way (rejected, merged, archived).
+  int? get _current {
+    final status = report.status;
+    if (report.workOrderId != null ||
+        status.index >= ReportStatus.assigned.index &&
+            status.index <= ReportStatus.closed.index) {
+      return 4;
+    }
+    return switch (status) {
+      ReportStatus.submitted => 0,
+      ReportStatus.underReview =>
+        report.category != null && report.isPriorityConfirmed ? 2 : 1,
+      ReportStatus.approved => 3,
+      _ => null,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = _current;
+    if (current == null) return const SizedBox.shrink();
+    return Semantics(
+      label: current >= _steps.length
+          ? 'Review done: the report is assigned'
+          : 'Step ${current + 1} of ${_steps.length}: ${_steps[current]}',
+      child: ExcludeSemantics(
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (final (index, step) in _steps.indexed)
+              _StepChip(
+                number: index + 1,
+                label: step,
+                done: index < current,
+                current: index == current,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StepChip extends StatelessWidget {
+  const _StepChip({
+    required this.number,
+    required this.label,
+    required this.done,
+    required this.current,
+  });
+
+  final int number;
+  final String label;
+  final bool done;
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = current
+        ? AppColors.primary
+        : done
+        ? AppColors.presenceActiveText
+        : AppColors.textFaint;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: current ? AppColors.statusInProgressBackground : null,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: current ? AppColors.primary : AppColors.border,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            done ? Icons.check_circle : Icons.circle_outlined,
+            size: 16,
+            color: color,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$number. $label',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: color,
+              fontWeight: current ? FontWeight.w600 : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// [child], with [message] on hover only while [show]: a Tooltip with an
+/// empty message still opens an empty bubble.
+class _HintWhen extends StatelessWidget {
+  const _HintWhen(this.show, this.message, this.child);
+
+  final bool show;
+  final String message;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      show ? Tooltip(message: message, child: child) : child;
+}
+
+/// In place of the review panel on a report not yet under review.
+class _StartReviewNote extends StatelessWidget {
+  const _StartReviewNote();
+
+  @override
+  Widget build(BuildContext context) => const SectionCard(
+    title: 'Classification and priority review',
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        'Press Start review to check the classification and confirm or '
+        'change the official priority here.',
+        style: AppTextStyles.bodySmall,
+      ),
+    ),
+  );
+}
+
+/// Once assigned: who has the work, and the way to its work order, where
+/// it is followed and reassigned.
+class _AssignedNotice extends StatelessWidget {
+  const _AssignedNotice({required this.report, required this.workOrderId});
+
+  final DamageReport report;
+  final String workOrderId;
+
+  @override
+  Widget build(BuildContext context) => SectionCard(
+    title: 'Assigned',
+    subtitle:
+        'Work order ${DisplayId.workOrder(workOrderId)} was raised for this '
+        'report. Follow it, or reassign it, from the work order.',
+    trailing: OutlinedButton.icon(
+      onPressed: () =>
+          context.go(RoutePaths.adminWorkOrderDetailFor(workOrderId)),
+      icon: const Icon(Icons.open_in_new, size: 18),
+      label: const Text('Open work order'),
+    ),
+    child: const SizedBox.shrink(),
+  );
 }
 
 /// Rejection needs a reason: a dismissed report with no recorded why tells

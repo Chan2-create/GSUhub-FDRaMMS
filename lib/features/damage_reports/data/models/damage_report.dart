@@ -59,6 +59,8 @@ class DamageReport {
     this.reviewedBy,
     this.reviewedAt,
     this.rejectionReason,
+    this.rescheduledTo,
+    this.rescheduleReason,
   }) {
     RecordConverters.validateNotBlank(reporterId, 'reporterId');
     RecordConverters.validateNotBlank(title, 'title');
@@ -154,6 +156,11 @@ class DamageReport {
       submittedAt: RecordConverters.requireDate(data, 'submittedAt'),
       updatedAt: RecordConverters.requireDate(data, 'updatedAt'),
       archivedAt: RecordConverters.optionalDate(data, 'archivedAt'),
+      rescheduledTo: RecordConverters.optionalDate(data, 'rescheduledTo'),
+      rescheduleReason: RecordConverters.optional<String>(
+        data,
+        'rescheduleReason',
+      ),
     );
   }
 
@@ -272,6 +279,19 @@ class DamageReport {
 
   bool get isArchived => archivedAt != null;
 
+  /// The date an administrator moved the work to because nobody, or no
+  /// equipment, was free to take it yet (2026-11-26), with [rescheduleReason]
+  /// saying why. The report stays approved meanwhile; both are shown to
+  /// the requestor. Null when it was never rescheduled.
+  final DateTime? rescheduledTo;
+
+  /// Why the work waits until [rescheduledTo]. Required with it.
+  final String? rescheduleReason;
+
+  /// Approved, waiting for assignment, and moved to a later date: what the
+  /// report page and the requestor's app call "rescheduled".
+  bool get isRescheduled => awaitsAssignment && rescheduledTo != null;
+
   /// Whether this report was merged into another and should be hidden from
   /// active queues.
   bool get isDuplicate => duplicateOf != null;
@@ -376,6 +396,8 @@ class DamageReport {
     'submittedAt': submittedAt,
     'updatedAt': updatedAt,
     'archivedAt': archivedAt,
+    'rescheduledTo': rescheduledTo,
+    'rescheduleReason': rescheduleReason,
   };
 
   DamageReport copyWith({
@@ -411,6 +433,8 @@ class DamageReport {
     DateTime? submittedAt,
     DateTime? updatedAt,
     DateTime? archivedAt,
+    DateTime? rescheduledTo,
+    String? rescheduleReason,
   }) => DamageReport(
     id: id ?? this.id,
     reporterId: reporterId ?? this.reporterId,
@@ -446,6 +470,8 @@ class DamageReport {
     submittedAt: submittedAt ?? this.submittedAt,
     updatedAt: updatedAt ?? this.updatedAt,
     archivedAt: archivedAt ?? this.archivedAt,
+    rescheduledTo: rescheduledTo ?? this.rescheduledTo,
+    rescheduleReason: rescheduleReason ?? this.rescheduleReason,
   );
 
   @override
@@ -483,7 +509,9 @@ class DamageReport {
         other.rejectionReason == rejectionReason &&
         other.submittedAt == submittedAt &&
         other.updatedAt == updatedAt &&
-        other.archivedAt == archivedAt;
+        other.archivedAt == archivedAt &&
+        other.rescheduledTo == rescheduledTo &&
+        other.rescheduleReason == rescheduleReason;
   }
 
   @override
@@ -520,6 +548,8 @@ class DamageReport {
     submittedAt,
     updatedAt,
     archivedAt,
+    rescheduledTo,
+    rescheduleReason,
   ]);
 
   @override

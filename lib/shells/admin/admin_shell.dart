@@ -9,7 +9,7 @@ import '../../core/routing/route_paths.dart';
 import '../../features/analytics/presentation/widgets/analytics_range_select.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/dashboard/presentation/dashboard_providers.dart';
-import '../../features/inventory/presentation/inventory_providers.dart';
+import '../../features/notifications/presentation/nav_badges.dart';
 import '../page_refresh.dart';
 import 'widgets/admin_nav_items.dart';
 import 'widgets/admin_sidebar.dart';
@@ -49,10 +49,9 @@ class AdminShell extends ConsumerWidget {
       currentLocation: location,
       user: user,
       rail: rail,
-      badges: {
-        RoutePaths.adminInventory: ref.watch(lowStockCountProvider),
-        RoutePaths.adminNotifications: unread,
-      },
+      // Each item's unread notices, as a number; opening it reads them
+      // (2026-11-26).
+      badges: badgeCountsOf(unreadNoticesOf(ref), adminSectionOf),
     );
     // Logout is in the header's account menu, which asks first.
     Future<void> signOut() async {
@@ -106,7 +105,12 @@ class AdminShell extends ConsumerWidget {
                 Expanded(
                   child: Semantics(
                     container: true,
-                    child: PageRefreshFrame(child: child),
+                    child: NavBadgeClearer(
+                      location: location,
+                      sectionOf: adminSectionOf,
+                      sectionFor: sectionFor,
+                      child: PageRefreshFrame(child: child),
+                    ),
                   ),
                 ),
               ],
@@ -117,6 +121,18 @@ class AdminShell extends ConsumerWidget {
     );
   }
 
+  /// The sidebar item [location] is under, by its path, or null.
+  static String? sectionFor(String location) {
+    for (final group in adminNavGroups) {
+      for (final item in group.items) {
+        if (location == item.path || location.startsWith('${item.path}/')) {
+          return item.path;
+        }
+      }
+    }
+    return null;
+  }
+
   /// Human-readable name for a route, taken from the sidebar definition so
   /// the two can never drift apart.
   static String titleFor(String location) {
@@ -125,8 +141,12 @@ class AdminShell extends ConsumerWidget {
         if (location.startsWith(item.path)) return item.label;
       }
     }
-    // Reached from the account menu, not the sidebar.
+    // Reached from the account menu and the header's bell, not the
+    // sidebar.
     if (location.startsWith(RoutePaths.adminProfile)) return 'My Profile';
+    if (location.startsWith(RoutePaths.adminNotifications)) {
+      return 'Notifications';
+    }
     return 'GSU Administration';
   }
 }

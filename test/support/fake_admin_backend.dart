@@ -25,6 +25,7 @@ import 'package:gsuhub/features/audit/data/repositories/audit_log_repository.dar
 import 'package:gsuhub/features/damage_reports/data/models/damage_report.dart';
 import 'package:gsuhub/features/damage_reports/data/models/report_assessment.dart';
 import 'package:gsuhub/features/damage_reports/data/repositories/damage_report_repository.dart';
+import 'package:gsuhub/features/notifications/data/models/app_notification.dart';
 import 'package:gsuhub/features/notifications/data/repositories/notification_repository.dart';
 import 'package:gsuhub/features/user_management/data/models/app_user.dart';
 import 'package:gsuhub/features/user_management/data/repositories/user_repository.dart';
@@ -340,6 +341,33 @@ class FakeDamageReportRepository implements DamageReportRepository {
     return const Result.success(null);
   }
 
+  /// Every rescheduling asked for.
+  final reschedules =
+      <({String reportId, String reason, DateTime rescheduledTo})>[];
+
+  @override
+  Future<Result<void>> reschedule({
+    required String reportId,
+    required String reason,
+    required DateTime rescheduledTo,
+    required AuditActor actor,
+  }) async {
+    reschedules.add((
+      reportId: reportId,
+      reason: reason,
+      rescheduledTo: rescheduledTo,
+    ));
+    if (decisionFailure case final failure?) return Result.failure(failure);
+    _put(
+      _store[reportId]!.copyWith(
+        rescheduledTo: rescheduledTo,
+        rescheduleReason: reason.trim(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+    return const Result.success(null);
+  }
+
   @override
   Future<Result<int>> countSimilarReports({
     required String facilityId,
@@ -435,6 +463,25 @@ class FakeNotificationRepository implements NotificationRepository {
 
   @override
   Stream<Result<int>> watchUnreadCount(String userId) => Stream.value(_unread);
+
+  /// The unread notices behind the navigation's badges (2026-11-26).
+  List<AppNotification> unreadNotices = const [];
+
+  /// Every batch the console read as a section opened.
+  final markedManyRead = <List<String>>[];
+
+  @override
+  Stream<Result<List<AppNotification>>> watchForUser(
+    String userId, {
+    bool unreadOnly = false,
+    int limit = 100,
+  }) => Stream.value(Result.success(unreadNotices));
+
+  @override
+  Future<Result<void>> markManyAsRead(List<String> notificationIds) async {
+    markedManyRead.add(notificationIds);
+    return const Result.success(null);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

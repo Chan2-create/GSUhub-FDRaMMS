@@ -9,6 +9,7 @@ import '../../../core/services/photo_picker_service.dart';
 import '../../../core/utils/result.dart';
 import '../../audit/data/models/audit_actor.dart';
 import '../../audit/presentation/current_actor_provider.dart';
+import '../../facilities/data/models/building.dart';
 import '../../facilities/data/models/facility_draft.dart';
 import '../../tools/data/models/tool_draft.dart';
 import '../data/models/inventory_item_draft.dart';
@@ -273,6 +274,28 @@ class InventoryController {
           inventoryItemId: inventoryItemId,
           actor: actor,
         ),
+  );
+
+  /// Registers a campus building (2026-11-26).
+  Future<Result<void>> createBuilding(BuildingDraft draft) => _act(
+    (actor) async => _done(
+      await _ref
+          .read(facilityRepositoryProvider)
+          .createBuilding(draft: draft, actor: actor),
+    ),
+  );
+
+  Future<Result<void>> updateBuilding(String id, BuildingDraft draft) => _act(
+    (actor) => _ref
+        .read(facilityRepositoryProvider)
+        .updateBuilding(buildingId: id, draft: draft, actor: actor),
+  );
+
+  /// Deletes a building with no rooms left in it.
+  Future<Result<void>> deleteBuilding(String id) => _act(
+    (actor) => _ref
+        .read(facilityRepositoryProvider)
+        .deleteBuilding(buildingId: id, actor: actor),
   );
 
   Future<Result<void>> createFacility(FacilityDraft draft) => _act(

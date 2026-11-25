@@ -104,7 +104,6 @@ void main() {
         RoutePaths.adminPersonnel,
         RoutePaths.adminAnalytics,
         RoutePaths.adminUsers,
-        RoutePaths.adminMapView,
         RoutePaths.adminNotifications,
         RoutePaths.adminSettings,
       ]) {
@@ -116,6 +115,16 @@ void main() {
 
         expect(landed, path, reason: '$path did not resolve');
       }
+    });
+
+    testWidgets('the old Map View address lands on Damage Reports, where '
+        'the map now is (2026-11-26)', (tester) async {
+      final landed = await landingPath(
+        tester,
+        buildAppRouter(guard: guard, initialLocation: RoutePaths.adminMapView),
+        user: fakeAdminUser,
+      );
+      expect(landed, RoutePaths.adminReports);
     });
   });
 

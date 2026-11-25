@@ -20,13 +20,16 @@ import '../../../core/widgets/status_chip.dart';
 import '../../../core/widgets/table_pagination.dart';
 import '../../classification/domain/duplicate_detector.dart';
 import '../../classification/presentation/classification_providers.dart';
+import '../../map_view/presentation/report_map_panel.dart';
 import '../data/models/damage_report.dart';
 import 'report_providers.dart';
 import 'widgets/report_archive.dart';
 import 'widgets/report_filter_bar.dart';
-import 'widgets/report_side_panels.dart';
 
 /// Damage report management (Figma node `196:1371`).
+///
+/// Listed by priority, Critical first, the oldest first within each
+/// (2026-11-26, [byPriorityThenOldest]); the campus map below it.
 ///
 /// The shell — sidebar, top bar — comes from 2.A; this is the content
 /// area only. Every number and row is read from Firestore; the mockup's
@@ -47,10 +50,9 @@ class ReportsScreen extends ConsumerWidget {
         ReportFilterBar(),
         _ReportsTableCard(),
         SizedBox(height: 32),
-        // The design set the map beside a "Need urgent assistance?" card
-        // whose Dispatch Emergency Team button had nothing behind it; the
-        // card went on 2026-11-15 (§34) and the map has the row.
-        CampusViewCard(),
+        // The campus map, whole: zoomed, panned, a pin opening its report
+        // (2026-11-26; until then a still preview leading to Map View).
+        ReportMapPanel(),
       ],
     ),
   );

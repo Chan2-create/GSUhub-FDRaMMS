@@ -82,6 +82,12 @@ abstract final class AppColors {
   static const Color statusPendingBackground = Color(0xFFFEE2E2);
   static const Color statusPendingForeground = Color(0xFFB91C1C);
 
+  /// UNDER REVIEW, set apart from PENDING (2026-11-26): the adviser read
+  /// a report under review, in PENDING's red, as still pending. Also the
+  /// note a rescheduled report carries. Amber on cream, 7.0:1.
+  static const Color statusReviewBackground = Color(0xFFFEF3C7);
+  static const Color statusReviewForeground = Color(0xFF92400E);
+
   static const Color statusInProgressBackground = Color(0xFFDBEAFE);
   static const Color statusInProgressForeground = Color(0xFF1D4ED8);
 

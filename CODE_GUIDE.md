@@ -67,7 +67,7 @@ Database              supabase/migrations/                      tables, access r
 | Inventory (materials and stock) | [`lib/features/inventory/`](lib/features/inventory/) | [`inventory_screen.dart`](lib/features/inventory/presentation/inventory_screen.dart) |
 | Tools management | [`lib/features/tools/`](lib/features/tools/) | [`tools_section.dart`](lib/features/tools/presentation/tools_section.dart) |
 | QR codes (generating and scanning) | [`lib/features/qr_codes/`](lib/features/qr_codes/) | [`qr_label_actions.dart`](lib/features/qr_codes/presentation/qr_label_actions.dart), [`qr_scanner_screen.dart`](lib/features/qr_codes/presentation/qr_scanner_screen.dart) |
-| Map View and geo-tagging | [`lib/features/map_view/`](lib/features/map_view/) | [`report_map_screen.dart`](lib/features/map_view/presentation/report_map_screen.dart) |
+| Campus map (on Damage Reports) and geo-tagging | [`lib/features/map_view/`](lib/features/map_view/) | [`report_map_panel.dart`](lib/features/map_view/presentation/report_map_panel.dart) |
 | Notifications | [`lib/features/notifications/`](lib/features/notifications/) | [`admin_notifications_screen.dart`](lib/features/notifications/presentation/admin_notifications_screen.dart), [`mobile_alerts_screen.dart`](lib/features/notifications/presentation/mobile_alerts_screen.dart) |
 | Feedback and ratings | [`lib/features/feedback/`](lib/features/feedback/) | [`rate_service_screen.dart`](lib/features/feedback/presentation/rate_service_screen.dart) |
 | Settings | [`lib/features/settings/`](lib/features/settings/) | [`settings_screen.dart`](lib/features/settings/presentation/settings_screen.dart) |
@@ -113,14 +113,14 @@ Database              supabase/migrations/                      tables, access r
 
 | What | Where |
 |---|---|
-| User Accounts page (approve sign-ups, roles, activate, deactivate, delete) | [`user_accounts_screen.dart`](lib/features/user_management/presentation/user_accounts_screen.dart), [`widgets/account_dialogs.dart`](lib/features/user_management/presentation/widgets/account_dialogs.dart), [`account_controller.dart`](lib/features/user_management/presentation/account_controller.dart) |
+| User Accounts page (approve sign-ups as Faculty or Utility, roles, activate, deactivate; no delete since 2026-11-26) | [`user_accounts_screen.dart`](lib/features/user_management/presentation/user_accounts_screen.dart), [`widgets/account_dialogs.dart`](lib/features/user_management/presentation/widgets/account_dialogs.dart), [`account_controller.dart`](lib/features/user_management/presentation/account_controller.dart) |
 | Maintenance Personnel directory | [`personnel_screen.dart`](lib/features/user_management/presentation/personnel_screen.dart) |
 | My Profile (console) and Profile tab (phones) | [`admin_profile_screen.dart`](lib/features/user_management/presentation/admin_profile_screen.dart), [`mobile_profile_screen.dart`](lib/features/user_management/presentation/mobile_profile_screen.dart), [`widgets/profile_cards.dart`](lib/features/user_management/presentation/widgets/profile_cards.dart) |
 | The account record | [`data/models/app_user.dart`](lib/features/user_management/data/models/app_user.dart), [`data/repositories/user_repository_impl.dart`](lib/features/user_management/data/repositories/user_repository_impl.dart) |
 | Departments and faculties: the list, and Settings → Departments | [`data/models/department.dart`](lib/features/user_management/data/models/department.dart), [`data/repositories/department_repository_impl.dart`](lib/features/user_management/data/repositories/department_repository_impl.dart), [`department_providers.dart`](lib/features/user_management/presentation/department_providers.dart), [`departments_settings_section.dart`](lib/features/user_management/presentation/departments_settings_section.dart) |
 | Signing out a deactivated account or one whose role changed, with the notice | [`lib/core/session/session_watch.dart`](lib/core/session/session_watch.dart) (`checkAccount`), [`lib/core/config/session_policy.dart`](lib/core/config/session_policy.dart) (`SessionEndReason`, the messages) |
 | Account field checks and the password policy | [`lib/core/utils/account_validation.dart`](lib/core/utils/account_validation.dart) |
-| Database | `create_account`, `register_self`, `set_account_status`, `update_account` in [`20261016145429_account_functions.sql`](supabase/migrations/20261016145429_account_functions.sql); `delete_account` in [`20261108141827_console_delete_and_archive.sql`](supabase/migrations/20261108141827_console_delete_and_archive.sql) |
+| Database | `create_account`, `register_self`, `set_account_status`, `update_account` in [`20261016145429_account_functions.sql`](supabase/migrations/20261016145429_account_functions.sql); the role chosen at sign-up and the trade on approval in [`20261126101500_report_flow_buildings_and_roles.sql`](supabase/migrations/20261126101500_report_flow_buildings_and_roles.sql) (which also drops `delete_account`) |
 
 ### Facilities and equipment (assets)
 
@@ -129,10 +129,10 @@ live in one feature.
 
 | What | Where |
 |---|---|
-| Facilities & Equipment page (rooms, equipment, labels, delete) | [`lib/features/facilities/presentation/facilities_screen.dart`](lib/features/facilities/presentation/facilities_screen.dart) |
-| Building and room lists for the report form | [`facility_directory.dart`](lib/features/facilities/presentation/facility_directory.dart) |
-| The records | [`facility.dart`](lib/features/facilities/data/models/facility.dart), [`asset.dart`](lib/features/facilities/data/models/asset.dart), [`facility_repository_impl.dart`](lib/features/facilities/data/repositories/facility_repository_impl.dart) |
-| Database | [`20261016145439_facility_functions.sql`](supabase/migrations/20261016145439_facility_functions.sql); `delete_facility`, `delete_asset` in [`20261108141827_console_delete_and_archive.sql`](supabase/migrations/20261108141827_console_delete_and_archive.sql) |
+| Facilities & Equipment page (buildings with their pins, rooms on a floor, equipment, labels, delete) | [`lib/features/facilities/presentation/facilities_screen.dart`](lib/features/facilities/presentation/facilities_screen.dart) |
+| Building and room lists for the report form; the buildings for the map; where the pin picker opens | [`facility_directory.dart`](lib/features/facilities/presentation/facility_directory.dart) |
+| The records | [`building.dart`](lib/features/facilities/data/models/building.dart), [`facility.dart`](lib/features/facilities/data/models/facility.dart), [`asset.dart`](lib/features/facilities/data/models/asset.dart), [`facility_repository_impl.dart`](lib/features/facilities/data/repositories/facility_repository_impl.dart) |
+| Database | [`20261016145439_facility_functions.sql`](supabase/migrations/20261016145439_facility_functions.sql); buildings, and a room's building and floor, in [`20261126101500_report_flow_buildings_and_roles.sql`](supabase/migrations/20261126101500_report_flow_buildings_and_roles.sql); `delete_facility`, `delete_asset` in [`20261108141827_console_delete_and_archive.sql`](supabase/migrations/20261108141827_console_delete_and_archive.sql) |
 
 ### Damage reporting
 
@@ -142,8 +142,8 @@ live in one feature.
 | Building, room and GPS on the form | [`submission/widgets/location_card.dart`](lib/features/damage_reports/presentation/submission/widgets/location_card.dart) |
 | Photo evidence | [`submission/widgets/photo_evidence_card.dart`](lib/features/damage_reports/presentation/submission/widgets/photo_evidence_card.dart); upload in [`supabase_storage_service.dart`](lib/core/services/supabase/supabase_storage_service.dart) |
 | My Reports and live tracking (faculty and staff) | [`my_reports/my_reports_screen.dart`](lib/features/damage_reports/presentation/my_reports/my_reports_screen.dart), [`my_reports/my_report_detail_screen.dart`](lib/features/damage_reports/presentation/my_reports/my_report_detail_screen.dart), [`my_reports/report_timeline.dart`](lib/features/damage_reports/presentation/my_reports/report_timeline.dart) |
-| Damage Reports page (admin list, filters, archive) | [`reports_screen.dart`](lib/features/damage_reports/presentation/reports_screen.dart), [`widgets/report_filter_bar.dart`](lib/features/damage_reports/presentation/widgets/report_filter_bar.dart), [`widgets/report_archive.dart`](lib/features/damage_reports/presentation/widgets/report_archive.dart) |
-| One report in the console (review, approve, reject) | [`report_detail_screen.dart`](lib/features/damage_reports/presentation/report_detail_screen.dart), [`report_review_controller.dart`](lib/features/damage_reports/presentation/report_review_controller.dart) |
+| Damage Reports page (admin list by priority, filters, archive, the campus map) | [`reports_screen.dart`](lib/features/damage_reports/presentation/reports_screen.dart), [`widgets/report_filter_bar.dart`](lib/features/damage_reports/presentation/widgets/report_filter_bar.dart), [`widgets/report_archive.dart`](lib/features/damage_reports/presentation/widgets/report_archive.dart) |
+| One report in the console, start to finish (review, approve, reject, then assign or reschedule) | [`report_detail_screen.dart`](lib/features/damage_reports/presentation/report_detail_screen.dart), [`report_review_controller.dart`](lib/features/damage_reports/presentation/report_review_controller.dart), [`widgets/report_assignment_section.dart`](lib/features/damage_reports/presentation/widgets/report_assignment_section.dart) |
 | The report record and its status steps | [`damage_report.dart`](lib/features/damage_reports/data/models/damage_report.dart), [`status_change.dart`](lib/features/damage_reports/data/models/status_change.dart), [`damage_report_repository_impl.dart`](lib/features/damage_reports/data/repositories/damage_report_repository_impl.dart) |
 | The report lifecycle (Pending → Closed) | [`lib/core/enums/report_status.dart`](lib/core/enums/report_status.dart) |
 | Database | `submit_report`, `transition_report`, `record_assessment`, `merge_duplicates`, `keep_separate` in [`20261016145448_report_functions.sql`](supabase/migrations/20261016145448_report_functions.sql); `set_report_archived` in [`20261108141827_console_delete_and_archive.sql`](supabase/migrations/20261108141827_console_delete_and_archive.sql) |
@@ -162,7 +162,8 @@ live in one feature.
 
 | What | Where |
 |---|---|
-| Task Assignment (turn an approved report into a work order) | [`task_assignment_screen.dart`](lib/features/work_orders/presentation/task_assignment_screen.dart), [`assignment_controller.dart`](lib/features/work_orders/presentation/assignment_controller.dart) |
+| Assigning a report to a technician of its trade (Table 3.3): shared by the report page and Task Assignment | [`widgets/personnel_assignment.dart`](lib/features/work_orders/presentation/widgets/personnel_assignment.dart) |
+| Task Assignment (the queue of approved reports; optional since 2026-11-26) | [`task_assignment_screen.dart`](lib/features/work_orders/presentation/task_assignment_screen.dart), [`assignment_controller.dart`](lib/features/work_orders/presentation/assignment_controller.dart) |
 | Work Order Management (table and Kanban board) | [`work_orders_screen.dart`](lib/features/work_orders/presentation/work_orders_screen.dart), [`widgets/kanban_board.dart`](lib/features/work_orders/presentation/widgets/kanban_board.dart), [`work_order_controller.dart`](lib/features/work_orders/presentation/work_order_controller.dart) |
 | One work order in the console (tasks, reassign, sign-off) | [`work_order_detail_screen.dart`](lib/features/work_orders/presentation/work_order_detail_screen.dart), [`work_order_detail_controller.dart`](lib/features/work_orders/presentation/work_order_detail_controller.dart) |
 | The technician's work orders and one work order (start, tasks, accomplishment report) | [`personnel/my_work_orders_screen.dart`](lib/features/work_orders/presentation/personnel/my_work_orders_screen.dart), [`personnel/personnel_work_order_screen.dart`](lib/features/work_orders/presentation/personnel/personnel_work_order_screen.dart), [`personnel/personnel_work_controller.dart`](lib/features/work_orders/presentation/personnel/personnel_work_controller.dart) |
@@ -213,19 +214,19 @@ rooms and equipment) and is unique; see
 
 | What | Where |
 |---|---|
-| Map View page (admin) | [`report_map_screen.dart`](lib/features/map_view/presentation/report_map_screen.dart) |
-| The map and its pins | [`report_map.dart`](lib/features/map_view/presentation/report_map.dart) |
+| The campus map on the Damage Reports page (`/admin/map` redirects there) | [`report_map_panel.dart`](lib/features/map_view/presentation/report_map_panel.dart) |
+| The map, its report pins and building pins | [`report_map.dart`](lib/features/map_view/presentation/report_map.dart) |
 | Which reports are on the map | [`report_map_providers.dart`](lib/features/map_view/presentation/report_map_providers.dart) |
 | Map tiles, the form's geo-tag preview and the pin picker | [`widgets/geo_tag_map.dart`](lib/features/map_view/presentation/widgets/geo_tag_map.dart) |
 | Reading the phone's GPS | [`lib/core/services/device/geolocator_location_service.dart`](lib/core/services/device/geolocator_location_service.dart) |
-| "Campus View" preview on the Damage Reports page | [`report_side_panels.dart`](lib/features/damage_reports/presentation/widgets/report_side_panels.dart) |
 
 ### Notifications
 
 | What | Where |
 |---|---|
-| Notifications page (admin) | [`admin_notifications_screen.dart`](lib/features/notifications/presentation/admin_notifications_screen.dart) |
-| Alerts tab (both phone apps) | [`mobile_alerts_screen.dart`](lib/features/notifications/presentation/mobile_alerts_screen.dart) |
+| Notifications page (admin), opened from the header's bell | [`admin_notifications_screen.dart`](lib/features/notifications/presentation/admin_notifications_screen.dart) |
+| Numbered badges on every navigation item, cleared as the section opens | [`nav_badges.dart`](lib/features/notifications/presentation/nav_badges.dart) |
+| Notifications (both phone apps), opened from the header's bell | [`mobile_alerts_screen.dart`](lib/features/notifications/presentation/mobile_alerts_screen.dart) |
 | Push notifications on the phone | [`push_coordinator.dart`](lib/features/notifications/presentation/push_coordinator.dart), [`fcm_notification_service.dart`](lib/core/services/firebase/fcm_notification_service.dart) |
 | The wording of each notice | [`report_notice.dart`](lib/features/notifications/data/models/report_notice.dart) (faculty and staff), [`personnel_notice.dart`](lib/features/notifications/data/models/personnel_notice.dart) (maintenance) |
 | Database (notices are written by the database as records change) | `app.notify` in [`20261016145419_server_helpers.sql`](supabase/migrations/20261016145419_server_helpers.sql); the administrator's notices in [`20261020111840_admin_notifications.sql`](supabase/migrations/20261020111840_admin_notifications.sql) |
@@ -278,9 +279,13 @@ step.
    sets the official priority
    ([`report_assessment_panel.dart`](lib/features/classification/presentation/report_assessment_panel.dart)),
    handles any possible duplicate, and approves or rejects.
-4. **The administrator assigns it** to a technician:
-   [`task_assignment_screen.dart`](lib/features/work_orders/presentation/task_assignment_screen.dart),
-   database `assign_work_order`.
+4. **The administrator assigns it** on the same page, once approved, to
+   a technician of its trade (Table 3.3), or reschedules it with a reason
+   and a date when nobody is free:
+   [`report_assignment_section.dart`](lib/features/damage_reports/presentation/widgets/report_assignment_section.dart),
+   database `assign_work_order` (or `reschedule_report`). Task Assignment
+   ([`task_assignment_screen.dart`](lib/features/work_orders/presentation/task_assignment_screen.dart))
+   does the same from its queue.
 5. **The technician does the work** in the maintenance app:
    [`personnel_work_order_screen.dart`](lib/features/work_orders/presentation/personnel/personnel_work_order_screen.dart).
    Starts it, ticks tasks with proof photos, borrows tools
@@ -299,8 +304,9 @@ step.
    [`rate_service_screen.dart`](lib/features/feedback/presentation/rate_service_screen.dart)
    closes the report.
 
-A report with a geo-tag also appears on Map View
-([`report_map_screen.dart`](lib/features/map_view/presentation/report_map_screen.dart)).
+A report with a geo-tag also appears on the campus map of the Damage
+Reports page
+([`report_map_panel.dart`](lib/features/map_view/presentation/report_map_panel.dart)).
 
 ---
 
@@ -312,7 +318,7 @@ A report with a geo-tag also appears on Map View
 |---|---|
 | Admin console frame: sidebar, header, gold rule | [`lib/shells/admin/admin_shell.dart`](lib/shells/admin/admin_shell.dart), [`widgets/admin_sidebar.dart`](lib/shells/admin/widgets/admin_sidebar.dart), [`widgets/admin_top_bar.dart`](lib/shells/admin/widgets/admin_top_bar.dart), [`widgets/admin_nav_items.dart`](lib/shells/admin/widgets/admin_nav_items.dart) (the sidebar's items) |
 | Header account menu (My Profile, Logout) | [`widgets/admin_profile_menu.dart`](lib/shells/admin/widgets/admin_profile_menu.dart) |
-| Faculty and staff app frame and its four tabs | [`lib/shells/requestor/`](lib/shells/requestor/) |
+| Faculty and staff app frame and its three tabs | [`lib/shells/requestor/`](lib/shells/requestor/) |
 | Maintenance app frame and its four tabs | [`lib/shells/personnel/personnel_shell.dart`](lib/shells/personnel/personnel_shell.dart) |
 | Pieces both phone apps share: header, bottom bar, title row | [`lib/shells/mobile/`](lib/shells/mobile/) |
 | Screen size: the console at 90%, the phone apps fitted to small phones | [`lib/shells/app_viewport.dart`](lib/shells/app_viewport.dart) |
@@ -354,7 +360,7 @@ decides who may open it.
 
 | Admin console | Faculty and staff app | Maintenance app |
 |---|---|---|
-| `/admin/login`, `/admin/dashboard`, `/admin/reports`, `/admin/reports/:id`, `/admin/task-assignment`, `/admin/work-orders`, `/admin/work-orders/:id`, `/admin/map`, `/admin/inventory`, `/admin/facilities`, `/admin/personnel`, `/admin/analytics`, `/admin/users`, `/admin/notifications`, `/admin/settings`, `/admin/profile` | `/staff/login`, `/staff/signup`, `/staff/home`, `/staff/submit`, `/staff/reports`, `/staff/reports/:id`, `/staff/reports/:id/rate`, `/staff/alerts`, `/staff/profile` | `/personnel/dashboard`, `/personnel/tasks`, `/personnel/work-orders`, `/personnel/work-orders/:id`, `/personnel/work-orders/:id/materials`, `/personnel/materials`, `/personnel/scan`, `/personnel/alerts`, `/personnel/profile` |
+| `/admin/login`, `/admin/dashboard`, `/admin/reports`, `/admin/reports/:id`, `/admin/task-assignment`, `/admin/work-orders`, `/admin/work-orders/:id`, `/admin/map` (redirects to `/admin/reports`), `/admin/inventory`, `/admin/facilities`, `/admin/personnel`, `/admin/analytics`, `/admin/users`, `/admin/notifications`, `/admin/settings`, `/admin/profile` | `/staff/login`, `/staff/signup`, `/staff/home`, `/staff/submit`, `/staff/reports`, `/staff/reports/:id`, `/staff/reports/:id/rate`, `/staff/alerts`, `/staff/profile` | `/personnel/dashboard`, `/personnel/tasks`, `/personnel/work-orders`, `/personnel/work-orders/:id`, `/personnel/work-orders/:id/materials`, `/personnel/materials`, `/personnel/scan`, `/personnel/alerts`, `/personnel/profile` |
 
 ### Starting the app
 
@@ -419,6 +425,7 @@ Authentication** for sign-in and **Firebase Cloud Messaging** for push.
 | [`20261116015224_tool_requests.sql`](supabase/migrations/20261116015224_tool_requests.sql) | Tool Check-Out and Check-In that wait for the technician's scan |
 | [`20261116115436_report_review_trail.sql`](supabase/migrations/20261116115436_report_review_trail.sql) | A review keeps what the requestor chose, records its reason, and is not saved over a newer one |
 | [`20261117102846_account_sessions_and_departments.sql`](supabase/migrations/20261117102846_account_sessions_and_departments.sql) | Deactivation and role changes end every session; the departments list; account field checks |
+| [`20261126101500_report_flow_buildings_and_roles.sql`](supabase/migrations/20261126101500_report_flow_buildings_and_roles.sql) | Buildings and a room's floor; rescheduling a report; signing up as Faculty or Utility; a section's notices read; no more deleting accounts |
 
 ---
 

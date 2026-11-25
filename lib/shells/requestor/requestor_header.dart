@@ -8,12 +8,17 @@ import '../mobile/mobile_header.dart';
 /// personnel app draws the same [MobileHeader]; this one's bell opens the
 /// faculty Alerts tab (3.B).
 class RequestorHeader extends StatelessWidget {
-  const RequestorHeader({super.key});
+  const RequestorHeader({super.key, this.unreadCount = 0});
+
+  /// Unread notifications, as a number on the bell.
+  final int unreadCount;
 
   /// The header's height in the design, rule excluded.
   static const double height = MobileHeader.height;
 
   @override
-  Widget build(BuildContext context) =>
-      const MobileHeader(alertsPath: RoutePaths.staffAlerts);
+  Widget build(BuildContext context) => MobileHeader(
+    alertsPath: RoutePaths.staffAlerts,
+    unreadCount: unreadCount,
+  );
 }

@@ -32,6 +32,22 @@ enum UserRole {
     UserRole.admin => 'GSU Administrator',
   };
 
+  /// What a person signs up as on Create Account, and what the
+  /// administrator approving them reads (2026-11-26): Faculty for the
+  /// faculty and staff app, Utility for the maintenance app. Nobody signs
+  /// themselves up as an administrator.
+  String get signUpLabel => switch (this) {
+    UserRole.requestor => 'Faculty',
+    UserRole.maintenancePersonnel => 'Utility',
+    UserRole.admin => 'Administrator',
+  };
+
+  /// The roles Create Account offers, in its order.
+  static const List<UserRole> signUpChoices = [
+    UserRole.requestor,
+    UserRole.maintenancePersonnel,
+  ];
+
   /// The User Accounts tab that lists this role.
   String get tabLabel => switch (this) {
     UserRole.requestor => 'End Users',

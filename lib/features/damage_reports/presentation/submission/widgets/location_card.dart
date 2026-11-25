@@ -234,7 +234,7 @@ class _FacilitySelects extends StatelessWidget {
                   for (final room in {...rooms, ?form.facility})
                     FilterOption(
                       value: room,
-                      label: FacilityDirectory.roomLabelOf(room),
+                      label: FacilityDirectory.roomOptionLabelOf(room),
                     ),
                 ],
                 onChanged: (room) {

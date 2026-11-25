@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/data/geo_coordinates.dart';
 import '../../../core/di/repository_providers.dart';
 import '../../../core/utils/result.dart';
+import '../data/models/building.dart';
 import '../data/models/facility.dart';
 
 /// Every active facility, grouped the way the report form asks for one:
@@ -31,6 +33,15 @@ class FacilityDirectory {
   /// its own name.
   static String roomLabelOf(Facility facility) =>
       facility.roomIdentifier ?? facility.name;
+
+  /// The room with its floor, when it has one (2026-11-26): "Room 203 ·
+  /// 2nd floor". What the report form lists.
+  static String roomOptionLabelOf(Facility facility) =>
+      switch (facility.floor) {
+        final floor? when floor.trim().isNotEmpty =>
+          '${roomLabelOf(facility)} · $floor',
+        _ => roomLabelOf(facility),
+      };
 
   static Map<String, List<Facility>> _group(Iterable<Facility> facilities) {
     final grouped = <String, List<Facility>>{};
@@ -64,6 +75,44 @@ class FacilityDirectory {
     }
     return left.length.compareTo(right.length);
   }
+}
+
+/// The campus buildings the administrator keeps, by name, live
+/// (2026-11-26): the Facilities page, the room form and the map's
+/// building pins.
+final buildingsProvider = StreamProvider.autoDispose<Result<List<Building>>>(
+  (ref) => ref.watch(facilityRepositoryProvider).watchBuildings(),
+);
+
+/// Where a map opens to place a pin when nothing has one yet: the DOrSU
+/// main campus, Guang-guang, Mati (the centre OpenStreetMap gives it). A
+/// starting view only, never stored: every pin saved is one the
+/// administrator placed.
+const GeoCoordinates campusFallbackCentre = GeoCoordinates(
+  latitude: 6.93164,
+  longitude: 126.25467,
+);
+
+/// Where to open the pin picker for a building or room: [current] when it
+/// has a pin, then the first of [near] that has one, then the middle of
+/// every pinned building, then [campusFallbackCentre].
+GeoCoordinates pinPickerStart({
+  GeoCoordinates? current,
+  Iterable<GeoCoordinates?> near = const [],
+  Iterable<Building> buildings = const [],
+}) {
+  if (current != null) return current;
+  for (final point in near) {
+    if (point != null) return point;
+  }
+  final pinned = [for (final building in buildings) ?building.coordinates];
+  if (pinned.isEmpty) return campusFallbackCentre;
+  return GeoCoordinates(
+    latitude:
+        pinned.map((p) => p.latitude).reduce((a, b) => a + b) / pinned.length,
+    longitude:
+        pinned.map((p) => p.longitude).reduce((a, b) => a + b) / pinned.length,
+  );
 }
 
 /// The active facilities, read once per visit to the report form.

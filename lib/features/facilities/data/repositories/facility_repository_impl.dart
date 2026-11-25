@@ -4,6 +4,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../models/asset.dart';
+import '../models/building.dart';
 import '../models/facility.dart';
 import '../models/facility_draft.dart';
 import 'facility_repository.dart';
@@ -24,6 +25,63 @@ class FacilityRepositoryImpl extends SupabaseRepository
 
   static const String _facilities = 'facilities';
   static const String _assets = 'assets';
+  static const String _buildings = 'buildings';
+
+  @override
+  Stream<Result<List<Building>>> watchBuildings() =>
+      watchMany(stream: liveRows(_buildings), convert: Building.fromRecord).map(
+        (result) => result.map(
+          (buildings) =>
+              [
+                for (final building in buildings)
+                  if (!building.isDeleted) building,
+              ]..sort(
+                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+              ),
+        ),
+      );
+
+  @override
+  Future<Result<String>> createBuilding({
+    required BuildingDraft draft,
+    required AuditActor actor,
+  }) async {
+    if (draft.problem case final problem?) {
+      return Result.failure(ValidationFailure(problem));
+    }
+    final clean = draft.normalized();
+    return rpcOnce<String>('create_building', {
+      'name': clean.name,
+      'description': clean.description,
+      'latitude': clean.latitude,
+      'longitude': clean.longitude,
+    });
+  }
+
+  @override
+  Future<Result<void>> updateBuilding({
+    required String buildingId,
+    required BuildingDraft draft,
+    required AuditActor actor,
+  }) async {
+    if (draft.problem case final problem?) {
+      return Result.failure(ValidationFailure(problem));
+    }
+    final clean = draft.normalized();
+    return rpc('update_building', {
+      'id': buildingId,
+      'name': clean.name,
+      'description': clean.description,
+      'latitude': clean.latitude,
+      'longitude': clean.longitude,
+    });
+  }
+
+  @override
+  Future<Result<void>> deleteBuilding({
+    required String buildingId,
+    required AuditActor actor,
+  }) => rpc('delete_building', {'id': buildingId});
 
   @override
   Future<Result<Facility>> getFacilityById(String id) =>
@@ -92,6 +150,8 @@ class FacilityRepositoryImpl extends SupabaseRepository
       'latitude': clean.latitude,
       'longitude': clean.longitude,
       'qr_code': clean.qrCode ?? FacilityDraft.defaultQrCode(id),
+      'building_id': clean.buildingId,
+      'floor': clean.floor,
     });
   }
 
@@ -114,6 +174,8 @@ class FacilityRepositoryImpl extends SupabaseRepository
       'longitude': clean.longitude,
       // Null keeps the room's code.
       'qr_code': clean.qrCode,
+      'building_id': clean.buildingId,
+      'floor': clean.floor,
     });
   }
 

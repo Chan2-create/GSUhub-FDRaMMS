@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/routing/route_paths.dart';
 import '../../core/utils/result.dart';
 import '../../core/widgets/offline_banner.dart';
+import '../../features/notifications/presentation/nav_badges.dart';
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../../features/qr_codes/presentation/qr_scanner_screen.dart';
 import '../mobile/mobile_bottom_bar.dart';
@@ -88,6 +89,8 @@ class PersonnelShell extends ConsumerWidget {
       Success(:final value) => value,
       _ => 0,
     };
+    // Each tab counts its own unread notices (2026-11-26).
+    final badges = badgeCountsOf(unreadNoticesOf(ref), personnelSectionOf);
     final tabs = [
       for (final tab in PersonnelTab.values)
         MobileTab(
@@ -95,6 +98,7 @@ class PersonnelShell extends ConsumerWidget {
           path: tab.path,
           icon: tab.icon,
           selectedIcon: tab.selectedIcon,
+          badge: badges[tab.path] ?? 0,
         ),
     ];
     final current = PersonnelTab.of(location);
@@ -106,7 +110,7 @@ class PersonnelShell extends ConsumerWidget {
         children: [
           MobileHeader(
             alertsPath: RoutePaths.personnelAlerts,
-            hasUnread: unread > 0,
+            unreadCount: unread,
           ),
           const OfflineBanner(),
           // A semantics container of its own, so the page route's modal
@@ -114,7 +118,12 @@ class PersonnelShell extends ConsumerWidget {
           Expanded(
             child: Semantics(
               container: true,
-              child: PageRefreshFrame(child: child),
+              child: NavBadgeClearer(
+                location: location,
+                sectionOf: personnelSectionOf,
+                sectionFor: (location) => PersonnelTab.of(location)?.path,
+                child: PageRefreshFrame(child: child),
+              ),
             ),
           ),
         ],
@@ -129,9 +138,11 @@ class PersonnelShell extends ConsumerWidget {
     );
 
     // Back from another tab returns Home, rather than closing the app.
+    // The bell's notifications too, since they left the tabs (2026-11-26).
     final isOtherTab =
         location != RoutePaths.personnelDashboard &&
-        PersonnelTab.values.any((tab) => tab.path == location);
+        (PersonnelTab.values.any((tab) => tab.path == location) ||
+            location == RoutePaths.personnelAlerts);
     if (!isOtherTab) return page;
     return PopScope(
       canPop: false,

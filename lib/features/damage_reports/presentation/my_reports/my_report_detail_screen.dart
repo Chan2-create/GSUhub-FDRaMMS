@@ -15,6 +15,7 @@ import '../../../../core/widgets/async_value_view.dart';
 import '../../../../core/widgets/person_avatar.dart';
 import '../../../../core/widgets/priority_chip.dart';
 import '../../../../core/widgets/skeleton.dart';
+import '../../../../core/widgets/status_chip.dart';
 import '../../../../shells/mobile/mobile_title_row.dart';
 import '../../../../shells/requestor/requestor_shell.dart';
 import '../../../feedback/presentation/rating_controller.dart';
@@ -105,7 +106,16 @@ class _Tracking extends ConsumerWidget {
           style: AppTextStyles.trackingNumber,
         ),
         const SizedBox(height: 8),
-        Center(child: _StatusPill(status: report.status)),
+        Center(
+          child: _StatusPill(
+            status: report.status,
+            rescheduled: report.isRescheduled,
+          ),
+        ),
+        if (report.isRescheduled) ...[
+          const SizedBox(height: 16),
+          _RescheduledCard(report: report),
+        ],
         const SizedBox(height: 24),
         if (progress == ReportProgress.closedOut)
           _ClosedNotice(report: report)
@@ -147,21 +157,24 @@ class _Tracking extends ConsumerWidget {
 
 /// "In Progress" in navy, under the number (`169:995`).
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
+  const _StatusPill({required this.status, this.rescheduled = false});
 
   final ReportStatus status;
+
+  /// Approved and moved to a later date (2026-11-26).
+  final bool rescheduled;
 
   @override
   Widget build(BuildContext context) {
     final progress = status.progress;
-    final (label, icon) = switch (progress) {
-      ReportProgress.pending => (progress.label, Icons.pending_actions),
-      ReportProgress.inProgress => (progress.label, Icons.pending_actions),
-      ReportProgress.completed => (progress.label, Icons.task_alt),
-      ReportProgress.closedOut => (
-        status.timelineLabel,
-        Icons.do_not_disturb_on_outlined,
-      ),
+    final label = StatusChip.requestorLabelOf(status, rescheduled: rescheduled);
+    final icon = switch (progress) {
+      _ when rescheduled && status == ReportStatus.approved =>
+        Icons.event_repeat_outlined,
+      ReportProgress.pending ||
+      ReportProgress.inProgress => Icons.pending_actions,
+      ReportProgress.completed => Icons.task_alt,
+      ReportProgress.closedOut => Icons.do_not_disturb_on_outlined,
     };
 
     return Container(
@@ -194,6 +207,23 @@ class _StatusPill extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The new date and why, for a report GSU has rescheduled because nobody,
+/// or no equipment, is free to do the work yet (2026-11-26).
+class _RescheduledCard extends StatelessWidget {
+  const _RescheduledCard({required this.report});
+
+  final DamageReport report;
+
+  @override
+  Widget build(BuildContext context) => _NoteCard(
+    label:
+        'Rescheduled to '
+        '${DateFormat('EEE, MMM d, y').format(report.rescheduledTo!.toLocal())}',
+    body: report.rescheduleReason ?? 'GSU did not give a reason.',
+    quoted: report.rescheduleReason != null,
+  );
 }
 
 /// Submitted, Active, Finished (`169:1000`): the requestor's three stages,
@@ -627,8 +657,16 @@ class _TimelineItem extends StatelessWidget {
   final TimelineEntry entry;
   final bool isOldest;
 
+  /// The step's name: its status, or for a rescheduling the new date
+  /// (2026-11-26).
+  String get _label => switch (entry.rescheduledTo) {
+    final moved? =>
+      'Rescheduled to ${DateFormat('MMM d, y').format(moved.toLocal())}',
+    null => entry.status.timelineLabel,
+  };
+
   String get _text {
-    final label = entry.status.timelineLabel;
+    final label = _label;
     final parent = report.duplicateOf;
     return switch (entry.status) {
       ReportStatus.assigned when entry.personnelName != null =>
@@ -656,7 +694,7 @@ class _TimelineItem extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               if (note != null && note.isNotEmpty)
-                _NoteCard(label: entry.status.timelineLabel, body: note)
+                _NoteCard(label: _label, body: note)
               else
                 _PlainCard(
                   children: [Text(_text, style: AppTextStyles.trackingBody)],

@@ -10,7 +10,6 @@ import '../../../../core/enums/user_role.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/utils/account_validation.dart';
 import '../../../../core/utils/result.dart';
-import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/models/app_user.dart';
 import '../../data/models/department.dart';
 import '../account_controller.dart';
@@ -169,25 +168,150 @@ Future<void> confirmStatusChange(
   );
 }
 
-/// Asks before deleting [person]'s account, and deletes it (2026-11-08).
-/// The database refuses one's own, one with open work or a tool out, and
-/// one any record names; the dialog shows why.
-Future<bool> confirmDeleteAccount(
+/// Asks before approving [person]'s sign-up, and approves it (2026-11-26).
+/// The dialog says what they signed up as, Faculty or Utility, and so
+/// which app they will open; a Utility account is approved with the trade
+/// work is routed to it by, chosen here.
+Future<void> confirmApproval(
   BuildContext context,
   WidgetRef ref, {
   required AppUser person,
-}) => showConfirmDeleteDialog(
-  context: context,
-  title: 'Delete the account of ${person.fullName}?',
-  message:
-      'Their profile is removed and they can no longer use GSUhub. Only an '
-      'account with no reports, work or other records can be deleted; '
-      'deactivate one that has them, so the records keep their name. Their '
-      'sign-in itself stays in Firebase until it is removed from the '
-      'Firebase console.',
-  doneMessage: 'Deleted the account of ${person.fullName}.',
-  onConfirm: () => ref.read(accountControllerProvider).deleteAccount(person),
-);
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final approved = await showDialog<bool>(
+    context: context,
+    builder: (_) => _ApproveDialog(person: person),
+  );
+  if (approved ?? false) {
+    messenger.showSnackBar(
+      SnackBar(content: Text('Approved ${person.fullName}.')),
+    );
+  }
+}
+
+/// Approve, with what the person signed up as, and for a Utility account
+/// their trade. Runs the approval itself, so a refusal shows here.
+class _ApproveDialog extends ConsumerStatefulWidget {
+  const _ApproveDialog({required this.person});
+
+  final AppUser person;
+
+  @override
+  ConsumerState<_ApproveDialog> createState() => _ApproveDialogState();
+}
+
+class _ApproveDialogState extends ConsumerState<_ApproveDialog> {
+  late DamageCategory? _trade = widget.person.specialization;
+  bool _busy = false;
+  String? _error;
+
+  bool get _utility => widget.person.role == UserRole.maintenancePersonnel;
+
+  Future<void> _approve() async {
+    if (_utility && _trade == null) {
+      setState(() => _error = 'Choose the trade they work in.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final result = await ref
+        .read(accountControllerProvider)
+        .approve(widget.person, specialization: _trade);
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        Navigator.of(context).pop(true);
+      case Error(:final failure):
+        setState(() {
+          _busy = false;
+          _error = failure.message;
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final person = widget.person;
+    final app = _utility
+        ? 'the maintenance app, and take the work assigned to them'
+        : 'the faculty and staff app, and file damage reports';
+    return AlertDialog(
+      title: Text('Approve ${person.fullName}?'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Signed up as ${person.role.signUpLabel}',
+              style: AppTextStyles.fieldValue.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'They will be able to sign in to $app, as ${person.email}.',
+              style: AppTextStyles.bodyText,
+            ),
+            if (_utility) ...[
+              const SizedBox(height: 16),
+              DropdownButtonFormField<DamageCategory>(
+                key: const ValueKey('approve-trade'),
+                isExpanded: true,
+                initialValue: _trade,
+                decoration: const InputDecoration(
+                  labelText: 'Trade',
+                  helperText:
+                      'Reports are matched to personnel by trade (Table 3.3).',
+                  helperMaxLines: 2,
+                ),
+                items: [
+                  for (final category in DamageCategory.values)
+                    DropdownMenuItem(
+                      value: category,
+                      child: Text(category.assignedPersonnelLabel),
+                    ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() {
+                        _trade = value;
+                        _error = null;
+                      }),
+              ),
+            ],
+            if (_error case final message?) ...[
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : _approve,
+          child: _busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Approve'),
+        ),
+      ],
+    );
+  }
+}
 
 /// Emails [person] a link to set a new password.
 Future<void> sendPasswordReset(

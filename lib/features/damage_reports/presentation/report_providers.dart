@@ -115,7 +115,23 @@ final reportsViewProvider =
       ReportsViewController.new,
     );
 
-/// Reports matching the current filters, newest first.
+/// The order of the Damage Reports list (2026-11-26, the adviser's
+/// consultation): by priority, Critical, High, Medium, then Low; within
+/// one priority the oldest first, so it is not left waiting behind newer
+/// ones. The priority is the one the report is listed under: the official
+/// one once confirmed, the requestor's until then. Changing a report's
+/// priority moves it, since the list is live.
+int byPriorityThenOldest(DamageReport a, DamageReport b) {
+  final byPriority = b.effectivePriority.index.compareTo(
+    a.effectivePriority.index,
+  );
+  if (byPriority != 0) return byPriority;
+  final byAge = a.submittedAt.compareTo(b.submittedAt);
+  return byAge != 0 ? byAge : a.id.compareTo(b.id);
+}
+
+/// Reports matching the current filters, by priority then oldest first
+/// ([byPriorityThenOldest]).
 final filteredReportsProvider =
     Provider<AsyncValue<Result<List<DamageReport>>>>((ref) {
       final view = ref.watch(reportsViewProvider);
@@ -123,7 +139,9 @@ final filteredReportsProvider =
           .watch(reportsStreamProvider)
           .whenData(
             (result) => result.map(
-              (reports) => reports.where(view.matches).toList(growable: false),
+              (reports) =>
+                  reports.where(view.matches).toList()
+                    ..sort(byPriorityThenOldest),
             ),
           );
     });

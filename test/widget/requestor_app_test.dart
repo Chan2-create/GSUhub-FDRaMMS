@@ -11,6 +11,12 @@ import '../support/fake_requestor_app.dart';
 /// The faculty and staff app's home, My Reports and bottom bar (Figma
 /// `170:2050`, `169:1251`, Objective 3.A), inside the real app and router.
 void main() {
+  /// The header's bell, whatever its count says (2026-11-26).
+  Finder bell() => find.byWidgetPredicate(
+    (widget) =>
+        widget is Tooltip && (widget.message ?? '').startsWith('Notifications'),
+  );
+
   final now = DateTime.now();
 
   List<dynamic> history() => [
@@ -345,7 +351,8 @@ void main() {
       await app.pump(tester);
       expect(app.reports.openListeners, 1);
 
-      await tester.tap(find.text('Alerts'));
+      // The notifications, from the bell: no report on screen.
+      await tester.tap(bell());
       await tester.pumpAndSettle();
       expect(app.reports.openListeners, 0);
 
@@ -359,17 +366,19 @@ void main() {
   });
 
   group('bottom bar', () {
-    testWidgets('switches between the four tabs', (tester) async {
+    testWidgets('switches between the three tabs; the bell opens the '
+        'notifications (2026-11-26)', (tester) async {
       await withHistory().pump(tester);
 
+      // Alerts left the bar: the header's bell opens them.
+      expect(find.text('Alerts'), findsNothing);
       await tester.tap(find.text('Reports'));
       await tester.pumpAndSettle();
       expect(currentPath(tester), RoutePaths.staffMyReports);
 
-      await tester.tap(find.text('Alerts'));
+      await tester.tap(bell());
       await tester.pumpAndSettle();
       expect(currentPath(tester), RoutePaths.staffAlerts);
-      // The Alerts tab is built now (3.B), not a placeholder.
       expect(find.text('Notifications'), findsOneWidget);
 
       await tester.tap(find.text('Profile'));
@@ -389,8 +398,20 @@ void main() {
       tester,
     ) async {
       await withHistory().pump(tester);
-      await tester.tap(find.text('Alerts'));
+      await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(currentPath(tester), RoutePaths.staffHome);
+    });
+
+    testWidgets('Back from the notifications returns Home too', (tester) async {
+      await withHistory().pump(tester);
+      await tester.tap(bell());
+      await tester.pumpAndSettle();
+      expect(currentPath(tester), RoutePaths.staffAlerts);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();

@@ -142,7 +142,7 @@ select is(
   (select array[u.account_status, a.description, a.changes ->> 'from']
      from public.users u, public.audit_logs a
      where u.id = 'u-pending' and a.entity_id = 'u-pending'),
-  array['active', 'Approved the account request of Liza Tan', 'pending'],
+  array['active', 'Approved the account request of Liza Tan (Faculty)', 'pending'],
   '…and the audit says so'
 );
 select is(

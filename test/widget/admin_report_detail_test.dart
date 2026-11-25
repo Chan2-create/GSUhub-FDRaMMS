@@ -503,16 +503,27 @@ void main() {
   group('review moves', () {
     testWidgets('approving says so once it is saved, and the page shows the '
         'new status', (tester) async {
+      // Approved once the type and official priority are confirmed
+      // (2026-11-26).
       final repository = await open(
         tester,
         'rep-1',
-        reports: [report('rep-1')],
+        reports: [
+          report(
+            'rep-1',
+            officialPriority: PriorityLevel.high,
+            reviewedBy: 'admin-1',
+          ),
+        ],
       );
 
       await tapVisible(tester, find.widgetWithText(FilledButton, 'Approve'));
 
       expect(repository.transitions.single.to, ReportStatus.approved);
-      expect(find.text('Report approved.'), findsOneWidget);
+      expect(
+        find.text('Report approved. Assign personnel or reschedule it below.'),
+        findsOneWidget,
+      );
       expect(repository.byId('rep-1')!.status, ReportStatus.approved);
       // No longer on offer: the page follows the report.
       expect(find.widgetWithText(FilledButton, 'Approve'), findsNothing);
@@ -536,7 +547,7 @@ void main() {
       );
 
       expect(find.textContaining('Cannot reach the server.'), findsOneWidget);
-      expect(find.text('Review started.'), findsNothing);
+      expect(find.textContaining('Review started'), findsNothing);
       expect(repository.byId('rep-1')!.status, ReportStatus.submitted);
       expect(find.widgetWithText(FilledButton, 'Start review'), findsOneWidget);
 
@@ -547,7 +558,13 @@ void main() {
 
       expect(repository.transitions, hasLength(2));
       expect(repository.byId('rep-1')!.status, ReportStatus.underReview);
-      expect(find.text('Review started.'), findsOneWidget);
+      expect(
+        find.text(
+          'Review started: the report is Under Review. Confirm its type and '
+          'priority below.',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a move cannot be sent twice while the first is being saved', (
@@ -556,7 +573,13 @@ void main() {
       final repository = await open(
         tester,
         'rep-1',
-        reports: [report('rep-1')],
+        reports: [
+          report(
+            'rep-1',
+            officialPriority: PriorityLevel.high,
+            reviewedBy: 'admin-1',
+          ),
+        ],
       );
       final approve = find.widgetWithText(FilledButton, 'Approve');
       await tester.ensureVisible(approve);
@@ -581,7 +604,7 @@ void main() {
             .onPressed,
         isNull,
       );
-      expect(find.text('Report approved.'), findsNothing);
+      expect(find.textContaining('Report approved.'), findsNothing);
       await tester.tap(pressed, warnIfMissed: false);
       await tester.pump();
       expect(repository.transitions, hasLength(1));
@@ -591,7 +614,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.transitions, hasLength(1));
-      expect(find.text('Report approved.'), findsOneWidget);
+      expect(find.textContaining('Report approved.'), findsOneWidget);
     });
   });
 

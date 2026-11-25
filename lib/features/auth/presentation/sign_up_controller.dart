@@ -13,7 +13,9 @@ import '../../user_management/data/models/app_user.dart';
 enum SignUpField {
   fullName,
   email,
-  department,
+
+  /// Faculty or Utility (2026-11-26), in place of the department.
+  role,
   contactNumber,
   password,
   confirmPassword,
@@ -39,14 +41,15 @@ class SignUpState {
   final String? errorMessage;
 }
 
-/// Self-registration for faculty and staff (Objective 3.A, Figma
-/// `194:455`).
+/// Self-registration from the phone app (Objective 3.A, Figma `194:455`).
 ///
 /// Creates the account through [AuthService.register] — the same service
-/// that signs everyone in — and saves a `users` profile as a requestor
-/// awaiting approval. It leaves nobody signed in: an administrator
-/// approves the account from User Accounts before it can be used (§1.5
-/// limits GSUhub to authorized faculty and staff).
+/// that signs everyone in — and saves a `users` profile awaiting approval,
+/// in the role the person chose: Faculty (a requestor) or Utility
+/// (maintenance personnel), since the adviser's consultation of
+/// 2026-11-26. It leaves nobody signed in: an administrator approves the
+/// account from User Accounts before it can be used (§1.5 limits GSUhub
+/// to authorized users), and choosing a role grants nothing by itself.
 class SignUpController extends Notifier<SignUpState> {
   @override
   SignUpState build() => const SignUpState();
@@ -57,17 +60,15 @@ class SignUpController extends Notifier<SignUpState> {
   /// Checks the form, and when it is complete creates the account. Returns
   /// true when the account was created.
   ///
-  /// [departmentRequired] is whether the list has departments to choose
-  /// from: while it has none, nobody can be asked to choose one, and the
-  /// database agrees.
+  /// [role] is what the person signs up as: [UserRole.requestor] (Faculty)
+  /// or [UserRole.maintenancePersonnel] (Utility). Null until chosen.
   Future<bool> register({
     required String fullName,
     required String email,
     required String password,
     required String confirmPassword,
-    String? department,
+    UserRole? role,
     String contactNumber = '',
-    bool departmentRequired = false,
     bool acceptedTerms = false,
   }) async {
     final errors = validate(
@@ -75,9 +76,8 @@ class SignUpController extends Notifier<SignUpState> {
       email: email,
       password: password,
       confirmPassword: confirmPassword,
-      department: department,
+      role: role,
       contactNumber: contactNumber,
-      departmentRequired: departmentRequired,
       acceptedTerms: acceptedTerms,
     );
     if (errors.isNotEmpty) {
@@ -106,9 +106,8 @@ class SignUpController extends Notifier<SignUpState> {
                 id: uid,
                 fullName: name,
                 email: address,
-                role: UserRole.requestor,
+                role: role!,
                 accountStatus: AccountStatus.pending,
-                department: department,
                 contactNumber: number.isEmpty ? null : number,
                 createdAt: now,
                 updatedAt: now,
@@ -140,15 +139,15 @@ class SignUpController extends Notifier<SignUpState> {
   /// nothing reaches the sign-in service or the database until it is.
   /// The database checks the same (2026-11-17), except the password, which
   /// only the sign-in service sees and which its password policy checks,
-  /// and the terms box, which is the form's alone.
+  /// and the terms box, which is the form's alone. No department is asked
+  /// for since 2026-11-26.
   static Map<SignUpField, String> validate({
     required String fullName,
     required String email,
     required String password,
     required String confirmPassword,
-    String? department,
+    UserRole? role,
     String contactNumber = '',
-    bool departmentRequired = false,
     bool acceptedTerms = false,
   }) {
     final name = fullName.trim();
@@ -159,8 +158,10 @@ class SignUpController extends Notifier<SignUpState> {
         SignUpField.fullName:
             'Keep your name to $maxNameLength characters or fewer.',
       SignUpField.email: ?AccountValidation.email(email),
-      if (departmentRequired && department == null)
-        SignUpField.department: 'Choose your department or faculty.',
+      if (role == null)
+        SignUpField.role: 'Choose Faculty or Utility.'
+      else if (!UserRole.signUpChoices.contains(role))
+        SignUpField.role: 'Choose Faculty or Utility.',
       SignUpField.contactNumber: ?AccountValidation.contactNumber(
         contactNumber,
       ),

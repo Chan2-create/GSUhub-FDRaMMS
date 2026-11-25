@@ -5,6 +5,8 @@ import '../../../../core/enums/item_condition.dart';
 class FacilityDraft {
   const FacilityDraft({
     required this.buildingName,
+    this.buildingId,
+    this.floor,
     this.roomIdentifier,
     this.locationDescription,
     this.latitude,
@@ -13,10 +15,20 @@ class FacilityDraft {
   });
 
   static const int nameLimit = 80;
+  static const int floorLimit = 40;
   static const int descriptionLimit = 160;
   static const int qrCodeLimit = 80;
 
+  /// The building's name, as the room carries it.
   final String buildingName;
+
+  /// The building chosen from the list (2026-11-26). The database takes
+  /// the name from it.
+  final String? buildingId;
+
+  /// "2nd floor", optional.
+  final String? floor;
+
   final String? roomIdentifier;
   final String? locationDescription;
   final double? latitude;
@@ -30,6 +42,8 @@ class FacilityDraft {
 
   FacilityDraft normalized() => FacilityDraft(
     buildingName: buildingName.trim(),
+    buildingId: _orNull(buildingId),
+    floor: _orNull(floor),
     roomIdentifier: _orNull(roomIdentifier),
     locationDescription: _orNull(locationDescription),
     latitude: latitude,
@@ -40,12 +54,17 @@ class FacilityDraft {
   /// Why the draft cannot be saved, or null when it can.
   String? get problem {
     final draft = normalized();
-    if (draft.buildingName.isEmpty) return 'Enter the building.';
+    if (draft.buildingName.isEmpty && draft.buildingId == null) {
+      return 'Choose the building.';
+    }
     if (draft.buildingName.length > nameLimit) {
       return 'Keep the building to $nameLimit characters.';
     }
     if ((draft.roomIdentifier?.length ?? 0) > nameLimit) {
       return 'Keep the room to $nameLimit characters.';
+    }
+    if ((draft.floor?.length ?? 0) > floorLimit) {
+      return 'Keep the floor to $floorLimit characters.';
     }
     if ((draft.locationDescription?.length ?? 0) > descriptionLimit) {
       return 'Keep the description to $descriptionLimit characters.';

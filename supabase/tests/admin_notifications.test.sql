@@ -126,8 +126,8 @@ select is(
 );
 select is(
   (select body from public.notifications where related_entity_id = 'u-new' and recipient_id = 'u-admin'),
-  'Pedro Reyes (new@test.ph) signed up and is waiting for approval.',
-  '…with who it is'
+  'Pedro Reyes (new@test.ph) signed up as Faculty and is waiting for approval.',
+  '…with who it is, and what they signed up as (2026-11-26)'
 );
 
 -- -------------------------------------------------------- outside the app
