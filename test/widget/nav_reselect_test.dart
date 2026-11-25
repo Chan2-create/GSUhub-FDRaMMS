@@ -115,7 +115,7 @@ void main() {
         ('Analytics', RoutePaths.adminAnalytics),
         ('User Accounts', RoutePaths.adminUsers),
         ('Facilities & Equipment', RoutePaths.adminFacilities),
-        ('Notifications', RoutePaths.adminNotifications),
+        // Notifications left the sidebar on 2026-11-26 (the header's bell).
         ('Settings', RoutePaths.adminSettings),
       ]) {
         await pumpConsole(tester, at: path);
@@ -282,7 +282,7 @@ void main() {
     for (final (label, path) in const [
       ('Home', RoutePaths.staffHome),
       ('Reports', RoutePaths.staffMyReports),
-      ('Alerts', RoutePaths.staffAlerts),
+      // No Alerts tab since 2026-11-26: the header's bell opens them.
       ('Profile', RoutePaths.staffProfile),
     ]) {
       testWidgets(' can be pressed again on its own page', (tester) async {

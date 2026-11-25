@@ -209,7 +209,10 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('a sign-up with no records is deleted', (tester) async {
+    // Accounts are deactivated, never deleted (2026-11-26).
+    testWidgets('no account offers Delete: they are deactivated instead', (
+      tester,
+    ) async {
       final app = await console();
       await app.data.addPersonnel(
         'pending-1',
@@ -217,59 +220,52 @@ void main() {
         accountStatus: AccountStatus.pending,
         fullName: 'Liza Tan',
       );
-      await open(app, tester, RoutePaths.adminUsers);
-
-      await openMenu(tester, 'Liza Tan');
-      await tester.tap(find.text('Delete account'));
-      await tester.pumpAndSettle();
-      expect(find.text('Delete the account of Liza Tan?'), findsOneWidget);
-      await confirm(tester, 'Delete');
-
-      expect(await app.read(TableNames.users, 'pending-1'), isEmpty);
-      expect(find.text('Deleted the account of Liza Tan.'), findsOneWidget);
-      expect(find.text('Liza Tan'), findsNothing);
-    });
-
-    testWidgets('an account with records is kept, to be deactivated', (
-      tester,
-    ) async {
-      final app = await console();
       await app.data.addPersonnel(
         'faculty-1',
         role: UserRole.requestor,
         fullName: 'Maria Santos',
       );
-      // The fixture report is Maria Santos's (reporter faculty-1).
-      await app.data.addReport('rep-1');
       await open(app, tester, RoutePaths.adminUsers);
+
+      await openMenu(tester, 'Liza Tan');
+      expect(find.text('Delete account'), findsNothing);
+      expect(find.text('Approve'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
 
       await openMenu(tester, 'Maria Santos');
-      await tester.tap(find.text('Delete account'));
-      await tester.pumpAndSettle();
-      await confirm(tester, 'Delete');
-
-      expect(
-        find.text(
-          'Maria Santos has records in GSUhub (reports, work or history), so '
-          'the account stays to keep them. Deactivate it instead.',
-        ),
-        findsOneWidget,
-      );
-      expect(await app.read(TableNames.users, 'faculty-1'), isNotEmpty);
+      expect(find.text('Delete account'), findsNothing);
+      expect(find.text('Deactivate'), findsOneWidget);
     });
 
-    testWidgets('your own account cannot be deleted', (tester) async {
+    testWidgets('a Utility sign-up is approved with its trade, and says what '
+        'they signed up as', (tester) async {
       final app = await console();
+      await app.data.addPersonnel(
+        'utility-1',
+        accountStatus: AccountStatus.pending,
+        fullName: 'Ben Ocampo',
+      );
       await open(app, tester, RoutePaths.adminUsers);
 
-      await openMenu(tester, 'Ramon Dela Cruz (you)');
-      final item = tester.widget<PopupMenuItem<Object?>>(
-        find.ancestor(
-          of: find.text('Delete account'),
-          matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
-        ),
+      // The request reads what they chose on Create Account.
+      expect(find.text('Signed up as Utility'), findsOneWidget);
+      await openMenu(tester, 'Ben Ocampo');
+      await tester.tap(find.text('Approve'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Approve Ben Ocampo?'), findsOneWidget);
+      expect(find.text('Signed up as Utility'), findsNWidgets(2));
+      expect(find.textContaining('the maintenance app'), findsOneWidget);
+      expect(find.byKey(const ValueKey('approve-trade')), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
+      await tester.pumpAndSettle();
+
+      expect(
+        (await app.read(TableNames.users, 'utility-1'))['accountStatus'],
+        AccountStatus.active.id,
       );
-      expect(item.enabled, isFalse);
+      expect(find.text('Approved Ben Ocampo.'), findsOneWidget);
     });
   });
 

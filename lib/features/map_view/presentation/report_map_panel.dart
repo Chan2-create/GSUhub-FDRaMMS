@@ -5,21 +5,29 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
-import '../../../core/constants/breakpoints.dart';
 import '../../../core/routing/route_paths.dart';
 import '../../../core/utils/display_id.dart';
+import '../../../core/utils/result.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/category_chip.dart';
-import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/priority_chip.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../damage_reports/data/models/damage_report.dart';
+import '../../facilities/data/models/building.dart';
+import '../../facilities/presentation/facility_directory.dart';
 import 'report_map.dart';
 import 'report_map_providers.dart';
 
-/// Map View: the geo-tagged damage reports, each a pin where its phone
-/// said it was when the report was filed.
+/// The campus map on the Damage Reports page: the geo-tagged damage
+/// reports, each a pin where its phone said it was when the report was
+/// filed, over the buildings the administrator pinned on the Facilities
+/// page.
+///
+/// Its own page, Map View, until 2026-11-26, when the adviser asked for
+/// it on Damage Reports: the page's still preview became this, the whole
+/// map, zoomed and panned, a pin opening its report. /admin/map now
+/// redirects to Damage Reports.
 ///
 /// The manuscript has no Map View section, so this page does only what
 /// its geo-tagging passages describe (§1.5; §2 "Geo-Tagging and
@@ -34,23 +42,43 @@ import 'report_map_providers.dart';
 ///
 /// No design was consulted for the layout (docs/architecture_decisions.md
 /// §25): it is built from the console's shared widgets.
-class ReportMapScreen extends ConsumerWidget {
-  const ReportMapScreen({super.key});
+class ReportMapPanel extends ConsumerWidget {
+  const ReportMapPanel({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final includeFinished = ref.watch(mapIncludesFinishedProvider);
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(Breakpoints.gutter(context)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PageHeader(
-            title: 'Map View',
-            subtitle:
-                'Where geo-tagged damage reports were filed, to help locate '
-                'a concern on campus.',
-            action: FilterChip(
+    final buildings = switch (ref.watch(buildingsProvider)) {
+      AsyncData(value: Success(:final value)) => value,
+      _ => const <Building>[],
+    };
+    return Column(
+      key: const ValueKey('report-map-panel'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 16,
+          runSpacing: 12,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Campus map', style: AppTextStyles.panelHeading),
+                  SizedBox(height: 4),
+                  Text(
+                    'Where geo-tagged reports were filed, over the buildings '
+                    'pinned on the Facilities page. Zoom, pan, and pick a pin '
+                    'to see its report.',
+                    style: AppTextStyles.bodyText,
+                  ),
+                ],
+              ),
+            ),
+            FilterChip(
               label: const Text('Finished reports'),
               tooltip: includeFinished
                   ? 'Back to open reports only'
@@ -58,25 +86,35 @@ class ReportMapScreen extends ConsumerWidget {
               selected: includeFinished,
               onSelected: ref.read(mapIncludesFinishedProvider.notifier).set,
             ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        AsyncValueView<ReportMapData>(
+          value: ref.watch(reportMapProvider),
+          loadingHeight: 320,
+          data: (data) => _MapAndReports(
+            data: data,
+            includeFinished: includeFinished,
+            buildings: buildings,
           ),
-          const SizedBox(height: PageHeader.gapBelow),
-          AsyncValueView<ReportMapData>(
-            value: ref.watch(reportMapProvider),
-            loadingHeight: 320,
-            data: (data) =>
-                _MapAndReports(data: data, includeFinished: includeFinished),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
 class _MapAndReports extends ConsumerWidget {
-  const _MapAndReports({required this.data, required this.includeFinished});
+  const _MapAndReports({
+    required this.data,
+    required this.includeFinished,
+    required this.buildings,
+  });
 
   final ReportMapData data;
   final bool includeFinished;
+
+  /// The campus buildings; those with a pin are drawn.
+  final List<Building> buildings;
 
   /// From this width the reports sit beside the map instead of under it.
   static const double _sideBySide = 1000;
@@ -96,12 +134,17 @@ class _MapAndReports extends ConsumerWidget {
         final wide = constraints.maxWidth >= _sideBySide;
         final height = wide ? 600.0 : 380.0;
 
+        final pinned = [
+          for (final building in buildings)
+            if (building.coordinates != null) building,
+        ];
         final map = _MapCard(
           height: height,
-          child: data.located.isEmpty
+          child: data.located.isEmpty && pinned.isEmpty
               ? _NothingOnTheMap(includeFinished: includeFinished)
               : ReportMap(
                   reports: data.located,
+                  buildings: pinned,
                   selectedId: selected?.id,
                   onSelect: (report) => selection.select(report.id),
                 ),
@@ -507,7 +550,8 @@ class _Notes extends StatelessWidget {
                 'A pin is the phone\'s location when the report was filed. '
                 'It can be off inside buildings or where the signal is '
                 'weak, so read it together with the facility, the location '
-                'description and the photos.',
+                'description and the photos. The round markers are the '
+                'buildings.',
                 style: AppTextStyles.bodySmall,
               ),
             ),
@@ -515,25 +559,16 @@ class _Notes extends StatelessWidget {
         ),
         if (missing > 0) ...[
           const SizedBox(height: 8),
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 4,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 24),
-                child: Text(
-                  '$missing ${includeFinished ? '' : 'open '}'
-                  'report${missing == 1 ? ' was' : 's were'} filed without '
-                  'a geo-tag and ${missing == 1 ? 'is' : 'are'} not on the '
-                  'map.',
-                  style: AppTextStyles.bodySmall,
-                ),
-              ),
-              TextButton(
-                onPressed: () => context.go(RoutePaths.adminReports),
-                child: const Text('See all reports'),
-              ),
-            ],
+          // The list above has them all.
+          Padding(
+            padding: const EdgeInsets.only(left: 24),
+            child: Text(
+              '$missing ${includeFinished ? '' : 'open '}'
+              'report${missing == 1 ? ' was' : 's were'} filed without '
+              'a geo-tag and ${missing == 1 ? 'is' : 'are'} not on the '
+              'map; the list above has them.',
+              style: AppTextStyles.bodySmall,
+            ),
           ),
         ],
       ],

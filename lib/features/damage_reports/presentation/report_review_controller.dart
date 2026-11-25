@@ -101,6 +101,25 @@ class ReportReviewController {
             ),
       );
 
+  /// Moves the work on an approved report nobody can take yet to
+  /// [rescheduledTo], with [reason] (2026-11-26): both reach the
+  /// requestor.
+  Future<Result<void>> reschedule(
+    String reportId, {
+    required String reason,
+    required DateTime rescheduledTo,
+  }) => _act(
+    [reportId],
+    (actor) => _ref
+        .read(damageReportRepositoryProvider)
+        .reschedule(
+          reportId: reportId,
+          reason: reason,
+          rescheduledTo: rescheduledTo,
+          actor: actor,
+        ),
+  );
+
   /// Takes a finished report out of the console's lists, or back
   /// (2026-11-08). Reports are archived, never deleted.
   Future<Result<void>> setArchived(String reportId, {required bool archived}) =>

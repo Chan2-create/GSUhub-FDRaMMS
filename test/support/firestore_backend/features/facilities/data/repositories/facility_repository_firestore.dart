@@ -6,6 +6,7 @@ import 'package:gsuhub/core/errors/failures.dart';
 import 'package:gsuhub/core/utils/result.dart';
 import 'package:gsuhub/features/audit/data/models/audit_actor.dart';
 import 'package:gsuhub/features/facilities/data/models/asset.dart';
+import 'package:gsuhub/features/facilities/data/models/building.dart';
 import 'package:gsuhub/features/facilities/data/models/facility.dart';
 import 'package:gsuhub/features/facilities/data/models/facility_draft.dart';
 import 'package:gsuhub/features/facilities/data/repositories/facility_repository.dart';
@@ -73,6 +74,172 @@ class FirestoreFacilityRepository extends FirestoreRepository
         ),
       );
 
+  static const String _buildings = TableNames.buildings;
+
+  // Buildings (2026-11-26), as the database functions keep them: one of a
+  // name at a time, renamed on their rooms, deleted once empty.
+  @override
+  Stream<Result<List<Building>>> watchBuildings() =>
+      watchMany(
+        query: collection(_buildings),
+        convert: fromDoc(Building.fromRecord),
+      ).map(
+        (result) => result.map(
+          (buildings) =>
+              [
+                for (final building in buildings)
+                  if (!building.isDeleted) building,
+              ]..sort(
+                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+              ),
+        ),
+      );
+
+  Future<String?> _buildingNamed(String name, {String? exceptId}) async {
+    final all = await collection(_buildings).get();
+    for (final doc in all.docs) {
+      final data = doc.data();
+      if (doc.id == exceptId || data['deletedAt'] != null) continue;
+      if ((data['name'] as String).toLowerCase() == name.toLowerCase()) {
+        return doc.id;
+      }
+    }
+    return null;
+  }
+
+  static Map<String, dynamic> _buildingFields(BuildingDraft draft) => {
+    'name': draft.name,
+    'description': draft.description,
+    'coordinates': switch ((draft.latitude, draft.longitude)) {
+      (final latitude?, final longitude?) => GeoPoint(latitude, longitude),
+      _ => null,
+    },
+  };
+
+  @override
+  Future<Result<String>> createBuilding({
+    required BuildingDraft draft,
+    required AuditActor actor,
+  }) async {
+    if (draft.problem case final problem?) {
+      return Result.failure(ValidationFailure(problem));
+    }
+    final clean = draft.normalized();
+    if (await _buildingNamed(clean.name) != null) {
+      return Result.failure(
+        ValidationFailure(
+          'A building named ${clean.name} is already registered.',
+        ),
+      );
+    }
+    final reference = collection(_buildings).doc();
+    await reference.set({
+      ..._buildingFields(clean),
+      'createdAt': FirestoreRepository.serverNow,
+      'updatedAt': FirestoreRepository.serverNow,
+    });
+    return Result.success(reference.id);
+  }
+
+  @override
+  Future<Result<void>> updateBuilding({
+    required String buildingId,
+    required BuildingDraft draft,
+    required AuditActor actor,
+  }) async {
+    if (draft.problem case final problem?) {
+      return Result.failure(ValidationFailure(problem));
+    }
+    final clean = draft.normalized();
+    if (await _buildingNamed(clean.name, exceptId: buildingId) != null) {
+      return Result.failure(
+        ValidationFailure(
+          'A building named ${clean.name} is already registered.',
+        ),
+      );
+    }
+    await collection(_buildings).doc(buildingId).update({
+      ..._buildingFields(clean),
+      'updatedAt': FirestoreRepository.serverNow,
+    });
+    final rooms = await collection(_facilities)
+        .where('buildingId', isEqualTo: buildingId)
+        .get();
+    for (final room in rooms.docs) {
+      await room.reference.update({
+        'buildingName': clean.name,
+        'name': clean.name,
+      });
+    }
+    return const Result.success(null);
+  }
+
+  @override
+  Future<Result<void>> deleteBuilding({
+    required String buildingId,
+    required AuditActor actor,
+  }) async {
+    final rooms =
+        (await collection(_facilities)
+                .where('buildingId', isEqualTo: buildingId)
+                .get())
+            .docs
+            .where((room) => room.data()['deletedAt'] == null);
+    if (rooms.isNotEmpty) {
+      final name = (await collection(
+        _buildings,
+      ).doc(buildingId).get()).data()?['name'];
+      return Result.failure(
+        ValidationFailure(
+          '$name still has ${rooms.length} room${rooms.length == 1 ? '' : 's'}. '
+          'Delete them or move them to another building first.',
+        ),
+      );
+    }
+    await collection(_buildings)
+        .doc(buildingId)
+        .update({'deletedAt': FirestoreRepository.serverNow});
+    return const Result.success(null);
+  }
+
+  /// The draft with its building: chosen by id, or — as the console of
+  /// before buildings typed it — found, or registered, by its name.
+  Future<FacilityDraft> _withBuilding(FacilityDraft clean) async {
+    if (clean.buildingId case final id?) {
+      final building = await collection(_buildings).doc(id).get();
+      return FacilityDraft(
+        buildingName: building.data()?['name'] as String? ?? clean.buildingName,
+        buildingId: id,
+        floor: clean.floor,
+        roomIdentifier: clean.roomIdentifier,
+        locationDescription: clean.locationDescription,
+        latitude: clean.latitude,
+        longitude: clean.longitude,
+        qrCode: clean.qrCode,
+      );
+    }
+    var id = await _buildingNamed(clean.buildingName);
+    if (id == null) {
+      final reference = collection(_buildings).doc();
+      await reference.set({
+        'name': clean.buildingName,
+        'createdAt': FirestoreRepository.serverNow,
+        'updatedAt': FirestoreRepository.serverNow,
+      });
+      id = reference.id;
+    }
+    return FacilityDraft(
+      buildingName: clean.buildingName,
+      buildingId: id,
+      floor: clean.floor,
+      roomIdentifier: clean.roomIdentifier,
+      locationDescription: clean.locationDescription,
+      latitude: clean.latitude,
+      longitude: clean.longitude,
+      qrCode: clean.qrCode,
+    );
+  }
+
   @override
   Future<Result<String>> createFacility({
     required FacilityDraft draft,
@@ -81,7 +248,7 @@ class FirestoreFacilityRepository extends FirestoreRepository
     if (draft.problem case final problem?) {
       return Result.failure(ValidationFailure(problem));
     }
-    final clean = draft.normalized();
+    final clean = await _withBuilding(draft.normalized());
     final reference = collection(_facilities).doc();
     final code = clean.qrCode ?? FacilityDraft.defaultQrCode(reference.id);
     if (await _codeTaken(code) case final failure?) {
@@ -117,7 +284,7 @@ class FirestoreFacilityRepository extends FirestoreRepository
     if (draft.problem case final problem?) {
       return Result.failure(ValidationFailure(problem));
     }
-    final clean = draft.normalized();
+    final clean = await _withBuilding(draft.normalized());
     if (clean.qrCode case final code?) {
       if (await _codeTaken(code, exceptId: facilityId) case final failure?) {
         return Result.failure(failure);
@@ -477,6 +644,8 @@ class FirestoreFacilityRepository extends FirestoreRepository
     // facility's name, as the seed and 3.C have it.
     'name': draft.buildingName,
     'buildingName': draft.buildingName,
+    'buildingId': draft.buildingId,
+    'floor': draft.floor,
     'roomIdentifier': draft.roomIdentifier,
     'locationDescription':
         draft.locationDescription ??

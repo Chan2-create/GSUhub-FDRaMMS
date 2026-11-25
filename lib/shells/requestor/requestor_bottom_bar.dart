@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/routing/route_paths.dart';
 import '../mobile/mobile_bottom_bar.dart';
 
-/// The four tabs of the faculty and staff app (Figma `170:2050`, "Group
-/// 6"). Alerts and Profile are marked placeholders in 3.A.
+/// The tabs of the faculty and staff app (Figma `170:2050`, "Group 6").
+/// Alerts left the bar on 2026-11-26: the header's bell opens the
+/// notifications, and each tab counts its own unread ones.
 enum RequestorTab {
   home('Home', RoutePaths.staffHome, Icons.home_outlined, Icons.home_rounded),
   reports(
@@ -13,12 +14,6 @@ enum RequestorTab {
     RoutePaths.staffMyReports,
     Icons.assignment_outlined,
     Icons.assignment_rounded,
-  ),
-  alerts(
-    'Alerts',
-    RoutePaths.staffAlerts,
-    Icons.notifications_none_rounded,
-    Icons.notifications_rounded,
   ),
   profile(
     'Profile',
@@ -50,23 +45,24 @@ enum RequestorTab {
   }
 }
 
-/// The floating bottom bar: four tabs on a gold-edged pill, and the raised
+/// The floating bottom bar: the tabs on a gold-edged pill, and the raised
 /// gold button between them that opens the report form (Figma `170:2050`,
 /// `166:2261`). The shared [MobileBottomBar], with the faculty tabs.
 class RequestorBottomBar extends StatelessWidget {
   const RequestorBottomBar({
     required this.location,
     super.key,
-    this.unreadAlerts = 0,
+    this.badges = const {},
   });
 
   /// Where the app is. Its tab is highlighted; tapping that tab again from
   /// a page under it (a report's detail) returns to the tab's own page.
   final String location;
 
-  /// Unread notifications, shown as a badge on Alerts (3.B). The design
-  /// draws no badge; it takes the console bell's red.
-  final int unreadAlerts;
+  /// Unread notices by tab path, each shown as a number on its tab
+  /// (2026-11-26). The design draws no badge; it takes the console bell's
+  /// red.
+  final Map<String, int> badges;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +73,7 @@ class RequestorBottomBar extends StatelessWidget {
           path: tab.path,
           icon: tab.icon,
           selectedIcon: tab.selectedIcon,
-          badge: tab == RequestorTab.alerts ? unreadAlerts : 0,
+          badge: badges[tab.path] ?? 0,
         ),
     ];
     final current = RequestorTab.of(location);

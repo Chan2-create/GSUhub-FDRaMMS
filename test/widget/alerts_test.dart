@@ -89,12 +89,14 @@ void main() {
     );
   });
 
-  testWidgets('the Alerts badge counts unread, live, and clears on read', (
-    tester,
-  ) async {
+  testWidgets('Reports counts the unread notices about the reports, live, '
+      'as a number; opening it reads them (2026-11-26)', (tester) async {
     final app = withNotices();
     await app.pump(tester);
+    // No Alerts tab any more: the number is on Reports, and on the bell.
+    expect(find.text('Alerts'), findsNothing);
     expect(badgeText(tester), '2');
+    expect(find.byTooltip('Notifications, 2 unread'), findsOneWidget);
 
     app.notifications.deliver(
       fakeNotice('n-started', body: 'Work has started on your report.'),
@@ -102,14 +104,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(badgeText(tester), '3');
 
-    await tester.tap(find.text('Alerts'));
+    await tester.tap(find.text('Reports'));
+    await tester.pumpAndSettle();
+
+    expect(badgeText(tester), isNull);
+    expect(
+      app.notifications.markedManyRead.expand((ids) => ids),
+      unorderedEquals(['n-approved', 'n-assigned', 'n-started']),
+    );
+    expect(find.byTooltip('Notifications'), findsOneWidget);
+  });
+
+  testWidgets('the whole list is a press of the bell away, and Mark all as '
+      'read reads them', (tester) async {
+    final app = withNotices();
+    await app.pump(tester);
+
+    await tester.tap(find.byTooltip('Notifications, 2 unread'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mark all as read'));
     await tester.pumpAndSettle();
 
-    expect(badgeText(tester), isNull);
     expect(find.text('Mark all as read'), findsNothing);
     expect(app.notifications.markAllCalls, 1);
+    expect(badgeText(tester), isNull);
   });
 
   testWidgets('tapping one marks it read and opens its report', (tester) async {
@@ -154,7 +172,7 @@ void main() {
   testWidgets('the header bell opens Alerts', (tester) async {
     await withNotices().pump(tester);
 
-    await tester.tap(find.byTooltip('Notifications'));
+    await tester.tap(find.byTooltip('Notifications, 2 unread'));
     await tester.pumpAndSettle();
 
     expect(currentPath(tester), RoutePaths.staffAlerts);

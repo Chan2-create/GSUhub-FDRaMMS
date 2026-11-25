@@ -390,7 +390,25 @@ class _AccountRow extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          _cell(2, _RoleChip(role: person.role, inactive: inactive)),
+          _cell(
+            2,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _RoleChip(role: person.role, inactive: inactive),
+                // What a sign-up chose on Create Account, read before
+                // approving it (2026-11-26).
+                if (person.accountStatus == AccountStatus.pending) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Signed up as ${person.role.signUpLabel}',
+                    style: AppTextStyles.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+          ),
           _cell(
             3,
             Text(
@@ -496,11 +514,12 @@ class _StatusLabel extends StatelessWidget {
   }
 }
 
-enum _RowAction { edit, toggleStatus, approve, decline, resetPassword, delete }
+enum _RowAction { edit, toggleStatus, approve, decline, resetPassword }
 
 /// Edit details, Deactivate/Reactivate, Send password reset (decided for
 /// 2.C; the frame draws the ⋮ but not its contents). A pending sign-up
 /// (3.A) offers Approve and Decline in place of the status toggle.
+/// Accounts are not deleted (2026-11-26).
 class _RowMenu extends ConsumerWidget {
   const _RowMenu({required this.person, required this.isSelf});
 
@@ -526,12 +545,7 @@ class _RowMenu extends ConsumerWidget {
           person: person,
           to: active ? AccountStatus.inactive : AccountStatus.active,
         ),
-        _RowAction.approve => confirmStatusChange(
-          context,
-          ref,
-          person: person,
-          to: AccountStatus.active,
-        ),
+        _RowAction.approve => confirmApproval(context, ref, person: person),
         _RowAction.decline => confirmStatusChange(
           context,
           ref,
@@ -543,7 +557,6 @@ class _RowMenu extends ConsumerWidget {
           ref,
           person: person,
         ),
-        _RowAction.delete => confirmDeleteAccount(context, ref, person: person),
       },
       itemBuilder: (context) => [
         const PopupMenuItem(
@@ -561,19 +574,11 @@ class _RowMenu extends ConsumerWidget {
             enabled: !(isSelf && active),
             child: Text(active ? 'Deactivate' : 'Reactivate'),
           ),
+        // No Delete account (2026-11-26): an account is deactivated, so
+        // the reports and work it did keep its name.
         const PopupMenuItem(
           value: _RowAction.resetPassword,
           child: Text('Send password reset'),
-        ),
-        PopupMenuItem(
-          value: _RowAction.delete,
-          // Your own account cannot be deleted (the database refuses it
-          // too).
-          enabled: !isSelf,
-          child: Text(
-            'Delete account',
-            style: TextStyle(color: isSelf ? null : AppColors.error),
-          ),
         ),
       ],
     );

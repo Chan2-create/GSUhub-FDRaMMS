@@ -85,8 +85,9 @@ void main() {
     ) async {
       await pumpShell(tester);
 
-      // Every destination is built: Map View, the last, on 2026-11-12,
-      // scoped to what the manuscript says geo-tags are for.
+      // Every destination is built. Map View and Notifications left on
+      // 2026-11-26: the map is on Damage Reports, and the header's bell
+      // opens the notifications.
       final enabled = [
         for (final group in adminNavGroups)
           for (final item in group.items)
@@ -100,11 +101,9 @@ void main() {
         'Personnel', // 2.C
         'Task Assignment', // 2.B
         'Work Order Management', // 2.B
-        'Map View', // geo-tagged reports, 2026-11-12
         'Analytics', // 2.C
         'User Accounts', // 2.C
         'Facilities & Equipment', // 6.C
-        'Notifications', // 7.A
         'Settings', // 4.A
       ]);
     });
@@ -119,18 +118,19 @@ void main() {
       expect(find.text('Work Order Management'), findsWidgets);
     });
 
-    testWidgets('Map View opens from the sidebar', (tester) async {
+    testWidgets('has no Map View or Notifications item (2026-11-26)', (
+      tester,
+    ) async {
       await pumpShell(tester);
 
-      await tester.tap(find.text('Map View').first);
-      await tester.pumpAndSettle();
-
-      expect(currentPath(), RoutePaths.adminMapView);
-      // The fixture's reports carry no geo-tag, so the page says so
-      // rather than drawing an empty map.
+      expect(find.text('Map View'), findsNothing);
+      // The bell in the header still opens the whole list.
       expect(
-        find.text('No open report has a geo-tag to show.'),
-        findsOneWidget,
+        find.descendant(
+          of: find.byType(AdminSidebar),
+          matching: find.text('Notifications'),
+        ),
+        findsNothing,
       );
     });
 

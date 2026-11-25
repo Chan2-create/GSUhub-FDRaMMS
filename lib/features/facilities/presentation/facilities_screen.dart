@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/breakpoints.dart';
+import '../../../core/data/geo_coordinates.dart';
 import '../../../core/di/repository_providers.dart';
 import '../../../core/enums/item_condition.dart';
 import '../../../core/utils/result.dart';
@@ -15,11 +16,14 @@ import '../../../core/widgets/page_header.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../inventory/presentation/inventory_controller.dart';
 import '../../inventory/presentation/widgets/inventory_widgets.dart';
+import '../../map_view/presentation/widgets/geo_tag_map.dart';
 import '../../qr_codes/presentation/qr_label.dart';
 import '../../qr_codes/presentation/qr_label_actions.dart';
 import '../data/models/asset.dart';
+import '../data/models/building.dart';
 import '../data/models/facility.dart';
 import '../data/models/facility_draft.dart';
+import 'facility_directory.dart';
 
 /// Every room, inactive ones included, by building then room.
 final facilitiesProvider = StreamProvider.autoDispose<Result<List<Facility>>>(
@@ -38,6 +42,12 @@ final assetsProvider = StreamProvider.autoDispose<Result<List<Asset>>>(
 /// No Figma frame: built from the console's page title, section cards and
 /// table, and flagged as such. Until this page, rooms were added to
 /// Firestore by hand (docs/manual_deploy.md).
+///
+/// **2026-11-26:** the buildings are kept here too, each with its pin on
+/// the map; a room is added to one, on a floor, with a pin of its own if
+/// wanted. The report form lists them as entered here, and the Damage
+/// Reports map draws the buildings' pins. Nothing is entered for the
+/// administrator: the campus's buildings and rooms are theirs to add.
 class FacilitiesScreen extends ConsumerWidget {
   const FacilitiesScreen({super.key});
 
@@ -45,6 +55,11 @@ class FacilitiesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final facilities = ref.watch(facilitiesProvider);
     final assets = ref.watch(assetsProvider);
+    final buildingsValue = ref.watch(buildingsProvider);
+    final buildings = switch (buildingsValue) {
+      AsyncData(value: Success(:final value)) => value,
+      _ => const <Building>[],
+    };
     final rooms = switch (facilities) {
       AsyncData(value: Success(:final value)) => value,
       _ => const <Facility>[],
@@ -63,8 +78,8 @@ class FacilitiesScreen extends ConsumerWidget {
           PageHeader(
             title: 'Facilities & Equipment',
             subtitle:
-                'The rooms reports are filed against, the equipment in them, '
-                'and the codes on their stickers.',
+                'The buildings and rooms reports are filed against, the '
+                'equipment in them, and the codes on their stickers.',
             action: PageActionButton(
               outlined: true,
               icon: const Icon(Icons.print_outlined, size: 18),
@@ -85,16 +100,58 @@ class FacilitiesScreen extends ConsumerWidget {
           ),
           const SizedBox(height: PageHeader.gapBelow),
           SectionCard(
-            title: 'Rooms',
+            title: 'Buildings',
             subtitle:
-                'Faculty and staff pick these on the report form, or scan '
-                'their stickers. An inactive room is left off the form.',
+                'The campus buildings, each with its pin on the Damage '
+                'Reports map. Rooms are added to one.',
             trailing: FilledButton.icon(
-              onPressed: () => showFacilityFormDialog(context),
+              key: const ValueKey('add-building'),
+              onPressed: () =>
+                  showBuildingFormDialog(context, buildings: buildings),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add Room'),
+              label: const Text('Add Building'),
               style: _consoleButton,
             ),
+            contentPadding: EdgeInsets.zero,
+            child: AsyncValueView<List<Building>>(
+              value: buildingsValue,
+              loadingHeight: 120,
+              onRetry: () => ref.invalidate(buildingsProvider),
+              data: (buildings) => buildings.isEmpty
+                  ? const _Empty(
+                      'No buildings yet. Add the campus’s buildings here, '
+                      'then their rooms.',
+                    )
+                  : _BuildingsTable(buildings: buildings, rooms: rooms),
+            ),
+          ),
+          const SizedBox(height: 32),
+          SectionCard(
+            title: 'Rooms',
+            subtitle:
+                'Faculty and staff pick these on the report form, by '
+                'building and room, or scan their stickers. An inactive room '
+                'is left off the form.',
+            // A room goes into a building, so the buildings come first.
+            trailing: buildings.isEmpty
+                ? Tooltip(
+                    message: 'Add a building first.',
+                    child: FilledButton.icon(
+                      key: const ValueKey('add-room'),
+                      onPressed: null,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Room'),
+                      style: _consoleButton,
+                    ),
+                  )
+                : FilledButton.icon(
+                    key: const ValueKey('add-room'),
+                    onPressed: () =>
+                        showFacilityFormDialog(context, buildings: buildings),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Room'),
+                    style: _consoleButton,
+                  ),
             contentPadding: EdgeInsets.zero,
             child: AsyncValueView<List<Facility>>(
               value: facilities,
@@ -104,6 +161,7 @@ class FacilitiesScreen extends ConsumerWidget {
                   ? const _Empty('No rooms yet. Add the campus’s rooms here.')
                   : _RoomsTable(
                       rooms: rooms,
+                      buildings: buildings,
                       equipmentCount: {
                         for (final room in rooms)
                           room.id: equipment
@@ -174,9 +232,14 @@ Widget _statusChip(bool active) => InventoryBadge(
 );
 
 class _RoomsTable extends ConsumerWidget {
-  const _RoomsTable({required this.rooms, required this.equipmentCount});
+  const _RoomsTable({
+    required this.rooms,
+    required this.buildings,
+    required this.equipmentCount,
+  });
 
   final List<Facility> rooms;
+  final List<Building> buildings;
   final Map<String, int> equipmentCount;
 
   @override
@@ -194,6 +257,11 @@ class _RoomsTable extends ConsumerWidget {
         flex: 3,
         cell: (room) =>
             Text(room.roomIdentifier ?? '—', style: AppTextStyles.tableCell),
+      ),
+      AppTableColumn(
+        label: 'Floor',
+        flex: 2,
+        cell: (room) => Text(room.floor ?? '—', style: AppTextStyles.tableCell),
       ),
       AppTableColumn(
         label: 'Equipment',
@@ -221,7 +289,8 @@ class _RoomsTable extends ConsumerWidget {
         cell: (room) => _RowActions(
           name: [room.buildingName, ?room.roomIdentifier].join(', '),
           active: room.isActive,
-          onEdit: () => showFacilityFormDialog(context, room: room),
+          onEdit: () =>
+              showFacilityFormDialog(context, room: room, buildings: buildings),
           onLabel: () => showQrLabelDialog(context, QrLabel.facility(room)),
           onActive: (active) => ref
               .read(inventoryControllerProvider)
@@ -401,17 +470,363 @@ Future<bool> _confirmDelete(
   onConfirm: delete,
 );
 
-/// Adds a room, or edits [room].
-Future<void> showFacilityFormDialog(BuildContext context, {Facility? room}) =>
-    showDialog<void>(
-      context: context,
-      builder: (_) => _FacilityFormDialog(room: room),
+/// The buildings, with how many rooms each has and its pin (2026-11-26).
+class _BuildingsTable extends ConsumerWidget {
+  const _BuildingsTable({required this.buildings, required this.rooms});
+
+  final List<Building> buildings;
+  final List<Facility> rooms;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    int roomsIn(Building building) =>
+        rooms.where((room) => room.buildingId == building.id).length;
+    return AppDataTable<Building>(
+      rows: buildings,
+      columns: [
+        AppTableColumn(
+          label: 'Building',
+          flex: 4,
+          cell: (building) =>
+              Text(building.name, style: AppTextStyles.tableCellStrong),
+        ),
+        AppTableColumn(
+          label: 'Rooms',
+          flex: 2,
+          cell: (building) =>
+              Text('${roomsIn(building)}', style: AppTextStyles.tableCell),
+        ),
+        AppTableColumn(
+          label: 'Map pin',
+          flex: 3,
+          cell: (building) => Text(switch (building.coordinates) {
+            final point? =>
+              '${point.latitude.toStringAsFixed(5)}, '
+                  '${point.longitude.toStringAsFixed(5)}',
+            null => 'No pin',
+          }, style: AppTextStyles.tableCell),
+        ),
+        AppTableColumn(
+          label: 'Description',
+          flex: 4,
+          cell: (building) =>
+              Text(building.description ?? '—', style: AppTextStyles.tableCell),
+        ),
+        AppTableColumn(
+          label: 'Actions',
+          flex: 2,
+          alignment: Alignment.centerRight,
+          cell: (building) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Edit ${building.name}',
+                onPressed: () => showBuildingFormDialog(
+                  context,
+                  buildings: buildings,
+                  building: building,
+                ),
+                icon: const Icon(Icons.edit_outlined, size: 20),
+              ),
+              IconButton(
+                tooltip: 'Delete ${building.name}',
+                onPressed: () => showConfirmDeleteDialog(
+                  context: context,
+                  title: 'Delete ${building.name}?',
+                  message:
+                      'It leaves the building list, the report form and the '
+                      'map. A building is deleted once its rooms are: '
+                      'delete them, or move them to another building, first. '
+                      'Reports about it keep its name.',
+                  doneMessage: 'Deleted ${building.name}.',
+                  onConfirm: () => ref
+                      .read(inventoryControllerProvider)
+                      .deleteBuilding(building.id),
+                ),
+                icon: const Icon(Icons.delete_outline, size: 20),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+}
+
+/// Latitude and longitude fields with a "Pick on map" button, for a
+/// building's or a room's pin. [start] is where the map opens.
+class _PinFields extends ConsumerWidget {
+  const _PinFields({
+    required this.latitude,
+    required this.longitude,
+    required this.start,
+    required this.enabled,
+    required this.onPicked,
+  });
+
+  final TextEditingController latitude;
+  final TextEditingController longitude;
+  final GeoCoordinates Function() start;
+  final bool enabled;
+  final VoidCallback onPicked;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    Widget field(TextEditingController controller, String label) => TextField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: const TextInputType.numberWithOptions(
+        decimal: true,
+        signed: true,
+      ),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]'))],
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: field(latitude, 'Latitude (optional)')),
+            const SizedBox(width: 12),
+            Expanded(child: field(longitude, 'Longitude (optional)')),
+          ],
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const ValueKey('pick-on-map'),
+            onPressed: enabled
+                ? () async {
+                    final point = await ref.read(mapPinLauncherProvider)(
+                      context,
+                      start(),
+                    );
+                    if (point == null) return;
+                    latitude.text = point.latitude.toStringAsFixed(6);
+                    longitude.text = point.longitude.toStringAsFixed(6);
+                    onPicked();
+                  }
+                : null,
+            icon: const Icon(Icons.place_outlined, size: 18),
+            label: const Text('Pick on map'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The numbers in a pin's two fields, or why they cannot be read.
+({double? latitude, double? longitude, String? problem}) _readPin(
+  TextEditingController latitude,
+  TextEditingController longitude,
+) {
+  double? number(TextEditingController controller) =>
+      double.tryParse(controller.text.trim());
+  if ((latitude.text.trim().isNotEmpty && number(latitude) == null) ||
+      (longitude.text.trim().isNotEmpty && number(longitude) == null)) {
+    return (
+      latitude: null,
+      longitude: null,
+      problem: 'Enter the coordinates as numbers.',
+    );
+  }
+  return (
+    latitude: number(latitude),
+    longitude: number(longitude),
+    problem: null,
+  );
+}
+
+/// Adds a building, or edits [building] (2026-11-26).
+Future<void> showBuildingFormDialog(
+  BuildContext context, {
+  required List<Building> buildings,
+  Building? building,
+}) => showDialog<void>(
+  context: context,
+  builder: (_) => _BuildingFormDialog(buildings: buildings, building: building),
+);
+
+class _BuildingFormDialog extends ConsumerStatefulWidget {
+  const _BuildingFormDialog({required this.buildings, this.building});
+
+  final List<Building> buildings;
+  final Building? building;
+
+  @override
+  ConsumerState<_BuildingFormDialog> createState() =>
+      _BuildingFormDialogState();
+}
+
+class _BuildingFormDialogState extends ConsumerState<_BuildingFormDialog> {
+  late final _name = TextEditingController(text: widget.building?.name);
+  late final _description = TextEditingController(
+    text: widget.building?.description,
+  );
+  late final _latitude = TextEditingController(
+    text: widget.building?.coordinates?.latitude.toString(),
+  );
+  late final _longitude = TextEditingController(
+    text: widget.building?.coordinates?.longitude.toString(),
+  );
+  String? _error;
+  bool _busy = false;
+
+  bool get _editing => widget.building != null;
+
+  @override
+  void dispose() {
+    for (final controller in [_name, _description, _latitude, _longitude]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final pin = _readPin(_latitude, _longitude);
+    if (pin.problem case final problem?) {
+      setState(() => _error = problem);
+      return;
+    }
+    final draft = BuildingDraft(
+      name: _name.text,
+      description: _description.text,
+      latitude: pin.latitude,
+      longitude: pin.longitude,
+    );
+    if (draft.problem case final problem?) {
+      setState(() => _error = problem);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final controller = ref.read(inventoryControllerProvider);
+    final result = _editing
+        ? await controller.updateBuilding(widget.building!.id, draft)
+        : await controller.createBuilding(draft);
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.of(context).pop();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              '${_editing ? 'Saved' : 'Added'} ${draft.normalized().name}.',
+            ),
+          ),
+        );
+      case Error(:final failure):
+        setState(() {
+          _busy = false;
+          _error = failure.message;
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(_editing ? 'Edit building' : 'Add building'),
+    content: SizedBox(
+      width: 480,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              key: const ValueKey('building-name'),
+              controller: _name,
+              enabled: !_busy,
+              autofocus: !_editing,
+              maxLength: BuildingDraft.nameLimit,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                hintText: 'e.g. Engineering Building',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _description,
+              enabled: !_busy,
+              maxLength: BuildingDraft.descriptionLimit,
+              decoration: const InputDecoration(
+                labelText: 'Description (optional)',
+                hintText: 'e.g. Beside the gymnasium',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _PinFields(
+              latitude: _latitude,
+              longitude: _longitude,
+              enabled: !_busy,
+              onPicked: () => setState(() => _error = null),
+              start: () {
+                final pin = _readPin(_latitude, _longitude);
+                return pinPickerStart(
+                  current: pin.latitude == null || pin.longitude == null
+                      ? null
+                      : GeoCoordinates(
+                          latitude: pin.latitude!,
+                          longitude: pin.longitude!,
+                        ),
+                  buildings: widget.buildings,
+                );
+              },
+            ),
+            if (_error case final message?) ...[
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: AppTextStyles.inventoryStatNote.copyWith(
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: _busy ? null : () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const ValueKey('save-building'),
+        onPressed: _busy ? null : _save,
+        child: Text(_busy ? 'Saving…' : (_editing ? 'Save' : 'Add building')),
+      ),
+    ],
+  );
+}
+
+/// Adds a room to one of [buildings], or edits [room].
+Future<void> showFacilityFormDialog(
+  BuildContext context, {
+  required List<Building> buildings,
+  Facility? room,
+}) => showDialog<void>(
+  context: context,
+  builder: (_) => _FacilityFormDialog(room: room, buildings: buildings),
+);
 
 class _FacilityFormDialog extends ConsumerStatefulWidget {
-  const _FacilityFormDialog({this.room});
+  const _FacilityFormDialog({required this.buildings, this.room});
 
   final Facility? room;
+  final List<Building> buildings;
 
   @override
   ConsumerState<_FacilityFormDialog> createState() =>
@@ -419,7 +834,18 @@ class _FacilityFormDialog extends ConsumerStatefulWidget {
 }
 
 class _FacilityFormDialogState extends ConsumerState<_FacilityFormDialog> {
-  late final _building = TextEditingController(text: widget.room?.buildingName);
+  /// The building chosen, by id. A room from before buildings were kept
+  /// finds its building by name.
+  late String? _buildingId =
+      widget.room?.buildingId ??
+      widget.buildings
+          .where(
+            (b) =>
+                b.name.toLowerCase() == widget.room?.buildingName.toLowerCase(),
+          )
+          .firstOrNull
+          ?.id;
+  late final _floor = TextEditingController(text: widget.room?.floor);
   late final _room = TextEditingController(text: widget.room?.roomIdentifier);
   late final _description = TextEditingController(
     text: widget.room?.locationDescription,
@@ -439,7 +865,7 @@ class _FacilityFormDialogState extends ConsumerState<_FacilityFormDialog> {
   @override
   void dispose() {
     for (final controller in [
-      _building,
+      _floor,
       _room,
       _description,
       _latitude,
@@ -451,20 +877,28 @@ class _FacilityFormDialogState extends ConsumerState<_FacilityFormDialog> {
     super.dispose();
   }
 
+  Building? get _building =>
+      widget.buildings.where((b) => b.id == _buildingId).firstOrNull;
+
   Future<void> _save() async {
-    double? number(TextEditingController controller) =>
-        double.tryParse(controller.text.trim());
-    if ((_latitude.text.trim().isNotEmpty && number(_latitude) == null) ||
-        (_longitude.text.trim().isNotEmpty && number(_longitude) == null)) {
-      setState(() => _error = 'Enter the coordinates as numbers.');
+    final pin = _readPin(_latitude, _longitude);
+    if (pin.problem case final problem?) {
+      setState(() => _error = problem);
+      return;
+    }
+    final building = _building;
+    if (building == null) {
+      setState(() => _error = 'Choose the building.');
       return;
     }
     final draft = FacilityDraft(
-      buildingName: _building.text,
+      buildingName: building.name,
+      buildingId: building.id,
+      floor: _floor.text,
       roomIdentifier: _room.text,
       locationDescription: _description.text,
-      latitude: number(_latitude),
-      longitude: number(_longitude),
+      latitude: pin.latitude,
+      longitude: pin.longitude,
       qrCode: _code.text,
     );
     if (draft.problem case final problem?) {
@@ -536,11 +970,30 @@ class _FacilityFormDialogState extends ConsumerState<_FacilityFormDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              field(
-                _building,
-                'Building',
-                hint: 'e.g. Engineering Building',
-                maxLength: FacilityDraft.nameLimit,
+              DropdownButtonFormField<String>(
+                key: const ValueKey('room-building'),
+                initialValue: _buildingId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Building',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final building in widget.buildings)
+                    DropdownMenuItem(
+                      value: building.id,
+                      child: Text(
+                        building.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (id) => setState(() {
+                        _buildingId = id;
+                        _error = null;
+                      }),
               ),
               const SizedBox(height: 12),
               field(
@@ -551,30 +1004,37 @@ class _FacilityFormDialogState extends ConsumerState<_FacilityFormDialog> {
               ),
               const SizedBox(height: 12),
               field(
+                _floor,
+                'Floor (optional)',
+                hint: 'e.g. 2nd floor',
+                maxLength: FacilityDraft.floorLimit,
+              ),
+              const SizedBox(height: 12),
+              field(
                 _description,
                 'Where it is (optional)',
                 hint: 'Building and room if empty',
                 maxLength: FacilityDraft.descriptionLimit,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: field(
-                      _latitude,
-                      'Latitude (optional)',
-                      numeric: true,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: field(
-                      _longitude,
-                      'Longitude (optional)',
-                      numeric: true,
-                    ),
-                  ),
-                ],
+              _PinFields(
+                latitude: _latitude,
+                longitude: _longitude,
+                enabled: !_busy,
+                onPicked: () => setState(() => _error = null),
+                start: () {
+                  final pin = _readPin(_latitude, _longitude);
+                  return pinPickerStart(
+                    current: pin.latitude == null || pin.longitude == null
+                        ? null
+                        : GeoCoordinates(
+                            latitude: pin.latitude!,
+                            longitude: pin.longitude!,
+                          ),
+                    near: [_building?.coordinates],
+                    buildings: widget.buildings,
+                  );
+                },
               ),
               const SizedBox(height: 12),
               field(

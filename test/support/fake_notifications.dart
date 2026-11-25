@@ -210,6 +210,23 @@ class FakeNotificationRepository implements NotificationRepository {
     return const Result.success(null);
   }
 
+  /// Every batch [markManyAsRead] was asked for.
+  final markedManyRead = <List<String>>[];
+
+  @override
+  Future<Result<void>> markManyAsRead(List<String> notificationIds) async {
+    markedManyRead.add(notificationIds);
+    for (final id in notificationIds) {
+      markedRead.add(id);
+      final notice = _notices[id];
+      if (notice != null && !notice.isRead) {
+        _notices[id] = notice.copyWith(isRead: true, readAt: DateTime.now());
+      }
+    }
+    _changes.add(null);
+    return const Result.success(null);
+  }
+
   @override
   Future<Result<void>> markAllAsRead(String userId) async {
     markAllCalls++;

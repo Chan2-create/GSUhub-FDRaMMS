@@ -1,6 +1,7 @@
 import '../../../../core/utils/result.dart';
 import '../../../audit/data/models/audit_actor.dart';
 import '../models/asset.dart';
+import '../models/building.dart';
 import '../models/facility.dart';
 import '../models/facility_draft.dart';
 
@@ -11,6 +12,29 @@ import '../models/facility_draft.dart';
 /// code pointing at?") and are almost always read together.
 abstract interface class FacilityRepository {
   Future<Result<Facility>> getFacilityById(String id);
+
+  /// The campus buildings still registered, by name, live (2026-11-26):
+  /// the Facilities page, the map's building pins, the room form.
+  Stream<Result<List<Building>>> watchBuildings();
+
+  /// Registers a building. Refused when another of its name is.
+  Future<Result<String>> createBuilding({
+    required BuildingDraft draft,
+    required AuditActor actor,
+  });
+
+  /// Saves an edit. A new name is carried to the building's rooms.
+  Future<Result<void>> updateBuilding({
+    required String buildingId,
+    required BuildingDraft draft,
+    required AuditActor actor,
+  });
+
+  /// Deletes a building: refused while rooms are in it.
+  Future<Result<void>> deleteBuilding({
+    required String buildingId,
+    required AuditActor actor,
+  });
 
   /// Resolves a scanned facility QR code. Returns a `NotFoundFailure` when
   /// the code isn't registered — §1.5 limits QR identification to

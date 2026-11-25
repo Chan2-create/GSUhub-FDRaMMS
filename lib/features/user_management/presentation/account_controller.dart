@@ -89,15 +89,34 @@ class AccountController {
         .setAccountStatus(person.id, status, actor: actor);
   }
 
-  /// Removes [person]'s profile, when no record names them (2026-11-08).
-  /// Their sign-in stays in Firebase Authentication, but admits no one
-  /// without a profile; removing it needs the Firebase console.
-  Future<Result<void>> deleteAccount(AppUser person) async {
+  /// Approves [person]'s sign-up (2026-11-26). A Utility sign-up — a
+  /// maintenance account — is approved with its [specialization], the
+  /// trade work is routed to it by (Table 3.3): saved first, then the
+  /// account activated. The database refuses one without.
+  Future<Result<void>> approve(
+    AppUser person, {
+    DamageCategory? specialization,
+  }) async {
     final actor = await _actor();
     if (actor == null) return const Result.failure(_sessionExpired);
-    return _ref
-        .read(userRepositoryProvider)
-        .deleteAccount(person.id, actor: actor);
+    final users = _ref.read(userRepositoryProvider);
+    if (person.role == UserRole.maintenancePersonnel &&
+        specialization != null &&
+        specialization != person.specialization) {
+      final saved = await users.updateAccount(
+        updated: person.copyWith(
+          specialization: specialization,
+          availability: person.availability ?? PersonnelAvailability.available,
+        ),
+        actor: actor,
+      );
+      if (saved case Error(:final failure)) return Result.failure(failure);
+    }
+    return users.setAccountStatus(
+      person.id,
+      AccountStatus.active,
+      actor: actor,
+    );
   }
 
   /// Emails [person] a link to set a new password — for a forgotten one,

@@ -134,6 +134,18 @@ abstract interface class DamageReportRepository {
     String? reason,
   });
 
+  /// Moves the work on an approved report nobody can take yet — no one of
+  /// its trade free, no equipment — to [rescheduledTo], with [reason]
+  /// (2026-11-26). The report stays approved and waiting for assignment;
+  /// the date and the reason go on its timeline and to the requestor.
+  /// Both are required.
+  Future<Result<void>> reschedule({
+    required String reportId,
+    required String reason,
+    required DateTime rescheduledTo,
+    required AuditActor actor,
+  });
+
   /// Takes a finished report (closed, merged or rejected) out of the
   /// console's lists, or puts it back (2026-11-08). Reports are never
   /// deleted: archiving leaves the status, the timeline and the audit

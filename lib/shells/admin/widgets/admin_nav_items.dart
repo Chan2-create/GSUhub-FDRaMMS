@@ -47,9 +47,9 @@ class AdminNavGroup {
 /// Items resolve to a real screen as their objective landed: Dashboard in
 /// 2.A; Damage Reports, Task Assignment and Work Order Management in 2.B;
 /// Personnel, Analytics and User Accounts in 2.C; Inventory Management and
-/// Facilities & Equipment in 6; Notifications in 7.A; Map View last
-/// (2026-11-12), once it was scoped to what the manuscript says geo-tags
-/// are for. An item that is not built stays disabled with a tooltip
+/// Facilities & Equipment in 6. Notifications (7.A) and Map View
+/// (2026-11-12) left the sidebar on 2026-11-26: the header's bell opens
+/// the notifications, and the map is on Damage Reports. An item that is not built stays disabled with a tooltip
 /// saying why: a tile that goes nowhere reads as broken; a tile that says
 /// why reads as a decision.
 const List<AdminNavGroup> adminNavGroups = [
@@ -101,17 +101,7 @@ const List<AdminNavGroup> adminNavGroups = [
         path: RoutePaths.adminWorkOrders,
         isEnabled: true,
       ),
-      // The Figma node for this item carries no glyph (an empty 24px
-      // frame at y=500), so there is no asset to export. Falls back to a
-      // Material location pin — see docs and the fidelity report.
-      // Built 2026-11-12 from the manuscript's geo-tagging passages
-      // (docs/architecture_decisions.md §25).
-      AdminNavItem(
-        label: 'Map View',
-        iconAsset: null,
-        path: RoutePaths.adminMapView,
-        isEnabled: true,
-      ),
+      // No Map View item since 2026-11-26: the map is on Damage Reports.
       AdminNavItem(
         label: 'Analytics',
         iconAsset: 'assets/icons/nav_analytics.svg',
@@ -138,13 +128,8 @@ const List<AdminNavGroup> adminNavGroups = [
         path: RoutePaths.adminFacilities,
         isEnabled: true,
       ),
-      // The notification centre (Objective 7.A, Figma 202:5608).
-      AdminNavItem(
-        label: 'Notifications',
-        iconAsset: 'assets/icons/nav_notifications.svg',
-        path: RoutePaths.adminNotifications,
-        isEnabled: true,
-      ),
+      // No Notifications item since 2026-11-26: each item counts its own
+      // unread notices, and the header's bell opens the whole list.
       AdminNavItem(
         label: 'Settings',
         iconAsset: 'assets/icons/nav_settings.svg',

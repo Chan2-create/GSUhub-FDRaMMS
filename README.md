@@ -29,7 +29,7 @@ One Flutter codebase builds three apps against one shared backend:
 
 | App | Used by | Runs on | What it does |
 |---|---|---|---|
-| Admin console | GSU administrators | Web browser | Review and classify reports, set priorities, handle duplicates, assign work orders, sign off finished work, manage inventory, tools, rooms, equipment and accounts, analytics, Map View, settings |
+| Admin console | GSU administrators | Web browser | Review and classify reports, set priorities, handle duplicates, assign work orders, sign off finished work, manage inventory, tools, buildings, rooms, equipment and accounts, analytics, the campus map, settings |
 | Faculty and staff app | Faculty and staff | Android | Sign up, report damage (photos, building and room, geo-tag, QR code), follow reports live, get notified, rate the service |
 | Maintenance app | GSU maintenance personnel | Android | See assigned work orders and the day's tasks, tick tasks with proof photos, scan QR codes, record materials, borrow and return tools by scanning them (and confirm the ones GSU checks out or asks back), send accomplishment reports |
 
@@ -121,7 +121,7 @@ GSUhub/
 │   │   ├── inventory/            materials, stock, deliveries, material requests
 │   │   ├── tools/                tools, check-out and check-in, borrowing
 │   │   ├── qr_codes/             QR labels (generating) and the scanner (reading)
-│   │   ├── map_view/             Map View, geo-tag map and pin picker
+│   │   ├── map_view/             The campus map (on Damage Reports), geo-tag map, pin picker
 │   │   ├── notifications/        notification pages and push
 │   │   ├── feedback/             service ratings
 │   │   ├── settings/             the Settings page
@@ -330,7 +330,7 @@ Every table, field and permission:
 | Inventory | [`lib/features/inventory/`](lib/features/inventory/) |
 | Tools management | [`lib/features/tools/`](lib/features/tools/) |
 | QR codes | [`lib/features/qr_codes/`](lib/features/qr_codes/) |
-| Map View | [`lib/features/map_view/`](lib/features/map_view/) |
+| Campus map (on Damage Reports) | [`lib/features/map_view/`](lib/features/map_view/) |
 | Notifications | [`lib/features/notifications/`](lib/features/notifications/) |
 | Feedback and ratings | [`lib/features/feedback/`](lib/features/feedback/) |
 | Analytics | [`lib/features/analytics/`](lib/features/analytics/) |

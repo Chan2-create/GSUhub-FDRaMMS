@@ -38,6 +38,10 @@ class NotificationRepositoryImpl extends SupabaseRepository
   );
 
   @override
+  Future<Result<void>> markManyAsRead(List<String> notificationIds) =>
+      rpc('mark_notifications_read', {'ids': notificationIds});
+
+  @override
   Stream<Result<int>> watchUnreadCount(String userId) => _watch(userId).map(
     (result) => result.map(
       (notifications) => notifications.where((n) => !n.isRead).length,

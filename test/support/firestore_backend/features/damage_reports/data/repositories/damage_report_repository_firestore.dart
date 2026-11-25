@@ -549,6 +549,18 @@ class FirestoreDamageReportRepository extends FirestoreRepository
     });
   }
 
+  /// Not part of the Firestore backend: rescheduling came after it
+  /// (2026-11-26) and lives in the database function.
+  @override
+  Future<Result<void>> reschedule({
+    required String reportId,
+    required String reason,
+    required DateTime rescheduledTo,
+    required AuditActor actor,
+  }) async => const Result.failure(
+    UnknownFailure('Rescheduling is a database function.'),
+  );
+
   @override
   Future<Result<void>> setArchived({
     required String reportId,

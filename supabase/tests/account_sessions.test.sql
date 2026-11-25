@@ -279,10 +279,10 @@ select is(
 -- ------------------------------------------------- signing up, checked
 
 select is(
-  tests.attempt_with_claims('{"sub":"u-new1","role":"authenticated","email":"new1@test.ph"}',
-    $$select public.register_self('Pedro Reyes')$$),
-  'PT422',
-  'with departments on the list, signing up needs one'
+  tests.attempt_with_claims('{"sub":"u-new0","role":"authenticated","email":"new0@test.ph"}',
+    $$select public.register_self('Pia Ramos')$$),
+  'ok',
+  'signing up no longer asks for a department, even with departments on the list (2026-11-26)'
 );
 select is(
   tests.attempt_with_claims('{"sub":"u-new1","role":"authenticated","email":"new1@test.ph"}',

@@ -49,8 +49,9 @@ abstract interface class UserRepository {
   Future<Result<void>> update(AppUser user);
 
   /// Saves the profile of someone who has just signed themselves up from
-  /// the faculty and staff app (Objective 3.A): a requestor awaiting
-  /// approval, stamped with server time.
+  /// the phone app (Objective 3.A): awaiting approval, stamped with server
+  /// time, in the role they chose, Faculty (requestor) or Utility
+  /// (maintenance personnel) since 2026-11-26.
   ///
   /// No audit entry: the rules let only an active account write one, and
   /// the person is not active yet. The administrator's approval is the
@@ -87,13 +88,6 @@ abstract interface class UserRepository {
     AccountStatus status, {
     required AuditActor actor,
   });
-
-  /// Removes an account's profile (2026-11-08): only one with no records
-  /// (a sign-up never used, an account made by mistake). Refused for
-  /// [actor]'s own, for one holding open work or a tool, and for one any
-  /// record names: deactivate that one instead. Without a profile the
-  /// sign-in admits no one; the sign-in itself (Firebase) stays.
-  Future<Result<void>> deleteAccount(String uid, {required AuditActor actor});
 
   Future<Result<void>> setAvailability(
     String uid,

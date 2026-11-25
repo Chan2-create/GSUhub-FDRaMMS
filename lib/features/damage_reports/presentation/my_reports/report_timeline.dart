@@ -14,6 +14,7 @@ class TimelineEntry {
     this.note,
     this.personnelName,
     this.personnelSpecialization,
+    this.rescheduledTo,
   });
 
   factory TimelineEntry.of(StatusChange change) => TimelineEntry(
@@ -22,6 +23,7 @@ class TimelineEntry {
     note: change.note,
     personnelName: change.personnelName,
     personnelSpecialization: change.personnelSpecialization,
+    rescheduledTo: change.rescheduledTo,
   );
 
   final ReportStatus status;
@@ -34,6 +36,10 @@ class TimelineEntry {
   final String? personnelName;
   final DamageCategory? personnelSpecialization;
 
+  /// The date the work was moved to, on an entry that rescheduled the
+  /// report (2026-11-26) rather than moved it; [note] says why.
+  final DateTime? rescheduledTo;
+
   @override
   bool operator ==(Object other) =>
       other is TimelineEntry &&
@@ -41,11 +47,18 @@ class TimelineEntry {
       other.at == at &&
       other.note == note &&
       other.personnelName == personnelName &&
-      other.personnelSpecialization == personnelSpecialization;
+      other.personnelSpecialization == personnelSpecialization &&
+      other.rescheduledTo == rescheduledTo;
 
   @override
-  int get hashCode =>
-      Object.hash(status, at, note, personnelName, personnelSpecialization);
+  int get hashCode => Object.hash(
+    status,
+    at,
+    note,
+    personnelName,
+    personnelSpecialization,
+    rescheduledTo,
+  );
 
   @override
   String toString() => 'TimelineEntry($status at $at)';

@@ -288,7 +288,11 @@ class _ReportCard extends StatelessWidget {
                         children: [
                           if (category != null)
                             MyReportsCategoryPill(category: category),
-                          StatusChip.requestor(report.status, large: true),
+                          StatusChip.requestor(
+                            report.status,
+                            large: true,
+                            rescheduled: report.isRescheduled,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),

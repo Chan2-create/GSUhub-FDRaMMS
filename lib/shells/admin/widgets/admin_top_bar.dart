@@ -379,17 +379,25 @@ class _NotificationBell extends StatelessWidget {
             ),
           ),
         ),
+        // A number since 2026-11-26, as on the sidebar's items.
         if (unreadCount > 0)
           Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: AppColors.notificationBadge,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.surface),
+            top: 2,
+            right: 0,
+            child: IgnorePointer(
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppColors.notificationBadge,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: AppColors.surface),
+                ),
+                child: Text(
+                  unreadCount > 99 ? '99+' : '$unreadCount',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.badgeText.copyWith(color: Colors.white),
+                ),
               ),
             ),
           ),

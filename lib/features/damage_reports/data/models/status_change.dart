@@ -22,6 +22,7 @@ class StatusChange {
     this.note,
     this.personnelName,
     this.personnelSpecialization,
+    this.rescheduledTo,
   }) {
     RecordConverters.validateNotBlank(changedBy, 'changedBy');
   }
@@ -40,6 +41,7 @@ class StatusChange {
         'personnelSpecialization',
         DamageCategory.fromId,
       ),
+      rescheduledTo: RecordConverters.optionalDate(data, 'rescheduledTo'),
     );
   }
 
@@ -67,6 +69,14 @@ class StatusChange {
   /// That person's trade, on an `assigned` entry.
   final DamageCategory? personnelSpecialization;
 
+  /// Set on an entry that moved the work to a later date rather than the
+  /// report to another status (2026-11-26): the report stays [status],
+  /// waiting until then, and [note] says why.
+  final DateTime? rescheduledTo;
+
+  /// Whether this entry is a rescheduling, not a move.
+  bool get isReschedule => rescheduledTo != null;
+
   Map<String, dynamic> toFields() => {
     'status': status.id,
     'changedAt': changedAt,
@@ -74,6 +84,7 @@ class StatusChange {
     'note': note,
     'personnelName': personnelName,
     'personnelSpecialization': personnelSpecialization?.id,
+    'rescheduledTo': rescheduledTo,
   };
 
   @override
@@ -86,7 +97,8 @@ class StatusChange {
           other.changedBy == changedBy &&
           other.note == note &&
           other.personnelName == personnelName &&
-          other.personnelSpecialization == personnelSpecialization;
+          other.personnelSpecialization == personnelSpecialization &&
+          other.rescheduledTo == rescheduledTo;
 
   @override
   int get hashCode => Object.hash(
@@ -97,6 +109,7 @@ class StatusChange {
     note,
     personnelName,
     personnelSpecialization,
+    rescheduledTo,
   );
 
   @override

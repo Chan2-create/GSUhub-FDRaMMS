@@ -178,6 +178,18 @@ class DamageReportRepositoryImpl extends SupabaseRepository
   });
 
   @override
+  Future<Result<void>> reschedule({
+    required String reportId,
+    required String reason,
+    required DateTime rescheduledTo,
+    required AuditActor actor,
+  }) => rpc('reschedule_report', {
+    'report_id': reportId,
+    'reason': reason.trim(),
+    'rescheduled_to': SupabaseRepository.time(rescheduledTo),
+  });
+
+  @override
   Future<Result<void>> setArchived({
     required String reportId,
     required bool archived,

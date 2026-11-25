@@ -27,9 +27,14 @@ class MobileTab {
   final int badge;
 }
 
-/// The mobile apps' floating bottom bar: four tabs on a gold-edged pill,
+/// The mobile apps' floating bottom bar: the tabs on a gold-edged pill,
 /// and the raised gold "+" between them (Figma `170:2050`, `166:2261`; the
 /// personnel frames of Figures 24 and 25 draw the same bar).
+///
+/// Four tabs as drawn, two each side; since 2026-11-26 the faculty and
+/// staff app has three (no Alerts tab: the header's bell opens the
+/// notifications), the third centred in the right half. Each tab shows
+/// its own unread count as a number.
 class MobileBottomBar extends StatelessWidget {
   const MobileBottomBar({
     required this.tabs,
@@ -38,13 +43,17 @@ class MobileBottomBar extends StatelessWidget {
     required this.actionLabel,
     required this.onAction,
     super.key,
-  }) : assert(tabs.length == 4, 'Two tabs either side of the button');
+  }) : assert(
+         tabs.length >= 2 && tabs.length <= 4,
+         'One or two tabs either side of the button',
+       );
 
   /// Where the app is. Tapping the current tab from a page under it (a
   /// report's or a work order's detail) returns to the tab's own page.
   final String location;
 
-  /// Left to right; the button sits between the second and the third.
+  /// Left to right; the button sits after the first half, the larger
+  /// half on the left.
   final List<MobileTab> tabs;
 
   /// The tab the current page belongs to, or null for none.
@@ -80,14 +89,30 @@ class MobileBottomBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(_pillHeight / 2),
                 border: Border.all(color: AppColors.accentGold, width: 2),
               ),
+              // Two halves around the button's slot, so the button stays
+              // in the middle whatever the number of tabs.
               child: Row(
                 children: [
-                  _item(context, tabs[0]),
-                  _item(context, tabs[1]),
+                  Expanded(
+                    flex: 2,
+                    child: Row(
+                      children: [
+                        for (final tab in tabs.take(_leftCount))
+                          _item(context, tab),
+                      ],
+                    ),
+                  ),
                   // The raised button's slot.
                   const Expanded(child: SizedBox()),
-                  _item(context, tabs[2]),
-                  _item(context, tabs[3]),
+                  Expanded(
+                    flex: 2,
+                    child: Row(
+                      children: [
+                        for (final tab in tabs.skip(_leftCount))
+                          _item(context, tab),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -104,6 +129,9 @@ class MobileBottomBar extends StatelessWidget {
       ),
     ),
   );
+
+  /// The tabs left of the button: the first half, the larger one.
+  int get _leftCount => (tabs.length + 1) ~/ 2;
 
   Widget _item(BuildContext context, MobileTab tab) {
     final isSelected = tab.path == selected?.path;

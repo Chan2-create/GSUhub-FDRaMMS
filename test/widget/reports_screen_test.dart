@@ -20,6 +20,7 @@ void main() {
     PriorityLevel? officialPriority,
     ReportStatus status = ReportStatus.submitted,
     String reporter = 'Maria Santos',
+    Duration filedAfter = Duration.zero,
   }) => DamageReport(
     id: id,
     reporterId: 'faculty-1',
@@ -31,7 +32,7 @@ void main() {
     requestorPriority: requestorPriority,
     officialPriority: officialPriority,
     status: status,
-    submittedAt: DateTime.utc(2026, 9, 18),
+    submittedAt: DateTime.utc(2026, 9, 18).add(filedAfter),
     updatedAt: DateTime.utc(2026, 9, 18),
   );
 
@@ -249,9 +250,14 @@ void main() {
   });
 
   group('pagination', () {
+    // One priority, filed an hour apart: the list runs oldest first.
     List<DamageReport> many(int count) => [
       for (var i = 1; i <= count; i++)
-        report(id: 'rep-$i', title: 'Report number $i'),
+        report(
+          id: 'rep-$i',
+          title: 'Report number $i',
+          filedAfter: Duration(hours: i),
+        ),
     ];
 
     testWidgets('splits the list into pages of ten', (tester) async {
@@ -397,7 +403,47 @@ void main() {
 
       expect(find.text('Need urgent assistance?'), findsNothing);
       expect(find.text('Dispatch Emergency Team'), findsNothing);
-      expect(find.text('Campus View'), findsOneWidget);
+      expect(find.text('Campus map'), findsOneWidget);
     });
+  });
+
+  testWidgets('listed by priority, Critical first, the oldest first within '
+      'each; a confirmed priority moves the report (2026-11-26)', (
+    tester,
+  ) async {
+    await pump(tester, [
+      report(id: 'low-old', title: 'Low', requestorPriority: PriorityLevel.low),
+      report(
+        id: 'high-new',
+        title: 'High new',
+        requestorPriority: PriorityLevel.high,
+        filedAfter: const Duration(hours: 5),
+      ),
+      report(
+        id: 'high-old',
+        title: 'High old',
+        requestorPriority: PriorityLevel.high,
+        filedAfter: const Duration(hours: 1),
+      ),
+      report(
+        id: 'r-crit',
+        title: 'Critical',
+        requestorPriority: PriorityLevel.low,
+        officialPriority: PriorityLevel.critical,
+        filedAfter: const Duration(hours: 9),
+      ),
+      report(id: 'r-medium', title: 'Medium'),
+    ]);
+
+    double rowOf(String id) =>
+        tester.getTopLeft(find.text('#${id.toUpperCase()}')).dy;
+    final order = ['r-crit', 'high-old', 'high-new', 'r-medium', 'low-old'];
+    for (var i = 1; i < order.length; i++) {
+      expect(
+        rowOf(order[i - 1]),
+        lessThan(rowOf(order[i])),
+        reason: '${order[i - 1]} before ${order[i]}',
+      );
+    }
   });
 }

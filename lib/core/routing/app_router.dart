@@ -18,7 +18,6 @@ import '../../features/facilities/presentation/facilities_screen.dart';
 import '../../features/feedback/presentation/rate_service_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/inventory/presentation/personnel/material_request_screen.dart';
-import '../../features/map_view/presentation/report_map_screen.dart';
 import '../../features/notifications/presentation/admin_notifications_screen.dart';
 import '../../features/notifications/presentation/mobile_alerts_screen.dart';
 import '../../features/qr_codes/presentation/scan_result_screen.dart';
@@ -141,10 +140,11 @@ GoRouter buildAppRouter({
           path: RoutePaths.adminProfile,
           builder: (context, state) => const AdminProfileScreen(),
         ),
-        // Geo-tagged reports on the campus map (2026-11-12).
+        // Map View was its own page until 2026-11-26; the map is now on
+        // Damage Reports, so an old link or bookmark lands there.
         GoRoute(
           path: RoutePaths.adminMapView,
-          builder: (context, state) => const ReportMapScreen(),
+          redirect: (context, state) => RoutePaths.adminReports,
         ),
       ],
     ),

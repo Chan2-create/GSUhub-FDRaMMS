@@ -50,8 +50,8 @@ select is(
 );
 select is(
   tests.attempt('u-admin', $$select public.create_facility('f-x', 'X', null, null, 7.1, null, 'FAC-X')$$),
-  '23514',
-  'a latitude without a longitude is refused by the table'
+  'PT422',
+  'a latitude without a longitude is refused, in words (2026-11-26; the table refuses it too)'
 );
 
 select is(

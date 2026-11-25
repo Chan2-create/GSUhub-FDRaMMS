@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/enums/account_status.dart';
@@ -144,8 +142,9 @@ void main() {
       return app;
     }
 
-    Future<void> chooseDepartment(WidgetTester tester, String name) async {
-      final dropdown = find.byKey(const ValueKey('sign-up-department'));
+    /// Faculty or Utility, from I AM A (2026-11-26).
+    Future<void> chooseRole(WidgetTester tester, String name) async {
+      final dropdown = find.byKey(const ValueKey('sign-up-role'));
       await tester.ensureVisible(dropdown);
       await tester.pumpAndSettle();
       await tester.tap(dropdown);
@@ -158,14 +157,14 @@ void main() {
       WidgetTester tester, {
       String name = 'Liza Mae Tan',
       String email = 'Liza.Tan@dorsu.edu.ph',
-      String? department = 'Faculty of Business and Management',
+      String? role = 'Faculty',
       String password = 'Horse#Bat12',
       String? confirm,
       bool acceptTerms = true,
     }) async {
       await tester.enterText(field('e.g. Juan Dela Cruz'), name);
       await tester.enterText(field('juan.dc@dorsu.edu.ph'), email);
-      if (department != null) await chooseDepartment(tester, department);
+      if (role != null) await chooseRole(tester, role);
       await tester.enterText(field('••••••••').at(0), password);
       await tester.enterText(field('••••••••').at(1), confirm ?? password);
       if (acceptTerms) {
@@ -191,13 +190,15 @@ void main() {
         'Create An Account and Report',
         'FULL NAME',
         'EMAIL',
-        'DEPARTMENT / FACULTY',
+        'I AM A',
         'PASSWORD',
         'CONFIRM PASSWORD',
         'REGISTER',
       ]) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
+      // The department step is gone (2026-11-26).
+      expect(find.text('DEPARTMENT / FACULTY'), findsNothing);
     });
 
     testWidgets('an incomplete form marks each problem and sends nothing', (
@@ -208,7 +209,7 @@ void main() {
       await fillIn(
         tester,
         email: 'liza@dorsu',
-        department: null,
+        role: null,
         password: 'short',
         confirm: 'other',
         acceptTerms: false,
@@ -219,7 +220,7 @@ void main() {
         find.text('Enter a valid email address, such as juan.dc@dorsu.edu.ph.'),
         findsOneWidget,
       );
-      expect(find.text('Choose your department or faculty.'), findsOneWidget);
+      expect(find.text('Choose Faculty or Utility.'), findsOneWidget);
       expect(
         find.text(
           'Your password still needs: 8–12 characters, one uppercase '
@@ -250,60 +251,42 @@ void main() {
       final profile = app.users.created.single;
       expect(profile.role, UserRole.requestor);
       expect(profile.accountStatus, AccountStatus.pending);
-      expect(profile.department, 'Faculty of Business and Management');
+      expect(profile.department, isNull, reason: 'no department is asked for');
       expect(profile.contactNumber, isNull);
 
       expect(currentPath(tester), RoutePaths.staffLogin);
       expect(find.textContaining('must approve it'), findsOneWidget);
     });
 
-    testWidgets('the department list is the one kept in Settings: active '
-        'ones only', (tester) async {
+    testWidgets('Utility signs up a maintenance account, waiting for approval '
+        'like any sign-up (2026-11-26)', (tester) async {
       final app = await openSignUp(tester);
-      final dropdown = find.byKey(const ValueKey('sign-up-department'));
+
+      await fillIn(tester, role: 'Utility');
+      await register(tester);
+
+      final profile = app.users.created.single;
+      expect(profile.role, UserRole.maintenancePersonnel);
+      expect(profile.accountStatus, AccountStatus.pending);
+      expect(currentPath(tester), RoutePaths.staffLogin);
+      expect(find.textContaining('must approve it'), findsOneWidget);
+    });
+
+    testWidgets('I AM A offers Faculty and Utility only, and no department '
+        'list is read', (tester) async {
+      final app = await openSignUp(tester);
+      final dropdown = find.byKey(const ValueKey('sign-up-role'));
       await tester.ensureVisible(dropdown);
       await tester.pumpAndSettle();
       await tester.tap(dropdown);
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('Faculty of Computing, Engineering and Technology').last,
-        findsOneWidget,
-      );
-      expect(find.text('General Services Unit').last, findsOneWidget);
-      expect(find.text('Old Office'), findsNothing, reason: 'retired');
-      await tester.tap(find.text('General Services Unit').last);
-      await tester.pumpAndSettle();
-
-      await fillIn(tester, department: null);
-      await register(tester);
-
-      expect(app.users.created.single.department, 'General Services Unit');
-    });
-
-    testWidgets('with no departments on the list yet, it says so, and none '
-        'is asked for', (tester) async {
-      final app = RequestorHarness(signedIn: null);
-      for (final department in app.departments.all) {
-        await app.departments.setActive(department.id, active: false);
-      }
-      await app.pump(tester, start: RoutePaths.staffSignUp);
-
-      // Said as what it is, not as a failure.
-      expect(find.text('DEPARTMENT / FACULTY'), findsOneWidget);
-      expect(find.text('No departments listed yet'), findsOneWidget);
-      expect(
-        find.text(
-          'GSU has not listed any departments or faculties yet. You can '
-          'create your account without one.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Retry'), findsNothing);
-      await fillIn(tester, department: null);
-      await register(tester);
-
-      expect(app.users.created.single.department, isNull);
+      expect(find.text('Faculty').last, findsOneWidget);
+      expect(find.text('Utility').last, findsOneWidget);
+      expect(find.text('Faculty and staff who report damage'), findsOneWidget);
+      expect(find.text('Maintenance and utility staff of GSU'), findsOneWidget);
+      expect(find.text('Administrator'), findsNothing);
+      expect(app.departments.reads, 0);
     });
 
     testWidgets('the requirements under the password tick off as it is '
@@ -507,92 +490,6 @@ void main() {
       );
       await register(tester);
       expect(app.auth.registered, ['liza.tan@dorsu.edu.ph']);
-    });
-
-    testWidgets('while the list loads, a spinner says so', (tester) async {
-      final app = RequestorHarness(signedIn: null);
-      app.departments.holdReads = Completer<void>();
-      await app.pump(tester, start: RoutePaths.staffSignUp, settle: false);
-      await tester.pump();
-
-      expect(find.text('Loading departments…'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('sign-up-department')),
-          matching: find.byType(CircularProgressIndicator),
-        ),
-        findsOneWidget,
-      );
-
-      app.departments.holdReads!.complete();
-      await tester.pumpAndSettle();
-      expect(find.text('Loading departments…'), findsNothing);
-      expect(find.text('Choose your department or faculty'), findsOneWidget);
-    });
-
-    testWidgets('a list that cannot be read says why, and Retry reads it '
-        'again', (tester) async {
-      final app = RequestorHarness(signedIn: null);
-      // What the live project answered on 2026-11-17, before its database
-      // had the departments table: not found, a server failure.
-      app.departments.readFailure = const ServerFailure(
-        "Could not find the table 'public.departments' in the schema cache",
-      );
-      await app.pump(tester, start: RoutePaths.staffSignUp);
-
-      expect(find.text('Departments unavailable'), findsOneWidget);
-      expect(
-        find.textContaining(
-          'The list of departments is not available right now.',
-        ),
-        findsOneWidget,
-      );
-      // The database's wording is not shown to the person signing up.
-      expect(find.textContaining('schema cache'), findsNothing);
-      expect(app.departments.reads, 1);
-
-      // Still down: Retry asks again, and says so again.
-      await tester.ensureVisible(find.text('Retry'));
-      await tester.tap(find.text('Retry'));
-      await tester.pumpAndSettle();
-      expect(app.departments.reads, 2);
-      expect(find.text('Departments unavailable'), findsOneWidget);
-
-      // Back: Retry loads it, and a department can be chosen and saved.
-      app.departments.readFailure = null;
-      await tester.ensureVisible(find.text('Retry'));
-      await tester.tap(find.text('Retry'));
-      await tester.pumpAndSettle();
-      expect(app.departments.reads, 3);
-      expect(find.text('Retry'), findsNothing);
-      expect(find.text('Choose your department or faculty'), findsOneWidget);
-
-      await fillIn(tester);
-      await register(tester);
-      expect(
-        app.users.created.single.department,
-        'Faculty of Business and Management',
-      );
-    });
-
-    testWidgets('no connection: the connection is what it names', (
-      tester,
-    ) async {
-      final app = RequestorHarness(signedIn: null);
-      app.departments.readFailure = const NetworkFailure(
-        'Cannot reach the server. Check your internet connection and try '
-        'again.',
-      );
-      await app.pump(tester, start: RoutePaths.staffSignUp);
-
-      expect(
-        find.text(
-          'Cannot reach the server. Check your internet connection and try '
-          'again.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Retry'), findsOneWidget);
     });
 
     testWidgets('an address already in use is reported', (tester) async {

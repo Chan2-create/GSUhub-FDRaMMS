@@ -23,6 +23,10 @@ abstract final class TableNames {
   /// and geo-tagged reporting (manuscript §1.7 "QR Code Identification").
   static const String facilities = 'facilities';
 
+  /// The campus buildings the rooms belong to, with their map pins
+  /// (2026-11-26).
+  static const String buildings = 'buildings';
+
   /// Registered equipment/assets tracked independently of their containing
   /// facility, also QR-code identifiable.
   static const String assets = 'assets';

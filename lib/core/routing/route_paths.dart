@@ -63,10 +63,8 @@ abstract final class RoutePaths {
 
   /// Campus map view of reported issues.
   ///
-  /// This item exists in the Figma sidebar (an icon at y=500 whose text
-  /// label was lost) and has its own designed screens elsewhere in the
-  /// file, but it is **not** in the manuscript's documented admin feature
-  /// list — flagged for the adviser. Placeholder for now.
+  /// The old Map View page. Since 2026-11-26 the map is part of Damage
+  /// Reports and this path redirects there, so no old link is broken.
   static const String adminMapView = '/admin/map';
 
   /// Maintenance analytics and the CSV export (Objective 2.C).
