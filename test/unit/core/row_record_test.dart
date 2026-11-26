@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gsuhub/core/constants/damage_categories.dart';
 import 'package:gsuhub/core/data/geo_coordinates.dart';
@@ -94,6 +96,73 @@ void main() {
     expect(report.photoUrls, ['https://photos.test/1.jpg']);
     expect(report.priorityScore, 3);
     expect(report.submittedAt, when);
+  });
+
+  test('a scheduled report and its history read, the date as a DateTime '
+      '(2026-11-26: as text it failed every list the report was in)', () {
+    final report = DamageReport.fromRecord(
+      RowRecord.fromRow({
+        'id': 'r-2',
+        'reporter_id': 'u-1',
+        'reporter_name': 'Maria Santos',
+        'title': 'Flickering lights',
+        'description': 'Room 101.',
+        'category': 'electrical',
+        'classified_automatically': true,
+        'facility_id': 'f-1',
+        'facility_name': 'Engineering Building',
+        'latitude': null,
+        'longitude': null,
+        'photo_urls': ['https://photos.test/1.jpg'],
+        'requestor_priority': 'high',
+        'priority_score': 3,
+        'official_priority': 'high',
+        'status': 'approved',
+        'dismissed_duplicate_ids': <String>[],
+        'submitted_at': stamp,
+        'updated_at': stamp,
+        'rescheduled_to': '2026-12-02T00:00:00+00:00',
+        'reschedule_reason': 'No electrician free this week.',
+      }),
+    );
+    expect(report.rescheduledTo, DateTime.utc(2026, 12, 2));
+    expect(report.rescheduleReason, 'No electrician free this week.');
+
+    final change = StatusChange.fromRecord(
+      RowRecord.fromRow({
+        'id': 'h-2',
+        'report_id': 'r-2',
+        'status': 'approved',
+        'changed_at': stamp,
+        'changed_by': 'u-admin',
+        'note': 'No electrician free this week.',
+        'rescheduled_to': '2026-12-02T08:00:00+08:00',
+      }),
+    );
+    expect(change.rescheduledTo, DateTime.utc(2026, 12, 2));
+    expect(change.isReschedule, isTrue);
+  });
+
+  test('every timestamptz column in the migrations is read as a time', () {
+    // Table columns and added columns, indented in the migrations;
+    // function parameters start with "_" and are not columns.
+    final column = RegExp(
+      r'(?:^[ \t]+|add column[ \t]+)([a-z][a-z_]*)[ \t]+timestamptz',
+      caseSensitive: false,
+      multiLine: true,
+    );
+    final columns = {
+      for (final file in Directory('supabase/migrations').listSync())
+        if (file is File && file.path.endsWith('.sql'))
+          for (final match in column.allMatches(file.readAsStringSync()))
+            match.group(1)!,
+    };
+    expect(columns, containsAll(['created_at', 'rescheduled_to']));
+    expect(
+      columns.where((name) => !RowRecord.isTimeColumn(name)),
+      isEmpty,
+      reason: 'add these to RowRecord.isTimeColumn',
+    );
   });
 
   test('a report with no geo-tag has no coordinates', () {

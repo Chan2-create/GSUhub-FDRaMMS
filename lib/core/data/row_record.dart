@@ -34,7 +34,7 @@ abstract final class RowRecord {
     final fields = <String, dynamic>{};
     for (final MapEntry(:key, :value) in row.entries) {
       if (key == 'latitude' || key == 'longitude') continue;
-      fields[_camel(key)] = _isTime(key) ? _time(value) : value;
+      fields[_camel(key)] = isTimeColumn(key) ? _time(value) : value;
     }
     if (row.containsKey('latitude') || row.containsKey('longitude')) {
       final latitude = row['latitude'] as num?;
@@ -60,11 +60,17 @@ abstract final class RowRecord {
     return column.toString();
   }
 
-  static bool _isTime(String column) =>
+  /// Whether [column] is a `timestamptz`, which the API sends as text and
+  /// the models read as a [DateTime]. Every such column in the migrations
+  /// must be here: a missing one reaches a model as a String and fails
+  /// the whole list it is in (`rescheduled_to`, 2026-11-26, once a report
+  /// was scheduled). `row_record_test.dart` checks the migrations.
+  static bool isTimeColumn(String column) =>
       column.endsWith('_at') ||
       column == 'timestamp' ||
       column == 'due_date' ||
-      column == 'scheduled_for';
+      column == 'scheduled_for' ||
+      column == 'rescheduled_to';
 
   static String _camel(String column) {
     final parts = column.split('_');
