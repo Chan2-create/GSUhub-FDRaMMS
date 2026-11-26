@@ -23,7 +23,7 @@ import 'material_sheets.dart';
 
 /// The Materials tab (Objective 5.C; Chris's export Group 43): the tools
 /// the technician has out, and the materials recorded on each open work
-/// order, with the scanner one tap away.
+/// order. The scanner is the bar's gold +, not a button on the page.
 ///
 /// Group 43 also draws pre-assigned materials and material requests; both
 /// belong to Objective 6 (Chris, 2026-10-12), so this is the usage side.
@@ -45,23 +45,11 @@ class PersonnelMaterialsScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 4),
+        // No scan button of its own (2026-11-27): the bar's gold + scans.
         const Text(
-          'Record what you use on each job, and the tools you borrow.',
+          'Record what you use on each job, and the tools you borrow. '
+          'Tap + to scan a material or tool.',
           style: AppTextStyles.personnelSubtitle,
-        ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: () => PersonnelShell.scan(context, ref),
-          icon: const Icon(Icons.qr_code_scanner_rounded),
-          label: const Text('Scan a material or tool'),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.accentGold,
-            foregroundColor: Colors.white,
-            minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
         ),
         const _ToolRequests(),
         const SizedBox(height: 24),
@@ -190,8 +178,8 @@ class _ToolLoans extends ConsumerWidget {
     isEmpty: (loans) => loans.isEmpty,
     emptyIcon: Icons.handyman_outlined,
     emptyMessage:
-        'You have no tools out. Scan a tool, or borrow one from a work '
-        'order.',
+        'You have no tools out. Tap + to scan a tool, or borrow one from a '
+        'work order.',
     data: (loans) => PersonnelCard(
       edge: AppColors.accentGold,
       child: Column(

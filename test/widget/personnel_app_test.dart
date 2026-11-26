@@ -262,6 +262,29 @@ void main() {
       expect(find.text('Scan again'), findsOneWidget);
     });
 
+    testWidgets('Materials & Tools scans with the bar\'s +, not a button of '
+        'its own', (tester) async {
+      final app = PersonnelHarness()..nextScan = 'INV-INV-LED';
+      await app.seedJob(status: WorkOrderStatus.inProgress);
+      await app.pump(tester, start: RoutePaths.personnelMaterials);
+
+      // The page's gold button did what the + does (2026-11-27).
+      expect(find.text('Scan a material or tool'), findsNothing);
+      expect(
+        find.text(
+          'Record what you use on each job, and the tools you borrow. '
+          'Tap + to scan a material or tool.',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('Scan a code'));
+      await tester.pumpAndSettle();
+      expect(app.scans, 1);
+      expect(currentPath(tester), RoutePaths.personnelScanning);
+      expect(find.text('LED Bulbs'), findsWidgets);
+    });
+
     testWidgets('backing out of the scanner stays put', (tester) async {
       final app = PersonnelHarness();
       await app.seedJob();
